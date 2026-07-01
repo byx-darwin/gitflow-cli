@@ -46,7 +46,10 @@ mod commands;
 mod error_reporter;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
-use commands::{completions::CompletionsArgs, issue::IssueCommand, pr::PrCommand};
+use commands::{
+    auth::AuthCommand, completions::CompletionsArgs, issue::IssueCommand, pr::PrCommand,
+    release::ReleaseCommand, review::ReviewCommand,
+};
 use is_terminal::IsTerminal;
 
 fn main() -> std::process::ExitCode {
@@ -165,6 +168,9 @@ async fn router(
     match command {
         Commands::Issue(cmd) => commands::issue::handle(cmd, platform, repo, output).await,
         Commands::Pr(cmd) => commands::pr::handle(cmd, platform, repo, output).await,
+        Commands::Release(cmd) => commands::release::handle(cmd, platform, repo, output).await,
+        Commands::Review(cmd) => commands::review::handle(cmd, platform, repo, output).await,
+        Commands::Auth(cmd) => commands::auth::handle(cmd, platform, repo, output).await,
         Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
@@ -373,6 +379,9 @@ impl Cli {
         match self.command {
             Commands::Issue(_) => "issue",
             Commands::Pr(_) => "pr",
+            Commands::Release(_) => "release",
+            Commands::Review(_) => "review",
+            Commands::Auth(_) => "auth",
             Commands::SkillsInstall => "skills",
             Commands::Run(_) => "run",
             Commands::Completions(_) => "completions",
@@ -391,6 +400,18 @@ enum Commands {
     /// Pull request operations (create, list, view).
     #[command(subcommand)]
     Pr(PrCommand),
+
+    /// Release operations (create, list, view, edit, upload, download, delete).
+    #[command(subcommand)]
+    Release(ReleaseCommand),
+
+    /// Code review operations (comment, approve, request-changes, submit).
+    #[command(subcommand)]
+    Review(ReviewCommand),
+
+    /// Authentication operations (login, logout, status, token).
+    #[command(subcommand)]
+    Auth(AuthCommand),
 
     /// Install gitflow skills to `~/.claude/skills/`.
     #[command(name = "skills")]
