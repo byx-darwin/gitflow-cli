@@ -19,11 +19,23 @@
     )
 )]
 
-pub mod output;
-
 use std::path::{Path, PathBuf};
 
 use thiserror::Error;
+
+pub mod auth;
+pub mod commit;
+pub mod issue;
+pub mod label;
+pub mod output;
+pub mod platform;
+pub mod pr;
+pub mod release;
+pub mod review;
+pub mod types;
+
+// Re-export output types at the crate root for convenience.
+pub use output::{CliError, CliOutput};
 
 /// Application error type.
 ///
@@ -61,8 +73,13 @@ pub enum CoreError {
 /// Core result type alias.
 pub type Result<T> = std::result::Result<T, CoreError>;
 
-// Re-export output types at the crate root for convenience.
-pub use output::{CliError, CliOutput};
+// Re-export key domain types at the crate root for convenience.
+pub use auth::AuthStatus;
+pub use commit::{CommitData, CommitDetail, CommitFile};
+pub use label::{CreateLabelArgs, CreateMilestoneArgs, LabelData, MilestoneData};
+pub use release::{CreateReleaseArgs, ReleaseData};
+pub use review::{ReviewCommentData, ReviewData, ReviewState};
+pub use types::{CommentData, MergeResult, MergeStrategy};
 
 /// Example domain struct demonstrating CLAUDE.md conventions.
 ///
@@ -334,20 +351,6 @@ impl AsRef<Path> for SafePath {
         &self.0
     }
 }
-
-pub mod auth;
-pub mod issue;
-pub mod platform;
-pub mod pr;
-pub mod release;
-pub mod review;
-pub mod types;
-
-// Re-export key domain types at the crate root for convenience.
-pub use auth::AuthStatus;
-pub use release::{CreateReleaseArgs, ReleaseData};
-pub use review::{ReviewCommentData, ReviewData, ReviewState};
-pub use types::{CommentData, MergeResult, MergeStrategy};
 
 #[cfg(test)]
 mod tests {
