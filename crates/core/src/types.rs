@@ -33,8 +33,10 @@ pub struct Label {
     /// The label name.
     pub name: String,
     /// The label color as a hex string (e.g. `"ff0000"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     /// A human-readable description of the label.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -108,8 +110,9 @@ mod tests {
             description: None,
         };
         let json = serde_json::to_string(&label).expect("serialize Label");
-        // Default serde serialization includes all fields, but the values are null
-        assert!(json.contains("\"name\":\"wip\""));
+        // Optional fields with None are omitted per CLAUDE.md serialization policy
+        assert_eq!(json, r#"{"name":"wip"}"#);
+        assert!(!json.contains("null"));
     }
 
     #[test]
