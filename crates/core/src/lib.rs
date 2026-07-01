@@ -73,9 +73,9 @@ impl Config {
     /// # Examples
     ///
     /// ```
-    /// use gitflow-cli_core::Config;
+    /// use gitflow_cli_core::Config;
     /// let config = Config::new("my-app")?;
-    /// # Ok::<(), gitflow-cli_core::CoreError>(())
+    /// # Ok::<(), gitflow_cli_core::CoreError>(())
     /// ```
     pub fn new(name: impl Into<String>) -> Result<Self> {
         let name = name.into();
@@ -178,10 +178,10 @@ impl SafePath {
     /// # Examples
     ///
     /// ```
-    /// use gitflow-cli_core::SafePath;
+    /// use gitflow_cli_core::SafePath;
     /// let path = SafePath::new("foo/bar.txt")?;
     /// assert_eq!(path.as_path(), std::path::Path::new("foo/bar.txt"));
-    /// # Ok::<(), gitflow-cli_core::CoreError>(())
+    /// # Ok::<(), gitflow_cli_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
@@ -272,7 +272,9 @@ impl AsRef<Path> for SafePath {
     }
 }
 
+pub mod issue;
 pub mod platform;
+pub mod pr;
 pub mod types;
 
 #[cfg(test)]
