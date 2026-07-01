@@ -104,7 +104,7 @@ async fn router(
 ) -> miette::Result<()> {
     match command {
         Commands::Issue(cmd) => commands::issue::handle(cmd, platform, repo, output).await,
-        Commands::Pr(_cmd) => Err(miette::miette!("pr command not yet implemented (Task 11)")),
+        Commands::Pr(cmd) => commands::pr::handle(cmd, platform, repo, output).await,
         Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
