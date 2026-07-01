@@ -15,10 +15,10 @@ pub mod built_info {
 mod commands;
 mod config;
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use is_terminal::IsTerminal;
 
-use commands::completions::Shell;
+use commands::completions::CompletionsArgs;
 use commands::run::RunArgs;
 
 fn main() -> std::process::ExitCode {
@@ -29,12 +29,8 @@ fn main() -> std::process::ExitCode {
     // Initialize tracing subscriber (TTY-aware, respects NO_COLOR)
     init_tracing();
 
-    // Build version string: pkg version + short git hash
-    let git_hash = built_info::GIT_COMMIT_HASH_SHORT.unwrap_or("unknown");
-    let version = format!("{} (git: {})", built_info::PKG_VERSION, git_hash);
-
-    // Parse CLI arguments with the runtime-computed version
-    let matches = match Cli::command().version(version).try_get_matches() {
+    // Build version string: pkg version
+    let matches = match Cli::command().version(built_info::PKG_VERSION).try_get_matches() {
         Ok(m) => m,
         Err(e) => e.exit(),
     };
@@ -45,8 +41,8 @@ fn main() -> std::process::ExitCode {
     };
 
     // Completions are purely synchronous -- generate and exit
-    if let Commands::Completions(ref shell) = cli.command {
-        return commands::completions::generate::<Cli>(shell);
+    if let Commands::Completions(ref args) = cli.command {
+        return commands::completions::generate::<Cli>(args);
     }
 
     // Build the async runtime for the Run subcommand
@@ -131,12 +127,12 @@ fn init_tracing() {
 ///
 /// This is a well-established pattern for CLI tools (used by
 /// ripgrep, fd, bat, and others).
+///
+/// NOTE: Disabled due to `#![forbid(unsafe_code)]` policy.
+/// SIGPIPE handling would require a separate crate or allow-listing unsafe code.
 #[cfg(unix)]
 fn reset_sigpipe() {
-    #[allow(unsafe_code, reason = "SIGPIPE reset is a well-established pattern for CLI tools (ripgrep, fd, bat)")]
-    unsafe {
-        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
-    }
+    // Intentionally empty - unsafe SIGPIPE reset disabled to comply with forbid(unsafe_code)
 }
 
 /// gitflow-cli command-line interface.
@@ -163,5 +159,5 @@ enum Commands {
 
     /// Generate shell completion scripts.
     #[command(hide = true)]
-    Completions(Shell),
+    Completions(CompletionsArgs),
 }

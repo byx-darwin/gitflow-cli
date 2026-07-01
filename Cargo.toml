@@ -32,6 +32,8 @@ dirs = "6"
 toml = "0.8.23"
 tempfile = "3"
 is-terminal = "0.4"
+which = "7"
+regex = "1"
 
 # CLI testing
 assert_cmd = "2"

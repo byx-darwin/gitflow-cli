@@ -37,7 +37,7 @@ pub async fn run(args: RunArgs) -> Result<()> {
         .unwrap_or(&cli_config.name);
 
     // Build core domain config (validates non-empty name)
-    let core_config = gitflow-cli_core::Config::new(name)
+    let core_config = gitflow_cli_core::Config::new(name)
         .map_err(|e| miette!("{e}"))?;
 
     let core_config = if let Some(ref desc) = cli_config.description {
