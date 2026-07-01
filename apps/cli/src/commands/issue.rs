@@ -5,9 +5,9 @@
 
 use clap::Subcommand;
 use gitflow_cli_core::{
+    CliOutput,
     issue::{CreateIssueArgs, IssueProvider, ListIssueArgs},
     types::State,
-    CliOutput,
 };
 use gitflow_cli_github::GitHubIssueProvider;
 

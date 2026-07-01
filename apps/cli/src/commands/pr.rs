@@ -5,9 +5,9 @@
 
 use clap::Subcommand;
 use gitflow_cli_core::{
+    CliOutput,
     pr::{CreatePrArgs, ListPrArgs, PrProvider},
     types::State,
-    CliOutput,
 };
 use gitflow_cli_github::GitHubPrProvider;
 

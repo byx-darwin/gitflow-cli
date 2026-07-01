@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
-    types::{Label, State, UserSummary},
+    types::{CommentData, Label, State, UserSummary},
 };
 
 /// Issue 数据。
@@ -78,7 +78,7 @@ pub struct ListIssueArgs {
 /// Issue 操作的平台抽象。
 ///
 /// 所有平台实现（GitHub/GitLab/GitCode）都必须实现此 trait，
-/// 以提供统一的 Issue 创建、列表、查看能力。
+/// 以提供统一的 Issue 创建、列表、查看、关闭、评论及标签管理能力。
 ///
 /// # Errors
 ///
@@ -107,6 +107,41 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
     ///
     /// 当 Issue 不存在或平台 API 调用失败时返回错误。
     async fn view(&self, number: u64) -> Result<IssueData>;
+
+    /// 关闭指定编号的 Issue，返回更新后的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或平台 API 调用失败时返回错误。
+    async fn close(&self, number: u64) -> Result<IssueData>;
+
+    /// 重新打开指定编号的 Issue，返回更新后的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或平台 API 调用失败时返回错误。
+    async fn reopen(&self, number: u64) -> Result<IssueData>;
+
+    /// 在指定 Issue 上添加评论，返回新建评论的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、`body` 为空或平台 API 调用失败时返回错误。
+    async fn comment(&self, number: u64, body: &str) -> Result<CommentData>;
+
+    /// 为指定 Issue 添加标签。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、标签列表为空或平台 API 调用失败时返回错误。
+    async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()>;
+
+    /// 从指定 Issue 移除一个标签。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、标签不存在或平台 API 调用失败时返回错误。
+    async fn remove_label(&self, number: u64, label: &str) -> Result<()>;
 }
 
 #[cfg(test)]

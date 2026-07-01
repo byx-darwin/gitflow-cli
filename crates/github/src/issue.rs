@@ -1,13 +1,14 @@
 //! GitHub Issue 提供者实现。
 //!
-//! 通过 `gh` CLI 实现 [`IssueProvider`] trait，支持 Issue 的创建、列表和查看。
+//! 通过 `gh` CLI 实现 [`IssueProvider`] trait，支持 Issue 的创建、列表、查看、
+//! 关闭、重新打开、评论及标签管理。
 //! 所有方法通过 `tokio::process::Command` 调用 `gh`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
 use gitflow_cli_core::{
     CoreError, Result,
     issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
-    types::State,
+    types::{CommentData, State},
 };
 use tracing::debug;
 
@@ -151,6 +152,136 @@ impl IssueProvider for GitHubIssueProvider {
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
         Ok(issue)
+    }
+
+    async fn close(&self, number: u64) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `gh issue close`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["issue", "close"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--json")
+            .arg(ISSUE_FIELDS)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        let issue: IssueData =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(issue)
+    }
+
+    async fn reopen(&self, number: u64) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `gh issue reopen`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["issue", "reopen"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--json")
+            .arg(ISSUE_FIELDS)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        let issue: IssueData =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(issue)
+    }
+
+    async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
+        debug!(repo = %self.repo, number, "spawning `gh issue comment`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["issue", "comment"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--body")
+            .arg(body)
+            .arg("--json")
+            .arg("id,body,author,createdAt")
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        let comment: CommentData =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(comment)
+    }
+
+    async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
+        debug!(
+            repo = %self.repo,
+            number,
+            label_count = labels.len(),
+            "spawning `gh issue edit --add-label`"
+        );
+
+        let mut cmd = tokio::process::Command::new("gh");
+        cmd.args(["issue", "edit"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo);
+
+        for label in labels {
+            cmd.arg("--add-label").arg(label);
+        }
+
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        Ok(())
+    }
+
+    async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
+        debug!(repo = %self.repo, number, label, "spawning `gh issue edit --remove-label`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["issue", "edit"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--remove-label")
+            .arg(label)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        Ok(())
     }
 }
 

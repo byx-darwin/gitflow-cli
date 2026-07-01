@@ -340,6 +340,9 @@ pub mod platform;
 pub mod pr;
 pub mod types;
 
+// Re-export key domain types at the crate root for convenience.
+pub use types::{CommentData, MergeResult, MergeStrategy};
+
 #[cfg(test)]
 mod tests {
     use super::*;

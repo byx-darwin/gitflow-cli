@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
-    types::{State, UserSummary},
+    types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
 
 /// Pull Request 数据。
@@ -76,7 +76,7 @@ pub struct ListPrArgs {
 /// PR 操作的平台抽象。
 ///
 /// 所有平台实现（GitHub/GitLab/GitCode）都必须实现此 trait，
-/// 以提供统一的 PR 创建、列表、查看能力。
+/// 以提供统一的 PR 创建、列表、查看、关闭、合并、检出等能力。
 ///
 /// # Errors
 ///
@@ -105,6 +105,65 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
     ///
     /// 当 PR 不存在或平台 API 调用失败时返回错误。
     async fn view(&self, number: u64) -> Result<PrData>;
+
+    /// 关闭指定编号的 PR，返回更新后的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或平台 API 调用失败时返回错误。
+    async fn close(&self, number: u64) -> Result<PrData>;
+
+    /// 重新打开指定编号的 PR，返回更新后的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或平台 API 调用失败时返回错误。
+    async fn reopen(&self, number: u64) -> Result<PrData>;
+
+    /// 在指定 PR 上添加评论，返回新建评论的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、`body` 为空或平台 API 调用失败时返回错误。
+    async fn comment(&self, number: u64, body: &str) -> Result<CommentData>;
+
+    /// 合并指定编号的 PR，返回合并结果。
+    ///
+    /// `strategy` 指定合并策略（merge/squash/rebase）。
+    /// 未指定时使用平台默认策略。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、无法合并或平台 API 调用失败时返回错误。
+    async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult>;
+
+    /// 在本地检出指定 PR 的分支。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或 git 操作失败时返回错误。
+    async fn checkout(&self, number: u64) -> Result<()>;
+
+    /// 将草稿 PR 标记为可审查状态（ready for review）。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、不是草稿或平台 API 调用失败时返回错误。
+    async fn mark_ready(&self, number: u64) -> Result<PrData>;
+
+    /// 将 PR 标记为草稿状态（work in progress）。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或平台 API 调用失败时返回错误。
+    async fn mark_wip(&self, number: u64) -> Result<PrData>;
+
+    /// 同步 PR 分支（将 base 分支的最新变更合入 head 分支）。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或同步失败时返回错误。
+    async fn sync_branch(&self, number: u64) -> Result<()>;
 }
 
 #[cfg(test)]

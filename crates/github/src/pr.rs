@@ -1,13 +1,14 @@
 //! GitHub Pull Request 提供者实现。
 //!
-//! 通过 `gh` CLI 实现 [`PrProvider`] trait，支持 Pull Request 的创建、列表和查看。
+//! 通过 `gh` CLI 实现 [`PrProvider`] trait，支持 Pull Request 的创建、列表、查看、
+//! 关闭、合并、检出、草稿状态切换和分支同步。
 //! 所有方法通过 `tokio::process::Command` 调用 `gh`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
 use gitflow_cli_core::{
     CoreError, Result,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
-    types::State,
+    types::{CommentData, MergeResult, MergeStrategy, State},
 };
 use tracing::debug;
 
@@ -153,6 +154,205 @@ impl PrProvider for GitHubPrProvider {
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
         Ok(pr)
+    }
+
+    async fn close(&self, number: u64) -> Result<PrData> {
+        debug!(repo = %self.repo, number, "spawning `gh pr close`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "close"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--json")
+            .arg(PR_FIELDS)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        let pr: PrData =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(pr)
+    }
+
+    async fn reopen(&self, number: u64) -> Result<PrData> {
+        debug!(repo = %self.repo, number, "spawning `gh pr reopen`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "reopen"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--json")
+            .arg(PR_FIELDS)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        let pr: PrData =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(pr)
+    }
+
+    async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
+        debug!(repo = %self.repo, number, "spawning `gh pr comment`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "comment"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .arg("--body")
+            .arg(body)
+            .arg("--json")
+            .arg("id,body,author,createdAt")
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        let comment: CommentData =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(comment)
+    }
+
+    async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
+        debug!(repo = %self.repo, number, ?strategy, "spawning `gh pr merge`");
+
+        let mut cmd = tokio::process::Command::new("gh");
+        cmd.args(["pr", "merge"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo);
+
+        match strategy {
+            Some(MergeStrategy::Squash) => {
+                cmd.arg("--squash");
+            }
+            Some(MergeStrategy::Rebase) => {
+                cmd.arg("--rebase");
+            }
+            Some(MergeStrategy::Merge) | None => {
+                cmd.arg("--merge");
+            }
+        }
+
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        // `gh pr merge` outputs a human-readable message, not JSON.
+        let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(MergeResult {
+            merged: true,
+            sha: None,
+            message: Some(message),
+        })
+    }
+
+    async fn checkout(&self, number: u64) -> Result<()> {
+        debug!(repo = %self.repo, number, "spawning `gh pr checkout`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "checkout"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        Ok(())
+    }
+
+    async fn mark_ready(&self, number: u64) -> Result<PrData> {
+        debug!(repo = %self.repo, number, "spawning `gh pr ready`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "ready"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        // `gh pr ready` does not return JSON; re-fetch the PR to get updated data.
+        self.view(number).await
+    }
+
+    async fn mark_wip(&self, number: u64) -> Result<PrData> {
+        debug!(repo = %self.repo, number, "spawning `gh pr convert-to-draft`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "convert-to-draft"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        // `gh pr convert-to-draft` does not return JSON; re-fetch the PR.
+        self.view(number).await
+    }
+
+    async fn sync_branch(&self, number: u64) -> Result<()> {
+        debug!(repo = %self.repo, number, "spawning `gh pr update-branch`");
+
+        let output = tokio::process::Command::new("gh")
+            .args(["pr", "update-branch"])
+            .arg(number.to_string())
+            .arg("--repo")
+            .arg(&self.repo)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        Ok(())
     }
 }
 
