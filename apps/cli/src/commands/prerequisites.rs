@@ -51,9 +51,7 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
 #[derive(Debug, thiserror::Error)]
 pub enum PrerequisiteError {
     /// 原生 CLI 未在 PATH 中找到。
-    #[error(
-        "{binary} not found.\n\nInstall from {install_url}\n\nQuick install:\n{install_hint}"
-    )]
+    #[error("{binary} not found.\n\nInstall from {install_url}\n\nQuick install:\n{install_hint}")]
     NotFound {
         /// CLI 可执行文件名。
         binary: String,
@@ -144,11 +142,12 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
 ///
 /// 执行失败或输出中无 semver 模式时返回 `PrerequisiteError::VersionParseFailed`。
 fn get_version(binary: &str) -> Result<String, PrerequisiteError> {
-    let output = Command::new(binary).arg("--version").output().map_err(|_| {
-        PrerequisiteError::VersionParseFailed {
+    let output = Command::new(binary)
+        .arg("--version")
+        .output()
+        .map_err(|_| PrerequisiteError::VersionParseFailed {
             binary: binary.into(),
-        }
-    })?;
+        })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     // 提取 semver，适配各种 CLI 的输出格式：

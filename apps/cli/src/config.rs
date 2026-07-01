@@ -6,7 +6,7 @@
 //! 2. XDG config file (`TOML` format)
 //! 3. Environment variables (`CLI_` prefix)
 
-use miette::{miette, IntoDiagnostic, Result, WrapErr};
+use miette::{IntoDiagnostic, Result, WrapErr, miette};
 use serde::{Deserialize, Serialize};
 
 /// Maximum length for the config name field.
@@ -53,7 +53,9 @@ impl CliConfig {
         }
         if let Some(ref desc) = self.description {
             if desc.len() > MAX_DESCRIPTION_LEN {
-                return Err(miette!("config description exceeds max length of {MAX_DESCRIPTION_LEN}B"));
+                return Err(miette!(
+                    "config description exceeds max length of {MAX_DESCRIPTION_LEN}B"
+                ));
             }
         }
         // Validate log_level is a valid tracing directive
@@ -74,7 +76,10 @@ impl CliConfig {
     ///
     /// Returns an error if the config file exists but cannot be read
     /// or contains invalid `TOML`.
-    #[allow(clippy::disallowed_methods, reason = "Sync FS access at startup before async runtime is created")]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "Sync FS access at startup before async runtime is created"
+    )]
     pub fn load() -> Result<Self> {
         // NOTE: Replace `CLI_` with your tool's env var prefix (e.g., `MYTOOL_`).
         // Search for CLI_ in this file and replace all occurrences.
@@ -82,9 +87,7 @@ impl CliConfig {
 
         // Layer 1: XDG config file
         if let Some(config_dir) = dirs::config_dir() {
-            let config_file = config_dir
-                .join("gitflow-cli")
-                .join("config.toml");
+            let config_file = config_dir.join("gitflow-cli").join("config.toml");
 
             if config_file.exists() {
                 const MAX_CONFIG_SIZE: u64 = 1_048_576; // 1 MB

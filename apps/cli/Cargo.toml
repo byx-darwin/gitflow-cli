@@ -18,6 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 gitflow-cli-core = { workspace = true }
+gitflow-cli-github = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true }
 miette = { workspace = true, features = ["fancy"] }
@@ -28,6 +29,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 is-terminal = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 which = { workspace = true }
 regex = { workspace = true }
 thiserror = { workspace = true }
