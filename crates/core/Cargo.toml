@@ -1,14 +1,15 @@
 [package]
 name = "gitflow-cli-core"
 description = """
-
+Core library for gitflow-cli: domain types, error handling, and platform traits.
 """
 categories = ["development-tools"]
-keywords = []
+keywords = ["gitflow", "git", "cli"]
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+readme.workspace = true
 documentation.workspace = true
 repository.workspace = true
 homepage.workspace = true

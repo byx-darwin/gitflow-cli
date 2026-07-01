@@ -1,9 +1,16 @@
 [package]
 name = "gitflow-cli-cli"
+description = "Cross-platform Git engineering workflow orchestration tool"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+readme.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+categories = ["development-tools", "command-line-utilities"]
+keywords = ["gitflow", "git", "cli", "workflow"]
 
 [[bin]]
 name = "gitflow-cli"
@@ -35,9 +42,6 @@ predicates = { workspace = true }
 
 [lints]
 workspace = true
-
-[lints.rust]
-unsafe_code = "deny"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-format }"

@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use gitflow-cli_core::Config;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use gitflow_cli_core::Config;
 
 fn config_new(c: &mut Criterion) {
     c.bench_function("Config::new", |b| {
@@ -10,8 +10,7 @@ fn config_new(c: &mut Criterion) {
 fn config_new_with_description(c: &mut Criterion) {
     c.bench_function("Config::new + with_description", |b| {
         b.iter(|| {
-            Config::new(black_box("bench"))
-                .map(|c| c.with_description(black_box("description")))
+            Config::new(black_box("bench")).map(|c| c.with_description(black_box("description")))
         })
     });
 }

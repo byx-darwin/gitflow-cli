@@ -1,4 +1,4 @@
-use gitflow-cli_core::{Config, CoreError, Result};
+use gitflow_cli_core::{Config, CoreError, Result};
 
 #[test]
 fn integration_config_roundtrip() -> Result<()> {
