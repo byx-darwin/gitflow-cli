@@ -41,6 +41,12 @@ install-tools: ## Install development toolchain
 	@pre-commit install
 	@echo "Run 'pre-commit run --all-files' to verify."
 
+install-skills: ## Install skills to ~/.claude/skills/
+	@echo "Installing skills to ~/.claude/skills/..."
+	@mkdir -p ~/.claude/skills/
+	@cp -r skills/* ~/.claude/skills/
+	@echo "Skills installed."
+
 install: build ## Install the CLI binary locally
 	@cargo install --path apps/cli
 
@@ -89,6 +95,6 @@ release: ## Tag and publish a release
 	@git push origin master
 	@cargo release push --execute
 
-.PHONY: help build check run test test-watch fmt clippy lint audit install-tools install \
+.PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install \
         completions watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release
