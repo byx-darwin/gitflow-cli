@@ -1,10 +1,8 @@
 [package]
 name = "gitflow-cli-core"
-description = """
-
-"""
+description = "Core domain types and traits for the gitflow-cli workspace"
 categories = ["development-tools"]
-keywords = []
+keywords = ["gitflow", "git", "cli", "core", "workflow"]
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -12,12 +10,15 @@ license.workspace = true
 documentation.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme = "../../README.md"
 
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

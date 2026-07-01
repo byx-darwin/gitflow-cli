@@ -1,9 +1,16 @@
 [package]
 name = "gitflow-cli-cli"
+description = "Cross-platform Git engineering workflow orchestration tool"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+readme.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+categories = ["development-tools", "command-line-utilities"]
+keywords = ["gitflow", "git", "cli", "workflow"]
 
 [[bin]]
 name = "gitflow-cli"
@@ -11,6 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 gitflow-cli-core = { workspace = true }
+gitflow-cli-github = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true }
 miette = { workspace = true, features = ["fancy"] }
@@ -21,9 +29,10 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 is-terminal = { workspace = true }
 serde = { workspace = true }
-
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
+serde_json = { workspace = true }
+which = { workspace = true }
+regex = { workspace = true }
+thiserror = { workspace = true }
 
 [build-dependencies]
 built = "0.7"
@@ -32,6 +41,7 @@ built = "0.7"
 assert_cmd = { workspace = true }
 trycmd = { workspace = true }
 predicates = { workspace = true }
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

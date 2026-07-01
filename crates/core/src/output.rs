@@ -148,8 +148,7 @@ mod tests {
 
     #[test]
     fn test_cli_error_new_and_with_hint() {
-        let error = CliError::new("TEST_ERROR", "test message")
-            .with_hint("test hint");
+        let error = CliError::new("TEST_ERROR", "test message").with_hint("test hint");
 
         assert_eq!(error.code, "TEST_ERROR");
         assert_eq!(error.message, "test message");
