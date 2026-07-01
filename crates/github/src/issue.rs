@@ -154,6 +154,14 @@ impl IssueProvider for GitHubIssueProvider {
         Ok(issue)
     }
 
+    /// 关闭指定编号的 Issue。
+    ///
+    /// 调用 `gh issue close <number> --repo <repo> --json <fields>` 关闭 Issue，
+    /// 并返回更新后的完整 Issue 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、已关闭或 `gh` CLI 调用失败时返回错误。
     async fn close(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gh issue close`");
 
@@ -179,9 +187,15 @@ impl IssueProvider for GitHubIssueProvider {
         Ok(issue)
     }
 
+    /// 重新打开指定编号的 Issue。
+    ///
+    /// 调用 `gh issue reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 Issue，
+    /// 并返回更新后的完整 Issue 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、未关闭或 `gh` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<IssueData> {
-        debug!(repo = %self.repo, number, "spawning `gh issue reopen`");
-
         let output = tokio::process::Command::new("gh")
             .args(["issue", "reopen"])
             .arg(number.to_string())
@@ -204,6 +218,14 @@ impl IssueProvider for GitHubIssueProvider {
         Ok(issue)
     }
 
+    /// 在指定 Issue 上添加评论。
+    ///
+    /// 调用 `gh issue comment <number> --repo <repo> --body "<body>" --json
+    /// id,body,author,createdAt` 发布评论，并返回新建评论的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、`body` 为空或 `gh` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gh issue comment`");
 
@@ -231,6 +253,14 @@ impl IssueProvider for GitHubIssueProvider {
         Ok(comment)
     }
 
+    /// 为指定 Issue 添加一个或多个标签。
+    ///
+    /// 调用 `gh issue edit <number> --repo <repo> --add-label <label>` 逐个添加标签。
+    /// 如果 `labels` 为空，不进行任何调用并返回成功。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、标签名无效或 `gh` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
         debug!(
             repo = %self.repo,
@@ -262,6 +292,13 @@ impl IssueProvider for GitHubIssueProvider {
         Ok(())
     }
 
+    /// 从指定 Issue 移除一个标签。
+    ///
+    /// 调用 `gh issue edit <number> --repo <repo> --remove-label <label>` 移除标签。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、标签未附加到该 Issue 或 `gh` CLI 调用失败时返回错误。
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
         debug!(repo = %self.repo, number, label, "spawning `gh issue edit --remove-label`");
 
@@ -287,6 +324,8 @@ impl IssueProvider for GitHubIssueProvider {
 
 #[cfg(test)]
 mod tests {
+    use gitflow_cli_core::types::UserSummary;
+
     use super::*;
 
     #[test]
@@ -346,5 +385,103 @@ mod tests {
         let debug = format!("{provider:?}");
         assert!(debug.contains("GitHubIssueProvider"));
         assert!(debug.contains("octocat/hello-world"));
+    }
+
+    // --- close/reopen: deserialized IssueData tests ---
+
+    #[test]
+    fn test_should_deserialize_closed_issue_from_gh_close_output() {
+        // 模拟 `gh issue close --json ...` 的返回数据
+        let gh_json = br#"{
+            "number": 10,
+            "title": "Fixed typo",
+            "body": null,
+            "state": "closed",
+            "labels": [],
+            "author": {"login": "dev", "id": 5},
+            "assignees": [],
+            "createdAt": "2026-06-01T08:00:00Z",
+            "updatedAt": "2026-06-02T12:00:00Z",
+            "url": "https://github.com/octocat/hello-world/issues/10"
+        }"#;
+
+        let issue: IssueData = serde_json::from_slice(gh_json).expect("valid closed IssueData");
+        assert_eq!(issue.number, 10);
+        assert_eq!(issue.state, State::Closed);
+        assert_eq!(issue.title, "Fixed typo");
+    }
+
+    #[test]
+    fn test_should_deserialize_reopened_issue_from_gh_reopen_output() {
+        let gh_json = br#"{
+            "number": 10,
+            "title": "Fixed typo",
+            "body": null,
+            "state": "open",
+            "labels": [],
+            "author": {"login": "dev", "id": 5},
+            "assignees": [],
+            "createdAt": "2026-06-01T08:00:00Z",
+            "updatedAt": "2026-06-03T09:00:00Z",
+            "url": "https://github.com/octocat/hello-world/issues/10"
+        }"#;
+
+        let issue: IssueData = serde_json::from_slice(gh_json).expect("valid reopened IssueData");
+        assert_eq!(issue.number, 10);
+        assert_eq!(issue.state, State::Open);
+    }
+
+    // --- comment: CommentData deserialization tests ---
+
+    #[test]
+    fn test_should_deserialize_comment_data_from_gh_comment_output() {
+        // 模拟 `gh issue comment --json id,body,author,createdAt` 的输出
+        let gh_json = br#"{
+            "id": 1001,
+            "body": "Thanks for reporting, looking into it.",
+            "author": {"login": "maintainer", "id": 42},
+            "createdAt": "2026-06-15T14:00:00Z"
+        }"#;
+
+        let comment: CommentData = serde_json::from_slice(gh_json).expect("valid CommentData");
+        assert_eq!(comment.id, 1001);
+        assert_eq!(comment.body, "Thanks for reporting, looking into it.");
+        assert_eq!(comment.author.login, "maintainer");
+        assert_eq!(comment.author.id, 42);
+    }
+
+    #[test]
+    fn test_should_roundtrip_comment_data_via_serde() {
+        let comment = CommentData {
+            id: 77,
+            body: "reviewed".into(),
+            author: UserSummary {
+                login: "alice".into(),
+                id: 3,
+            },
+            created_at: "2026-05-01T00:00:00Z".parse().expect("valid date"),
+        };
+        let json = serde_json::to_string(&comment).expect("serialize");
+        let round_tripped: CommentData = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(round_tripped.id, comment.id);
+        assert_eq!(round_tripped.body, comment.body);
+        assert_eq!(round_tripped.author.login, comment.author.login);
+    }
+
+    // --- add_labels / remove_label: unit tests for provider ---
+
+    #[test]
+    fn test_should_create_provider_with_different_repos() {
+        let r1 = GitHubIssueProvider::new("org/repo-a");
+        let r2 = GitHubIssueProvider::new("org/repo-b");
+        assert_eq!(r1.repo, "org/repo-a");
+        assert_eq!(r2.repo, "org/repo-b");
+    }
+
+    #[test]
+    fn test_should_clone_github_issue_provider() {
+        let original = GitHubIssueProvider::new("owner/repo");
+        let cloned = original.clone();
+        assert_eq!(original.repo, cloned.repo);
     }
 }

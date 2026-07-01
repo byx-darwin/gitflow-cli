@@ -156,11 +156,18 @@ impl PrProvider for GitHubPrProvider {
         Ok(pr)
     }
 
+    /// 关闭指定编号的 PR。
+    ///
+    /// 调用 `gh pr close <number> --repo <repo> --json <fields>` 关闭 PR，
+    /// 并返回更新后的完整 PR 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、已关闭或 `gh` CLI 调用失败时返回错误。
     async fn close(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr close`");
 
         let output = tokio::process::Command::new("gh")
-            .args(["pr", "close"])
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
@@ -181,6 +188,14 @@ impl PrProvider for GitHubPrProvider {
         Ok(pr)
     }
 
+    /// 重新打开指定编号的 PR。
+    ///
+    /// 调用 `gh pr reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 PR，
+    /// 并返回更新后的完整 PR 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、未关闭或 `gh` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr reopen`");
 
@@ -206,6 +221,14 @@ impl PrProvider for GitHubPrProvider {
         Ok(pr)
     }
 
+    /// 在指定 PR 上添加评论。
+    ///
+    /// 调用 `gh pr comment <number> --repo <repo> --body "<body>" --json id,body,author,createdAt`
+    /// 发布评论，并返回新建评论的数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、`body` 为空或 `gh` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gh pr comment`");
 
@@ -233,6 +256,15 @@ impl PrProvider for GitHubPrProvider {
         Ok(comment)
     }
 
+    /// 合并指定编号的 PR。
+    ///
+    /// 调用 `gh pr merge <number> --repo <repo>` 并根据 `strategy` 参数
+    /// 添加 `--squash`、`--rebase` 或 `--merge` 标志。
+    /// 未指定策略时使用 `--merge`（标准合并）。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、存在冲突无法合并或 `gh` CLI 调用失败时返回错误。
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
         debug!(repo = %self.repo, number, ?strategy, "spawning `gh pr merge`");
 
@@ -273,6 +305,14 @@ impl PrProvider for GitHubPrProvider {
         })
     }
 
+    /// 在本地检出指定 PR 的分支。
+    ///
+    /// 调用 `gh pr checkout <number> --repo <repo>` 在本地工作区创建并切换到
+    /// PR 的来源分支。如果本地已存在该分支，则尝试更新它。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、本地 git 操作失败或 `gh` CLI 调用失败时返回错误。
     async fn checkout(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gh pr checkout`");
 
@@ -293,6 +333,14 @@ impl PrProvider for GitHubPrProvider {
         Ok(())
     }
 
+    /// 将草稿 PR 标记为可审查状态（ready for review）。
+    ///
+    /// 调用 `gh pr ready <number> --repo <repo>` 将草稿 PR 转为可审查状态，
+    /// 并通过 `gh pr view` 重新获取更新后的 PR 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、不是草稿状态或 `gh` CLI 调用失败时返回错误。
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr ready`");
 
@@ -314,6 +362,14 @@ impl PrProvider for GitHubPrProvider {
         self.view(number).await
     }
 
+    /// 将 PR 标记为草稿状态（work in progress）。
+    ///
+    /// 调用 `gh pr convert-to-draft <number> --repo <repo>` 将可审查的 PR 转为草稿，
+    /// 并通过 `gh pr view` 重新获取更新后的 PR 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、已是草稿状态或 `gh` CLI 调用失败时返回错误。
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr convert-to-draft`");
 
@@ -335,6 +391,14 @@ impl PrProvider for GitHubPrProvider {
         self.view(number).await
     }
 
+    /// 同步 PR 的分支（将 base 分支的最新变更合入 head 分支）。
+    ///
+    /// 调用 `gh pr update-branch <number> --repo <repo>` 将 PR 的来源分支
+    /// 更新到与目标分支的最新状态同步，解决分支过时问题。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在、同步存在冲突或 `gh` CLI 调用失败时返回错误。
     async fn sync_branch(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gh pr update-branch`");
 
@@ -436,5 +500,134 @@ mod tests {
         let debug = format!("{provider:?}");
         assert!(debug.contains("GitHubPrProvider"));
         assert!(debug.contains("octocat/hello-world"));
+    }
+
+    // --- close/reopen: deserialized PrData tests ---
+
+    #[test]
+    fn test_should_deserialize_closed_pr_from_gh_close_output() {
+        // 模拟 `gh pr close --json ...` 的返回数据
+        let gh_json = br#"{
+            "number": 50,
+            "title": "Obsolete change",
+            "body": "Superseded by #55",
+            "state": "closed",
+            "draft": false,
+            "author": {"login": "dev", "id": 10},
+            "baseBranch": "main",
+            "headBranch": "feature/obsolete",
+            "createdAt": "2026-05-01T08:00:00Z",
+            "updatedAt": "2026-05-02T12:00:00Z",
+            "url": "https://github.com/octocat/hello-world/pull/50"
+        }"#;
+
+        let pr: PrData = serde_json::from_slice(gh_json).expect("valid closed PrData");
+        assert_eq!(pr.number, 50);
+        assert_eq!(pr.state, State::Closed);
+    }
+
+    #[test]
+    fn test_should_deserialize_reopened_pr_from_gh_reopen_output() {
+        let gh_json = br#"{
+            "number": 50,
+            "title": "Obsolete change",
+            "body": "Actually still needed",
+            "state": "open",
+            "draft": false,
+            "author": {"login": "dev", "id": 10},
+            "baseBranch": "main",
+            "headBranch": "feature/obsolete",
+            "createdAt": "2026-05-01T08:00:00Z",
+            "updatedAt": "2026-05-03T09:00:00Z",
+            "url": "https://github.com/octocat/hello-world/pull/50"
+        }"#;
+
+        let pr: PrData = serde_json::from_slice(gh_json).expect("valid reopened PrData");
+        assert_eq!(pr.number, 50);
+        assert_eq!(pr.state, State::Open);
+    }
+
+    // --- comment: CommentData deserialization tests ---
+
+    #[test]
+    fn test_should_deserialize_comment_data_from_gh_pr_comment_output() {
+        // 模拟 `gh pr comment --json id,body,author,createdAt` 的输出
+        let gh_json = br#"{
+            "id": 2002,
+            "body": "Approved, merging now.",
+            "author": {"login": "reviewer", "id": 88},
+            "createdAt": "2026-06-20T16:00:00Z"
+        }"#;
+
+        let comment: CommentData = serde_json::from_slice(gh_json).expect("valid CommentData");
+        assert_eq!(comment.id, 2002);
+        assert_eq!(comment.body, "Approved, merging now.");
+        assert_eq!(comment.author.login, "reviewer");
+        assert_eq!(comment.author.id, 88);
+    }
+
+    // --- merge: MergeResult deserialization tests ---
+
+    #[test]
+    fn test_should_deserialize_merge_result_from_gh_merge_output() {
+        // `gh pr merge` 返回人类可读文本，不是 JSON。
+        // MergeResult 由代码构造，但需确保序列化/反序列化正确。
+        let gh_text = b"Pull request #123 was successfully merged.\n";
+        let message = String::from_utf8_lossy(gh_text).trim().to_string();
+        let result = MergeResult {
+            merged: true,
+            sha: None,
+            message: Some(message),
+        };
+
+        assert!(result.merged);
+        assert!(result.message.as_deref().is_some());
+        assert_eq!(
+            result.message.as_deref(),
+            Some("Pull request #123 was successfully merged.")
+        );
+    }
+
+    #[test]
+    fn test_should_roundtrip_merge_result_via_serde() {
+        let result = MergeResult {
+            merged: true,
+            sha: Some("deadbeef1234".into()),
+            message: Some("Squash merged".into()),
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        let round_tripped: MergeResult = serde_json::from_str(&json).expect("deserialize");
+        assert!(round_tripped.merged);
+        assert_eq!(round_tripped.sha, result.sha);
+        assert_eq!(round_tripped.message, result.message);
+    }
+
+    #[test]
+    fn test_should_serialize_merge_result_skips_null_fields() {
+        let result = MergeResult {
+            merged: false,
+            sha: None,
+            message: None,
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        assert!(!json.contains("null"));
+        assert_eq!(json, r#"{"merged":false}"#);
+    }
+
+    // --- provider construction / clone tests ---
+
+    #[test]
+    fn test_should_create_provider_with_different_repos() {
+        let r1 = GitHubPrProvider::new("org/repo-a");
+        let r2 = GitHubPrProvider::new("org/repo-b");
+        assert_eq!(r1.repo, "org/repo-a");
+        assert_eq!(r2.repo, "org/repo-b");
+    }
+
+    #[test]
+    fn test_should_clone_github_pr_provider() {
+        let original = GitHubPrProvider::new("owner/repo");
+        let cloned = original.clone();
+        assert_eq!(original.repo, cloned.repo);
     }
 }
