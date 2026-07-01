@@ -1,5 +1,4 @@
-<!-- Issue: #N -->
-
+<!-- Issue: #1 -->
 # Phase 1: Core + CLI 基础（MVP）实现计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -20,7 +19,7 @@
 - TDD：先写测试，确认失败，再写实现
 - 遵循 workspace lint policy（`[workspace.lints.rust]` / `[workspace.lints.clippy]`）
 
-## Issue 规划
+## GitHub Issue 规划
 
 **Issue 标题:** feat: Phase 1 — Core + CLI 基础（MVP），打通 GitHub Issue/PR 读写链路
 
