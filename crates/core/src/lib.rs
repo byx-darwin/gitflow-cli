@@ -4,6 +4,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod output;
+
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -39,6 +41,9 @@ pub enum CoreError {
 
 /// Core result type alias.
 pub type Result<T> = std::result::Result<T, CoreError>;
+
+// Re-export output types at the crate root for convenience.
+pub use output::{CliError, CliOutput};
 
 /// Example domain struct demonstrating CLAUDE.md conventions.
 ///
