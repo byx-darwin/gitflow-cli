@@ -59,8 +59,8 @@ proptest = "1"
 unsafe_code = "forbid"
 missing_docs = "warn"
 missing_debug_implementations = "warn"
-rust_2024_compatibility = { level = "warn", priority = -1 }
-rust_2018_idioms = { level = "warn", priority = -1 }
+rust_2024_compatibility = "warn"
+rust_2018_idioms = "warn"
 
 [workspace.lints.clippy]
 # Hard blockers (matches CLAUDE.md non-negotiables)
@@ -79,10 +79,10 @@ missing_panics_doc = "warn"
 allow_attributes_without_reason = "warn"
 
 # Pedantic group
-pedantic = { level = "warn", priority = -1 }
+pedantic = "warn"
 
 # Cargo.toml hygiene
-cargo = { level = "warn", priority = -1 }
+cargo = "warn"
 
 # Security
 indexing_slicing = "warn"

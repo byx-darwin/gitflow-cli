@@ -11,10 +11,7 @@ use thiserror::Error;
 ///
 /// Library functions return this error type. Use `thiserror` for
 /// derive macros and proper error context.
-#[allow(
-    clippy::module_name_repetitions,
-    reason = "Avoids collision with std::error::Error and thiserror::Error"
-)]
+#[allow(clippy::module_name_repetitions, reason = "Avoids collision with std::error::Error and thiserror::Error")]
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CoreError {
@@ -76,9 +73,9 @@ impl Config {
     /// # Examples
     ///
     /// ```
-    /// use gitflow_cli_core::Config;
+    /// use gitflow-cli_core::Config;
     /// let config = Config::new("my-app")?;
-    /// # Ok::<(), gitflow_cli_core::CoreError>(())
+    /// # Ok::<(), gitflow-cli_core::CoreError>(())
     /// ```
     pub fn new(name: impl Into<String>) -> Result<Self> {
         let name = name.into();
@@ -107,6 +104,8 @@ pub struct PathError {
     /// The kind of path error.
     pub kind: PathErrorKind,
 }
+
+impl std::error::Error for PathError {}
 
 /// The kind of path validation error.
 #[derive(Debug, Clone)]
@@ -142,44 +141,18 @@ pub enum PathErrorKind {
 impl std::fmt::Display for PathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
-            PathErrorKind::Absolute => {
-                write!(f, "absolute path not allowed: {}", self.path.display())
-            }
-            PathErrorKind::ParentDirTraversal => {
-                write!(f, "'..' not allowed: {}", self.path.display())
-            }
+            PathErrorKind::Absolute => write!(f, "absolute path not allowed: {}", self.path.display()),
+            PathErrorKind::ParentDirTraversal => write!(f, "'..' not allowed: {}", self.path.display()),
             PathErrorKind::NullByte => write!(f, "null byte in path: {}", self.path.display()),
-            PathErrorKind::DeviceName => write!(
-                f,
-                "reserved device name not allowed: {}",
-                self.path.display()
-            ),
-            PathErrorKind::InvalidChar { ch } => write!(
-                f,
-                "invalid character '{ch}' in path: {}",
-                self.path.display()
-            ),
-            PathErrorKind::DangerousChar { ch } => write!(
-                f,
-                "dangerous Unicode character U+{:04X} in path: {}",
-                ch as u32,
-                self.path.display()
-            ),
-            PathErrorKind::ComponentTooLong {
-                max_bytes,
-                actual_bytes,
-            } => {
-                write!(
-                    f,
-                    "path component too long (max {max_bytes}B, got {actual_bytes}B): {}",
-                    self.path.display()
-                )
+            PathErrorKind::DeviceName => write!(f, "reserved device name not allowed: {}", self.path.display()),
+            PathErrorKind::InvalidChar { ch } => write!(f, "invalid character '{ch}' in path: {}", self.path.display()),
+            PathErrorKind::DangerousChar { ch } => write!(f, "dangerous Unicode character U+{:04X} in path: {}", ch as u32, self.path.display()),
+            PathErrorKind::ComponentTooLong { max_bytes, actual_bytes } => {
+                write!(f, "path component too long (max {max_bytes}B, got {actual_bytes}B): {}", self.path.display())
             }
         }
     }
 }
-
-impl std::error::Error for PathError {}
 
 /// A validated, safe filesystem path.
 ///
@@ -205,44 +178,27 @@ impl SafePath {
     /// # Examples
     ///
     /// ```
-    /// use gitflow_cli_core::SafePath;
+    /// use gitflow-cli_core::SafePath;
     /// let path = SafePath::new("foo/bar.txt")?;
     /// assert_eq!(path.as_path(), std::path::Path::new("foo/bar.txt"));
-    /// # Ok::<(), gitflow_cli_core::CoreError>(())
+    /// # Ok::<(), gitflow-cli_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
-        const MAX_COMPONENT_LEN: usize = 255;
-
         let path = path.as_ref();
 
         // Absolute path check
         if path.is_absolute() {
-            return Err(PathError {
-                path: path.to_path_buf(),
-                kind: PathErrorKind::Absolute,
-            }
-            .into());
+            return Err(PathError { path: path.to_path_buf(), kind: PathErrorKind::Absolute }.into());
         }
 
         // Parent directory traversal check
-        if path
-            .components()
-            .any(|c| c == std::path::Component::ParentDir)
-        {
-            return Err(PathError {
-                path: path.to_path_buf(),
-                kind: PathErrorKind::ParentDirTraversal,
-            }
-            .into());
+        if path.components().any(|c| c == std::path::Component::ParentDir) {
+            return Err(PathError { path: path.to_path_buf(), kind: PathErrorKind::ParentDirTraversal }.into());
         }
 
         // Null byte check
         if path.as_os_str().as_encoded_bytes().contains(&b'\0') {
-            return Err(PathError {
-                path: path.to_path_buf(),
-                kind: PathErrorKind::NullByte,
-            }
-            .into());
+            return Err(PathError { path: path.to_path_buf(), kind: PathErrorKind::NullByte }.into());
         }
 
         // Reject colon in path (Windows Alternate Data Streams)
@@ -274,6 +230,7 @@ impl SafePath {
         }
 
         // Reject dangerous Unicode bidi control characters
+        const MAX_COMPONENT_LEN: usize = 255;
         for component in path.components() {
             let len = component.as_os_str().len();
             if len > MAX_COMPONENT_LEN {
@@ -315,6 +272,7 @@ impl AsRef<Path> for SafePath {
     }
 }
 
+pub mod platform;
 pub mod types;
 
 #[cfg(test)]
@@ -366,26 +324,17 @@ mod tests {
 
     #[test]
     fn test_safe_path_rejects_absolute() {
-        assert!(matches!(
-            SafePath::new("/etc/passwd"),
-            Err(CoreError::Path(_))
-        ));
+        assert!(matches!(SafePath::new("/etc/passwd"), Err(CoreError::Path(_))));
     }
 
     #[test]
     fn test_safe_path_rejects_parent_dir() {
-        assert!(matches!(
-            SafePath::new("../secret.txt"),
-            Err(CoreError::Path(_))
-        ));
+        assert!(matches!(SafePath::new("../secret.txt"), Err(CoreError::Path(_))));
     }
 
     #[test]
     fn test_safe_path_rejects_null_byte() {
-        assert!(matches!(
-            SafePath::new("foo\0bar.txt"),
-            Err(CoreError::Path(_))
-        ));
+        assert!(matches!(SafePath::new("foo\0bar.txt"), Err(CoreError::Path(_))));
     }
 
     #[test]
@@ -432,10 +381,7 @@ mod tests {
         assert!(matches!(
             err,
             Err(CoreError::Path(PathError {
-                kind: PathErrorKind::ComponentTooLong {
-                    max_bytes: 255,
-                    actual_bytes: 256
-                },
+                kind: PathErrorKind::ComponentTooLong { max_bytes: 255, actual_bytes: 256 },
                 ..
             }))
         ));
