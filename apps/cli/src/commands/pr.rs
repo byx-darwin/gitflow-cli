@@ -7,6 +7,7 @@ use clap::Subcommand;
 use gitflow_cli_core::{
     pr::{CreatePrArgs, ListPrArgs, PrProvider},
     types::State,
+    CliOutput,
 };
 use gitflow_cli_github::GitHubPrProvider;
 
@@ -120,7 +121,8 @@ pub async fn handle(
                 .create(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to create pr: {e}"))?;
-            print_output(&pr, &output_format)?;
+            let output = CliOutput::success(pr, platform, "pr create");
+            print_output(&output, &output_format)?;
         }
         PrCommand::List { state, limit } => {
             let parsed_state = state
@@ -142,14 +144,16 @@ pub async fn handle(
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list prs: {e}"))?;
-            print_output(&prs, &output_format)?;
+            let output = CliOutput::success(prs, platform, "pr list");
+            print_output(&output, &output_format)?;
         }
         PrCommand::View { number } => {
             let pr = provider
                 .view(number)
                 .await
                 .map_err(|e| miette::miette!("Failed to view pr #{number}: {e}"))?;
-            print_output(&pr, &output_format)?;
+            let output = CliOutput::success(pr, platform, "pr view");
+            print_output(&output, &output_format)?;
         }
     }
 

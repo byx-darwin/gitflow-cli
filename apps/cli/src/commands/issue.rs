@@ -7,6 +7,7 @@ use clap::Subcommand;
 use gitflow_cli_core::{
     issue::{CreateIssueArgs, IssueProvider, ListIssueArgs},
     types::State,
+    CliOutput,
 };
 use gitflow_cli_github::GitHubIssueProvider;
 
@@ -112,7 +113,8 @@ pub async fn handle(
                 .create(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to create issue: {e}"))?;
-            print_output(&issue, &output_format)?;
+            let output = CliOutput::success(issue, platform, "issue create");
+            print_output(&output, &output_format)?;
         }
         IssueCommand::List {
             state,
@@ -142,14 +144,16 @@ pub async fn handle(
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list issues: {e}"))?;
-            print_output(&issues, &output_format)?;
+            let output = CliOutput::success(issues, platform, "issue list");
+            print_output(&output, &output_format)?;
         }
         IssueCommand::View { number } => {
             let issue = provider
                 .view(number)
                 .await
                 .map_err(|e| miette::miette!("Failed to view issue #{number}: {e}"))?;
-            print_output(&issue, &output_format)?;
+            let output = CliOutput::success(issue, platform, "issue view");
+            print_output(&output, &output_format)?;
         }
     }
 

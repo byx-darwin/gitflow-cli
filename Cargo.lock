@@ -549,7 +549,6 @@ dependencies = [
  "gitflow-cli-core",
  "gitflow-cli-github",
  "is-terminal",
- "libc",
  "miette",
  "predicates",
  "regex",

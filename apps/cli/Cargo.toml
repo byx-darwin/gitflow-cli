@@ -34,9 +34,6 @@ which = { workspace = true }
 regex = { workspace = true }
 thiserror = { workspace = true }
 
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
-
 [build-dependencies]
 built = "0.7"
 
