@@ -168,6 +168,7 @@ impl PrProvider for GitHubPrProvider {
         debug!(repo = %self.repo, number, "spawning `gh pr close`");
 
         let output = tokio::process::Command::new("gh")
+            .args(["pr", "close"])
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)

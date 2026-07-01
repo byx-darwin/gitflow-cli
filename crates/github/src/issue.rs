@@ -196,6 +196,8 @@ impl IssueProvider for GitHubIssueProvider {
     ///
     /// 当 Issue 不存在、未关闭或 `gh` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `gh issue reopen`");
+
         let output = tokio::process::Command::new("gh")
             .args(["issue", "reopen"])
             .arg(number.to_string())
