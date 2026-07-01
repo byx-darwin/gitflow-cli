@@ -17,6 +17,7 @@ pub mod built_info {
 
 mod commands;
 mod config;
+mod error_reporter;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use is_terminal::IsTerminal;
@@ -47,6 +48,9 @@ fn main() -> std::process::ExitCode {
         Err(e) => e.exit(),
     };
 
+    // Capture the command name before `cli` is consumed by `async_main`.
+    let command_name = cli.command_name();
+
     // Completions are purely synchronous -- generate and exit
     if let Commands::Completions(ref args) = cli.command {
         return commands::completions::generate::<Cli>(args);
@@ -57,33 +61,56 @@ fn main() -> std::process::ExitCode {
         Ok(rt) => rt,
         Err(e) => {
             let report = miette::miette!("Failed to create async runtime: {e}");
+            report_error_noninteractive(&command_name, "unknown", &report.to_string(), "RUNTIME_ERROR");
             eprintln!("{report:?}");
             return std::process::ExitCode::from(1);
         }
     };
 
+    // Resolve platform and repository early so they are available in the
+    // error handler below. `cli.platform` is cloned because `cli` itself
+    // is moved into `async_main`.
+    let (platform, repo) = match resolve_platform(cli.platform.clone()) {
+        Ok(pr) => pr,
+        Err(e) => {
+            report_error_noninteractive(&command_name, "unknown", &e.to_string(), "PLATFORM_ERROR");
+            eprintln!("{e:?}");
+            return std::process::ExitCode::from(1);
+        }
+    };
+
     // Block on the async main, handling graceful shutdown signals
-    match rt.block_on(async_main(cli)) {
+    match rt.block_on(async_main(cli, &platform, &repo)) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
+            report_error_noninteractive(&command_name, &platform, &e.to_string(), "CLI_ERROR");
             eprintln!("{e:?}");
             std::process::ExitCode::from(1)
         }
     }
 }
 
+/// Best-effort error reporting for non-interactive mode.
+///
+/// Delegates to [`error_reporter::maybe_report_error`], silently
+/// discarding any I/O errors. The error report is a diagnostic aid;
+/// a failure to write it must never block or alter the exit code.
+fn report_error_noninteractive(command: &str, platform: &str, error_message: &str, error_code: &str) {
+    let _ = error_reporter::maybe_report_error(command, platform, error_message, error_code);
+}
+
 /// Async entry point that wires graceful shutdown into the main flow.
 ///
-/// Flow: resolve platform → check prerequisites → dispatch command.
-async fn async_main(cli: Cli) -> miette::Result<()> {
-    // Resolve target platform and repository from git remote
-    let (platform, repo) = resolve_platform(cli.platform)?;
-
+/// Flow: check prerequisites → dispatch command.
+///
+/// The `platform` and `repo` are resolved in `main()` before this
+/// function is called so they remain available in the error handler.
+async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> {
     // Run native CLI prerequisite check before dispatching
-    commands::prerequisites::check(&platform).map_err(|e| miette::miette!("{e}"))?;
+    commands::prerequisites::check(platform).map_err(|e| miette::miette!("{e}"))?;
 
     tokio::select! {
-        result = router(cli.command, &platform, &repo, cli.output) => result,
+        result = router(cli.command, platform, repo, cli.output) => result,
         () = async {
             match tokio::signal::ctrl_c().await {
                 Ok(()) => tracing::info!("Received shutdown signal, exiting gracefully"),
@@ -309,6 +336,20 @@ struct Cli {
 
     #[command(subcommand)]
     command: Commands,
+}
+
+impl Cli {
+    /// Return the top-level subcommand name for error reporting.
+    fn command_name(&self) -> String {
+        match self.command {
+            Commands::Issue(_) => "issue",
+            Commands::Pr(_) => "pr",
+            Commands::SkillsInstall => "skills",
+            Commands::Run(_) => "run",
+            Commands::Completions(_) => "completions",
+        }
+        .into()
+    }
 }
 
 /// Available subcommands.
