@@ -1,0 +1,45 @@
+[package]
+name = "gitflow-cli-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "gitflow-cli"
+path = "src/main.rs"
+
+[dependencies]
+gitflow-cli-core = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+clap_complete = { workspace = true }
+miette = { workspace = true, features = ["fancy"] }
+dirs = { workspace = true }
+toml = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+is-terminal = { workspace = true }
+serde = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[build-dependencies]
+built = "0.7"
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+trycmd = { workspace = true }
+predicates = { workspace = true }
+
+[lints]
+workspace = true
+
+[lints.rust]
+unsafe_code = "deny"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-format }"
+bin-dir = "{ name }-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"

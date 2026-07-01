@@ -1,0 +1,25 @@
+/target/
+.vscode/
+
+# Ruflo / Claude-flow runtime state
+.claude-flow/
+.swarm/
+.claude/
+.mcp.json
+ruvector.db
+.idea/
+
+# Secrets and credentials
+.env
+.env.*
+.env.local
+*.pem
+*.key
+*.p12
+*.cer
+*.pfx
+.ssh/
+secrets/
+credentials/
+.aws/
+.gcloud/

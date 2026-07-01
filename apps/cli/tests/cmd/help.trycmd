@@ -1,0 +1,13 @@
+$ gitflow-cli --help
+gitflow-cli CLI tool
+
+Usage: gitflow-cli [OPTIONS] <COMMAND>
+
+Commands:
+  run   Run the main application workflow
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --verbose  Enable verbose output
+  -h, --help     Print help
+  -V, --version  Print version
