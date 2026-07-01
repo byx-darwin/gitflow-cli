@@ -47,8 +47,14 @@ mod error_reporter;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use commands::{
-    auth::AuthCommand, completions::CompletionsArgs, issue::IssueCommand, pr::PrCommand,
-    release::ReleaseCommand, review::ReviewCommand,
+    auth::AuthCommand,
+    commit::CommitCommand,
+    completions::CompletionsArgs,
+    issue::IssueCommand,
+    label::{LabelCommand, MilestoneCommand},
+    pr::PrCommand,
+    release::ReleaseCommand,
+    review::ReviewCommand,
 };
 use is_terminal::IsTerminal;
 
@@ -171,6 +177,11 @@ async fn router(
         Commands::Release(cmd) => commands::release::handle(cmd, platform, repo, output).await,
         Commands::Review(cmd) => commands::review::handle(cmd, platform, repo, output).await,
         Commands::Auth(cmd) => commands::auth::handle(cmd, platform, repo, output).await,
+        Commands::Label(cmd) => commands::label::handle_label(cmd, platform, repo, output).await,
+        Commands::Milestone(cmd) => {
+            commands::label::handle_milestone(cmd, platform, repo, output).await
+        }
+        Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
         Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
@@ -385,6 +396,9 @@ impl Cli {
             Commands::SkillsInstall => "skills",
             Commands::Run(_) => "run",
             Commands::Completions(_) => "completions",
+            Commands::Label(_) => "label",
+            Commands::Milestone(_) => "milestone",
+            Commands::Commit(_) => "commit",
         }
         .into()
     }
@@ -412,6 +426,18 @@ enum Commands {
     /// Authentication operations (login, logout, status, token).
     #[command(subcommand)]
     Auth(AuthCommand),
+
+    /// Label operations (create, list, edit, delete).
+    #[command(subcommand)]
+    Label(LabelCommand),
+
+    /// Milestone operations (create, list, edit, close, reopen).
+    #[command(subcommand)]
+    Milestone(MilestoneCommand),
+
+    /// Commit operations (view, diff, patch, comment).
+    #[command(subcommand)]
+    Commit(CommitCommand),
 
     /// Install gitflow skills to `~/.claude/skills/`.
     #[command(name = "skills")]

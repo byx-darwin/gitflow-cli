@@ -543,6 +543,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "built",
+ "chrono",
  "clap",
  "clap_complete",
  "dirs",
@@ -582,6 +583,7 @@ name = "gitflow-cli-github"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "gitflow-cli-core",
  "serde",
  "serde_json",
