@@ -335,12 +335,18 @@ impl AsRef<Path> for SafePath {
     }
 }
 
+pub mod auth;
 pub mod issue;
 pub mod platform;
 pub mod pr;
+pub mod release;
+pub mod review;
 pub mod types;
 
 // Re-export key domain types at the crate root for convenience.
+pub use auth::AuthStatus;
+pub use release::{CreateReleaseArgs, ReleaseData};
+pub use review::{ReviewCommentData, ReviewData, ReviewState};
 pub use types::{CommentData, MergeResult, MergeStrategy};
 
 #[cfg(test)]
