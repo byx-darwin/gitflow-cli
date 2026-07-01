@@ -19,7 +19,8 @@ use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use is_terminal::IsTerminal;
 
 use commands::completions::CompletionsArgs;
-use commands::run::RunArgs;
+use commands::issue::IssueCommand;
+use commands::pr::PrCommand;
 
 fn main() -> std::process::ExitCode {
     // Reset SIGPIPE on Unix so broken pipes exit cleanly
@@ -45,7 +46,7 @@ fn main() -> std::process::ExitCode {
         return commands::completions::generate::<Cli>(args);
     }
 
-    // Build the async runtime for the Run subcommand
+    // Build the async runtime
     let rt = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(e) => {
@@ -66,14 +67,18 @@ fn main() -> std::process::ExitCode {
 }
 
 /// Async entry point that wires graceful shutdown into the main flow.
+///
+/// Flow: resolve platform → check prerequisites → dispatch command.
 async fn async_main(cli: Cli) -> miette::Result<()> {
-    let Commands::Run(args) = cli.command else {
-        // Completions handled before the runtime was created
-        return Ok(());
-    };
+    // Resolve target platform and repository from git remote
+    let (platform, repo) = resolve_platform(cli.platform)?;
+
+    // Run native CLI prerequisite check before dispatching
+    commands::prerequisites::check(&platform)
+        .map_err(|e| miette::miette!("{e}"))?;
 
     tokio::select! {
-        result = commands::run::run(args) => result,
+        result = router(cli.command, &platform, &repo, cli.output) => result,
         () = async {
             match tokio::signal::ctrl_c().await {
                 Ok(()) => tracing::info!("Received shutdown signal, exiting gracefully"),
@@ -82,6 +87,110 @@ async fn async_main(cli: Cli) -> miette::Result<()> {
         } => {
             Ok(())
         }
+    }
+}
+
+/// Dispatch a subcommand to the appropriate handler.
+async fn router(
+    command: Commands,
+    _platform: &str,
+    _repo: &str,
+    _output: OutputFormat,
+) -> miette::Result<()> {
+    match command {
+        Commands::Issue(_cmd) => Err(miette::miette!("issue command not yet implemented (Task 10)")),
+        Commands::Pr(_cmd) => Err(miette::miette!("pr command not yet implemented (Task 11)")),
+        Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
+        Commands::Run(_args) => Err(miette::miette!("run command is deprecated; use specific subcommands")),
+        Commands::Completions(_) => Ok(()),
+    }
+}
+
+/// Resolve the target platform and repository from CLI args and git remote.
+///
+/// Priority:
+/// 1. `--platform` flag (explicit override)
+/// 2. `git remote get-url origin` auto-detection
+/// 3. Both fail → error with hint to use `--platform`
+///
+/// # Errors
+///
+/// - Git remote URL cannot be obtained → hint to run inside a git repo
+/// - Platform cannot be detected → hint to use `--platform`
+/// - `owner/repo` cannot be parsed from remote URL → parse error
+fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String, String)> {
+    // Get git remote URL
+    let output = std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .output()
+        .map_err(|e| miette::miette!("Failed to get git remote URL: {e}\nAre you in a git repository?"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(miette::miette!(
+            "git remote get-url origin failed: {}\nAre you in a git repository?",
+            stderr.trim()
+        ));
+    }
+
+    let remote_url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    // Determine platform
+    let platform = match cli_platform {
+        Some(p) => match p {
+            PlatformArg::Github => "github",
+            PlatformArg::Gitlab => "gitlab",
+            PlatformArg::Gitcode => "gitcode",
+        }
+        .to_string(),
+        None => {
+            let detected =
+                gitflow_cli_core::platform::Platform::detect_from_remote_url(&remote_url)
+                    .ok_or_else(|| {
+                        miette::miette!(
+                            "Unable to detect platform from remote URL: {remote_url}\nUse --platform to specify explicitly."
+                        )
+                    })?;
+            format!("{detected:?}").to_lowercase()
+        }
+    };
+
+    // Extract owner/repo
+    let repo = extract_repo_from_url(&remote_url)
+        .ok_or_else(|| miette::miette!("Unable to parse owner/repo from URL: {remote_url}"))?;
+
+    Ok((platform, repo))
+}
+
+/// Extract `owner/repo` from a git remote URL.
+///
+/// Supports both HTTPS and SSH remote formats:
+/// - `https://github.com/owner/repo.git` → `owner/repo`
+/// - `git@github.com:owner/repo.git` → `owner/repo`
+/// - `https://gitlab.example.com/group/project` → `group/project`
+///
+/// Returns `None` if the URL cannot be parsed into at least two path
+/// segments after stripping the scheme and host.
+#[must_use]
+fn extract_repo_from_url(url: &str) -> Option<String> {
+    let without_prefix = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("git@");
+
+    // For SSH URLs like `host:owner/repo`, take the part after `:`.
+    // For HTTPS URLs like `host/owner/repo`, there's no `:` so keep the whole path.
+    let path = without_prefix.splitn(2, ':').nth(1).unwrap_or(without_prefix);
+
+    let no_suffix = path.trim_end_matches(".git");
+    let segments: Vec<&str> = no_suffix.split('/').filter(|s| !s.is_empty()).collect();
+
+    if segments.len() >= 2 {
+        let owner = segments[segments.len() - 2];
+        let repo = segments[segments.len() - 1];
+        Some(format!("{owner}/{repo}"))
+    } else {
+        None
     }
 }
 
@@ -135,6 +244,41 @@ fn reset_sigpipe() {
     // Intentionally empty - unsafe SIGPIPE reset disabled to comply with forbid(unsafe_code)
 }
 
+/// Platform argument for the `--platform` CLI flag.
+///
+/// Maps to the three supported hosting platforms. Used as a
+/// `clap::ValueEnum` so clap generates value completions and
+/// validation automatically.
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum PlatformArg {
+    /// GitHub (github.com or Enterprise).
+    #[value(name = "github")]
+    Github,
+    /// GitLab (gitlab.com or self-hosted).
+    #[value(name = "gitlab")]
+    Gitlab,
+    /// GitCode (gitcode.com or self-hosted).
+    #[value(name = "gitcode")]
+    Gitcode,
+}
+
+/// Output format for CLI command results.
+///
+/// Controls how command output is rendered to the terminal.
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum OutputFormat {
+    /// Structured JSON output (default; for machine consumption by skills).
+    Json,
+    /// Human-readable plain text output.
+    Text,
+}
+
+impl Default for OutputFormat {
+    fn default() -> Self {
+        Self::Json
+    }
+}
+
 /// gitflow-cli command-line interface.
 #[derive(Debug, Parser)]
 #[command(
@@ -143,6 +287,14 @@ fn reset_sigpipe() {
     author
 )]
 struct Cli {
+    /// Override platform auto-detection.
+    #[arg(long, global = true)]
+    platform: Option<PlatformArg>,
+
+    /// Output format (json or text).
+    #[arg(long, global = true, default_value = "json")]
+    output: OutputFormat,
+
     /// Enable verbose output.
     #[arg(short, long, global = true)]
     verbose: bool,
@@ -154,10 +306,52 @@ struct Cli {
 /// Available subcommands.
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Run the main application workflow.
-    Run(RunArgs),
+    /// Issue operations (create, list, view).
+    #[command(subcommand)]
+    Issue(IssueCommand),
+
+    /// Pull request operations (create, list, view).
+    #[command(subcommand)]
+    Pr(PrCommand),
+
+    /// Install gitflow skills to `~/.claude/skills/`.
+    #[command(name = "skills")]
+    SkillsInstall,
+
+    /// Run the main application workflow (deprecated).
+    Run(commands::run::RunArgs),
 
     /// Generate shell completion scripts.
     #[command(hide = true)]
     Completions(CompletionsArgs),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_extract_repo_from_https_url() {
+        let url = "https://github.com/owner/repo.git";
+        assert_eq!(extract_repo_from_url(url), Some("owner/repo".to_string()));
+    }
+
+    #[test]
+    fn test_should_extract_repo_from_ssh_url() {
+        let url = "git@github.com:owner/repo.git";
+        assert_eq!(extract_repo_from_url(url), Some("owner/repo".to_string()));
+    }
+
+    #[test]
+    fn test_should_extract_repo_without_dot_git_suffix() {
+        let url = "https://github.com/owner/repo";
+        assert_eq!(extract_repo_from_url(url), Some("owner/repo".to_string()));
+    }
+
+    #[test]
+    fn test_should_return_none_for_invalid_url() {
+        assert_eq!(extract_repo_from_url("just-a-string"), None);
+        assert_eq!(extract_repo_from_url(""), None);
+        assert_eq!(extract_repo_from_url("https://github.com"), None);
+    }
 }
