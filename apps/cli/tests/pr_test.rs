@@ -4,6 +4,12 @@
 //! 和参数解析的正确性。由于实际执行需要 `gh` CLI 和 GitHub 仓库，
 //! 不实际调用 provider 方法。
 
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    reason = "Integration tests unwrap known-good binary handles"
+)]
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 

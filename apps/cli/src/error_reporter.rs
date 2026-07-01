@@ -5,8 +5,20 @@
 //! The Claude Code Stop Hook (`hooks/auto-report-bug.sh`) picks up the
 //! pending file and triggers the `gitflow-autoreport-bug` skill.
 
-use std::io::Write as _;
-use std::path::{Path, PathBuf};
+// The error reporter is deliberately sync: it is invoked from error
+// paths that may execute before the tokio runtime exists (e.g. remote
+// URL resolution, runtime construction) or in signal/panic contexts
+// where blocking the executor would be unsafe.
+#![allow(
+    clippy::disallowed_methods,
+    clippy::disallowed_types,
+    reason = "Error reporter runs in sync contexts (pre-runtime, signal handlers)"
+)]
+
+use std::{
+    io::Write as _,
+    path::{Path, PathBuf},
+};
 
 use serde::Serialize;
 
@@ -176,6 +188,12 @@ fn iso8601_utc_now() -> String {
 /// Uses Howard Hinnant's `civil_from_days` algorithm to derive the
 /// `(year, month, day)` triple from the day count since the Unix epoch.
 /// Reference: <http://howardhinnant.github.io/date_algorithms.html>
+#[allow(
+    clippy::cast_possible_wrap,
+    clippy::cast_lossless,
+    clippy::cast_sign_loss,
+    reason = "Howard Hinnant's algorithm operates on mixed-sign integer ranges within known bounds"
+)]
 fn unix_secs_to_iso8601(unix_secs: u64) -> String {
     let day_secs = unix_secs % 86_400;
     let hours = day_secs / 3_600;
@@ -204,7 +222,8 @@ mod tests {
 
     #[test]
     fn test_should_create_error_report_from_error() {
-        let report = ErrorReport::from_error("issue create", "github", "auth failed", "AUTH_FAILED");
+        let report =
+            ErrorReport::from_error("issue create", "github", "auth failed", "AUTH_FAILED");
         assert_eq!(report.source, "cli");
         assert_eq!(report.command, "issue create");
         assert_eq!(report.platform, "github");
@@ -276,10 +295,7 @@ mod tests {
     #[test]
     fn test_should_format_iso8601_known_date() {
         // 2024-01-01T00:00:00Z = 1704067200 seconds since epoch
-        assert_eq!(
-            unix_secs_to_iso8601(1_704_067_200),
-            "2024-01-01T00:00:00Z"
-        );
+        assert_eq!(unix_secs_to_iso8601(1_704_067_200), "2024-01-01T00:00:00Z");
     }
 
     #[test]

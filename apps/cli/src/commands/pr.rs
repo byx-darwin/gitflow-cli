@@ -120,7 +120,7 @@ pub async fn handle(
                 .create(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to create pr: {e}"))?;
-            print_output(&pr, output_format)?;
+            print_output(&pr, &output_format)?;
         }
         PrCommand::List { state, limit } => {
             let parsed_state = state
@@ -142,14 +142,14 @@ pub async fn handle(
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list prs: {e}"))?;
-            print_output(&prs, output_format)?;
+            print_output(&prs, &output_format)?;
         }
         PrCommand::View { number } => {
             let pr = provider
                 .view(number)
                 .await
                 .map_err(|e| miette::miette!("Failed to view pr #{number}: {e}"))?;
-            print_output(&pr, output_format)?;
+            print_output(&pr, &output_format)?;
         }
     }
 
@@ -185,6 +185,11 @@ fn resolve_body(body: Option<String>, body_file: Option<String>) -> miette::Resu
 /// # Errors
 ///
 /// - 当 `--head` 未提供且无法通过 git 检测到当前分支时返回错误。
+#[allow(
+    clippy::disallowed_types,
+    reason = "Quick sync `git` call; converting to async adds overhead disproportionate to the \
+              work"
+)]
 fn resolve_head(head: Option<String>) -> miette::Result<String> {
     if let Some(branch) = head {
         return Ok(branch);
@@ -220,7 +225,7 @@ fn resolve_head(head: Option<String>) -> miette::Result<String> {
 /// 返回错误当：
 /// - JSON 序列化失败。
 /// - 输出格式为 `Text`（Phase 1 不支持）。
-fn print_output<T: serde::Serialize>(value: &T, format: OutputFormat) -> miette::Result<()> {
+fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> miette::Result<()> {
     match format {
         OutputFormat::Json => {
             let json = serde_json::to_string_pretty(value)
@@ -278,14 +283,14 @@ mod tests {
     #[test]
     fn test_should_print_json_output() {
         let value = serde_json::json!({"number": 1, "title": "test"});
-        let result = print_output(&value, OutputFormat::Json);
+        let result = print_output(&value, &OutputFormat::Json);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_should_reject_text_output_in_phase1() {
         let value = serde_json::json!({"number": 1});
-        let result = print_output(&value, OutputFormat::Text);
+        let result = print_output(&value, &OutputFormat::Text);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("not yet supported"));

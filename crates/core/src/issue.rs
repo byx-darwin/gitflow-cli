@@ -8,8 +8,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{Label, State, UserSummary};
-use crate::Result;
+use crate::{
+    Result,
+    types::{Label, State, UserSummary},
+};
 
 /// Issue 数据。
 ///
@@ -145,7 +147,10 @@ mod tests {
         assert_eq!(issue.author.id, 1);
         assert_eq!(issue.assignees.len(), 1);
         assert_eq!(issue.assignees[0].login, "alice");
-        assert_eq!(issue.url, "https://github.com/octocat/hello-world/issues/42");
+        assert_eq!(
+            issue.url,
+            "https://github.com/octocat/hello-world/issues/42"
+        );
     }
 
     #[test]
@@ -153,7 +158,8 @@ mod tests {
         let json = sample_issue_json();
         let issue: IssueData = serde_json::from_str(json).expect("deserialize");
         let re_serialized = serde_json::to_string(&issue).expect("serialize");
-        let round_tripped: IssueData = serde_json::from_str(&re_serialized).expect("re-deserialize");
+        let round_tripped: IssueData =
+            serde_json::from_str(&re_serialized).expect("re-deserialize");
 
         assert_eq!(round_tripped.number, issue.number);
         assert_eq!(round_tripped.title, issue.title);

@@ -24,3 +24,6 @@ credentials/
 .aws/
 .gcloud/
 .claude/gh-issue/
+
+# Local runtime caches (bug-reports, etc.)
+.cache/

@@ -4,6 +4,13 @@
 //! （`gh`、`glab`、`gc`）是否已安装且版本满足最低要求。
 //! 检查失败将阻断执行并打印安装指引。
 
+// The prerequisite check runs synchronously before the tokio runtime is
+// created, so `std::process::Command` is appropriate here.
+#![allow(
+    clippy::disallowed_types,
+    reason = "Pre-runtime sync `Command` invocations for version probing"
+)]
+
 use std::process::Command;
 
 /// 原生 CLI 版本要求。
@@ -29,7 +36,8 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
             binary: "gh",
             min_version: "2.0.0",
             install_url: "https://github.com/cli/cli#installation",
-            install_hint: "brew install gh   # macOS\napt install gh    # Ubuntu\nchoco install gh  # Windows",
+            install_hint: "brew install gh   # macOS\napt install gh    # Ubuntu\nchoco install \
+                           gh  # Windows",
         }),
         "gitlab" => Some(CliRequirement {
             binary: "glab",

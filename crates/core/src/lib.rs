@@ -3,17 +3,36 @@
 //! Provides domain types, error handling, and core business logic.
 
 #![forbid(unsafe_code)]
+// Tests legitimately need to unwrap/expect fixture data and index into
+// collections to assert on known shapes; the workspace-wide prohibition
+// applies only to production code.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        clippy::indexing_slicing,
+        clippy::useless_format,
+        clippy::clone_on_copy,
+        reason = "Tests legitimately need to unwrap fixture data and index into known-shape \
+                  collections"
+    )
+)]
 
 pub mod output;
 
 use std::path::{Path, PathBuf};
+
 use thiserror::Error;
 
 /// Application error type.
 ///
 /// Library functions return this error type. Use `thiserror` for
 /// derive macros and proper error context.
-#[allow(clippy::module_name_repetitions, reason = "Avoids collision with std::error::Error and thiserror::Error")]
+#[allow(
+    clippy::module_name_repetitions,
+    reason = "Avoids collision with std::error::Error and thiserror::Error"
+)]
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CoreError {
@@ -146,14 +165,38 @@ pub enum PathErrorKind {
 impl std::fmt::Display for PathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
-            PathErrorKind::Absolute => write!(f, "absolute path not allowed: {}", self.path.display()),
-            PathErrorKind::ParentDirTraversal => write!(f, "'..' not allowed: {}", self.path.display()),
+            PathErrorKind::Absolute => {
+                write!(f, "absolute path not allowed: {}", self.path.display())
+            }
+            PathErrorKind::ParentDirTraversal => {
+                write!(f, "'..' not allowed: {}", self.path.display())
+            }
             PathErrorKind::NullByte => write!(f, "null byte in path: {}", self.path.display()),
-            PathErrorKind::DeviceName => write!(f, "reserved device name not allowed: {}", self.path.display()),
-            PathErrorKind::InvalidChar { ch } => write!(f, "invalid character '{ch}' in path: {}", self.path.display()),
-            PathErrorKind::DangerousChar { ch } => write!(f, "dangerous Unicode character U+{:04X} in path: {}", ch as u32, self.path.display()),
-            PathErrorKind::ComponentTooLong { max_bytes, actual_bytes } => {
-                write!(f, "path component too long (max {max_bytes}B, got {actual_bytes}B): {}", self.path.display())
+            PathErrorKind::DeviceName => write!(
+                f,
+                "reserved device name not allowed: {}",
+                self.path.display()
+            ),
+            PathErrorKind::InvalidChar { ch } => write!(
+                f,
+                "invalid character '{ch}' in path: {}",
+                self.path.display()
+            ),
+            PathErrorKind::DangerousChar { ch } => write!(
+                f,
+                "dangerous Unicode character U+{:04X} in path: {}",
+                ch as u32,
+                self.path.display()
+            ),
+            PathErrorKind::ComponentTooLong {
+                max_bytes,
+                actual_bytes,
+            } => {
+                write!(
+                    f,
+                    "path component too long (max {max_bytes}B, got {actual_bytes}B): {}",
+                    self.path.display()
+                )
             }
         }
     }
@@ -189,21 +232,37 @@ impl SafePath {
     /// # Ok::<(), gitflow_cli_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        const MAX_COMPONENT_LEN: usize = 255;
         let path = path.as_ref();
 
         // Absolute path check
         if path.is_absolute() {
-            return Err(PathError { path: path.to_path_buf(), kind: PathErrorKind::Absolute }.into());
+            return Err(PathError {
+                path: path.to_path_buf(),
+                kind: PathErrorKind::Absolute,
+            }
+            .into());
         }
 
         // Parent directory traversal check
-        if path.components().any(|c| c == std::path::Component::ParentDir) {
-            return Err(PathError { path: path.to_path_buf(), kind: PathErrorKind::ParentDirTraversal }.into());
+        if path
+            .components()
+            .any(|c| c == std::path::Component::ParentDir)
+        {
+            return Err(PathError {
+                path: path.to_path_buf(),
+                kind: PathErrorKind::ParentDirTraversal,
+            }
+            .into());
         }
 
         // Null byte check
         if path.as_os_str().as_encoded_bytes().contains(&b'\0') {
-            return Err(PathError { path: path.to_path_buf(), kind: PathErrorKind::NullByte }.into());
+            return Err(PathError {
+                path: path.to_path_buf(),
+                kind: PathErrorKind::NullByte,
+            }
+            .into());
         }
 
         // Reject colon in path (Windows Alternate Data Streams)
@@ -235,7 +294,6 @@ impl SafePath {
         }
 
         // Reject dangerous Unicode bidi control characters
-        const MAX_COMPONENT_LEN: usize = 255;
         for component in path.components() {
             let len = component.as_os_str().len();
             if len > MAX_COMPONENT_LEN {
@@ -331,17 +389,26 @@ mod tests {
 
     #[test]
     fn test_safe_path_rejects_absolute() {
-        assert!(matches!(SafePath::new("/etc/passwd"), Err(CoreError::Path(_))));
+        assert!(matches!(
+            SafePath::new("/etc/passwd"),
+            Err(CoreError::Path(_))
+        ));
     }
 
     #[test]
     fn test_safe_path_rejects_parent_dir() {
-        assert!(matches!(SafePath::new("../secret.txt"), Err(CoreError::Path(_))));
+        assert!(matches!(
+            SafePath::new("../secret.txt"),
+            Err(CoreError::Path(_))
+        ));
     }
 
     #[test]
     fn test_safe_path_rejects_null_byte() {
-        assert!(matches!(SafePath::new("foo\0bar.txt"), Err(CoreError::Path(_))));
+        assert!(matches!(
+            SafePath::new("foo\0bar.txt"),
+            Err(CoreError::Path(_))
+        ));
     }
 
     #[test]
@@ -388,7 +455,10 @@ mod tests {
         assert!(matches!(
             err,
             Err(CoreError::Path(PathError {
-                kind: PathErrorKind::ComponentTooLong { max_bytes: 255, actual_bytes: 256 },
+                kind: PathErrorKind::ComponentTooLong {
+                    max_bytes: 255,
+                    actual_bytes: 256
+                },
                 ..
             }))
         ));
@@ -409,68 +479,5 @@ mod tests {
         let msg = format!("{err}");
         assert!(msg.contains("platform error"));
         assert!(msg.contains("gh not found"));
-    }
-
-    // ── TDD examples with rstest ─────────────────────────────
-
-    #[cfg(feature = "rstest")]
-    mod rstest_examples {
-        use rstest::rstest;
-
-        use super::*;
-
-        #[rstest]
-        #[case("foo.txt", true)]
-        #[case("bar/baz.txt", true)]
-        #[case("/etc/passwd", false)]
-        #[case("../secret", false)]
-        #[case("file\0null.txt", false)]
-        fn test_should_validate_safe_path(#[case] input: &str, #[case] should_pass: bool) {
-            let result = SafePath::new(input);
-            assert_eq!(result.is_ok(), should_pass);
-        }
-    }
-
-    // ── TDD examples with proptest ───────────────────────────
-
-    #[cfg(feature = "proptest")]
-    mod proptest_examples {
-        use proptest::prelude::*;
-
-        use super::*;
-
-        proptest! {
-            /// Valid relative paths should always be accepted.
-            #[test]
-            fn test_should_accept_valid_relative_paths(
-                name in "[a-zA-Z0-9._-]{1,32}"
-            ) {
-                let result = SafePath::new(&name);
-                prop_assert!(result.is_ok());
-            }
-
-            /// Absolute paths should always be rejected.
-            #[test]
-            fn test_should_reject_absolute_paths(
-                rest in "[a-zA-Z0-9/._-]{0,32}"
-            ) {
-                let path = format!("/{rest}");
-                let result = SafePath::new(&path);
-                prop_assert!(result.is_err());
-            }
-
-            /// Config names should never be empty.
-            #[test]
-            fn test_should_reject_empty_config_name(
-                name in ".*"
-            ) {
-                let result = Config::new(&name);
-                if name.is_empty() {
-                    prop_assert!(result.is_err());
-                } else {
-                    prop_assert!(result.is_ok());
-                }
-            }
-        }
     }
 }

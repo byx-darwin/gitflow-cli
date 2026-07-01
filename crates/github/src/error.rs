@@ -55,17 +55,17 @@ pub fn parse_gh_error(stderr: &[u8]) -> GhError {
     let text = String::from_utf8_lossy(stderr);
 
     // 尝试解析 gh 的 JSON 错误格式
-    if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr) {
-        if let Some(msg) = json.get("message").and_then(serde_json::Value::as_str) {
-            return GhError {
-                message: msg.into(),
-                code: json
-                    .get("code")
-                    .and_then(serde_json::Value::as_str)
-                    .map(String::from),
-                hint: None,
-            };
-        }
+    if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr)
+        && let Some(msg) = json.get("message").and_then(serde_json::Value::as_str)
+    {
+        return GhError {
+            message: msg.into(),
+            code: json
+                .get("code")
+                .and_then(serde_json::Value::as_str)
+                .map(String::from),
+            hint: None,
+        };
     }
 
     // 回退：取 stderr 文本的前三行

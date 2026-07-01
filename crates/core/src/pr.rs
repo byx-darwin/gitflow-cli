@@ -8,8 +8,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{State, UserSummary};
-use crate::Result;
+use crate::{
+    Result,
+    types::{State, UserSummary},
+};
 
 /// Pull Request 数据。
 ///

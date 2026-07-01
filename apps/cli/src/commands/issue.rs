@@ -112,7 +112,7 @@ pub async fn handle(
                 .create(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to create issue: {e}"))?;
-            print_output(&issue, output_format)?;
+            print_output(&issue, &output_format)?;
         }
         IssueCommand::List {
             state,
@@ -142,14 +142,14 @@ pub async fn handle(
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list issues: {e}"))?;
-            print_output(&issues, output_format)?;
+            print_output(&issues, &output_format)?;
         }
         IssueCommand::View { number } => {
             let issue = provider
                 .view(number)
                 .await
                 .map_err(|e| miette::miette!("Failed to view issue #{number}: {e}"))?;
-            print_output(&issue, output_format)?;
+            print_output(&issue, &output_format)?;
         }
     }
 
@@ -187,7 +187,7 @@ fn resolve_body(body: Option<String>, body_file: Option<String>) -> miette::Resu
 /// 返回错误当：
 /// - JSON 序列化失败。
 /// - 输出格式为 `Text`（Phase 1 不支持）。
-fn print_output<T: serde::Serialize>(value: &T, format: OutputFormat) -> miette::Result<()> {
+fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> miette::Result<()> {
     match format {
         OutputFormat::Json => {
             let json = serde_json::to_string_pretty(value)
@@ -238,14 +238,14 @@ mod tests {
     #[test]
     fn test_should_print_json_output() {
         let value = serde_json::json!({"number": 1, "title": "test"});
-        let result = print_output(&value, OutputFormat::Json);
+        let result = print_output(&value, &OutputFormat::Json);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_should_reject_text_output_in_phase1() {
         let value = serde_json::json!({"number": 1});
-        let result = print_output(&value, OutputFormat::Text);
+        let result = print_output(&value, &OutputFormat::Text);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("not yet supported"));

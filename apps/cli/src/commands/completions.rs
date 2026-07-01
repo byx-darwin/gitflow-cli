@@ -8,7 +8,7 @@ use clap::Args;
 /// Supported shells for completion script generation.
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Shell {
-    /// Bourne Again SHell (bash).
+    /// Bourne Again `SHell` (bash).
     Bash,
     /// Z shell (zsh).
     Zsh,
@@ -29,8 +29,7 @@ pub struct CompletionsArgs {
 /// `C` is the top-level CLI command type (must implement
 /// [`clap::CommandFactory`]).
 pub fn generate<C: clap::CommandFactory>(args: &CompletionsArgs) -> std::process::ExitCode {
-    use clap_complete::generate;
-    use clap_complete::shells;
+    use clap_complete::{generate, shells};
 
     let mut cmd = C::command();
     let name = cmd.get_name().to_string();
