@@ -18,7 +18,7 @@ anyhow = "1.0.102"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.142"
 thiserror = "2.0.18"
-tokio = { version = "1.52.1", features = ["rt", "rt-multi-thread", "macros", "time", "signal"] }
+tokio = { version = "1.52.1", features = ["rt", "rt-multi-thread", "macros", "time", "signal", "process"] }
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1.41"
@@ -50,6 +50,7 @@ secrecy = "0.11"
 
 # workspace crates
 gitflow-cli-core = { path = "crates/core" }
+gitflow-cli-github = { path = "crates/github" }
 gitflow-cli-cli = { path = "apps/cli" }
 
 [workspace.dev-dependencies]

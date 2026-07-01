@@ -1,0 +1,23 @@
+[package]
+name = "gitflow-cli-github"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "GitHub platform implementation for gitflow-cli (Issue/PR providers via gh CLI)"
+repository.workspace = true
+readme = "../../README.md"
+keywords = ["cli", "github", "gitflow", "issue", "pr"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+gitflow-cli-core.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
