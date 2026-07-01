@@ -36,9 +36,6 @@ predicates = { workspace = true }
 [lints]
 workspace = true
 
-[lints.rust]
-unsafe_code = "deny"
-
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-format }"
 bin-dir = "{ name }-{ target }/{ bin }{ binary-ext }"

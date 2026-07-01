@@ -4,6 +4,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod output;
+
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -35,6 +37,9 @@ pub enum CoreError {
 
 /// Core result type alias.
 pub type Result<T> = std::result::Result<T, CoreError>;
+
+// Re-export output types at the crate root for convenience.
+pub use output::{CliError, CliOutput};
 
 /// Example domain struct demonstrating CLAUDE.md conventions.
 ///
@@ -69,9 +74,9 @@ impl Config {
     /// # Examples
     ///
     /// ```
-    /// use gitflow-cli_core::Config;
+    /// use gitflow_cli_core::Config;
     /// let config = Config::new("my-app")?;
-    /// # Ok::<(), gitflow-cli_core::CoreError>(())
+    /// # Ok::<(), gitflow_cli_core::CoreError>(())
     /// ```
     pub fn new(name: impl Into<String>) -> Result<Self> {
         let name = name.into();
@@ -140,13 +145,15 @@ impl std::fmt::Display for PathError {
             PathErrorKind::NullByte => write!(f, "null byte in path: {}", self.path.display()),
             PathErrorKind::DeviceName => write!(f, "reserved device name not allowed: {}", self.path.display()),
             PathErrorKind::InvalidChar { ch } => write!(f, "invalid character '{ch}' in path: {}", self.path.display()),
-            PathErrorKind::DangerousChar { ch } => write!(f, "dangerous Unicode character U+{:04X} in path: {}", *ch as u32, self.path.display()),
+            PathErrorKind::DangerousChar { ch } => write!(f, "dangerous Unicode character U+{:04X} in path: {}", ch as u32, self.path.display()),
             PathErrorKind::ComponentTooLong { max_bytes, actual_bytes } => {
                 write!(f, "path component too long (max {max_bytes}B, got {actual_bytes}B): {}", self.path.display())
             }
         }
     }
 }
+
+impl std::error::Error for PathError {}
 
 /// A validated, safe filesystem path.
 ///
@@ -172,10 +179,10 @@ impl SafePath {
     /// # Examples
     ///
     /// ```
-    /// use gitflow-cli_core::SafePath;
+    /// use gitflow_cli_core::SafePath;
     /// let path = SafePath::new("foo/bar.txt")?;
     /// assert_eq!(path.as_path(), std::path::Path::new("foo/bar.txt"));
-    /// # Ok::<(), gitflow-cli_core::CoreError>(())
+    /// # Ok::<(), gitflow_cli_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
