@@ -88,6 +88,21 @@ check-agent-sync: ## Verify CLAUDE.md exists
 		exit 1; \
 	}
 
+smoke-test: ## Run multi-platform smoke test (auto-detect platform)
+	@bash scripts/smoke-test.sh --read-only
+
+smoke-test-github: ## Run smoke test for GitHub platform
+	@bash scripts/smoke-test.sh --platform github --read-only
+
+smoke-test-gitlab: ## Run smoke test for GitLab platform
+	@bash scripts/smoke-test.sh --platform gitlab --read-only
+
+smoke-test-gitcode: ## Run smoke test for GitCode platform
+	@bash scripts/smoke-test.sh --platform gitcode --read-only
+
+smoke-test-write: ## Run smoke test with write commands (help only)
+	@bash scripts/smoke-test.sh --write
+
 release: ## Tag and publish a release
 	@cargo release tag --execute
 	@git cliff -o CHANGELOG.md
@@ -97,4 +112,5 @@ release: ## Tag and publish a release
 
 .PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install \
         completions watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync release
+        update-submodule check-agent-sync release \
+        smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write
