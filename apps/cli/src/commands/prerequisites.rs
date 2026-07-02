@@ -1,8 +1,13 @@
 //! 原生 CLI 前置检查。
 //!
 //! 在执行任何 gitflow 命令之前，检查目标平台对应的原生 CLI
-//! （`gh`、`glab`、`gc`）是否已安装且版本满足最低要求。
-//! 检查失败将阻断执行并打印安装指引。
+//! （`gh`、`glab`、`gc`）是否已安装、版本满足最低要求，以及是否已登录。
+//! 检查失败将阻断执行并打印安装/登录指引。
+//!
+//! 错误消息包含 Agent 可解析的标记：
+//! - `[[INSTALL_COMMAND]]` — Agent 可直接运行的单一安装命令
+//! - `[[LOGIN_COMMAND]]` — Agent 提示用户在终端输入 token 的登录命令
+//! - `[[LOGIN_WITH_TOKEN]]` — Agent 可通过 stdin 或 flag 传入 token 的登录命令
 
 // The prerequisite check runs synchronously before the tokio runtime is
 // created, so `std::process::Command` is appropriate here.
@@ -22,13 +27,17 @@ pub struct CliRequirement {
     pub min_version: &'static str,
     /// 官方安装指引链接。
     pub install_url: &'static str,
-    /// 常见包管理器安装命令（brew / apt / choco 等）。
+    /// 常见包管理器安装命令。
     pub install_hint: &'static str,
+    /// Agent 可直接执行的一键安装命令。
+    pub install_cmd: &'static str,
+    /// 交互式登录命令。
+    pub login_cmd: &'static str,
+    /// 非交互式登录命令（可传 token）。
+    pub login_with_token: &'static str,
 }
 
 /// 平台 → CLI 要求映射。
-///
-/// 返回 `None` 表示该平台目前不受支持（仅 github / gitlab / gitcode）。
 #[must_use]
 pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
     match platform {
@@ -36,22 +45,31 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
             binary: "gh",
             min_version: "2.0.0",
             install_url: "https://github.com/cli/cli#installation",
-            install_hint: "brew install gh   # macOS\napt install gh    # Ubuntu\nchoco install \
-                           gh  # Windows",
+            install_hint: "brew install gh   # macOS/Linux\nchoco install gh  # Windows\nsudo apt \
+                           install gh  # Debian/Ubuntu (via gh PPA)",
+            install_cmd: "brew install gh",
+            login_cmd: "gh auth login",
+            login_with_token: "echo TOKEN | gh auth login --with-token",
         }),
         "gitlab" => Some(CliRequirement {
             binary: "glab",
             min_version: "1.30.0",
             install_url: "https://gitlab.com/gitlab-org/cli#installation",
-            install_hint: "brew install glab   # macOS\napt install glab    # Ubuntu",
+            install_hint: "brew install glab   # macOS/Linux\nsudo apt install glab  # \
+                           Debian/Ubuntu",
+            install_cmd: "brew install glab",
+            login_cmd: "glab auth login",
+            login_with_token: "glab auth login --token TOKEN",
         }),
         "gitcode" => Some(CliRequirement {
             binary: "gc",
             min_version: "0.6.0",
             install_url: "https://gitcode.com/gitcode-cli/gitcode-cli/releases",
-            install_hint: "brew install gitcode-cli    # macOS (if available)\n\
-                           go install gitcode.com/gitcode-cli/gc@latest   # Go toolchain\n\
-                           # Or download from: https://gitcode.com/gitcode-cli/gitcode-cli/releases",
+            install_hint: "brew install gitcode-cli  # macOS/Linux\ngo install \
+                           gitcode.com/gitcode-cli/gc@latest  # Go",
+            install_cmd: "brew install gitcode-cli",
+            login_cmd: "gc auth login",
+            login_with_token: "gc auth login --token TOKEN",
         }),
         _ => None,
     }
@@ -62,91 +80,94 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
 pub enum PrerequisiteError {
     /// 原生 CLI 未在 PATH 中找到。
     #[error(
-        "{binary} not found in PATH.\n\n📦 Install from: {install_url}\n\n💡 Quick \
-         install:\n{install_hint}"
+        "[[PLATFORM]] {binary} is not installed.\n\n📦 Install command: [[INSTALL_COMMAND]] \
+         ({install_cmd})\n\nFull install options:\n{install_hint}\n\n🌐 Official docs: \
+         {install_url}"
     )]
     NotFound {
-        /// CLI 可执行文件名。
         binary: String,
-        /// 快速安装命令。
+        platform: String,
         install_hint: String,
-        /// 官方安装链接。
         install_url: String,
+        install_cmd: String,
     },
 
     /// 原生 CLI 版本过低。
-    #[error("{binary} v{required}+ required, found v{found}.\n\n💡 Upgrade:\n{install_hint}")]
+    #[error(
+        "[[PLATFORM]] {binary} v{found} is too old (need v{required}+).\n\n📦 Upgrade command: \
+         [[INSTALL_COMMAND]] ({install_cmd})"
+    )]
     VersionTooLow {
-        /// CLI 可执行文件名。
         binary: String,
-        /// 检测到的版本号。
+        platform: String,
         found: String,
-        /// 要求的最低版本号。
         required: String,
-        /// 升级命令提示。
-        install_hint: String,
+        install_cmd: String,
     },
 
     /// 无法从 `--version` 输出中解析 semver。
     #[error(
-        "Failed to parse `{binary} --version` output — {binary} may not be the expected \
-         {platform} CLI.\n\n📦 Install the correct CLI from: {install_url}\n\n💡 Quick \
-         install:\n{install_hint}"
+        "[[PLATFORM]] `{binary}` was found but does not appear to be the correct CLI.\nThe \
+         `{binary} --version` output did not contain a valid semver.\n\n📦 Reinstall: \
+         [[INSTALL_COMMAND]] ({install_cmd})"
     )]
     VersionParseFailed {
-        /// CLI 可执行文件名。
         binary: String,
-        /// 对应的平台名称。
         platform: String,
-        /// 快速安装命令。
-        install_hint: String,
-        /// 官方安装链接。
-        install_url: String,
+        install_cmd: String,
+    },
+
+    /// 原生 CLI 未认证。
+    #[error(
+        "[[PLATFORM]] {binary} is not authenticated.\n\n🔐 Login (interactive): {login_cmd}\n   \
+         (opens a browser or prompts for token)\n\n🔐 Login (paste token): {login_with_token}\n   \
+         (get a token from your platform's settings)\n\n💡 Tip: Copy your Personal Access Token \
+         from the platform's web UI and run the\nlogin-with-token command, replacing TOKEN with \
+         your actual token."
+    )]
+    NotAuthenticated {
+        binary: String,
+        platform: String,
+        login_cmd: String,
+        login_with_token: String,
     },
 
     /// 不支持的平台。
     #[error("Unsupported platform: {platform}. Supported platforms: github, gitlab, gitcode")]
-    UnsupportedPlatform {
-        /// 不支持的平台标识符。
-        platform: String,
-    },
+    UnsupportedPlatform { platform: String },
 }
 
-/// 检查原生 CLI 是否可用且满足版本要求。
+/// 检查原生 CLI 是否可用、版本满足要求且已登录。
 ///
 /// 流程：
-/// 1. 通过 `which` 检查 CLI 是否在 PATH 上。
-/// 2. 执行 `<cli> --version` 获取版本号。
-/// 3. 比较版本是否 ≥ 最低要求。
-///
-/// # Errors
-///
-/// - CLI 不在 PATH 上 → `PrerequisiteError::NotFound`
-/// - CLI 版本过低 → `PrerequisiteError::VersionTooLow`
-/// - 版本解析失败 → `PrerequisiteError::VersionParseFailed`
-/// - 平台不受支持 → `PrerequisiteError::UnsupportedPlatform`
+/// 1. `which` 检查 CLI 是否在 PATH → `NotFound`
+/// 2. `--version` 检查版本 → `VersionTooLow` / `VersionParseFailed`
+/// 3. `auth status` 检查认证 → `NotAuthenticated`
 pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
     let req = requirement_for(platform).ok_or_else(|| PrerequisiteError::UnsupportedPlatform {
         platform: platform.into(),
     })?;
 
-    // 1. 检查 CLI 是否在 PATH 上
+    // 1. PATH 检查
     let path = which::which(req.binary).map_err(|_| PrerequisiteError::NotFound {
         binary: req.binary.into(),
+        platform: platform.into(),
         install_hint: req.install_hint.into(),
         install_url: req.install_url.into(),
+        install_cmd: req.install_cmd.into(),
     })?;
 
-    tracing::debug!(binary = req.binary, path = %path.display(), "Found native CLI binary");
+    tracing::debug!(binary = req.binary, path = %path.display(), "Found native CLI");
 
-    // 2. 检查版本
-    let version = get_version(req.binary)?;
+    // 2. 版本检查
+    let version = get_version(req.binary, platform)?;
     if !version_meets_minimum(&version, req.min_version) {
         return Err(PrerequisiteError::VersionTooLow {
             binary: req.binary.into(),
+            platform: platform.into(),
             found: version,
             required: req.min_version.into(),
-            install_hint: req.install_hint.into(),
+            install_cmd: req.install_cmd.into(),
         });
     }
 
@@ -154,77 +175,71 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
         binary = req.binary,
         found = version,
         minimum = req.min_version,
-        "Native CLI version meets minimum requirement"
+        "Version OK"
     );
+
+    // 3. 认证检查
+    if !is_authenticated(req.binary)? {
+        return Err(PrerequisiteError::NotAuthenticated {
+            binary: req.binary.into(),
+            platform: platform.into(),
+            login_cmd: req.login_cmd.into(),
+            login_with_token: req.login_with_token.into(),
+        });
+    }
+
+    tracing::debug!(binary = req.binary, "Authenticated");
     Ok(())
 }
 
-/// 执行 `<binary> --version` 并解析其中的 semver 字符串。
-///
-/// # Errors
-///
-/// 执行失败或输出中无 semver 模式时返回 `PrerequisiteError::VersionParseFailed`。
-fn get_version(binary: &str) -> Result<String, PrerequisiteError> {
-    let find_hint = || -> (&str, &str) {
-        requirement_for(binary_to_platform(binary))
-            .map(|r| (r.install_hint, r.install_url))
-            .unwrap_or(("", ""))
-    };
+/// Execute `<binary> --version` and extract semver.
+fn get_version(binary: &str, platform: &str) -> Result<String, PrerequisiteError> {
+    let install_cmd = requirement_for(platform).map_or("", |r| r.install_cmd);
 
     let output = Command::new(binary)
         .arg("--version")
         .output()
-        .map_err(|_| {
-            let (hint, url) = find_hint();
-            PrerequisiteError::VersionParseFailed {
-                binary: binary.into(),
-                platform: binary_to_platform(binary).into(),
-                install_hint: hint.into(),
-                install_url: url.into(),
-            }
+        .map_err(|_| PrerequisiteError::VersionParseFailed {
+            binary: binary.into(),
+            platform: platform.into(),
+            install_cmd: install_cmd.into(),
         })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    extract_semver(&stdout).ok_or_else(|| {
-        let (hint, url) = find_hint();
-        PrerequisiteError::VersionParseFailed {
-            binary: binary.into(),
-            platform: binary_to_platform(binary).into(),
-            install_hint: hint.into(),
-            install_url: url.into(),
-        }
+    extract_semver(&stdout).ok_or_else(|| PrerequisiteError::VersionParseFailed {
+        binary: binary.into(),
+        platform: platform.into(),
+        install_cmd: install_cmd.into(),
     })
 }
 
-/// Map a binary name to its platform name for error messages.
-fn binary_to_platform(binary: &str) -> &'static str {
-    match binary {
-        "gh" => "github",
-        "glab" => "gitlab",
-        "gc" => "gitcode",
-        _ => "unknown",
+/// Check whether the native CLI is authenticated.
+fn is_authenticated(binary: &str) -> Result<bool, PrerequisiteError> {
+    let output = match binary {
+        "gh" => Command::new(binary).args(["auth", "status"]).output(),
+        "glab" => Command::new(binary).args(["auth", "status"]).output(),
+        "gc" => Command::new(binary).args(["auth", "status"]).output(),
+        _ => return Ok(true),
+    };
+    match output {
+        Ok(out) if out.status.success() => Ok(true),
+        _ => Ok(false),
     }
 }
 
-/// 从字符串中提取第一个 semver 模式（`X.Y.Z`）。
-///
-/// 返回找到的版本号字符串，若未找到则返回 `None`。
+/// Extract first semver (`X.Y.Z`) from a string.
 #[must_use]
 pub fn extract_semver(s: &str) -> Option<String> {
     let re = regex::Regex::new(r"\d+\.\d+\.\d+").ok()?;
     re.find(s).map(|m| m.as_str().to_owned())
 }
 
-/// 检查 `found` 版本是否 ≥ `minimum` 版本。
-///
-/// 将版本号按 `.` 分割为 `u32` 段后进行字典序比较，
-/// 与标准 semver 语义一致（major → minor → patch）。
+/// Check `found` version ≥ `minimum`.
 #[must_use]
 pub fn version_meets_minimum(found: &str, minimum: &str) -> bool {
     let parse = |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse().ok()).collect() };
     let found_parts = parse(found);
     let min_parts = parse(minimum);
-    // 字典序比较对 semver 语义正确：major 优先，其次 minor，最后 patch。
     found_parts.cmp(&min_parts) != std::cmp::Ordering::Less
 }
 
@@ -234,11 +249,15 @@ mod tests {
 
     #[test]
     fn test_should_return_requirement_for_github() {
-        let req = requirement_for("github");
-        assert!(req.is_some());
-        let req = req.unwrap_or_else(|| unreachable!("already checked is_some"));
+        let req = requirement_for("github").expect("github requirement");
         assert_eq!(req.binary, "gh");
         assert_eq!(req.min_version, "2.0.0");
+        assert_eq!(req.install_cmd, "brew install gh");
+        assert_eq!(req.login_cmd, "gh auth login");
+        assert_eq!(
+            req.login_with_token,
+            "echo TOKEN | gh auth login --with-token"
+        );
     }
 
     #[test]
