@@ -9,8 +9,8 @@ edition = "2024"
 rust-version = "1.96.0"
 license = "MIT"
 documentation = "https://docs.rs/"
-repository = "https://github.com/TODO"
-homepage = "https://github.com/TODO"
+repository = "https://github.com/byx-darwin/gitflow-cli"
+homepage = "https://github.com/byx-darwin/gitflow-cli"
 readme = "README.md"
 
 [workspace.dependencies]

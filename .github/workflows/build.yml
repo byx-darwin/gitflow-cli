@@ -3,12 +3,12 @@ name: build
 on:
   push:
     branches:
-      - master
+      - main
     tags:
       - v*
   pull_request:
     branches:
-      - master
+      - main
   workflow_dispatch:
 
 permissions:
@@ -99,17 +99,7 @@ jobs:
             os: ubuntu-latest
             ext: ""
             archive: tar.gz
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            ext: ""
-            archive: tar.gz
-            setup: rustup target add x86_64-unknown-linux-musl
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            ext: ""
-            archive: tar.gz
-            cross: true
-          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             ext: ""
             archive: tar.gz
@@ -136,12 +126,8 @@ jobs:
         if: matrix.cross
         uses: taiki-e/install-action@cross
 
-      - name: Setup target
-        if: matrix.setup
-        run: ${{ matrix.setup }}
-
       - name: Install Rust target
-        if: "!matrix.cross && !matrix.setup"
+        if: "!matrix.cross"
         run: rustup target add ${{ matrix.target }}
 
       - name: Build release binary
@@ -156,8 +142,8 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          BIN_NAME="{{ project-name }}${{ matrix.ext }}"
-          ARCHIVE_NAME="{{ project-name }}-${GITHUB_REF_NAME#v}-${{ matrix.target }}.${{ matrix.archive }}"
+          BIN_NAME="gitflow-cli${{ matrix.ext }}"
+          ARCHIVE_NAME="gitflow-cli-${GITHUB_REF_NAME#v}-${{ matrix.target }}.${{ matrix.archive }}"
 
           if [ "${{ matrix.archive }}" = "tar.gz" ]; then
             tar czf "$ARCHIVE_NAME" "$BIN_NAME"
@@ -167,13 +153,11 @@ jobs:
 
           SHA256=$(sha256sum "$ARCHIVE_NAME" | cut -d' ' -f1)
           echo "$SHA256  $ARCHIVE_NAME" > "${ARCHIVE_NAME}.sha256"
-          echo "archive=$ARCHIVE_NAME" >> "$GITHUB_ENV"
-          echo "sha256=$SHA256" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/{{ project-name }}-*.tar.gz*
+          path: target/${{ matrix.target }}/release/gitflow-cli-*.tar.gz*
           if-no-files-found: error
 
   # ── GitHub Release ─────────────────────────────────────────

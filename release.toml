@@ -1,0 +1,21 @@
+# cargo-release workspace configuration
+# See: https://github.com/crate-ci/cargo-release/blob/master/docs/reference.md
+
+# Single version tag for the entire workspace
+shared-version = true
+tag-name = "v{{version}}"
+tag-message = "Release v{{version}}"
+
+# GitHub Releases only — do not publish to crates.io
+publish = false
+
+# Allow release only from main branch
+allow-branch = ["main"]
+
+# Pre-release commit message (when versions are bumped)
+pre-release-commit-message = "chore: release v{{version}}"
+
+# Pre-release hook: run quality checks before tagging
+pre-release-replacements = [
+  { file = "README.md", search = "gitflow-cli/[0-9.]+", replace = "gitflow-cli/{{version}}" },
+]
