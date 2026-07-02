@@ -299,7 +299,7 @@ gitflow skills install  # 复制 skills 到 ~/.claude/skills/
 ```rust
 fn detect_platform() -> Result<Platform> {
     let remote = get_git_remote_url("origin")?;
-    
+
     if remote.contains("github.com") || remote.contains("github.") {
         Ok(Platform::GitHub)
     } else if remote.contains("gitlab.com") || remote.contains("gitlab.") {
@@ -378,17 +378,17 @@ impl IssueProvider for GitHubIssueProvider {
         cmd.args(["issue", "create"])
             .arg("--title").arg(&args.title)
             .arg("--body").arg(&args.body);
-        
+
         if let Some(labels) = &args.labels {
             cmd.arg("--label").arg(labels.join(","));
         }
-        
+
         // 执行并解析 JSON 输出
         let output = cmd.output()?;
         if !output.status.success() {
             return Err(parse_gh_error(&output));
         }
-        
+
         let issue: GitHubIssue = serde_json::from_slice(&output.stdout)?;
         Ok(issue.into_domain())
     }

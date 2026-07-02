@@ -1,4 +1,8 @@
 [default.extend-words]
+ratatui = "ratatui"
+
+[default.extend-identifiers]
+f00ba42 = "f00ba42"
 
 [files]
-extend-exclude = ["CHANGELOG.md", "vendors/"]
+extend-exclude = ["CHANGELOG.md", "vendors/", "specs/tui-system-monitor-design.md"]

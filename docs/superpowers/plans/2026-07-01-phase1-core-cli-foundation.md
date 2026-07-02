@@ -519,7 +519,7 @@ pub mod run;
 // ErrorReport::write_to_disk(&self, repo_root: &Path) -> Result<(), io::Error>
 //   写入路径: repo_root/.cache/bug-reports/pending.json
 //   自动创建 .cache/bug-reports/ 目录
-// maybe_report_error(command, platform, error_str, error_code) → 
+// maybe_report_error(command, platform, error_str, error_code) →
 //   仅在 !stderr.is_terminal() 时写入（非交互模式：CI / subprocess）
 ```
 
