@@ -50,8 +50,8 @@ install-skills: ## Install skills to ~/.claude/skills/
 install-hooks: ## Register hook config in .claude/settings.json
 	@bash scripts/install.sh --no-build --no-skills
 
-install: ## Full install: build binary + skills + hooks (delegates to install.sh)
-	@bash scripts/install.sh
+install: completions-install ## Full install: build binary + skills + hooks + completions (delegates to install.sh)
+	@bash scripts/install.sh --no-build
 
 list-skills: ## List installed gitflow skills
 	@ls ~/.claude/skills/ 2>/dev/null | grep gitflow || echo "No gitflow skills installed."
@@ -61,12 +61,14 @@ uninstall-skills: ## Remove gitflow skills from ~/.claude/skills/
 	@rm -rf ~/.claude/skills/gitflow-*
 	@echo "Gitflow skills removed."
 
-completions: build ## Generate shell completions (bash, zsh, fish)
-	@mkdir -p completions
-	@cargo run -- completions bash > completions/gitflow-cli.bash
-	@cargo run -- completions zsh > completions/_gitflow-cli.zsh
-	@cargo run -- completions fish > completions/gitflow-cli.fish
-	@echo "Completions generated in ./completions/"
+completions: build ## Generate shell completions (bash, zsh, fish) into ./completions/
+	@bash scripts/generate-completions.sh
+
+completions-install: build ## Install completion script for current shell (auto-detected from $SHELL)
+	@cargo run -- completions --install
+
+completions-uninstall: ## Uninstall completion script for current shell
+	@cargo run -- completions --uninstall
 
 watch: ## Watch for changes and check (requires cargo-watch)
 	@cargo watch -x check
@@ -122,6 +124,7 @@ release: ## Tag and publish a release
 	@cargo release push --execute
 
 .PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
-        list-skills uninstall-skills completions watch bench bench-cli coverage docs release-dry-run \
+        list-skills uninstall-skills completions completions-install completions-uninstall \
+        watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write
