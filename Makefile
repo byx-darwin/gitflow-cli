@@ -89,6 +89,11 @@ coverage: ## Generate test coverage report
 docs: ## Generate and open API documentation
 	@cargo doc --no-deps --open
 
+changelog: ## Generate CHANGELOG.md from conventional commits (requires git-cliff)
+	@echo "Generating CHANGELOG.md..."
+	@git cliff -o CHANGELOG.md
+	@echo "CHANGELOG.md updated."
+
 release-dry-run: ## Preview release without executing
 	@cargo release --dry-run
 
@@ -127,4 +132,4 @@ release: ## Tag and publish a release
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release \
-        smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write
+        smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog

@@ -184,7 +184,7 @@ async fn router(
         }
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
         Commands::Pipeline(cmd) => commands::pipeline::handle(cmd, platform, repo, output).await,
-        Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
+        Commands::Skills(ref cmd) => commands::skills::handle(cmd),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
         )),
@@ -395,7 +395,7 @@ impl Cli {
             Commands::Release(_) => "release",
             Commands::Review(_) => "review",
             Commands::Auth(_) => "auth",
-            Commands::SkillsInstall => "skills",
+            Commands::Skills(_) => "skills",
             Commands::Run(_) => "run",
             Commands::Completions(_) => "completions",
             Commands::Label(_) => "label",
@@ -446,9 +446,9 @@ enum Commands {
     #[command(subcommand)]
     Pipeline(PipelineCommand),
 
-    /// Install gitflow skills to `~/.claude/skills/`.
-    #[command(name = "skills")]
-    SkillsInstall,
+    /// Skills management operations (install, list, uninstall).
+    #[command(subcommand)]
+    Skills(commands::skills::SkillsCommand),
 
     /// Run the main application workflow (deprecated).
     Run(commands::run::RunArgs),
