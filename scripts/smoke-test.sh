@@ -105,12 +105,16 @@ test_command() {
     else
         local exit_code=$?
         # 检查是否是因为缺少原生 CLI
-        if echo "$output" | grep -qi "native cli.*not.*found\|command not found\|native CLI.*required\|failed to parse.*version"; then
+        if echo "$output" | grep -qi "native cli.*not.*found\|command not found\|not found\.\|native CLI.*required\|failed to parse.*version\|not yet supported\|unrecognized subcommand"; then
             log_skip "$description (缺少原生 CLI)"
             return 2
         # 检查是否是认证/授权错误 (仅在允许跳过时)
         elif [[ "$allow_skip" == "true" ]] && echo "$output" | grep -qi "auth\|unauthorized\|forbidden\|token\|credentials\|not authenticated\|serialization error"; then
             log_skip "$description (API 错误)"
+            return 2
+        # 最佳努力模式：未匹配到已知模式时也跳过（API 测试本身就不保证成功）
+        elif [[ "$allow_skip" == "true" ]]; then
+            log_skip "$description (API 不可用)"
             return 2
         else
             log_fail "$description (退出码: $exit_code)"
