@@ -29,9 +29,43 @@ if [ ! -f "$PENDING_FILE" ]; then
   exit 0
 fi
 
+# Skip if running in an interactive terminal — the CLI's error_reporter
+# already suppresses pending.json in interactive mode, but guard against
+# edge cases where the file was left behind.
+if [ -t 1 ] || [ -t 0 ]; then
+  # stdout or stdin is a TTY → interactive session, skip
+  exit 0
+fi
+
+# Read and validate the pending report.
+PENDING_CONTENT=$(cat "$PENDING_FILE")
+
+# Quick JSON sanity check — require at least "error_code" field.
+if ! echo "$PENDING_CONTENT" | grep -q '"error_code"'; then
+  # Invalid format — rename to .invalid and exit.
+  mv "$PENDING_FILE" "${PENDING_FILE}.invalid"
+  exit 0
+fi
+
+# Extract key fields for the prompt banner.
+COMMAND=$(echo "$PENDING_CONTENT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+ERROR_CODE=$(echo "$PENDING_CONTENT" | grep -o '"error_code"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+PLATFORM=$(echo "$PENDING_CONTENT" | grep -o '"platform"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  🐛 检测到 gitflow CLI 错误，正在生成 Bug 报告..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  🐛 检测到 gitflow CLI 错误报告"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-cat "$PENDING_FILE"
+echo "  命令:   ${COMMAND:-unknown}"
+echo "  平台:   ${PLATFORM:-unknown}"
+echo "  错误码: ${ERROR_CODE:-unknown}"
+echo ""
+echo "  原始报告:"
+echo "$PENDING_CONTENT"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  请加载 gitflow-autoreport-bug Skill 执行自动 Bug 报告流程。"
+echo "  Skill 路径: skills/gitflow-autoreport-bug/SKILL.md"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
