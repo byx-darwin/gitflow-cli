@@ -9,6 +9,7 @@
 
 ## Development
 
+- [Superpowers Integration Guide](./integration-guide.md) — how gitflow-cli skills integrate with Superpowers SDD workflow.
 - [TDD Guide](./tdd.md) — test-driven development workflow with `make test-watch`.
 - [Pre-commit Usage](./pre-commit-usage.md) — how to install and run repository pre-commit hooks.
 - [Release](./release.md) — release checklist, changelog, and distribution packaging.
