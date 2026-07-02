@@ -1294,124 +1294,6 @@ esac
     ;;
 esac
 ;;
-(pipeline)
-_arguments "${_arguments_options[@]}" : \
-'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
-gitlab\:"GitLab (gitlab.com or self-hosted)"
-gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
-'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
-text\:"Human-readable plain text output"))' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help (see more with '\''--help'\'')]' \
-'--help[Print help (see more with '\''--help'\'')]' \
-":: :_gitflow-cli__subcmd__pipeline_commands" \
-"*::: :->pipeline" \
-&& ret=0
-
-    case $state in
-    (pipeline)
-        words=($line[1] "${words[@]}")
-        (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:gitflow-cli-pipeline-command-$line[1]:"
-        case $line[1] in
-            (status)
-_arguments "${_arguments_options[@]}" : \
-'--branch=[分支名称（默认 \`main\`）。]:BRANCH:_default' \
-'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
-gitlab\:"GitLab (gitlab.com or self-hosted)"
-gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
-'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
-text\:"Human-readable plain text output"))' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help (see more with '\''--help'\'')]' \
-'--help[Print help (see more with '\''--help'\'')]' \
-&& ret=0
-;;
-(logs)
-_arguments "${_arguments_options[@]}" : \
-'--pipeline-id=[流水线 ID。]:PIPELINE_ID:_default' \
-'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
-gitlab\:"GitLab (gitlab.com or self-hosted)"
-gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
-'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
-text\:"Human-readable plain text output"))' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help (see more with '\''--help'\'')]' \
-'--help[Print help (see more with '\''--help'\'')]' \
-&& ret=0
-;;
-(jobs)
-_arguments "${_arguments_options[@]}" : \
-'--pipeline-id=[流水线 ID。]:PIPELINE_ID:_default' \
-'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
-gitlab\:"GitLab (gitlab.com or self-hosted)"
-gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
-'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
-text\:"Human-readable plain text output"))' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help (see more with '\''--help'\'')]' \
-'--help[Print help (see more with '\''--help'\'')]' \
-&& ret=0
-;;
-(report)
-_arguments "${_arguments_options[@]}" : \
-'--branch=[分支名称（默认 \`main\`）。]:BRANCH:_default' \
-'--days=[统计天数（默认 30）。]:DAYS:_default' \
-'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
-gitlab\:"GitLab (gitlab.com or self-hosted)"
-gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
-'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
-text\:"Human-readable plain text output"))' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help (see more with '\''--help'\'')]' \
-'--help[Print help (see more with '\''--help'\'')]' \
-&& ret=0
-;;
-(help)
-_arguments "${_arguments_options[@]}" : \
-":: :_gitflow-cli__subcmd__pipeline__subcmd__help_commands" \
-"*::: :->help" \
-&& ret=0
-
-    case $state in
-    (help)
-        words=($line[1] "${words[@]}")
-        (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:gitflow-cli-pipeline-help-command-$line[1]:"
-        case $line[1] in
-            (status)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(logs)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(jobs)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(report)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(help)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-        esac
-    ;;
-esac
-;;
-        esac
-    ;;
-esac
-;;
 (skills)
 _arguments "${_arguments_options[@]}" : \
 '--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
@@ -1447,13 +1329,11 @@ gitlab\:"GitLab (gitlab.com or self-hosted)"
 gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
 '--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
 text\:"Human-readable plain text output"))' \
-'(--uninstall)--install[Install the completion script to the shell'\''s configuration directory]' \
-'--uninstall[Uninstall the completion script from the shell'\''s configuration directory]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
-'::shell -- Shell to generate completions for:((bash\:"Bourne Again \`SHell\` (bash)"
+':shell -- Shell to generate completions for:((bash\:"Bourne Again \`SHell\` (bash)"
 zsh\:"Z shell (zsh)"
 fish\:"Friendly interactive shell (fish)"))' \
 && ret=0
@@ -1786,38 +1666,6 @@ _arguments "${_arguments_options[@]}" : \
     ;;
 esac
 ;;
-(pipeline)
-_arguments "${_arguments_options[@]}" : \
-":: :_gitflow-cli__subcmd__help__subcmd__pipeline_commands" \
-"*::: :->pipeline" \
-&& ret=0
-
-    case $state in
-    (pipeline)
-        words=($line[1] "${words[@]}")
-        (( CURRENT += 1 ))
-        curcontext="${curcontext%:*:*}:gitflow-cli-help-pipeline-command-$line[1]:"
-        case $line[1] in
-            (status)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(logs)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(jobs)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-(report)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
-        esac
-    ;;
-esac
-;;
 (skills)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -1854,7 +1702,6 @@ _gitflow-cli_commands() {
 'label:Label operations (create, list, edit, delete)' \
 'milestone:Milestone operations (create, list, edit, close, reopen)' \
 'commit:Commit operations (view, diff, patch, comment)' \
-'pipeline:Pipeline operations (status, logs, jobs, report)' \
 'skills:Install gitflow skills to \`~/.claude/skills/\`' \
 'run:Run the main application workflow (deprecated)' \
 'completions:Generate shell completion scripts' \
@@ -2012,7 +1859,6 @@ _gitflow-cli__subcmd__help_commands() {
 'label:Label operations (create, list, edit, delete)' \
 'milestone:Milestone operations (create, list, edit, close, reopen)' \
 'commit:Commit operations (view, diff, patch, comment)' \
-'pipeline:Pipeline operations (status, logs, jobs, report)' \
 'skills:Install gitflow skills to \`~/.claude/skills/\`' \
 'run:Run the main application workflow (deprecated)' \
 'completions:Generate shell completion scripts' \
@@ -2209,36 +2055,6 @@ _gitflow-cli__subcmd__help__subcmd__milestone__subcmd__list_commands() {
 _gitflow-cli__subcmd__help__subcmd__milestone__subcmd__reopen_commands() {
     local commands; commands=()
     _describe -t commands 'gitflow-cli help milestone reopen commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline_commands] )) ||
-_gitflow-cli__subcmd__help__subcmd__pipeline_commands() {
-    local commands; commands=(
-'status:列出指定分支的流水线运行状态。' \
-'logs:查看指定流水线的日志。' \
-'jobs:列出指定流水线包含的任务。' \
-'report:生成流水线健康报告。' \
-    )
-    _describe -t commands 'gitflow-cli help pipeline commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__jobs_commands] )) ||
-_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__jobs_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli help pipeline jobs commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__logs_commands] )) ||
-_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__logs_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli help pipeline logs commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__report_commands] )) ||
-_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__report_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli help pipeline report commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__status_commands] )) ||
-_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__status_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli help pipeline status commands' commands "$@"
 }
 (( $+functions[_gitflow-cli__subcmd__help__subcmd__pr_commands] )) ||
 _gitflow-cli__subcmd__help__subcmd__pr_commands() {
@@ -2660,73 +2476,6 @@ _gitflow-cli__subcmd__milestone__subcmd__list_commands() {
 _gitflow-cli__subcmd__milestone__subcmd__reopen_commands() {
     local commands; commands=()
     _describe -t commands 'gitflow-cli milestone reopen commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline_commands] )) ||
-_gitflow-cli__subcmd__pipeline_commands() {
-    local commands; commands=(
-'status:列出指定分支的流水线运行状态。' \
-'logs:查看指定流水线的日志。' \
-'jobs:列出指定流水线包含的任务。' \
-'report:生成流水线健康报告。' \
-'help:Print this message or the help of the given subcommand(s)' \
-    )
-    _describe -t commands 'gitflow-cli pipeline commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__help_commands() {
-    local commands; commands=(
-'status:列出指定分支的流水线运行状态。' \
-'logs:查看指定流水线的日志。' \
-'jobs:列出指定流水线包含的任务。' \
-'report:生成流水线健康报告。' \
-'help:Print this message or the help of the given subcommand(s)' \
-    )
-    _describe -t commands 'gitflow-cli pipeline help commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__help_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__help_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline help help commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__jobs_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__jobs_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline help jobs commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__logs_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__logs_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline help logs commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__report_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__report_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline help report commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__status_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__status_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline help status commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__jobs_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__jobs_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline jobs commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__logs_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__logs_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline logs commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__report_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__report_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline report commands' commands "$@"
-}
-(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__status_commands] )) ||
-_gitflow-cli__subcmd__pipeline__subcmd__status_commands() {
-    local commands; commands=()
-    _describe -t commands 'gitflow-cli pipeline status commands' commands "$@"
 }
 (( $+functions[_gitflow-cli__subcmd__pr_commands] )) ||
 _gitflow-cli__subcmd__pr_commands() {

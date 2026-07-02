@@ -197,17 +197,7 @@ fn resolve_comment_body(body: Option<String>, body_file: Option<String>) -> miet
 /// - JSON 序列化失败。
 /// - 输出格式为 `Text`（Phase 1 不支持）。
 fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> miette::Result<()> {
-    match format {
-        OutputFormat::Json => {
-            let json = serde_json::to_string_pretty(value)
-                .map_err(|e| miette::miette!("Failed to serialize output to JSON: {e}"))?;
-            println!("{json}");
-            Ok(())
-        }
-        OutputFormat::Text => Err(miette::miette!(
-            "Text output format is not yet supported in Phase 1. Use --output json."
-        )),
-    }
+    crate::commands::output::print_output(value, format)
 }
 
 #[cfg(test)]
@@ -272,12 +262,10 @@ mod tests {
     }
 
     #[test]
-    fn test_should_reject_text_output_in_phase1() {
-        let value = serde_json::json!({"sha": "abc"});
+    fn test_should_accept_text_output() {
+        let value = serde_json::json!({"number": 1});
         let result = print_output(&value, &OutputFormat::Text);
-        assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
-        assert!(err.contains("not yet supported"));
+        assert!(result.is_ok());
     }
 
     // --- CommitCommand 解析测试 ---

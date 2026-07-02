@@ -39,7 +39,6 @@ complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "auth" -d 'A
 complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "label" -d 'Label operations (create, list, edit, delete)'
 complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "milestone" -d 'Milestone operations (create, list, edit, close, reopen)'
 complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "commit" -d 'Commit operations (view, diff, patch, comment)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "pipeline" -d 'Pipeline operations (status, logs, jobs, report)'
 complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "skills" -d 'Install gitflow skills to `~/.claude/skills/`'
 complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "run" -d 'Run the main application workflow (deprecated)'
 complete -c gitflow-cli -n "__fish_gitflow_cli_needs_command" -f -a "completions" -d 'Generate shell completion scripts'
@@ -605,56 +604,6 @@ complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand commit; and __fi
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand commit; and __fish_seen_subcommand_from help" -f -a "patch" -d '获取 Commit 的原始 patch 内容。'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand commit; and __fish_seen_subcommand_from help" -f -a "comment" -d '评论 Commit 中的特定文件行。'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand commit; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -l platform -d 'Override platform auto-detection' -r -f -a "github\t'GitHub (github.com or Enterprise)'
-gitlab\t'GitLab (gitlab.com or self-hosted)'
-gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -l output -d 'Output format (json or text)' -r -f -a "json\t'Structured JSON output (default; for machine consumption by skills)'
-text\t'Human-readable plain text output'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -s v -l verbose -d 'Enable verbose output'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -f -a "status" -d '列出指定分支的流水线运行状态。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -f -a "logs" -d '查看指定流水线的日志。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -f -a "jobs" -d '列出指定流水线包含的任务。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -f -a "report" -d '生成流水线健康报告。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and not __fish_seen_subcommand_from status logs jobs report help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from status" -l branch -d '分支名称（默认 `main`）。' -r
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from status" -l platform -d 'Override platform auto-detection' -r -f -a "github\t'GitHub (github.com or Enterprise)'
-gitlab\t'GitLab (gitlab.com or self-hosted)'
-gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from status" -l output -d 'Output format (json or text)' -r -f -a "json\t'Structured JSON output (default; for machine consumption by skills)'
-text\t'Human-readable plain text output'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from status" -s v -l verbose -d 'Enable verbose output'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from status" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from logs" -l pipeline-id -d '流水线 ID。' -r
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from logs" -l platform -d 'Override platform auto-detection' -r -f -a "github\t'GitHub (github.com or Enterprise)'
-gitlab\t'GitLab (gitlab.com or self-hosted)'
-gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from logs" -l output -d 'Output format (json or text)' -r -f -a "json\t'Structured JSON output (default; for machine consumption by skills)'
-text\t'Human-readable plain text output'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from logs" -s v -l verbose -d 'Enable verbose output'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from logs" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from jobs" -l pipeline-id -d '流水线 ID。' -r
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from jobs" -l platform -d 'Override platform auto-detection' -r -f -a "github\t'GitHub (github.com or Enterprise)'
-gitlab\t'GitLab (gitlab.com or self-hosted)'
-gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from jobs" -l output -d 'Output format (json or text)' -r -f -a "json\t'Structured JSON output (default; for machine consumption by skills)'
-text\t'Human-readable plain text output'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from jobs" -s v -l verbose -d 'Enable verbose output'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from jobs" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from report" -l branch -d '分支名称（默认 `main`）。' -r
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from report" -l days -d '统计天数（默认 30）。' -r
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from report" -l platform -d 'Override platform auto-detection' -r -f -a "github\t'GitHub (github.com or Enterprise)'
-gitlab\t'GitLab (gitlab.com or self-hosted)'
-gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from report" -l output -d 'Output format (json or text)' -r -f -a "json\t'Structured JSON output (default; for machine consumption by skills)'
-text\t'Human-readable plain text output'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from report" -s v -l verbose -d 'Enable verbose output'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from report" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from help" -f -a "status" -d '列出指定分支的流水线运行状态。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from help" -f -a "logs" -d '查看指定流水线的日志。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from help" -f -a "jobs" -d '列出指定流水线包含的任务。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from help" -f -a "report" -d '生成流水线健康报告。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand pipeline; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand skills" -l platform -d 'Override platform auto-detection' -r -f -a "github\t'GitHub (github.com or Enterprise)'
 gitlab\t'GitLab (gitlab.com or self-hosted)'
 gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
@@ -675,23 +624,20 @@ gitlab\t'GitLab (gitlab.com or self-hosted)'
 gitcode\t'`GitCode` (gitcode.com or self-hosted)'"
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand completions" -l output -d 'Output format (json or text)' -r -f -a "json\t'Structured JSON output (default; for machine consumption by skills)'
 text\t'Human-readable plain text output'"
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand completions" -l install -d 'Install the completion script to the shell\'s configuration directory'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand completions" -l uninstall -d 'Uninstall the completion script from the shell\'s configuration directory'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand completions" -s v -l verbose -d 'Enable verbose output'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand completions" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "issue" -d 'Issue operations (create, list, view)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "pr" -d 'Pull request operations (create, list, view)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "release" -d 'Release operations (create, list, view, edit, upload, download, delete)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "review" -d 'Code review operations (comment, approve, request-changes, submit)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "auth" -d 'Authentication operations (login, logout, status, token)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "label" -d 'Label operations (create, list, edit, delete)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "milestone" -d 'Milestone operations (create, list, edit, close, reopen)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "commit" -d 'Commit operations (view, diff, patch, comment)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "pipeline" -d 'Pipeline operations (status, logs, jobs, report)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "skills" -d 'Install gitflow skills to `~/.claude/skills/`'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "run" -d 'Run the main application workflow (deprecated)'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "completions" -d 'Generate shell completion scripts'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit pipeline skills run completions help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "issue" -d 'Issue operations (create, list, view)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "pr" -d 'Pull request operations (create, list, view)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "release" -d 'Release operations (create, list, view, edit, upload, download, delete)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "review" -d 'Code review operations (comment, approve, request-changes, submit)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "auth" -d 'Authentication operations (login, logout, status, token)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "label" -d 'Label operations (create, list, edit, delete)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "milestone" -d 'Milestone operations (create, list, edit, close, reopen)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "commit" -d 'Commit operations (view, diff, patch, comment)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "skills" -d 'Install gitflow skills to `~/.claude/skills/`'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "run" -d 'Run the main application workflow (deprecated)'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "completions" -d 'Generate shell completion scripts'
+complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and not __fish_seen_subcommand_from issue pr release review auth label milestone commit skills run completions help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from issue" -f -a "create" -d '创建一个新的 Issue。'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from issue" -f -a "list" -d '列出 Issue。'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from issue" -f -a "view" -d '查看单个 Issue 详情。'
@@ -739,7 +685,3 @@ complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from commit" -f -a "diff" -d '获取 Commit 的 unified diff 输出。'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from commit" -f -a "patch" -d '获取 Commit 的原始 patch 内容。'
 complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from commit" -f -a "comment" -d '评论 Commit 中的特定文件行。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from pipeline" -f -a "status" -d '列出指定分支的流水线运行状态。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from pipeline" -f -a "logs" -d '查看指定流水线的日志。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from pipeline" -f -a "jobs" -d '列出指定流水线包含的任务。'
-complete -c gitflow-cli -n "__fish_gitflow_cli_using_subcommand help; and __fish_seen_subcommand_from pipeline" -f -a "report" -d '生成流水线健康报告。'

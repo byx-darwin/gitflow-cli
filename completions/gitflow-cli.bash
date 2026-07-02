@@ -37,9 +37,6 @@ _gitflow-cli() {
             gitflow__cli,milestone)
                 cmd="gitflow__cli__subcmd__milestone"
                 ;;
-            gitflow__cli,pipeline)
-                cmd="gitflow__cli__subcmd__pipeline"
-                ;;
             gitflow__cli,pr)
                 cmd="gitflow__cli__subcmd__pr"
                 ;;
@@ -136,9 +133,6 @@ _gitflow-cli() {
             gitflow__cli__subcmd__help,milestone)
                 cmd="gitflow__cli__subcmd__help__subcmd__milestone"
                 ;;
-            gitflow__cli__subcmd__help,pipeline)
-                cmd="gitflow__cli__subcmd__help__subcmd__pipeline"
-                ;;
             gitflow__cli__subcmd__help,pr)
                 cmd="gitflow__cli__subcmd__help__subcmd__pr"
                 ;;
@@ -228,18 +222,6 @@ _gitflow-cli() {
                 ;;
             gitflow__cli__subcmd__help__subcmd__milestone,reopen)
                 cmd="gitflow__cli__subcmd__help__subcmd__milestone__subcmd__reopen"
-                ;;
-            gitflow__cli__subcmd__help__subcmd__pipeline,jobs)
-                cmd="gitflow__cli__subcmd__help__subcmd__pipeline__subcmd__jobs"
-                ;;
-            gitflow__cli__subcmd__help__subcmd__pipeline,logs)
-                cmd="gitflow__cli__subcmd__help__subcmd__pipeline__subcmd__logs"
-                ;;
-            gitflow__cli__subcmd__help__subcmd__pipeline,report)
-                cmd="gitflow__cli__subcmd__help__subcmd__pipeline__subcmd__report"
-                ;;
-            gitflow__cli__subcmd__help__subcmd__pipeline,status)
-                cmd="gitflow__cli__subcmd__help__subcmd__pipeline__subcmd__status"
                 ;;
             gitflow__cli__subcmd__help__subcmd__pr,checkout)
                 cmd="gitflow__cli__subcmd__help__subcmd__pr__subcmd__checkout"
@@ -427,36 +409,6 @@ _gitflow-cli() {
             gitflow__cli__subcmd__milestone__subcmd__help,reopen)
                 cmd="gitflow__cli__subcmd__milestone__subcmd__help__subcmd__reopen"
                 ;;
-            gitflow__cli__subcmd__pipeline,help)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__help"
-                ;;
-            gitflow__cli__subcmd__pipeline,jobs)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__jobs"
-                ;;
-            gitflow__cli__subcmd__pipeline,logs)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__logs"
-                ;;
-            gitflow__cli__subcmd__pipeline,report)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__report"
-                ;;
-            gitflow__cli__subcmd__pipeline,status)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__status"
-                ;;
-            gitflow__cli__subcmd__pipeline__subcmd__help,help)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__help__subcmd__help"
-                ;;
-            gitflow__cli__subcmd__pipeline__subcmd__help,jobs)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__help__subcmd__jobs"
-                ;;
-            gitflow__cli__subcmd__pipeline__subcmd__help,logs)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__help__subcmd__logs"
-                ;;
-            gitflow__cli__subcmd__pipeline__subcmd__help,report)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__help__subcmd__report"
-                ;;
-            gitflow__cli__subcmd__pipeline__subcmd__help,status)
-                cmd="gitflow__cli__subcmd__pipeline__subcmd__help__subcmd__status"
-                ;;
             gitflow__cli__subcmd__pr,checkout)
                 cmd="gitflow__cli__subcmd__pr__subcmd__checkout"
                 ;;
@@ -614,7 +566,7 @@ _gitflow-cli() {
 
     case "${cmd}" in
         gitflow__cli)
-            opts="-v -h --platform --output --verbose --help issue pr release review auth label milestone commit pipeline skills run completions help"
+            opts="-v -h --platform --output --verbose --help issue pr release review auth label milestone commit skills run completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1040,7 +992,7 @@ _gitflow-cli() {
             return 0
             ;;
         gitflow__subcmd__cli__subcmd__completions)
-            opts="-v -h --install --uninstall --platform --output --verbose --help bash zsh fish"
+            opts="-v -h --platform --output --verbose --help bash zsh fish"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1062,7 +1014,7 @@ _gitflow-cli() {
             return 0
             ;;
         gitflow__subcmd__cli__subcmd__help)
-            opts="issue pr release review auth label milestone commit pipeline skills run completions help"
+            opts="issue pr release review auth label milestone commit skills run completions help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1510,76 +1462,6 @@ _gitflow-cli() {
             return 0
             ;;
         gitflow__subcmd__cli__subcmd__help__subcmd__milestone__subcmd__reopen)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__help__subcmd__pipeline)
-            opts="status logs jobs report"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__help__subcmd__pipeline__subcmd__jobs)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__help__subcmd__pipeline__subcmd__logs)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__help__subcmd__pipeline__subcmd__report)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__help__subcmd__pipeline__subcmd__status)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -2810,220 +2692,6 @@ _gitflow-cli() {
                 return 0
             fi
             case "${prev}" in
-                --platform)
-                    COMPREPLY=($(compgen -W "github gitlab gitcode" -- "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -W "json text" -- "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline)
-            opts="-v -h --platform --output --verbose --help status logs jobs report help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --platform)
-                    COMPREPLY=($(compgen -W "github gitlab gitcode" -- "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -W "json text" -- "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__help)
-            opts="status logs jobs report help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__help__subcmd__help)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__help__subcmd__jobs)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__help__subcmd__logs)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__help__subcmd__report)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__help__subcmd__status)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__jobs)
-            opts="-v -h --pipeline-id --platform --output --verbose --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --pipeline-id)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --platform)
-                    COMPREPLY=($(compgen -W "github gitlab gitcode" -- "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -W "json text" -- "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__logs)
-            opts="-v -h --pipeline-id --platform --output --verbose --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --pipeline-id)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --platform)
-                    COMPREPLY=($(compgen -W "github gitlab gitcode" -- "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -W "json text" -- "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__report)
-            opts="-v -h --branch --days --platform --output --verbose --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --branch)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --days)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --platform)
-                    COMPREPLY=($(compgen -W "github gitlab gitcode" -- "${cur}"))
-                    return 0
-                    ;;
-                --output)
-                    COMPREPLY=($(compgen -W "json text" -- "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
-        gitflow__subcmd__cli__subcmd__pipeline__subcmd__status)
-            opts="-v -h --branch --platform --output --verbose --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --branch)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
                 --platform)
                     COMPREPLY=($(compgen -W "github gitlab gitcode" -- "${cur}"))
                     return 0
