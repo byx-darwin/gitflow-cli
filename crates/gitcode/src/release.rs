@@ -48,7 +48,7 @@ impl GitCodeReleaseProvider {
 #[async_trait]
 impl ReleaseProvider for GitCodeReleaseProvider {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["release", "create"])
             .arg(&args.tag_name)
             .arg("--repo")
@@ -101,7 +101,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     async fn list(&self) -> Result<Vec<ReleaseData>> {
         debug!(repo = %self.repo, "spawning `gc release list`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "list"])
             .arg("--repo")
             .arg(&self.repo)
@@ -125,7 +125,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
         debug!(repo = %self.repo, tag = %tag_name, "spawning `gc release view`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "view"])
             .arg(tag_name)
             .arg("--repo")
@@ -148,7 +148,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["release", "edit"])
             .arg(tag_name)
             .arg("--repo")
@@ -206,7 +206,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             "spawning `gc release upload`"
         );
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "upload"])
             .arg(tag_name)
             .arg(file_path)
@@ -246,7 +246,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         let dest = std::path::PathBuf::from(dest_path);
         let parent = dest.parent().unwrap_or_else(|| std::path::Path::new("."));
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "download"])
             .arg(tag_name)
             .arg("--repo")
@@ -280,7 +280,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     async fn delete(&self, tag_name: &str) -> Result<()> {
         debug!(repo = %self.repo, tag = %tag_name, "spawning `gc release delete`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "delete"])
             .arg(tag_name)
             .arg("--repo")

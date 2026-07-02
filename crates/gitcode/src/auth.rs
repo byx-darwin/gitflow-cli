@@ -51,7 +51,7 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn login(&self) -> Result<()> {
         debug!("spawning `gc auth login`");
 
-        let status = tokio::process::Command::new("gc")
+        let status = tokio::process::Command::new(crate::gitcode_binary())
             .arg("auth")
             .arg("login")
             .status()
@@ -73,7 +73,7 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn logout(&self) -> Result<()> {
         debug!("spawning `gc auth logout`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["auth", "logout"])
             .output()
             .await
@@ -97,7 +97,7 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn status(&self) -> Result<AuthStatus> {
         debug!("spawning `gc auth status`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["auth", "status"])
             .output()
             .await
@@ -143,7 +143,7 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn token(&self) -> Result<String> {
         debug!("spawning `gc auth token`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["auth", "token"])
             .output()
             .await

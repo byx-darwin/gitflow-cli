@@ -173,7 +173,7 @@ impl CommitProvider for GitCodeCommitProvider {
 
         let api_path = format!("repos/{repo}/commits/{sha}", repo = self.repo);
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["api", &api_path])
             .output()
             .await
@@ -195,7 +195,7 @@ impl CommitProvider for GitCodeCommitProvider {
 
         let api_path = format!("repos/{repo}/commits/{sha}", repo = self.repo);
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["api", &api_path])
             .arg("-H")
             .arg("Accept: application/vnd.gitcode.v3.diff")
@@ -216,7 +216,7 @@ impl CommitProvider for GitCodeCommitProvider {
 
         let api_path = format!("repos/{repo}/commits/{sha}", repo = self.repo);
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["api", &api_path])
             .arg("-H")
             .arg("Accept: application/vnd.gitcode.v3.patch")
@@ -239,7 +239,7 @@ impl CommitProvider for GitCodeCommitProvider {
 
         let api_path = format!("repos/{repo}/commits/{sha}/comments", repo = self.repo);
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["api", &api_path, "-X", "POST"])
             .arg("-f")
             .arg(format!("body={body}"))

@@ -70,3 +70,8 @@ pub use pipeline::GitCodePipelineProvider;
 pub use pr::GitCodePrProvider;
 pub use release::GitCodeReleaseProvider;
 pub use review::GitCodeReviewProvider;
+
+/// Return the platform-appropriate GitCode CLI binary name.
+pub(crate) fn gitcode_binary() -> &'static str {
+    if cfg!(windows) { "gitcode" } else { "gc" }
+}

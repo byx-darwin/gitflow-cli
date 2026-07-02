@@ -49,7 +49,7 @@ impl GitCodePrProvider {
 #[async_trait]
 impl PrProvider for GitCodePrProvider {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["pr", "create"])
             .arg("--repo")
             .arg(args.repo.as_deref().unwrap_or(&self.repo))
@@ -95,7 +95,7 @@ impl PrProvider for GitCodePrProvider {
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["pr", "list"])
             .arg("--repo")
             .arg(&self.repo)
@@ -134,7 +134,7 @@ impl PrProvider for GitCodePrProvider {
     async fn view(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr view`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "view"])
             .arg(number.to_string())
             .arg("--repo")
@@ -167,7 +167,7 @@ impl PrProvider for GitCodePrProvider {
     async fn close(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr close`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "close"])
             .arg(number.to_string())
             .arg("--repo")
@@ -200,7 +200,7 @@ impl PrProvider for GitCodePrProvider {
     async fn reopen(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr reopen`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "reopen"])
             .arg(number.to_string())
             .arg("--repo")
@@ -233,7 +233,7 @@ impl PrProvider for GitCodePrProvider {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gc pr comment`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "comment"])
             .arg(number.to_string())
             .arg("--repo")
@@ -269,7 +269,7 @@ impl PrProvider for GitCodePrProvider {
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
         debug!(repo = %self.repo, number, ?strategy, "spawning `gc pr merge`");
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["pr", "merge"])
             .arg(number.to_string())
             .arg("--repo")
@@ -317,7 +317,7 @@ impl PrProvider for GitCodePrProvider {
     async fn checkout(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gc pr checkout`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "checkout"])
             .arg(number.to_string())
             .arg("--repo")
@@ -345,7 +345,7 @@ impl PrProvider for GitCodePrProvider {
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr ready`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "ready"])
             .arg(number.to_string())
             .arg("--repo")
@@ -374,7 +374,7 @@ impl PrProvider for GitCodePrProvider {
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr convert-to-draft`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "convert-to-draft"])
             .arg(number.to_string())
             .arg("--repo")
@@ -403,7 +403,7 @@ impl PrProvider for GitCodePrProvider {
     async fn sync_branch(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gc pr update-branch`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "update-branch"])
             .arg(number.to_string())
             .arg("--repo")

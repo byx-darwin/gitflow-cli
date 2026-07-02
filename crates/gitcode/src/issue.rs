@@ -49,7 +49,7 @@ impl GitCodeIssueProvider {
 #[async_trait]
 impl IssueProvider for GitCodeIssueProvider {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["issue", "create"])
             .arg("--repo")
             .arg(&self.repo)
@@ -89,7 +89,7 @@ impl IssueProvider for GitCodeIssueProvider {
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["issue", "list"])
             .arg("--repo")
             .arg(&self.repo)
@@ -132,7 +132,7 @@ impl IssueProvider for GitCodeIssueProvider {
     async fn view(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gc issue view`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "view"])
             .arg(number.to_string())
             .arg("--repo")
@@ -165,7 +165,7 @@ impl IssueProvider for GitCodeIssueProvider {
     async fn close(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gc issue close`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "close"])
             .arg(number.to_string())
             .arg("--repo")
@@ -198,7 +198,7 @@ impl IssueProvider for GitCodeIssueProvider {
     async fn reopen(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gc issue reopen`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "reopen"])
             .arg(number.to_string())
             .arg("--repo")
@@ -231,7 +231,7 @@ impl IssueProvider for GitCodeIssueProvider {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gc issue comment`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "comment"])
             .arg(number.to_string())
             .arg("--repo")
@@ -271,7 +271,7 @@ impl IssueProvider for GitCodeIssueProvider {
             "spawning `gc issue edit --add-label`"
         );
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["issue", "edit"])
             .arg(number.to_string())
             .arg("--repo")
@@ -304,7 +304,7 @@ impl IssueProvider for GitCodeIssueProvider {
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
         debug!(repo = %self.repo, number, label, "spawning `gc issue edit --remove-label`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "edit"])
             .arg(number.to_string())
             .arg("--repo")

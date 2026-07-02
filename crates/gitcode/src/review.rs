@@ -49,7 +49,7 @@ impl ReviewProvider for GitCodeReviewProvider {
     async fn comment(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, "spawning `gc pr review --comment`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "review"])
             .arg(pr_number.to_string())
             .arg("--comment")
@@ -77,7 +77,7 @@ impl ReviewProvider for GitCodeReviewProvider {
     async fn approve(&self, pr_number: u64, body: Option<&str>) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, "spawning `gc pr review --approve`");
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["pr", "review"])
             .arg(pr_number.to_string())
             .arg("--approve")
@@ -109,7 +109,7 @@ impl ReviewProvider for GitCodeReviewProvider {
     async fn request_changes(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, "spawning `gc pr review --request-changes`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["pr", "review"])
             .arg(pr_number.to_string())
             .arg("--request-changes")
@@ -142,7 +142,7 @@ impl ReviewProvider for GitCodeReviewProvider {
     ) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, ?event, "spawning `gc pr review`");
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["pr", "review"])
             .arg(pr_number.to_string())
             .arg("--repo")

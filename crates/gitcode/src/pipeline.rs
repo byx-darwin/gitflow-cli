@@ -139,7 +139,7 @@ impl PipelineProvider for GitCodePipelineProvider {
     async fn status(&self, branch: &str) -> Result<Vec<PipelineStatus>> {
         debug!(repo = %self.repo, branch = %branch, "spawning `gc run list`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["run", "list"])
             .arg("--branch")
             .arg(branch)
@@ -167,7 +167,7 @@ impl PipelineProvider for GitCodePipelineProvider {
     async fn logs(&self, pipeline_id: u64) -> Result<String> {
         debug!(repo = %self.repo, pipeline_id, "spawning `gc run view --log`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["run", "view"])
             .arg(pipeline_id.to_string())
             .arg("--repo")
@@ -189,7 +189,7 @@ impl PipelineProvider for GitCodePipelineProvider {
     async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
         debug!(repo = %self.repo, pipeline_id, "spawning `gc run view --json jobs`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["run", "view"])
             .arg(pipeline_id.to_string())
             .arg("--repo")
@@ -228,7 +228,7 @@ impl PipelineProvider for GitCodePipelineProvider {
             "spawning `gc run list` for report"
         );
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["run", "list"])
             .arg("--branch")
             .arg(branch)

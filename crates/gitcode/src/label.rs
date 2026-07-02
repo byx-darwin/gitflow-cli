@@ -56,7 +56,7 @@ impl LabelProvider for GitCodeLabelProvider {
             "spawning `gc label create`"
         );
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["label", "create"])
             .arg(&args.name)
             .arg("--color")
@@ -87,7 +87,7 @@ impl LabelProvider for GitCodeLabelProvider {
     async fn list(&self) -> Result<Vec<LabelData>> {
         debug!(repo = %self.repo, "spawning `gc label list`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["label", "list"])
             .arg("--repo")
             .arg(&self.repo)
@@ -111,7 +111,7 @@ impl LabelProvider for GitCodeLabelProvider {
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(repo = %self.repo, name, "spawning `gc label edit`");
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["label", "edit"])
             .arg(name)
             .arg("--repo")
@@ -140,7 +140,7 @@ impl LabelProvider for GitCodeLabelProvider {
     async fn delete(&self, name: &str) -> Result<()> {
         debug!(repo = %self.repo, name, "spawning `gc label delete`");
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["label", "delete"])
             .arg(name)
             .arg("--yes")
@@ -162,7 +162,7 @@ impl LabelProvider for GitCodeLabelProvider {
 impl GitCodeLabelProvider {
     /// 获取指定名称的标签数据（内部辅助方法）。
     async fn fetch_label(&self, name: &str) -> Result<LabelData> {
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["label", "view"])
             .arg(name)
             .arg("--repo")
@@ -254,7 +254,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
 
         let api_path = format!("repos/{repo}/milestones", repo = self.repo);
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["api", &api_path, "-X", "POST"])
             .arg("-f")
             .arg(format!("title={}", args.title));
@@ -288,7 +288,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
 
         let api_path = format!("repos/{repo}/milestones", repo = self.repo);
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["api", &api_path])
             .output()
             .await
@@ -310,7 +310,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
 
         let api_path = format!("repos/{repo}/milestones/{number}", repo = self.repo);
 
-        let mut cmd = tokio::process::Command::new("gc");
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["api", &api_path, "-X", "PATCH"]);
 
         cmd.arg("-f").arg(format!("title={}", args.title));
@@ -343,7 +343,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
 
         let api_path = format!("repos/{repo}/milestones/{number}", repo = self.repo);
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["api", &api_path, "-X", "PATCH", "-f", "state=closed"])
             .output()
             .await
@@ -367,7 +367,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
 
         let api_path = format!("repos/{repo}/milestones/{number}", repo = self.repo);
 
-        let output = tokio::process::Command::new("gc")
+        let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["api", &api_path, "-X", "PATCH", "-f", "state=open"])
             .output()
             .await
