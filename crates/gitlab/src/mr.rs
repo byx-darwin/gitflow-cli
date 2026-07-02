@@ -217,7 +217,7 @@ impl PrProvider for GitLabMrProvider {
         if let Some(state) = &args.state {
             cmd.arg("--state").arg(match state {
                 State::Open => "opened",
-                State::Closed => "merged",
+                State::Closed => "closed",
             });
         }
 
