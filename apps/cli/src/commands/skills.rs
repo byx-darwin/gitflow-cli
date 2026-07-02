@@ -75,14 +75,7 @@ impl AgentPlatform {
 // Install target
 // ---------------------------------------------------------------------------
 
-/// Skills 安装目标级别。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum InstallTarget {
-    /// 用户级 — `~/.claude/skills/`（或其他 Agent 对应目录）
-    User,
-    /// 项目级 — 当前仓库 `.claude/skills/`
-    Project,
-}
+// （不再需要 InstallTarget enum — 用 bool global flag 表达）
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -91,7 +84,7 @@ pub enum InstallTarget {
 /// Skills 管理命令集合。
 #[derive(Debug, Subcommand)]
 pub enum SkillsCommand {
-    /// 安装 skills
+    /// 安装 skills（默认项目级 `.claude/skills/`，-g 切换全局）
     Install(InstallArgs),
     /// 列出已安装的 skills
     List(ListArgs),
@@ -102,52 +95,52 @@ pub enum SkillsCommand {
 /// `skills install` 参数。
 #[derive(Debug, Args)]
 pub struct InstallArgs {
-    /// 安装目标级别（默认 user）
-    #[arg(long, value_enum, default_value = "user")]
-    pub target: InstallTarget,
+    /// 安装到全局用户目录（~/.claude/skills/ 或其他 Agent 目录）
+    #[arg(short = 'g', long, action = ArgAction::SetTrue)]
+    pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测，fallback 为 claude）
-    #[arg(long, value_enum)]
+    /// 目标 Agent 平台（仅 -g 时有效，默认自动检测）
+    #[arg(long, value_enum, requires = "global")]
     pub agent: Option<AgentPlatform>,
 
-    /// 自定义安装路径（优先级最高，覆盖 --target 和 --agent）
-    #[arg(long = "path", conflicts_with_all = ["target", "agent"])]
+    /// 自定义安装路径（最高优先级）
+    #[arg(long = "path")]
     pub custom_path: Option<String>,
 
     /// 强制覆盖已存在的 skills
-    #[arg(long, action = ArgAction::SetTrue)]
+    #[arg(short = 'f', long, action = ArgAction::SetTrue)]
     pub force: bool,
 }
 
 /// `skills list` 参数。
 #[derive(Debug, Args)]
 pub struct ListArgs {
-    /// 查找目标级别（默认 user）
-    #[arg(long, value_enum, default_value = "user")]
-    pub target: InstallTarget,
+    /// 列出全局用户目录下的 skills
+    #[arg(short = 'g', long, action = ArgAction::SetTrue)]
+    pub global: bool,
 
-    /// 目标 Agent 平台
-    #[arg(long, value_enum)]
+    /// 目标 Agent 平台（仅 -g 时有效）
+    #[arg(long, value_enum, requires = "global")]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义查找路径
-    #[arg(long = "path", conflicts_with_all = ["target", "agent"])]
+    #[arg(long = "path")]
     pub custom_path: Option<String>,
 }
 
 /// `skills uninstall` 参数。
 #[derive(Debug, Args)]
 pub struct UninstallArgs {
-    /// 卸载目标级别（默认 user）
-    #[arg(long, value_enum, default_value = "user")]
-    pub target: InstallTarget,
+    /// 从全局用户目录卸载
+    #[arg(short = 'g', long, action = ArgAction::SetTrue)]
+    pub global: bool,
 
-    /// 目标 Agent 平台
-    #[arg(long, value_enum)]
+    /// 目标 Agent 平台（仅 -g 时有效）
+    #[arg(long, value_enum, requires = "global")]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义卸载路径
-    #[arg(long = "path", conflicts_with_all = ["target", "agent"])]
+    #[arg(long = "path")]
     pub custom_path: Option<String>,
 }
 
@@ -157,9 +150,9 @@ pub struct UninstallArgs {
 
 /// 解析目标目录。
 ///
-/// 优先级：`custom_path` > `--target` + `--agent`
+/// 优先级：`custom_path` > `-g` 全局 > 项目级（默认）
 fn resolve_target_dir(
-    target: InstallTarget,
+    global: bool,
     agent: Option<AgentPlatform>,
     custom_path: Option<&str>,
 ) -> miette::Result<PathBuf> {
@@ -168,28 +161,24 @@ fn resolve_target_dir(
         return Ok(PathBuf::from(p));
     }
 
-    let platform = agent.unwrap_or_else(AgentPlatform::detect);
-
-    match target {
-        InstallTarget::User => {
-            let home = dirs::home_dir()
-                .ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-            Ok(home.join(platform.skills_dir_name()))
+    if global {
+        let platform = agent.unwrap_or_else(AgentPlatform::detect);
+        let home =
+            dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+        Ok(home.join(platform.skills_dir_name()))
+    } else {
+        // 默认：项目级
+        let output = std::process::Command::new("git")
+            .args(["rev-parse", "--show-toplevel"])
+            .output()
+            .map_err(|e| miette::miette!("无法执行 git rev-parse: {e}"))?;
+        if !output.status.success() {
+            return Err(miette::miette!(
+                "当前目录不在 Git 仓库中，项目级安装需要 Git 仓库。使用 -g 安装到全局目录。"
+            ));
         }
-        InstallTarget::Project => {
-            // 查找当前仓库根目录
-            let output = std::process::Command::new("git")
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .map_err(|e| miette::miette!("无法执行 git rev-parse: {e}"))?;
-            if !output.status.success() {
-                return Err(miette::miette!(
-                    "当前目录不在 Git 仓库中，无法使用 --target project"
-                ));
-            }
-            let repo_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            Ok(PathBuf::from(repo_root).join(".claude").join("skills"))
-        }
+        let repo_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(PathBuf::from(repo_root).join(".claude").join("skills"))
     }
 }
 
@@ -213,7 +202,7 @@ pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
 
 /// 安装 skills。
 fn install_skills(args: &InstallArgs) -> miette::Result<()> {
-    let target = resolve_target_dir(args.target, args.agent, args.custom_path.as_deref())?;
+    let target = resolve_target_dir(args.global, args.agent, args.custom_path.as_deref())?;
     let source = skills_source_dir();
 
     if !source.exists() {
@@ -226,10 +215,8 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     std::fs::create_dir_all(&target)
         .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
 
-    let platform = args
-        .agent
-        .unwrap_or_else(AgentPlatform::detect);
-    println!("目标: {} (agent: {platform:?})", target.display());
+    let level = if args.global { "全局" } else { "项目级" };
+    println!("目标: {} ({level})", target.display());
 
     let mut installed = 0u32;
     let mut skipped = 0u32;
@@ -278,7 +265,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
 
 /// 列出已安装的 skills。
 fn list_skills(args: &ListArgs) -> miette::Result<()> {
-    let target = resolve_target_dir(args.target, args.agent, args.custom_path.as_deref())?;
+    let target = resolve_target_dir(args.global, args.agent, args.custom_path.as_deref())?;
 
     if !target.exists() {
         println!("(未安装任何 skills)");
@@ -312,7 +299,7 @@ fn list_skills(args: &ListArgs) -> miette::Result<()> {
 
 /// 卸载 skills。
 fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
-    let target = resolve_target_dir(args.target, args.agent, args.custom_path.as_deref())?;
+    let target = resolve_target_dir(args.global, args.agent, args.custom_path.as_deref())?;
 
     if !target.exists() {
         println!("(未安装任何 skills)");
@@ -420,20 +407,15 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_user_target() {
-        let dir = resolve_target_dir(InstallTarget::User, Some(AgentPlatform::Claude), None)
-            .expect("resolve");
+    fn test_resolve_global_target() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Claude), None).expect("resolve");
         assert!(dir.ends_with(".claude/skills"));
     }
 
     #[test]
     fn test_resolve_custom_path_overrides_all() {
-        let dir = resolve_target_dir(
-            InstallTarget::User,
-            Some(AgentPlatform::Claude),
-            Some("/tmp/my-skills"),
-        )
-        .expect("resolve");
+        let dir = resolve_target_dir(false, Some(AgentPlatform::Claude), Some("/tmp/my-skills"))
+            .expect("resolve");
         assert_eq!(dir, PathBuf::from("/tmp/my-skills"));
     }
 

@@ -27,3 +27,4 @@ credentials/
 
 # Local runtime caches (bug-reports, etc.)
 .cache/
+.claude/skills/
