@@ -1,126 +1,143 @@
 # gitflow-cli
 
-[![CI](https://github.com/byx-darwin/gitflow-cli/actions/workflows/build.yml/badge.svg)](https://github.com/byx-darwin/gitflow-cli/actions/workflows/build.yml)
+多平台 Git 锻造 CLI + Superpowers Skills 集合，覆盖从需求到交付的完整 AI 编程工程循环。
 
-多平台 Git 锻造 CLI 工具 — 统一 GitHub、GitLab 和 GitCode 的命令行接口。
+## 架构
 
-## 安装
-
-### Homebrew (macOS)
-
-```bash
-brew tap byx-darwin/gitflow-cli
-brew install gitflow-cli
+```
+需求阶段              开发阶段            🔒质量关卡        交付阶段
+(远端)                (本地 Superpowers)   (gitflow)         (远端)
+    │                     │                  │                  │
+    ├─ issue-create       ├─ writing-plans   ├─ build          ├─ pr-create
+    ├─ issue-review       ├─ TDD             ├─ test           ├─ pr-review
+    └─ issue-triage       ├─ subagent-dev    ├─ coverage       └─ release-helper
+                          └─ code-review     ├─ fmt
+                                             └─ clippy
+            ↑                     ↑                  ↑                  ↑
+            └─────────── gitflow-workflow（编排层）────────────────────┘
 ```
 
-### Cargo
+- **Superpowers**：需求澄清 / 原子任务拆解 / TDD / 子代理隔离 / 任务审查 / 收尾
+- **gitflow skills**：Issue 管理 / PR 创建审查 / 跨平台命令 / 安全审计 / Release 发布
+- **`gitflow-workflow`**：两者胶水层，知道每个阶段触发哪个 skill、何时交接
 
-```bash
-cargo install gitflow-cli
-```
+## Skill 矩阵
 
-### 源码编译
+### 编排
 
-```bash
-git clone https://github.com/byx-darwin/gitflow-cli
-cd gitflow-cli
-make build
-```
+| Skill | 做什么 |
+|-------|--------|
+| `gitflow-workflow` | 全流程编排：idea → 需求 → 开发 → 质量关卡 → PR → 合并 → 发布 |
+| `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static |
+
+### Issue 流水线
+
+| Skill | 时机 | 做什么 |
+|-------|------|--------|
+| `gitflow-issue-create` | 提交前 | 引导填 issue → 模板填充 → 创建 |
+| `gitflow-issue-review` | 开发前 | 需求分析 → 完整性检查 → 改进建议 → 回写评论 |
+| `gitflow-issue-triage` | 提交后 | 分类 → 标签 → 优先级 → 分流 |
+
+### PR 流水线
+
+| Skill | 时机 | 做什么 |
+|-------|------|--------|
+| `gitflow-pr-create` | 提交时 | 检查变更 → PR 标题描述 → 提交 |
+| `gitflow-pr-review` | 提交后 | 6 维审查 → 审查结论 → 提交 |
+| `gitflow-pr-inline-review` | 审查时 | 逐文件逐行评论 → 逻辑/安全/命名/边界 |
+| `gitflow-pr-apply-feedback` | 审查后 | 获取反馈 → 逐条本地应用 → 标记 resolved |
+
+### 交付
+
+| Skill | 时机 | 做什么 |
+|-------|------|--------|
+| `gitflow-release-helper` | 发布时 | 分析变更 → 生成 Release Note → 创建 Release |
+| `gitflow-label-stats` | 发布前 | 标签统计 → 优先级分布 → 未分类识别 |
+| `gitflow-pipeline-analyzer` | 发布前 | 流水线健康 → 成功率/失败模式 → 改进建议 |
+
+### 辅助
+
+| Skill | 时机 | 做什么 |
+|-------|------|--------|
+| `gitflow-security-check` | 审查时 | 代码安全审计：凭证/注入/认证/依赖/加密 |
+| `gitflow-precommit` | 提交前 | fmt → clippy → test → 配置 pre-commit hook |
+| `gitflow-regression` | 验证时 | 冒烟测试 → 解析结果 → 失败自动上报 |
+| `gitflow-repo-onboarding` | 入门时 | 仓库结构 → 构建 → 测试 → 贡献流程 |
+| `gitflow-autoreport-bug` | 出错时 | 错误捕获 → 去重 → 自动创建 Issue |
 
 ## 快速开始
 
-```bash
-# 1. 安装 Shell 补全
-gitflow completions --install
-
-# 2. 登录平台
-gitflow auth login
-
-# 3. 创建第一个 Issue
-gitflow issue create --title "feat: my first feature" --label enhancement
-```
-
-## 命令一览
-
-| 命令 | 功能 | 示例 |
-|------|------|------|
-| `gitflow issue {create,list,view,close,reopen,comment}` | Issue 管理 | `gitflow issue list --state open` |
-| `gitflow pr {create,list,view,close,merge,checkout}` | Pull Request 管理 | `gitflow pr create --title "feat: ..." --head my-branch` |
-| `gitflow release {create,list,view,edit}` | 发布管理 | `gitflow release create --tag v1.0.0` |
-| `gitflow review {comment,approve,request-changes,submit}` | 代码审查 | `gitflow review approve 42` |
-| `gitflow auth {login,logout,status,token}` | 认证管理 | `gitflow auth status` |
-| `gitflow label {create,list,edit,delete}` | 标签管理 | `gitflow label create --name "bug" --color "d73a4a"` |
-| `gitflow milestone {create,list,edit,close,reopen}` | 里程碑管理 | `gitflow milestone list` |
-| `gitflow commit {view,diff,patch,comment}` | 提交操作 | `gitflow commit diff abc123` |
-| `gitflow pipeline {status,logs,jobs,report}` | CI/CD 流水线 | `gitflow pipeline report --days 7` |
-| `gitflow skills {install,list,uninstall}` | Skills 管理 | `gitflow skills install` |
-| `gitflow completions {bash,zsh,fish}` | Shell 补全 | `gitflow completions --install` |
-
-支持 `--platform github|gitlab|gitcode` 和 `--output json|text` 全局参数。
-
-## Skills 列表（26 个）
-
-### 核心命令层
-
-| Skill | 说明 |
-|-------|------|
-| gitflow-issue | Issue 操作命令封装 |
-| gitflow-issue-create | Issue 创建引导工作流 |
-| gitflow-pr | PR 操作命令封装 |
-| gitflow-pr-create | PR 创建引导工作流 |
-| gitflow-release | Release 操作命令封装 |
-| gitflow-review | 代码审查命令封装 |
-| gitflow-auth | 认证操作命令封装 |
-| gitflow-commit | Commit 操作命令封装 |
-| gitflow-label-milestone | Label 和 Milestone 命令封装 |
-| gitflow-repo | 仓库操作命令封装 |
-
-### 工作流层
-
-| Skill | 说明 |
-|-------|------|
-| gitflow-pr-review | 6 维度代码审查工作流 |
-| gitflow-issue-review | Issue 需求分析 |
-| gitflow-issue-triage | Issue 分类分流 |
-| gitflow-pr-inline-review | PR 行内评论 |
-| gitflow-pr-apply-feedback | 应用审查反馈 |
-| gitflow-release-helper | 发布助手 |
-| gitflow-pipeline-analyzer | 流水线分析 |
-| gitflow-repo-onboarding | 仓库入门指引 |
-| gitflow-security-check | 安全审计工作流 |
-
-### 研发辅助层
-
-| Skill | 说明 |
-|-------|------|
-| gitflow-workflow | 工作流编排 |
-| gitflow-quality | 质量门检查 |
-| gitflow-precommit | Pre-commit 检查 |
-| gitflow-regression | 冒烟测试 |
-| gitflow-label-stats | 标签统计分析 |
-| gitflow-autoreport-bug | Bug 自动上报 |
-
-## 开发
+### Step 1：安装 gitflow-cli
 
 ```bash
-# 安装开发工具
-make install-tools
+# Homebrew (macOS)
+brew tap byx-darwin/gitflow-cli
+brew install gitflow-cli
 
-# 构建
-make build
-
-# 运行测试
-make test
-
-# 代码检查
-make lint
-
-# TDD 开发模式
-make test-watch
+# 或 Cargo
+cargo install gitflow-cli
 ```
 
-详见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [CLAUDE.md](CLAUDE.md)。
+### Step 2：安装 Skills
 
-## 许可证
+```bash
+# 项目级（推荐 — 跟随仓库）
+gitflow skills install
 
-MIT — 详见 [LICENSE.md](LICENSE.md)。
+# 全局（所有项目可用）
+gitflow skills install -g
+```
+
+### Step 3：验证
+
+```bash
+gitflow skills list
+# 应看到 25 个 gitflow-* skills
+
+gitflow --version
+# gitflow-cli 0.1.0
+```
+
+### Step 4：开始开发
+
+```
+/开发工作流，我要做 X
+```
+
+## 典型工作流
+
+```
+"I have an idea"         → brainstorming → issue-create → issue-review
+"Let me implement"       → writing-plans → TDD → subagent-dev
+"Code is ready, ship it" → pr-create → pr-review → merge → release-helper
+```
+
+## CLI 命令一览
+
+| 命令 | 用途 |
+|------|------|
+| `gitflow issue {create,list,view,close,reopen,comment}` | Issue 管理 |
+| `gitflow pr {create,list,view,close,merge,checkout}` | PR 管理 |
+| `gitflow release {create,list,view,edit}` | 发布管理 |
+| `gitflow review {comment,approve,request-changes,submit}` | 代码审查 |
+| `gitflow auth {login,logout,status,token}` | 认证管理 |
+| `gitflow pipeline {status,logs,jobs,report}` | CI/CD 流水线 |
+| `gitflow commit {view,diff,patch,comment}` | 提交操作 |
+| `gitflow label/milestone` | 标签/里程碑管理 |
+| `gitflow repo {clone,list,create,stats,sync,view}` | 仓库操作 |
+| `gitflow skills {install,list,uninstall}` | Skills 管理 |
+| `gitflow completions {bash,zsh,fish}` | Shell 补全 |
+
+支持 `--platform github|gitlab|gitcode` 和 `--output json|text`。
+
+## 设计原则
+
+- **步骤化工作流**：每个 skill 有明确的步骤顺序，不跳步
+- **先验证再行动**：PR 创建前检查分支和变更；Issue 创建前引导填写模板
+- **生态互补**：本地开发循环 (Superpowers) + 远端协作 (gitflow) 明确分工
+- **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot
+- **质量门闸门**：build → test → coverage → format → static 全部通过才能交付
+
+## 贡献
+
+详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
