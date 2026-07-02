@@ -10,21 +10,29 @@ use serde::{Deserialize, Serialize};
 ///
 /// Contains the minimal identifying information needed to reference
 /// a user across API responses.
+///
+/// Note: `id` is a `String` because GitHub's `gh` CLI returns GraphQL
+/// node IDs (e.g. `"U_kgDOCfuwhg"`), while GitLab/GitCode use numeric IDs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSummary {
     /// The user's login name.
     pub login: String,
-    /// The user's numeric ID.
-    pub id: u64,
+    /// The user's platform ID (GraphQL node ID on GitHub, numeric on GitLab/GitCode).
+    pub id: String,
 }
 
 /// The state of an Issue or Pull Request.
+///
+/// Uses `snake_case` for serialization (`"open"`/`"closed"`), with
+/// uppercase aliases for GitHub's `gh` CLI output (`"OPEN"`/`"CLOSED"`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
     /// Open and active.
+    #[serde(alias = "OPEN")]
     Open,
     /// Closed or merged.
+    #[serde(alias = "CLOSED")]
     Closed,
 }
 
@@ -120,21 +128,21 @@ mod tests {
 
     #[test]
     fn test_should_deserialize_user_summary_from_json() {
-        let json = r#"{"login":"octocat","id":12345}"#;
+        let json = r#"{"login":"octocat","id":"12345"}"#;
         let user: UserSummary = serde_json::from_str(json).expect("valid UserSummary");
         assert_eq!(user.login, "octocat");
-        assert_eq!(user.id, 12345);
+        assert_eq!(user.id, "12345");
     }
 
     #[test]
     fn test_should_serialize_user_summary_to_json() {
         let user = UserSummary {
             login: "octocat".into(),
-            id: 12345,
+            id: "12345".to_string(),
         };
         let json = serde_json::to_string(&user).expect("serialize UserSummary");
         assert!(json.contains("\"login\":\"octocat\""));
-        assert!(json.contains("\"id\":12345"));
+        assert!(json.contains("\"id\":\"12345\""));
     }
 
     #[test]
@@ -173,7 +181,7 @@ mod tests {
     fn test_should_derive_debug_for_user_summary() {
         let user = UserSummary {
             login: "test".into(),
-            id: 1,
+            id: "1".to_string(),
         };
         let debug = format!("{user:?}");
         assert!(debug.contains("UserSummary"));
@@ -204,7 +212,7 @@ mod tests {
     fn test_should_derive_clone_for_user_summary() {
         let user = UserSummary {
             login: "test".into(),
-            id: 42,
+            id: "42".to_string(),
         };
         let cloned = user.clone();
         assert_eq!(user.login, cloned.login);
@@ -229,14 +237,14 @@ mod tests {
         let json = r#"{
             "id": 99,
             "body": "Looks good!",
-            "author": {"login": "reviewer", "id": 5},
+            "author": {"login": "reviewer", "id": "5"},
             "createdAt": "2026-05-20T14:30:00Z"
         }"#;
         let comment: CommentData = serde_json::from_str(json).expect("valid CommentData");
         assert_eq!(comment.id, 99);
         assert_eq!(comment.body, "Looks good!");
         assert_eq!(comment.author.login, "reviewer");
-        assert_eq!(comment.author.id, 5);
+        assert_eq!(comment.author.id, "5");
     }
 
     #[test]
@@ -246,7 +254,7 @@ mod tests {
             body: "test comment".into(),
             author: UserSummary {
                 login: "alice".into(),
-                id: 7,
+                id: "7".to_string(),
             },
             created_at: "2026-01-01T00:00:00Z".parse().expect("valid date"),
         };
@@ -263,7 +271,7 @@ mod tests {
             body: "hello".into(),
             author: UserSummary {
                 login: "bob".into(),
-                id: 3,
+                id: "3".to_string(),
             },
             created_at: "2026-03-15T10:00:00Z".parse().expect("valid date"),
         };
@@ -282,7 +290,7 @@ mod tests {
             body: "hi".into(),
             author: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             created_at: "2026-01-01T00:00:00Z".parse().expect("valid date"),
         };

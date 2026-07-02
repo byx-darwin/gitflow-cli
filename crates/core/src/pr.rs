@@ -178,7 +178,7 @@ mod tests {
             "body": "Implements X per spec.",
             "state": "open",
             "draft": false,
-            "author": {"login": "alice", "id": 7},
+            "author": {"login": "alice", "id": "7"},
             "baseBranch": "main",
             "headBranch": "feature/x",
             "createdAt": "2026-02-10T08:00:00Z",
@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(pr.state, State::Open);
         assert!(!pr.draft);
         assert_eq!(pr.author.login, "alice");
-        assert_eq!(pr.author.id, 7);
+        assert_eq!(pr.author.id, "7");
         assert_eq!(pr.base_branch, "main");
         assert_eq!(pr.head_branch, "feature/x");
         assert_eq!(pr.url, "https://github.com/octocat/hello-world/pull/101");
@@ -231,7 +231,7 @@ mod tests {
             "body": null,
             "state": "open",
             "draft": true,
-            "author": {"login": "bob", "id": 9},
+            "author": {"login": "bob", "id": "9"},
             "baseBranch": "main",
             "headBranch": "wip",
             "createdAt": "2026-04-01T00:00:00Z",

@@ -206,7 +206,7 @@ mod tests {
             "id": 2001,
             "state": "approved",
             "body": "Looks great, LGTM!",
-            "author": {"login": "reviewer", "id": 42},
+            "author": {"login": "reviewer", "id": "42"},
             "submittedAt": "2026-05-20T14:30:00Z"
         }"#;
 
@@ -215,7 +215,7 @@ mod tests {
         assert_eq!(review.state, ReviewState::Approved);
         assert_eq!(review.body.as_deref(), Some("Looks great, LGTM!"));
         assert_eq!(review.author.login, "reviewer");
-        assert_eq!(review.author.id, 42);
+        assert_eq!(review.author.id, "42");
     }
 
     #[test]
@@ -224,7 +224,7 @@ mod tests {
             "id": 2002,
             "state": "changes_requested",
             "body": "Please fix the error handling",
-            "author": {"login": "senior-dev", "id": 7},
+            "author": {"login": "senior-dev", "id": "7"},
             "submittedAt": "2026-05-21T09:00:00Z"
         }"#;
 
@@ -242,7 +242,7 @@ mod tests {
             "id": 2003,
             "state": "commented",
             "body": null,
-            "author": {"login": "observer", "id": 15},
+            "author": {"login": "observer", "id": "15"},
             "submittedAt": "2026-05-22T11:00:00Z"
         }"#;
 

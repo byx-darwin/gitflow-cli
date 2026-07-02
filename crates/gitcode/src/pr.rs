@@ -446,7 +446,7 @@ mod tests {
             "body": "This PR adds a new feature",
             "state": "open",
             "draft": false,
-            "author": {"login": "alice", "id": 2},
+            "author": {"login": "alice", "id": "2"},
             "baseBranch": "main",
             "headBranch": "feature/new-thing",
             "createdAt": "2026-02-20T14:00:00Z",
@@ -480,7 +480,7 @@ mod tests {
             "body": null,
             "state": "open",
             "draft": true,
-            "author": {"login": "bob", "id": 3},
+            "author": {"login": "bob", "id": "3"},
             "baseBranch": "main",
             "headBranch": "wip/experiment",
             "createdAt": "2026-03-10T09:00:00Z",
@@ -510,7 +510,7 @@ mod tests {
             "body": "Superseded by #55",
             "state": "closed",
             "draft": false,
-            "author": {"login": "dev", "id": 10},
+            "author": {"login": "dev", "id": "10"},
             "baseBranch": "main",
             "headBranch": "feature/obsolete",
             "createdAt": "2026-05-01T08:00:00Z",
@@ -531,7 +531,7 @@ mod tests {
             "body": "Actually still needed",
             "state": "open",
             "draft": false,
-            "author": {"login": "dev", "id": 10},
+            "author": {"login": "dev", "id": "10"},
             "baseBranch": "main",
             "headBranch": "feature/obsolete",
             "createdAt": "2026-05-01T08:00:00Z",
@@ -549,7 +549,7 @@ mod tests {
         let gc_json = br#"{
             "id": 2002,
             "body": "Approved, merging now.",
-            "author": {"login": "reviewer", "id": 88},
+            "author": {"login": "reviewer", "id": "88"},
             "createdAt": "2026-06-20T16:00:00Z"
         }"#;
 
@@ -557,7 +557,7 @@ mod tests {
         assert_eq!(comment.id, 2002);
         assert_eq!(comment.body, "Approved, merging now.");
         assert_eq!(comment.author.login, "reviewer");
-        assert_eq!(comment.author.id, 88);
+        assert_eq!(comment.author.id, "88");
     }
 
     #[test]

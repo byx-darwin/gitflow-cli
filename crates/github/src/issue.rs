@@ -354,8 +354,8 @@ mod tests {
             "labels": [
                 {"name": "bug", "color": "d73a4a", "description": "Something isn't working"}
             ],
-            "author": {"login": "octocat", "id": 1},
-            "assignees": [{"login": "alice", "id": 7}],
+            "author": {"login": "octocat", "id": "1"},
+            "assignees": [{"login": "alice", "id": "7"}],
             "createdAt": "2026-01-15T09:30:00Z",
             "updatedAt": "2026-01-16T11:00:00Z",
             "url": "https://github.com/octocat/hello-world/issues/42"
@@ -400,7 +400,7 @@ mod tests {
             "body": null,
             "state": "closed",
             "labels": [],
-            "author": {"login": "dev", "id": 5},
+            "author": {"login": "dev", "id": "5"},
             "assignees": [],
             "createdAt": "2026-06-01T08:00:00Z",
             "updatedAt": "2026-06-02T12:00:00Z",
@@ -421,7 +421,7 @@ mod tests {
             "body": null,
             "state": "open",
             "labels": [],
-            "author": {"login": "dev", "id": 5},
+            "author": {"login": "dev", "id": "5"},
             "assignees": [],
             "createdAt": "2026-06-01T08:00:00Z",
             "updatedAt": "2026-06-03T09:00:00Z",
@@ -441,7 +441,7 @@ mod tests {
         let gh_json = br#"{
             "id": 1001,
             "body": "Thanks for reporting, looking into it.",
-            "author": {"login": "maintainer", "id": 42},
+            "author": {"login": "maintainer", "id": "42"},
             "createdAt": "2026-06-15T14:00:00Z"
         }"#;
 
@@ -449,7 +449,7 @@ mod tests {
         assert_eq!(comment.id, 1001);
         assert_eq!(comment.body, "Thanks for reporting, looking into it.");
         assert_eq!(comment.author.login, "maintainer");
-        assert_eq!(comment.author.id, 42);
+        assert_eq!(comment.author.id, "42");
     }
 
     #[test]
@@ -459,7 +459,7 @@ mod tests {
             body: "reviewed".into(),
             author: UserSummary {
                 login: "alice".into(),
-                id: 3,
+                id: "3".to_string(),
             },
             created_at: "2026-05-01T00:00:00Z".parse().expect("valid date"),
         };

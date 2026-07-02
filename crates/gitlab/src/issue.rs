@@ -59,7 +59,7 @@ impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.username.clone(),
-            id: u.id,
+            id: u.id.to_string(),
         }
     }
 }
@@ -101,7 +101,7 @@ impl From<IssueApiResponse> for IssueData {
         let author = api.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             },
             UserSummary::from,
         );
@@ -142,7 +142,7 @@ impl From<CommentApiResponse> for CommentData {
         let author = api.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             },
             UserSummary::from,
         );
@@ -496,7 +496,7 @@ mod tests {
         let api: IssueApiResponse = serde_json::from_slice(json).expect("valid IssueApiResponse");
         let issue: IssueData = api.into();
         assert_eq!(issue.author.login, "unknown");
-        assert_eq!(issue.author.id, 0);
+        assert_eq!(issue.author.id, "0");
     }
 
     #[test]

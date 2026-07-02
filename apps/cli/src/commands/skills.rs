@@ -16,8 +16,9 @@
     reason = "Skills command runs synchronously before the tokio runtime is constructed"
 )]
 
-use clap::{ArgAction, Args, Subcommand, ValueEnum};
 use std::path::PathBuf;
+
+use clap::{ArgAction, Args, Subcommand, ValueEnum};
 
 // ---------------------------------------------------------------------------
 // Agent platform
@@ -171,8 +172,7 @@ fn resolve_target_dir(
 
     if global {
         let platform = agent.unwrap_or_else(AgentPlatform::detect);
-        let home =
-            dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+        let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
         Ok(home.join(platform.skills_dir_name()))
     } else {
         // 默认：项目级
@@ -214,10 +214,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     let source = skills_source_dir();
 
     if !source.exists() {
-        return Err(miette::miette!(
-            "Skills 源目录不存在: {}",
-            source.display()
-        ));
+        return Err(miette::miette!("Skills 源目录不存在: {}", source.display()));
     }
 
     std::fs::create_dir_all(&target)
@@ -244,9 +241,8 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
         let dest = target.join(&name);
         if dest.exists() {
             if args.force {
-                std::fs::remove_dir_all(&dest).map_err(|e| {
-                    miette::miette!("无法删除旧版本 {}: {e}", dest.display())
-                })?;
+                std::fs::remove_dir_all(&dest)
+                    .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
                 copy_dir_all(&entry.path(), &dest)
                     .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
                 println!("♻ 已覆盖: {name_str}");
@@ -265,9 +261,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     }
 
     println!();
-    println!(
-        "安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个"
-    );
+    println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
     Ok(())
 }
 
@@ -383,18 +377,12 @@ mod tests {
 
     #[test]
     fn test_agent_platform_claude_dir() {
-        assert_eq!(
-            AgentPlatform::Claude.skills_dir_name(),
-            ".claude/skills"
-        );
+        assert_eq!(AgentPlatform::Claude.skills_dir_name(), ".claude/skills");
     }
 
     #[test]
     fn test_agent_platform_codex_dir() {
-        assert_eq!(
-            AgentPlatform::Codex.skills_dir_name(),
-            ".codex/skills"
-        );
+        assert_eq!(AgentPlatform::Codex.skills_dir_name(), ".codex/skills");
     }
 
     #[test]

@@ -146,7 +146,7 @@ impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.username.clone(),
-            id: u.id,
+            id: u.id.to_string(),
         }
     }
 }
@@ -160,7 +160,7 @@ impl From<CommitApiResponse> for CommitDetail {
             } else {
                 api.author_name.clone()
             },
-            id: 0,
+            id: "0".to_string(),
         };
         let committer = UserSummary {
             login: if api.committer_name.is_empty() {
@@ -168,7 +168,7 @@ impl From<CommitApiResponse> for CommitDetail {
             } else {
                 api.committer_name.clone()
             },
-            id: 0,
+            id: "0".to_string(),
         };
 
         Self {

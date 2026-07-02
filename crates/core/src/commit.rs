@@ -131,8 +131,8 @@ mod tests {
         r#"{
             "sha": "abc1234567890def",
             "message": "Fix login redirect loop\n\nThe auth middleware was missing a redirect check.",
-            "author": {"login": "alice", "id": 7},
-            "committer": {"login": "bob", "id": 12},
+            "author": {"login": "alice", "id": "7"},
+            "committer": {"login": "bob", "id": "12"},
             "additions": 15,
             "deletions": 3,
             "filesChanged": 2
@@ -185,11 +185,11 @@ mod tests {
             message: "test".into(),
             author: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             committer: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             additions: 0,
             deletions: 0,
@@ -206,8 +206,8 @@ mod tests {
         r#"{
             "sha": "deadbeef1234",
             "message": "Add unit tests for auth module",
-            "author": {"login": "tester", "id": 99},
-            "committer": {"login": "tester", "id": 99},
+            "author": {"login": "tester", "id": "99"},
+            "committer": {"login": "tester", "id": "99"},
             "diff": "--- a/auth.rs\n+++ b/auth.rs\n@@ -1,3 +1,5 @@\n+use chrono::Utc;\n",
             "files": [
                 {"filename": "auth.rs", "additions": 10, "deletions": 0, "status": "modified"}
@@ -246,11 +246,11 @@ mod tests {
             message: "no diff".into(),
             author: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             committer: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             diff: None,
             files: vec![],
@@ -280,11 +280,11 @@ mod tests {
             message: "test".into(),
             author: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             committer: UserSummary {
                 login: "u".into(),
-                id: 1,
+                id: "1".to_string(),
             },
             diff: None,
             files: vec![],

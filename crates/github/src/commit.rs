@@ -100,14 +100,14 @@ struct CommitFileResponse {
 #[serde(rename_all = "camelCase")]
 struct ApiUser {
     login: String,
-    id: u64,
+    id: String,
 }
 
 impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.login.clone(),
-            id: u.id,
+            id: u.id.to_string(),
         }
     }
 }
@@ -150,7 +150,7 @@ impl From<CommitApiResponse> for CommitDetail {
 fn fallback_user(_inner: Option<&CommitAuthorInner>) -> UserSummary {
     UserSummary {
         login: "unknown".into(),
-        id: 0,
+        id: "0".to_string(),
     }
 }
 
@@ -296,8 +296,8 @@ mod tests {
                 "author": {"date": "2026-01-15T09:30:00Z"},
                 "committer": {"date": "2026-01-15T09:30:00Z"}
             },
-            "author": {"login": "alice", "id": 7},
-            "committer": {"login": "bob", "id": 12},
+            "author": {"login": "alice", "id": "7"},
+            "committer": {"login": "bob", "id": "12"},
             "stats": {"additions": 15, "deletions": 3, "total": 18},
             "files": [
                 {"filename": "auth.rs", "additions": 10, "deletions": 0, "status": "modified"},
@@ -353,21 +353,21 @@ mod tests {
 
     #[test]
     fn test_should_deserialize_api_user() {
-        let json = br#"{"login":"octocat","id":583231}"#;
+        let json = br#"{"login":"octocat","id":"583231"}"#;
         let user: ApiUser = serde_json::from_slice(json).expect("valid ApiUser");
         assert_eq!(user.login, "octocat");
-        assert_eq!(user.id, 583_231);
+        assert_eq!(user.id, "583231");
     }
 
     #[test]
     fn test_should_convert_api_user_to_user_summary() {
         let user = ApiUser {
             login: "alice".into(),
-            id: 42,
+            id: "42".to_string(),
         };
         let summary: UserSummary = (&user).into();
         assert_eq!(summary.login, "alice");
-        assert_eq!(summary.id, 42);
+        assert_eq!(summary.id, "42");
     }
 
     #[test]
@@ -381,11 +381,11 @@ mod tests {
             },
             author: Some(ApiUser {
                 login: "dev".into(),
-                id: 1,
+                id: "1".to_string(),
             }),
             committer: Some(ApiUser {
                 login: "dev".into(),
-                id: 1,
+                id: "1".to_string(),
             }),
             stats: Some(CommitStats {
                 additions: 10,

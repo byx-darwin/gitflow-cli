@@ -75,7 +75,7 @@ impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.username.clone(),
-            id: u.id,
+            id: u.id.to_string(),
         }
     }
 }
@@ -122,7 +122,7 @@ impl ReviewProvider for GitLabReviewProvider {
         let author = note.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             },
             UserSummary::from,
         );
@@ -165,7 +165,7 @@ impl ReviewProvider for GitLabReviewProvider {
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let author = self.get_current_user().await.unwrap_or(UserSummary {
             login: "unknown".into(),
-            id: 0,
+            id: "0".to_string(),
         });
 
         Ok(ReviewData {
@@ -218,7 +218,7 @@ impl ReviewProvider for GitLabReviewProvider {
         let author = note.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             },
             UserSummary::from,
         );
@@ -276,7 +276,7 @@ impl GitLabReviewProvider {
         if !output.status.success() {
             return Ok(UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             });
         }
 
@@ -291,7 +291,7 @@ impl GitLabReviewProvider {
 
         Ok(UserSummary {
             login: "unknown".into(),
-            id: 0,
+            id: "0".to_string(),
         })
     }
 }

@@ -132,7 +132,7 @@ mod tests {
             "id": 2001,
             "state": "approved",
             "body": "Looks great, LGTM!",
-            "author": {"login": "reviewer", "id": 42},
+            "author": {"login": "reviewer", "id": "42"},
             "submittedAt": "2026-05-20T14:30:00Z"
         }"#
     }
@@ -144,7 +144,7 @@ mod tests {
             "body": "Consider using `Result` here",
             "line": 42,
             "diffHunk": "@@ -40,3 +40,5 @@ fn main()",
-            "author": {"login": "alice", "id": 7},
+            "author": {"login": "alice", "id": "7"},
             "createdAt": "2026-05-19T10:00:00Z"
         }"#
     }
@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(review.state, ReviewState::Approved);
         assert_eq!(review.body.as_deref(), Some("Looks great, LGTM!"));
         assert_eq!(review.author.login, "reviewer");
-        assert_eq!(review.author.id, 42);
+        assert_eq!(review.author.id, "42");
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod tests {
             Some("@@ -40,3 +40,5 @@ fn main()")
         );
         assert_eq!(comment.author.login, "alice");
-        assert_eq!(comment.author.id, 7);
+        assert_eq!(comment.author.id, "7");
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod tests {
             diff_hunk: None,
             author: UserSummary {
                 login: "bob".into(),
-                id: 3,
+                id: "3".to_string(),
             },
             created_at: "2026-01-01T00:00:00Z".parse().expect("valid date"),
         };
@@ -286,7 +286,7 @@ mod tests {
             "id": 10,
             "state": "commented",
             "body": null,
-            "author": {"login": "u", "id": 1},
+            "author": {"login": "u", "id": "1"},
             "submittedAt": "2026-06-01T00:00:00Z"
         }"#;
         let review: ReviewData = serde_json::from_str(json).expect("deserialize");

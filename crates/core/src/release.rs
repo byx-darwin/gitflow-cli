@@ -139,7 +139,7 @@ mod tests {
             "body": "Initial stable release",
             "draft": false,
             "prerelease": false,
-            "author": {"login": "octocat", "id": 1},
+            "author": {"login": "octocat", "id": "1"},
             "createdAt": "2026-01-01T00:00:00Z",
             "publishedAt": "2026-01-15T12:00:00Z",
             "url": "https://github.com/octocat/hello-world/releases/tag/v1.0.0"
@@ -158,7 +158,7 @@ mod tests {
         assert!(!release.draft);
         assert!(!release.prerelease);
         assert_eq!(release.author.login, "octocat");
-        assert_eq!(release.author.id, 1);
+        assert_eq!(release.author.id, "1");
         assert_eq!(
             release.url,
             "https://github.com/octocat/hello-world/releases/tag/v1.0.0"
@@ -193,7 +193,7 @@ mod tests {
             "body": null,
             "draft": true,
             "prerelease": true,
-            "author": {"login": "dev", "id": 99},
+            "author": {"login": "dev", "id": "99"},
             "createdAt": "2026-03-01T00:00:00Z",
             "publishedAt": null,
             "url": "https://example.com/releases/5"

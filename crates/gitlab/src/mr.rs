@@ -59,7 +59,7 @@ impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.username.clone(),
-            id: u.id,
+            id: u.id.to_string(),
         }
     }
 }
@@ -99,7 +99,7 @@ impl From<MrApiResponse> for PrData {
         let author = api.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             },
             UserSummary::from,
         );
@@ -137,7 +137,7 @@ impl From<CommentApiResponse> for CommentData {
         let author = api.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
-                id: 0,
+                id: "0".to_string(),
             },
             UserSummary::from,
         );

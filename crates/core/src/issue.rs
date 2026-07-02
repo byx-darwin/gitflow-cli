@@ -158,8 +158,8 @@ mod tests {
             "labels": [
                 {"name": "bug", "color": "d73a4a", "description": "Something isn't working"}
             ],
-            "author": {"login": "octocat", "id": 1},
-            "assignees": [{"login": "alice", "id": 7}],
+            "author": {"login": "octocat", "id": "1"},
+            "assignees": [{"login": "alice", "id": "7"}],
             "createdAt": "2026-01-15T09:30:00Z",
             "updatedAt": "2026-01-16T11:00:00Z",
             "url": "https://github.com/octocat/hello-world/issues/42"
@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(issue.labels[0].name, "bug");
         assert_eq!(issue.labels[0].color.as_deref(), Some("d73a4a"));
         assert_eq!(issue.author.login, "octocat");
-        assert_eq!(issue.author.id, 1);
+        assert_eq!(issue.author.id, "1");
         assert_eq!(issue.assignees.len(), 1);
         assert_eq!(issue.assignees[0].login, "alice");
         assert_eq!(
@@ -213,7 +213,7 @@ mod tests {
             "body": null,
             "state": "closed",
             "labels": [],
-            "author": {"login": "u", "id": 2},
+            "author": {"login": "u", "id": "2"},
             "assignees": [],
             "createdAt": "2026-02-01T00:00:00Z",
             "updatedAt": "2026-02-02T00:00:00Z",
@@ -243,7 +243,7 @@ mod tests {
             "number": 7,
             "title": "t",
             "state": "open",
-            "author": {"login": "u", "id": 3},
+            "author": {"login": "u", "id": "3"},
             "createdAt": "2026-03-01T00:00:00Z",
             "updatedAt": "2026-03-02T00:00:00Z",
             "url": "https://example.com/7"

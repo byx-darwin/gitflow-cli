@@ -119,7 +119,7 @@ impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.login.clone(),
-            id: u.id,
+            id: u.id.to_string(),
         }
     }
 }
@@ -162,7 +162,7 @@ impl From<CommitApiResponse> for CommitDetail {
 fn fallback_user(_inner: Option<&CommitAuthorInner>) -> UserSummary {
     UserSummary {
         login: "unknown".into(),
-        id: 0,
+        id: "0".to_string(),
     }
 }
 
@@ -368,7 +368,7 @@ mod tests {
         let json = br#"{"login":"octocat","id":583231}"#;
         let user: ApiUser = serde_json::from_slice(json).expect("valid ApiUser");
         assert_eq!(user.login, "octocat");
-        assert_eq!(user.id, 583_231);
+        assert_eq!(user.id, 583231);
     }
 
     #[test]
@@ -379,7 +379,7 @@ mod tests {
         };
         let summary: UserSummary = (&user).into();
         assert_eq!(summary.login, "alice");
-        assert_eq!(summary.id, 42);
+        assert_eq!(summary.id, "42");
     }
 
     #[test]
