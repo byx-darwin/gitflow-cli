@@ -72,6 +72,13 @@ pub use release::GitCodeReleaseProvider;
 pub use review::GitCodeReviewProvider;
 
 /// Return the platform-appropriate GitCode CLI binary name.
+///
+/// On all platforms, prefer `gitcode` (cross-platform, installed by pip/wheel).
+/// On Linux/macOS, fall back to `gc` if `gitcode` is not found.
 pub(crate) fn gitcode_binary() -> &'static str {
-    if cfg!(windows) { "gitcode" } else { "gc" }
+    if which::which("gitcode").is_ok() {
+        "gitcode"
+    } else {
+        "gc"
+    }
 }

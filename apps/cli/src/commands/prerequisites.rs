@@ -140,22 +140,27 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
         platform: platform.into(),
     })?;
 
-    // 1. PATH 检查
-    let path = which::which(req.binary).map_err(|_| PrerequisiteError::NotFound {
-        binary: req.binary.into(),
-        platform: platform.into(),
-        install_hint: req.install_hint.into(),
-        install_url: req.install_url.into(),
-        install_cmd: req.install_cmd.into(),
-    })?;
+    // 1. PATH 检查（gitcode 平台同时尝试 gc 和 gitcode，选择版本检测成功的）
+    let (binary, path, version) = if platform == "gitcode" {
+        find_gitcode_cli(platform)?
+    } else {
+        let path = which::which(req.binary).map_err(|_| PrerequisiteError::NotFound {
+            binary: req.binary.into(),
+            platform: platform.into(),
+            install_hint: req.install_hint.into(),
+            install_url: req.install_url.into(),
+            install_cmd: req.install_cmd.into(),
+        })?;
+        let version = get_version(req.binary, platform)?;
+        (req.binary, path, version)
+    };
 
-    tracing::debug!(binary = req.binary, path = %path.display(), "Found native CLI");
+    tracing::debug!(binary, path = %path.display(), "Found native CLI");
 
     // 2. 版本检查
-    let version = get_version(req.binary, platform)?;
     if !version_meets_minimum(&version, req.min_version) {
         return Err(PrerequisiteError::VersionTooLow {
-            binary: req.binary.into(),
+            binary: binary.into(),
             platform: platform.into(),
             found: version,
             required: req.min_version.into(),
@@ -164,23 +169,23 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
     }
 
     tracing::debug!(
-        binary = req.binary,
+        binary,
         found = version,
         minimum = req.min_version,
         "Version OK"
     );
 
     // 3. 认证检查
-    if !is_authenticated(req.binary, platform) {
+    if !is_authenticated(binary, platform) {
         return Err(PrerequisiteError::NotAuthenticated {
-            binary: req.binary.into(),
+            binary: binary.into(),
             platform: platform.into(),
             login_cmd: req.login_cmd.into(),
             login_with_token: req.login_with_token.into(),
         });
     }
 
-    tracing::debug!(binary = req.binary, "Authenticated");
+    tracing::debug!(binary, "Authenticated");
     Ok(())
 }
 
@@ -208,20 +213,70 @@ fn is_authenticated(binary: &str, platform: &str) -> bool {
     }
 }
 
+/// Try to locate and validate a GitCode CLI binary.
+///
+/// GitCode has two binary names (`gc` on Linux/macOS, `gitcode` cross-platform),
+/// and uses `version` subcommand instead of `--version`. This function tries
+/// `gc` first, then `gitcode`, returning the first one that passes version detection.
+fn find_gitcode_cli(
+    platform: &str,
+) -> Result<(&'static str, std::path::PathBuf, String), PrerequisiteError> {
+    let install_cmd = requirement_for(platform).map_or("", |r| r.install_cmd);
+
+    for &binary in &["gc", "gitcode"] {
+        // 1. 常规 PATH 搜索
+        if let Ok(path) = which::which(binary) {
+            if let Ok(v) = get_version(binary, platform) {
+                return Ok((binary, path, v));
+            }
+        }
+
+        // 2. pip 用户安装路径（macOS ~/Library/Python/X.Y/bin/）
+        if let Ok(home) = std::env::var("HOME") {
+            let lib = std::path::PathBuf::from(&home).join("Library/Python");
+            if let Ok(entries) = std::fs::read_dir(&lib) {
+                for entry in entries.flatten() {
+                    let p = entry.path().join("bin").join(binary);
+                    if p.exists() {
+                        if let Ok(v) = get_version(&p.to_string_lossy(), platform) {
+                            return Ok((binary, p, v));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Err(PrerequisiteError::NotFound {
+        binary: "gitcode/gc".into(),
+        platform: platform.into(),
+        install_hint: requirement_for(platform)
+            .map_or("", |r| r.install_hint)
+            .into(),
+        install_url: requirement_for(platform)
+            .map_or("", |r| r.install_url)
+            .into(),
+        install_cmd: install_cmd.into(),
+    })
+}
+
 fn get_version(binary: &str, platform: &str) -> Result<String, PrerequisiteError> {
     let install_cmd = requirement_for(platform).map_or("", |r| r.install_cmd);
 
-    let output = Command::new(binary)
-        .arg("--version")
-        .output()
-        .map_err(|_| PrerequisiteError::VersionParseFailed {
-            binary: binary.into(),
-            platform: platform.into(),
-            install_cmd: install_cmd.into(),
-        })?;
+    // 尝试两种版本命令：`--version` flag（gh/glab）和 `version` 子命令（gitcode）
+    for version_arg in ["--version", "version"] {
+        let output = match Command::new(binary).arg(version_arg).output() {
+            Ok(o) if o.status.success() => o,
+            _ => continue,
+        };
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    extract_semver(&stdout).ok_or_else(|| PrerequisiteError::VersionParseFailed {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if let Some(v) = extract_semver(&stdout) {
+            return Ok(v);
+        }
+    }
+
+    Err(PrerequisiteError::VersionParseFailed {
         binary: binary.into(),
         platform: platform.into(),
         install_cmd: install_cmd.into(),
