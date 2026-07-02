@@ -11,16 +11,6 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# 内部变量
-# ---------------------------------------------------------------------------
-
-# 自动检测 git 仓库根目录（如果当前在 git 仓库中）
-_GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-
-# pending.json 文件路径
-_PENDING_FILE="${_GIT_ROOT:+${_GIT_ROOT}/.cache/bug-reports/pending.json}"
-
-# ---------------------------------------------------------------------------
 # ERR trap — 脚本异常退出时自动报告错误
 # ---------------------------------------------------------------------------
 
@@ -38,6 +28,20 @@ on_error() {
 trap 'on_error $LINENO' ERR
 
 # ---------------------------------------------------------------------------
+# json_escape <string>
+# 转义字符串中的 JSON 特殊字符（双引号、反斜杠、换行、制表符、回车）
+# ---------------------------------------------------------------------------
+json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"   # 反斜杠 -> \\
+    s="${s//\"/\\\"}"   # 双引号 -> \"
+    s="${s//$'\n'/\\n}" # 换行 -> \n
+    s="${s//$'\r'/\\r}" # 回车 -> \r
+    s="${s//$'\t'/\\t}" # 制表符 -> \t
+    printf '%s' "$s"
+}
+
+# ---------------------------------------------------------------------------
 # report_error <command> <platform> <error_code> <error_message>
 # 将错误信息写入 .cache/bug-reports/pending.json
 # ---------------------------------------------------------------------------
@@ -47,9 +51,16 @@ report_error() {
     local error_code="${3:?report_error: error_code is required}"
     local error_message="${4:?report_error: error_message is required}"
 
+    # 确保在 git 仓库中，避免写入文件系统根目录
+    local git_root
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+    if [ -z "$git_root" ]; then
+        echo "[_common.sh] 警告: 不在 git 仓库中，跳过错误报告" >&2
+        return 1
+    fi
+
     # 确保缓存目录存在
-    local cache_dir
-    cache_dir="$(git rev-parse --show-toplevel 2>/dev/null)/.cache/bug-reports"
+    local cache_dir="${git_root}/.cache/bug-reports"
     mkdir -p "$cache_dir"
 
     local pending_file="${cache_dir}/pending.json"
@@ -58,7 +69,14 @@ report_error() {
     local timestamp
     timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-    # 写入 JSON（使用 printf 转义特殊字符）
+    # JSON 转义所有用户可控字段
+    local esc_command esc_error_code esc_error_message esc_platform
+    esc_command="$(json_escape "$command")"
+    esc_platform="$(json_escape "$platform")"
+    esc_error_code="$(json_escape "$error_code")"
+    esc_error_message="$(json_escape "$error_message")"
+
+    # 写入 JSON
     printf '{
   "error_id": "%s",
   "command": "%s",
@@ -68,10 +86,10 @@ report_error() {
   "timestamp": "%s"
 }\n' \
         "$error_id" \
-        "$command" \
-        "$platform" \
-        "$error_code" \
-        "$error_message" \
+        "$esc_command" \
+        "$esc_platform" \
+        "$esc_error_code" \
+        "$esc_error_message" \
         "$timestamp" \
         > "$pending_file"
 
