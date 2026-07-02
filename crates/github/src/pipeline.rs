@@ -23,14 +23,11 @@ const PIPELINE_FIELDS: &str =
 /// 判断最终结果。
 fn gh_status_to_enum(status: &str, conclusion: Option<&str>) -> PipelineStatusEnum {
     match status {
-        "in_progress" | "action_required" | "cancelled" => PipelineStatusEnum::Running,
         "completed" => match conclusion {
             Some("success") => PipelineStatusEnum::Success,
-            Some("failure") | Some("startup_failure") | Some("timed_out") => {
-                PipelineStatusEnum::Failed
-            }
+            Some("failure" | "startup_failure" | "timed_out") => PipelineStatusEnum::Failed,
             Some("cancelled") => PipelineStatusEnum::Cancelled,
-            Some("skipped") | Some("neutral") => PipelineStatusEnum::Pending,
+            Some("skipped" | "neutral") => PipelineStatusEnum::Pending,
             _ => PipelineStatusEnum::Running,
         },
         "queued" | "waiting" | "requested" | "pending" => PipelineStatusEnum::Pending,
@@ -54,11 +51,11 @@ struct GhRun {
 impl GhRun {
     fn into_status(self) -> PipelineStatus {
         let created_at = chrono::DateTime::parse_from_rfc3339(&self.created_at)
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-            .unwrap_or_else(|_| chrono::Utc::now());
+            .ok()
+            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
         let updated_at = chrono::DateTime::parse_from_rfc3339(&self.updated_at)
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-            .unwrap_or_else(|_| chrono::Utc::now());
+            .ok()
+            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
 
         PipelineStatus {
             id: self.database_id,
@@ -219,6 +216,15 @@ impl PipelineProvider for GitHubPipelineProvider {
     }
 
     async fn report(&self, branch: &str, days: u32) -> Result<PipelineReport> {
+        // 使用最小结构体反序列化 report 所需字段
+        #[derive(Debug, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ReportRun {
+            conclusion: Option<String>,
+            created_at: String,
+            updated_at: String,
+        }
+
         debug!(
             repo = %self.repo,
             branch = %branch,
@@ -243,15 +249,6 @@ impl PipelineProvider for GitHubPipelineProvider {
         if !output.status.success() {
             let gh_err = parse_gh_error(&output.stderr);
             return Err(CoreError::Platform(format!("{gh_err}")));
-        }
-
-        // 使用最小结构体反序列化 report 所需字段
-        #[derive(Debug, Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct ReportRun {
-            conclusion: Option<String>,
-            created_at: String,
-            updated_at: String,
         }
 
         let runs: Vec<ReportRun> =
@@ -287,18 +284,31 @@ impl PipelineProvider for GitHubPipelineProvider {
                     - created.with_timezone(&chrono::Utc))
                     .num_seconds();
                 if duration > 0 {
-                    total_duration_secs += duration as f64;
+                    #[allow(
+                        clippy::cast_precision_loss,
+                        reason = "Duration values are small enough to fit in f64 without loss"
+                    )]
+                    let duration_f64 = duration as f64;
+                    total_duration_secs += duration_f64;
                     has_duration += 1;
                 }
             }
         }
 
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "Run counts are small enough to fit in f64 without loss"
+        )]
         let success_rate = if total_runs > 0 {
             success_count as f64 / total_runs as f64
         } else {
             0.0
         };
 
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "Duration count is small enough to fit in f64 without loss"
+        )]
         let avg_duration_secs = if has_duration > 0 {
             total_duration_secs / has_duration as f64
         } else {
@@ -640,6 +650,10 @@ mod tests {
             .iter()
             .filter(|r| r.conclusion.as_deref() == Some("success"))
             .count() as u64;
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "Test values are small enough to fit in f64 without loss"
+        )]
         let rate = success as f64 / total as f64;
 
         assert_eq!(total, 4);
