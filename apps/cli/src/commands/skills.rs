@@ -1,7 +1,10 @@
 //! `gitflow skills` 子命令实现。
 //!
 //! 管理 gitflow Skills 的安装、列出和卸载。
-//! Skills 从仓库的 `skills/` 目录复制到 `~/.claude/skills/`。
+//! Skills 从仓库的 `skills/` 目录复制到目标目录。
+//!
+//! 支持多 Agent 平台（Claude Code / Gemini CLI / Codex / Copilot CLI），
+//! 支持用户级 / 项目级 / 自定义路径安装。
 //!
 //! Note: the install/uninstall helpers use `std::fs` for synchronous
 //! file operations. This module is invoked before the `tokio` runtime is
@@ -9,26 +12,188 @@
 
 #![allow(
     clippy::disallowed_methods,
+    clippy::disallowed_types,
     reason = "Skills command runs synchronously before the tokio runtime is constructed"
 )]
 
-use clap::Subcommand;
+use clap::{ArgAction, Args, Subcommand, ValueEnum};
 use std::path::PathBuf;
+
+// ---------------------------------------------------------------------------
+// Agent platform
+// ---------------------------------------------------------------------------
+
+/// 支持的 AI Agent 平台。
+///
+/// 每种平台有不同的 Skills 安装目录约定。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AgentPlatform {
+    /// Claude Code / Superpowers — `~/.claude/skills/`
+    Claude,
+    /// Gemini CLI — `~/.gemini/skills/`
+    Gemini,
+    /// Codex (`OpenAI`) — `~/.codex/skills/`
+    Codex,
+    /// GitHub Copilot CLI — `~/.copilot/skills/`
+    Copilot,
+}
+
+impl AgentPlatform {
+    /// 返回该 Agent 的用户级 skills 子目录名（相对于 home）。
+    #[must_use]
+    pub fn skills_dir_name(self) -> &'static str {
+        match self {
+            AgentPlatform::Claude => ".claude/skills",
+            AgentPlatform::Gemini => ".gemini/skills",
+            AgentPlatform::Codex => ".codex/skills",
+            AgentPlatform::Copilot => ".copilot/skills",
+        }
+    }
+
+    /// 自动检测当前环境中的 Agent 平台。
+    ///
+    /// 检测策略：按优先级检查各平台的配置目录是否存在。
+    /// 默认返回 `Claude`。
+    #[must_use]
+    pub fn detect() -> Self {
+        let Some(home) = dirs::home_dir() else {
+            return AgentPlatform::Claude;
+        };
+        // 按优先级检测
+        for platform in &[
+            AgentPlatform::Claude,
+            AgentPlatform::Gemini,
+            AgentPlatform::Codex,
+            AgentPlatform::Copilot,
+        ] {
+            if home.join(platform.skills_dir_name()).exists() {
+                return *platform;
+            }
+        }
+        AgentPlatform::Claude
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Install target
+// ---------------------------------------------------------------------------
+
+/// Skills 安装目标级别。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum InstallTarget {
+    /// 用户级 — `~/.claude/skills/`（或其他 Agent 对应目录）
+    User,
+    /// 项目级 — 当前仓库 `.claude/skills/`
+    Project,
+}
+
+// ---------------------------------------------------------------------------
+// CLI args
+// ---------------------------------------------------------------------------
 
 /// Skills 管理命令集合。
 #[derive(Debug, Subcommand)]
 pub enum SkillsCommand {
-    /// 安装 skills 到 ~/.claude/skills/
-    Install,
+    /// 安装 skills
+    Install(InstallArgs),
     /// 列出已安装的 skills
-    List,
+    List(ListArgs),
     /// 卸载已安装的 skills
-    Uninstall,
+    Uninstall(UninstallArgs),
 }
 
-/// Skills 安装目标目录。
-fn skills_target_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".claude").join("skills"))
+/// `skills install` 参数。
+#[derive(Debug, Args)]
+pub struct InstallArgs {
+    /// 安装目标级别（默认 user）
+    #[arg(long, value_enum, default_value = "user")]
+    pub target: InstallTarget,
+
+    /// 目标 Agent 平台（默认自动检测，fallback 为 claude）
+    #[arg(long, value_enum)]
+    pub agent: Option<AgentPlatform>,
+
+    /// 自定义安装路径（优先级最高，覆盖 --target 和 --agent）
+    #[arg(long = "path", conflicts_with_all = ["target", "agent"])]
+    pub custom_path: Option<String>,
+
+    /// 强制覆盖已存在的 skills
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub force: bool,
+}
+
+/// `skills list` 参数。
+#[derive(Debug, Args)]
+pub struct ListArgs {
+    /// 查找目标级别（默认 user）
+    #[arg(long, value_enum, default_value = "user")]
+    pub target: InstallTarget,
+
+    /// 目标 Agent 平台
+    #[arg(long, value_enum)]
+    pub agent: Option<AgentPlatform>,
+
+    /// 自定义查找路径
+    #[arg(long = "path", conflicts_with_all = ["target", "agent"])]
+    pub custom_path: Option<String>,
+}
+
+/// `skills uninstall` 参数。
+#[derive(Debug, Args)]
+pub struct UninstallArgs {
+    /// 卸载目标级别（默认 user）
+    #[arg(long, value_enum, default_value = "user")]
+    pub target: InstallTarget,
+
+    /// 目标 Agent 平台
+    #[arg(long, value_enum)]
+    pub agent: Option<AgentPlatform>,
+
+    /// 自定义卸载路径
+    #[arg(long = "path", conflicts_with_all = ["target", "agent"])]
+    pub custom_path: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Path resolution
+// ---------------------------------------------------------------------------
+
+/// 解析目标目录。
+///
+/// 优先级：`custom_path` > `--target` + `--agent`
+fn resolve_target_dir(
+    target: InstallTarget,
+    agent: Option<AgentPlatform>,
+    custom_path: Option<&str>,
+) -> miette::Result<PathBuf> {
+    // 自定义路径优先
+    if let Some(p) = custom_path {
+        return Ok(PathBuf::from(p));
+    }
+
+    let platform = agent.unwrap_or_else(AgentPlatform::detect);
+
+    match target {
+        InstallTarget::User => {
+            let home = dirs::home_dir()
+                .ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+            Ok(home.join(platform.skills_dir_name()))
+        }
+        InstallTarget::Project => {
+            // 查找当前仓库根目录
+            let output = std::process::Command::new("git")
+                .args(["rev-parse", "--show-toplevel"])
+                .output()
+                .map_err(|e| miette::miette!("无法执行 git rev-parse: {e}"))?;
+            if !output.status.success() {
+                return Err(miette::miette!(
+                    "当前目录不在 Git 仓库中，无法使用 --target project"
+                ));
+            }
+            let repo_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            Ok(PathBuf::from(repo_root).join(".claude").join("skills"))
+        }
+    }
 }
 
 /// Skills 源目录（仓库内的 skills/）。
@@ -36,25 +201,22 @@ fn skills_source_dir() -> PathBuf {
     PathBuf::from("skills")
 }
 
+// ---------------------------------------------------------------------------
+// Command handlers
+// ---------------------------------------------------------------------------
+
 /// 处理 `gitflow skills` 命令。
-///
-/// # Errors
-///
-/// 返回错误当：
-/// - 无法确定用户 home 目录。
-/// - 文件操作失败。
 pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
     match command {
-        SkillsCommand::Install => install_skills(),
-        SkillsCommand::List => list_skills(),
-        SkillsCommand::Uninstall => uninstall_skills(),
+        SkillsCommand::Install(args) => install_skills(args),
+        SkillsCommand::List(args) => list_skills(args),
+        SkillsCommand::Uninstall(args) => uninstall_skills(args),
     }
 }
 
-/// 安装 skills：将仓库 `skills/` 目录下的 gitflow-* 文件复制到 `~/.claude/skills/`。
-fn install_skills() -> miette::Result<()> {
-    let target = skills_target_dir()
-        .ok_or_else(|| miette::miette!("无法确定 HOME 目录，无法安装 skills"))?;
+/// 安装 skills。
+fn install_skills(args: &InstallArgs) -> miette::Result<()> {
+    let target = resolve_target_dir(args.target, args.agent, args.custom_path.as_deref())?;
     let source = skills_source_dir();
 
     if !source.exists() {
@@ -67,8 +229,14 @@ fn install_skills() -> miette::Result<()> {
     std::fs::create_dir_all(&target)
         .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
 
+    let platform = args
+        .agent
+        .unwrap_or_else(AgentPlatform::detect);
+    println!("目标: {} (agent: {platform:?})", target.display());
+
     let mut installed = 0u32;
     let mut skipped = 0u32;
+    let mut overwritten = 0u32;
 
     for entry in std::fs::read_dir(&source)
         .map_err(|e| miette::miette!("无法读取 skills 源目录 {}: {e}", source.display()))?
@@ -77,15 +245,24 @@ fn install_skills() -> miette::Result<()> {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
 
-        // 仅处理 gitflow- 开头的目录
         if !name_str.starts_with("gitflow-") {
             continue;
         }
 
         let dest = target.join(&name);
         if dest.exists() {
-            eprintln!("⚠ 跳过已存在: {name_str}");
-            skipped += 1;
+            if args.force {
+                std::fs::remove_dir_all(&dest).map_err(|e| {
+                    miette::miette!("无法删除旧版本 {}: {e}", dest.display())
+                })?;
+                copy_dir_all(&entry.path(), &dest)
+                    .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
+                println!("♻ 已覆盖: {name_str}");
+                overwritten += 1;
+            } else {
+                eprintln!("⚠ 跳过已存在: {name_str}");
+                skipped += 1;
+            }
             continue;
         }
 
@@ -96,24 +273,28 @@ fn install_skills() -> miette::Result<()> {
     }
 
     println!();
-    println!("安装完成: 新增 {installed} 个，跳过 {skipped} 个");
+    println!(
+        "安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个"
+    );
     Ok(())
 }
 
-/// 列出 `~/.claude/skills/` 下的 gitflow-* skills。
-fn list_skills() -> miette::Result<()> {
-    let Some(target) = skills_target_dir() else {
-        return Err(miette::miette!("无法确定 HOME 目录"));
-    };
+/// 列出已安装的 skills。
+fn list_skills(args: &ListArgs) -> miette::Result<()> {
+    let target = resolve_target_dir(args.target, args.agent, args.custom_path.as_deref())?;
 
     if !target.exists() {
         println!("(未安装任何 skills)");
+        println!("目录: {}", target.display());
         return Ok(());
     }
 
+    println!("目录: {}", target.display());
+    println!();
+
     let mut found = 0u32;
-    for entry in
-        std::fs::read_dir(&target).map_err(|e| miette::miette!("读取目录失败 {}: {e}", target.display()))?
+    for entry in std::fs::read_dir(&target)
+        .map_err(|e| miette::miette!("读取目录失败 {}: {e}", target.display()))?
     {
         let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
         let name_str = entry.file_name().to_string_lossy().into_owned();
@@ -124,7 +305,7 @@ fn list_skills() -> miette::Result<()> {
     }
 
     if found == 0 {
-        println!("(未安装任何 skills)");
+        println!("(未安装任何 gitflow skills)");
     } else {
         println!();
         println!("共 {found} 个 skills");
@@ -132,20 +313,22 @@ fn list_skills() -> miette::Result<()> {
     Ok(())
 }
 
-/// 卸载 `~/.claude/skills/` 下的 gitflow-* skills。
-fn uninstall_skills() -> miette::Result<()> {
-    let Some(target) = skills_target_dir() else {
-        return Err(miette::miette!("无法确定 HOME 目录"));
-    };
+/// 卸载 skills。
+fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
+    let target = resolve_target_dir(args.target, args.agent, args.custom_path.as_deref())?;
 
     if !target.exists() {
         println!("(未安装任何 skills)");
+        println!("目录: {}", target.display());
         return Ok(());
     }
 
+    println!("目录: {}", target.display());
+    println!();
+
     let mut removed = 0u32;
-    for entry in
-        std::fs::read_dir(&target).map_err(|e| miette::miette!("读取目录失败 {}: {e}", target.display()))?
+    for entry in std::fs::read_dir(&target)
+        .map_err(|e| miette::miette!("读取目录失败 {}: {e}", target.display()))?
     {
         let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
         let name_str = entry.file_name().to_string_lossy().into_owned();
@@ -164,13 +347,17 @@ fn uninstall_skills() -> miette::Result<()> {
     }
 
     if removed == 0 {
-        println!("(未安装任何 skills)");
+        println!("(未安装任何 gitflow skills)");
     } else {
         println!();
         println!("已卸载 {removed} 个 skills");
     }
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /// 递归复制目录。
 fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
@@ -188,6 +375,10 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 #[cfg(test)]
 #[allow(
     clippy::expect_used,
@@ -199,14 +390,71 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_skills_target_dir_returns_some() {
-        assert!(skills_target_dir().is_some());
+    fn test_agent_platform_claude_dir() {
+        assert_eq!(
+            AgentPlatform::Claude.skills_dir_name(),
+            ".claude/skills"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_gemini_dir() {
+        assert_eq!(
+            AgentPlatform::Gemini.skills_dir_name(),
+            ".gemini/skills"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_codex_dir() {
+        assert_eq!(
+            AgentPlatform::Codex.skills_dir_name(),
+            ".codex/skills"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_copilot_dir() {
+        assert_eq!(
+            AgentPlatform::Copilot.skills_dir_name(),
+            ".copilot/skills"
+        );
+    }
+
+    #[test]
+    fn test_agent_detect_returns_some() {
+        // 至少返回默认值 Claude
+        let platform = AgentPlatform::detect();
+        assert!(matches!(
+            platform,
+            AgentPlatform::Claude
+                | AgentPlatform::Gemini
+                | AgentPlatform::Codex
+                | AgentPlatform::Copilot
+        ));
+    }
+
+    #[test]
+    fn test_resolve_user_target() {
+        let dir = resolve_target_dir(InstallTarget::User, Some(AgentPlatform::Claude), None)
+            .expect("resolve");
+        assert!(dir.ends_with(".claude/skills"));
+    }
+
+    #[test]
+    fn test_resolve_custom_path_overrides_all() {
+        let dir = resolve_target_dir(
+            InstallTarget::User,
+            Some(AgentPlatform::Claude),
+            Some("/tmp/my-skills"),
+        )
+        .expect("resolve");
+        assert_eq!(dir, PathBuf::from("/tmp/my-skills"));
     }
 
     #[test]
     fn test_skills_source_dir_is_valid_path() {
         let dir = skills_source_dir();
-        // 路径应以 "skills" 结尾
         assert!(dir.ends_with("skills"));
     }
 }
