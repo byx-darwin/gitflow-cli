@@ -70,27 +70,27 @@ impl Shell {
     /// Resolve the installation directory for this shell.
     ///
     /// If `home_override` is `Some`, that path is used as the home directory;
-    /// otherwise `$HOME` is read from the environment.
+    /// otherwise the home directory is resolved via [`dirs::home_dir`],
+    /// which supports Windows (`%USERPROFILE%`), macOS, and Linux (`$HOME`).
     ///
     /// Returns the user-level completion directory:
     /// - bash: `<home>/.local/share/bash-completion/completions/`
-    /// - zsh:  `<home>/.zfunc/`
+    /// - zsh:  `<home>/.local/share/zsh/site-functions/` (or system dir if available)
     /// - fish: `<home>/.config/fish/completions/`
     ///
     /// # Errors
     ///
     /// Returns an error when the home path cannot be determined (no override
-    /// and `$HOME` is unset).
+    /// and platform home directory resolution fails).
     pub fn install_dir(self, home_override: Option<&std::path::Path>) -> miette::Result<PathBuf> {
         let home = if let Some(p) = home_override {
             p.to_path_buf()
         } else {
-            let home_var = std::env::var("HOME").map_err(|_| {
+            dirs::home_dir().ok_or_else(|| {
                 miette::miette!(
-                    "Could not determine home directory: $HOME environment variable is not set"
+                    "Could not determine home directory: platform home resolution failed"
                 )
-            })?;
-            PathBuf::from(home_var)
+            })?
         };
         let dir = match self {
             Shell::Bash => home.join(".local/share/bash-completion/completions"),
@@ -100,7 +100,7 @@ impl Shell {
                 if site.exists() {
                     site
                 } else {
-                    // 回退到用户目录
+                    // 回退到用户目录（macOS/Linux/Windows 均适用）
                     home.join(".local/share/zsh/site-functions")
                 }
             }
@@ -340,7 +340,11 @@ mod tests {
         let dir = Shell::Zsh
             .install_dir(Some(home))
             .expect("override provided");
-        assert_eq!(dir, PathBuf::from("/tmp/gitflow-cli-test-home/.zfunc"));
+        // /usr/local 在测试环境中不存在，回退到用户目录
+        assert_eq!(
+            dir,
+            PathBuf::from("/tmp/gitflow-cli-test-home/.local/share/zsh/site-functions")
+        );
     }
 
     #[test]
