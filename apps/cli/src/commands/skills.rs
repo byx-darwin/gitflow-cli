@@ -25,17 +25,16 @@ use std::path::PathBuf;
 
 /// 支持的 AI Agent 平台。
 ///
-/// 每种平台有不同的 Skills 安装目录约定。
+/// 每种平台有不同的 Skills 安装目录约定（依据 Superpowers 和各平台官方文档）。
+/// Codex / Gemini / Copilot 还共享跨平台路径 `~/.agents/skills/`。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum AgentPlatform {
     /// Claude Code / Superpowers — `~/.claude/skills/`
     Claude,
-    /// Gemini CLI — `~/.gemini/skills/`
-    Gemini,
-    /// Codex (`OpenAI`) — `~/.codex/skills/`
+    /// Codex (`OpenAI`) — `~/.codex/skills/`（也支持 `~/.agents/skills/`）
     Codex,
-    /// GitHub Copilot CLI — `~/.copilot/skills/`
-    Copilot,
+    /// `OpenCode` — `~/.opencode/skills/`
+    OpenCode,
 }
 
 impl AgentPlatform {
@@ -44,9 +43,8 @@ impl AgentPlatform {
     pub fn skills_dir_name(self) -> &'static str {
         match self {
             AgentPlatform::Claude => ".claude/skills",
-            AgentPlatform::Gemini => ".gemini/skills",
             AgentPlatform::Codex => ".codex/skills",
-            AgentPlatform::Copilot => ".copilot/skills",
+            AgentPlatform::OpenCode => ".opencode/skills",
         }
     }
 
@@ -62,9 +60,8 @@ impl AgentPlatform {
         // 按优先级检测
         for platform in &[
             AgentPlatform::Claude,
-            AgentPlatform::Gemini,
             AgentPlatform::Codex,
-            AgentPlatform::Copilot,
+            AgentPlatform::OpenCode,
         ] {
             if home.join(platform.skills_dir_name()).exists() {
                 return *platform;
@@ -398,14 +395,6 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_platform_gemini_dir() {
-        assert_eq!(
-            AgentPlatform::Gemini.skills_dir_name(),
-            ".gemini/skills"
-        );
-    }
-
-    #[test]
     fn test_agent_platform_codex_dir() {
         assert_eq!(
             AgentPlatform::Codex.skills_dir_name(),
@@ -414,23 +403,19 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_platform_copilot_dir() {
+    fn test_agent_platform_opencode_dir() {
         assert_eq!(
-            AgentPlatform::Copilot.skills_dir_name(),
-            ".copilot/skills"
+            AgentPlatform::OpenCode.skills_dir_name(),
+            ".opencode/skills"
         );
     }
 
     #[test]
     fn test_agent_detect_returns_some() {
-        // 至少返回默认值 Claude
         let platform = AgentPlatform::detect();
         assert!(matches!(
             platform,
-            AgentPlatform::Claude
-                | AgentPlatform::Gemini
-                | AgentPlatform::Codex
-                | AgentPlatform::Copilot
+            AgentPlatform::Claude | AgentPlatform::Codex | AgentPlatform::OpenCode
         ));
     }
 
