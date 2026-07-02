@@ -4,6 +4,29 @@
 
 一个现代化的 Rust CLI 项目模板，包含完整的开发工具链和最佳实践。
 
+## 安装
+
+### Homebrew (macOS)
+
+```bash
+brew tap byx-darwin/gitflow-cli
+brew install gitflow-cli
+```
+
+### Cargo
+
+```bash
+cargo install gitflow-cli
+```
+
+### 源码编译
+
+```bash
+git clone https://github.com/byx-darwin/gitflow-cli
+cd gitflow-cli
+make build
+```
+
 ## 快速开始
 
 ### 1. 生成新项目
