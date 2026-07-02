@@ -69,7 +69,7 @@ gitflow auth status
 
 ### 步骤 1.3：需求分析
 
-调用 `gitflow-issue-review` 对 Issue 进行结构化的需求分析：
+调用 `gitflow-issue-review`（计划中）对 Issue 进行结构化的需求分析：
 
 ```
 使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
@@ -120,13 +120,11 @@ gitflow issue view <number>
 如果缺少任一证据，输出阻断信息并停止：
 
 ```
-🔒 闸门阻断：需求 → 开发
+🔒 闸门未通过：不允许开始开发。必须先完成需求澄清阶段。
 
-缺少以下证据，不允许进入开发阶段：
+缺少以下证据：
 - [ ] Issue URL：未创建或未记录
 - [ ] 需求分析报告：未发布到 Issue 评论
-
-请先完成 Phase 1: 需求澄清。
 ```
 
 ---
@@ -228,13 +226,11 @@ git log --oneline -10
 如果有未完成的任务，输出阻断信息并停止：
 
 ```
-🔒 闸门阻断：开发 → 质量
+🔒 闸门未通过：不允许运行质量检查。所有原子任务必须标记为 done。
 
 以下原子任务未完成：
 - [ ] Task 3: <任务描述> — 状态: in_progress
 - [ ] Task 5: <任务描述> — 状态: pending
-
-请完成所有原子任务后再进入质量关卡。
 ```
 
 ---
@@ -245,7 +241,7 @@ git log --oneline -10
 
 ### 步骤 3.1：运行质量检查
 
-调用 `gitflow-quality` skill 运行完整质量检查：
+调用 `gitflow-quality`（计划中）skill 运行完整质量检查：
 
 ```
 使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
@@ -255,11 +251,11 @@ git log --oneline -10
 
 | # | 检查项 | 命令 | 通过标准 |
 |---|--------|------|---------|
-| 1 | Build | `cargo build --all-targets --all-features` | 退出码 0 |
-| 2 | Test | `cargo test --all-targets --all-features` | 全部通过 |
-| 3 | Format | `cargo +nightly fmt --check` | 退出码 0 |
-| 4 | Lint | `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` | 退出码 0 |
-| 5 | Security | `cargo audit` + `cargo deny check` | 无 CRITICAL/HIGH 漏洞 |
+| 1 | build | `cargo build --workspace` | 退出码 0 |
+| 2 | test | `cargo test --workspace` | 全部通过 |
+| 3 | coverage | `cargo tarpaulin --workspace` | > 80% |
+| 4 | format | `cargo +nightly fmt -- --check` | 退出码 0 |
+| 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | 退出码 0 |
 
 ### 步骤 3.2：处理检查结果
 
@@ -271,8 +267,8 @@ git log --oneline -10
 ⚠️ 质量关卡未通过，返回 Phase 2 修复
 
 失败项：
-- [❌] Lint: clippy 发现 3 个警告
-- [❌] Format: 2 个文件格式不符
+- [❌] static: clippy 发现 3 个警告
+- [❌] format: 2 个文件格式不符
 
 修复建议：
 1. 运行 `cargo +nightly fmt` 自动修复格式
@@ -294,11 +290,11 @@ gitflow issue comment <number> --body "## Phase 3: 质量关卡通过
 
 | # | 检查项 | 结果 | 详情 |
 |---|--------|------|------|
-| 1 | Build | ✅ 通过 | 编译成功 |
-| 2 | Test | ✅ 通过 | <N> 个测试全部通过 |
-| 3 | Format | ✅ 通过 | 格式规范 |
-| 4 | Lint | ✅ 通过 | 无警告 |
-| 5 | Security | ✅ 通过 | 无已知漏洞 |
+| 1 | build | ✅ 通过 | 编译成功 |
+| 2 | test | ✅ 通过 | <N> 个测试全部通过 |
+| 3 | coverage | ✅ 通过 | <N>% (阈值: 80%) |
+| 4 | format | ✅ 通过 | 格式规范 |
+| 5 | static | ✅ 通过 | 无警告 |
 
 ✅ 已通过阶段闸门，可进入 Phase 4: 交付"
 ```
@@ -317,16 +313,14 @@ gitflow issue comment <number> --body "## Phase 3: 质量关卡通过
 如果质量报告中有任何失败项，输出阻断信息并停止：
 
 ```
-🔒 闸门阻断：质量 → 交付
+🔒 闸门未通过：不允许创建 PR。5 项质量检查必须全部绿色。
 
 质量检查未全部通过：
-- [✅] Build
-- [❌] Test — 2 个测试失败
-- [✅] Format
-- [✅] Lint
-- [✅] Security
-
-请修复失败项后重新运行质量检查。
+- [✅] build
+- [❌] test — 2 个测试失败
+- [✅] coverage
+- [✅] format
+- [✅] static
 ```
 
 ---
@@ -377,7 +371,7 @@ PR 要求：
 
 ### 步骤 4.4：发布（可选）
 
-如果需要发布新版本，调用 `gitflow-release-helper`：
+如果需要发布新版本，调用 `gitflow-release-helper`（计划中）：
 
 ```
 使用 gitflow-release-helper 技能，基于合并的变更创建 Release。
@@ -444,7 +438,7 @@ gitflow issue comment <number> --body "## Phase 4: 交付完成
    - TDD 循环：每个任务先写测试再实现
 
 3. **Phase 3**：
-   - 运行质量检查：build + test + fmt + clippy + security
+   - 运行质量检查：build + test + coverage + format + static
    - 全部通过
 
 4. **Phase 4**：
