@@ -94,7 +94,16 @@ impl Shell {
         };
         let dir = match self {
             Shell::Bash => home.join(".local/share/bash-completion/completions"),
-            Shell::Zsh => home.join(".zfunc"),
+            Shell::Zsh => {
+                // macOS / Linux 标准 zsh site-functions 目录，已在默认 fpath 中
+                let site = PathBuf::from("/usr/local/share/zsh/site-functions");
+                if site.exists() {
+                    site
+                } else {
+                    // 回退到用户目录
+                    home.join(".local/share/zsh/site-functions")
+                }
+            }
             Shell::Fish => home.join(".config/fish/completions"),
         };
         Ok(dir)
