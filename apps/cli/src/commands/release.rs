@@ -9,7 +9,9 @@ use gitflow_cli_core::{
     CliOutput,
     release::{CreateReleaseArgs, ReleaseProvider},
 };
+use gitflow_cli_gitcode::GitCodeReleaseProvider;
 use gitflow_cli_github::GitHubReleaseProvider;
+use gitflow_cli_gitlab::GitLabReleaseProvider;
 
 use crate::OutputFormat;
 
@@ -119,13 +121,13 @@ pub enum ReleaseCommand {
 /// 处理 `gitflow release` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Release 提供者，然后执行具体命令并输出结果。
-/// Phase 1 仅支持 `github` 平台与 JSON 输出格式。
+/// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
 ///
 /// # Errors
 ///
 /// 返回错误当：
-/// - 平台暂不支持（如 `gitlab`）。
-/// - 底层 provider 调用失败（如 `gh` CLI 执行失败）。
+/// - 平台暂不支持。
+/// - 底层 provider 调用失败。
 /// - `--body` 与 `--body-file` 同时提供。
 /// - `--body-file` 文件读取失败。
 /// - JSON 序列化失败。
@@ -141,6 +143,8 @@ pub async fn handle(
 ) -> miette::Result<()> {
     let provider: Box<dyn ReleaseProvider> = match platform {
         "github" => Box::new(GitHubReleaseProvider::new(repo)),
+        "gitlab" => Box::new(GitLabReleaseProvider::new(repo)),
+        "gitcode" => Box::new(GitCodeReleaseProvider::new(repo)),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for release commands"

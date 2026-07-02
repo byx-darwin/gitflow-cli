@@ -6,7 +6,9 @@
 
 use clap::Subcommand;
 use gitflow_cli_core::{CliOutput, commit::CommitProvider};
+use gitflow_cli_gitcode::GitCodeCommitProvider;
 use gitflow_cli_github::GitHubCommitProvider;
+use gitflow_cli_gitlab::GitLabCommitProvider;
 
 use crate::OutputFormat;
 
@@ -59,7 +61,7 @@ pub enum CommitCommand {
 /// 处理 `gitflow commit` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Commit 提供者，然后执行具体命令并输出结果。
-/// Phase 1 仅支持 `github` 平台与 JSON 输出格式。
+/// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
 ///
 /// # Errors
 ///
@@ -82,6 +84,8 @@ pub async fn handle(
 ) -> miette::Result<()> {
     let provider: Box<dyn CommitProvider> = match platform {
         "github" => Box::new(GitHubCommitProvider::new(repo)),
+        "gitlab" => Box::new(GitLabCommitProvider::new(repo)),
+        "gitcode" => Box::new(GitCodeCommitProvider::new(repo)),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for commit commands"

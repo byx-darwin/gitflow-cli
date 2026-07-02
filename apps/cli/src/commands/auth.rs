@@ -6,7 +6,9 @@
 
 use clap::Subcommand;
 use gitflow_cli_core::{CliOutput, auth::AuthProvider};
+use gitflow_cli_gitcode::GitCodeAuthProvider;
 use gitflow_cli_github::GitHubAuthProvider;
+use gitflow_cli_gitlab::GitLabAuthProvider;
 
 use crate::OutputFormat;
 
@@ -31,13 +33,13 @@ pub enum AuthCommand {
 /// 处理 `gitflow auth` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Auth 提供者，然后执行具体命令并输出结果。
-/// Phase 1 仅支持 `github` 平台与 JSON 输出格式。
+/// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
 ///
 /// # Errors
 ///
 /// 返回错误当：
-/// - 平台暂不支持（如 `gitlab`）。
-/// - 底层 provider 调用失败（如 `gh` CLI 执行失败）。
+/// - 平台暂不支持。
+/// - 底层 provider 调用失败。
 /// - JSON 序列化失败。
 #[allow(
     clippy::too_many_lines,
@@ -51,6 +53,8 @@ pub async fn handle(
 ) -> miette::Result<()> {
     let provider: Box<dyn AuthProvider> = match platform {
         "github" => Box::new(GitHubAuthProvider::new()),
+        "gitlab" => Box::new(GitLabAuthProvider::new()),
+        "gitcode" => Box::new(GitCodeAuthProvider::new()),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for auth commands"

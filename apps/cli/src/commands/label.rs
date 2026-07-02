@@ -9,7 +9,9 @@ use gitflow_cli_core::{
     CliOutput,
     label::{CreateLabelArgs, CreateMilestoneArgs, LabelProvider, MilestoneProvider},
 };
+use gitflow_cli_gitcode::{GitCodeLabelProvider, GitCodeMilestoneProvider};
 use gitflow_cli_github::{GitHubLabelProvider, GitHubMilestoneProvider};
+use gitflow_cli_gitlab::{GitLabLabelProvider, GitLabMilestoneProvider};
 
 use crate::OutputFormat;
 
@@ -117,7 +119,7 @@ pub enum MilestoneCommand {
 /// 处理 `gitflow label` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Label 提供者，然后执行具体命令并输出结果。
-/// Phase 1 仅支持 `github` 平台与 JSON 输出格式。
+/// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
 ///
 /// # Errors
 ///
@@ -134,6 +136,8 @@ pub async fn handle_label(
 ) -> miette::Result<()> {
     let provider: Box<dyn LabelProvider> = match platform {
         "github" => Box::new(GitHubLabelProvider::new(repo)),
+        "gitlab" => Box::new(GitLabLabelProvider::new(repo)),
+        "gitcode" => Box::new(GitCodeLabelProvider::new(repo)),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for label commands"
@@ -232,7 +236,7 @@ pub async fn handle_label(
 /// 处理 `gitflow milestone` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Milestone 提供者，然后执行具体命令并输出结果。
-/// Phase 1 仅支持 `github` 平台与 JSON 输出格式。
+/// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
 ///
 /// # Errors
 ///
@@ -254,6 +258,8 @@ pub async fn handle_milestone(
 ) -> miette::Result<()> {
     let provider: Box<dyn MilestoneProvider> = match platform {
         "github" => Box::new(GitHubMilestoneProvider::new(repo)),
+        "gitlab" => Box::new(GitLabMilestoneProvider::new(repo)),
+        "gitcode" => Box::new(GitCodeMilestoneProvider::new(repo)),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for milestone commands"

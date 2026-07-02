@@ -52,6 +52,7 @@ use commands::{
     completions::CompletionsArgs,
     issue::IssueCommand,
     label::{LabelCommand, MilestoneCommand},
+    pipeline::PipelineCommand,
     pr::PrCommand,
     release::ReleaseCommand,
     review::ReviewCommand,
@@ -182,6 +183,9 @@ async fn router(
             commands::label::handle_milestone(cmd, platform, repo, output).await
         }
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
+        Commands::Pipeline(cmd) => {
+            commands::pipeline::handle(cmd, platform, repo, output).await
+        }
         Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
@@ -399,6 +403,7 @@ impl Cli {
             Commands::Label(_) => "label",
             Commands::Milestone(_) => "milestone",
             Commands::Commit(_) => "commit",
+            Commands::Pipeline(_) => "pipeline",
         }
         .into()
     }
@@ -438,6 +443,10 @@ enum Commands {
     /// Commit operations (view, diff, patch, comment).
     #[command(subcommand)]
     Commit(CommitCommand),
+
+    /// Pipeline operations (status, logs, jobs, report).
+    #[command(subcommand)]
+    Pipeline(PipelineCommand),
 
     /// Install gitflow skills to `~/.claude/skills/`.
     #[command(name = "skills")]

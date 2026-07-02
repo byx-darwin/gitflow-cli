@@ -5,6 +5,7 @@ pub mod commit;
 pub mod completions;
 pub mod issue;
 pub mod label;
+pub mod pipeline;
 pub mod pr;
 pub mod prerequisites;
 pub mod release;

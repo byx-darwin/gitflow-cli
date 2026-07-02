@@ -9,7 +9,9 @@ use gitflow_cli_core::{
     CliOutput,
     review::{ReviewProvider, ReviewState},
 };
+use gitflow_cli_gitcode::GitCodeReviewProvider;
 use gitflow_cli_github::GitHubReviewProvider;
+use gitflow_cli_gitlab::GitLabReviewProvider;
 
 use crate::OutputFormat;
 
@@ -109,13 +111,13 @@ impl From<ReviewEventArg> for ReviewState {
 /// 处理 `gitflow review` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Review 提供者，然后执行具体命令并输出结果。
-/// Phase 1 仅支持 `github` 平台与 JSON 输出格式。
+/// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
 ///
 /// # Errors
 ///
 /// 返回错误当：
-/// - 平台暂不支持（如 `gitlab`）。
-/// - 底层 provider 调用失败（如 `gh` CLI 执行失败）。
+/// - 平台暂不支持。
+/// - 底层 provider 调用失败。
 /// - `--body` 与 `--body-file` 同时提供。
 /// - `--body-file` 文件读取失败。
 /// - `comment` 命令未提供评论正文。
@@ -133,6 +135,8 @@ pub async fn handle(
 ) -> miette::Result<()> {
     let provider: Box<dyn ReviewProvider> = match platform {
         "github" => Box::new(GitHubReviewProvider::new(repo)),
+        "gitlab" => Box::new(GitLabReviewProvider::new(repo)),
+        "gitcode" => Box::new(GitCodeReviewProvider::new(repo)),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for review commands"
