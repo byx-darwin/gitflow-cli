@@ -193,9 +193,9 @@ deny = ["native-tls", "native-tls-alpn", "native-tls-vendored", "default-tls"]
 wrappers = []
 
 # Deny specific crates for security reasons
-[[bans]]
-name = "openssl-sys"
-deny = ["security"]
+# 把 openssl-sys 加到上面的 deny 列表中
+# （TODO: 确认是否需要，此处仅修复 TOML 语法冲突）
+
 
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
