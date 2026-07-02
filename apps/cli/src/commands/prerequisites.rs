@@ -171,7 +171,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
     );
 
     // 3. 认证检查
-    if !is_authenticated(req.binary, platform)? {
+    if !is_authenticated(req.binary, platform) {
         return Err(PrerequisiteError::NotAuthenticated {
             binary: req.binary.into(),
             platform: platform.into(),
@@ -185,29 +185,26 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
 }
 
 /// 检测 CLI 认证状态。
-fn is_authenticated(binary: &str, platform: &str) -> Result<bool, PrerequisiteError> {
+fn is_authenticated(binary: &str, platform: &str) -> bool {
     // GitCode 优先检查环境变量
-    if platform == "gitcode" {
-        if std::env::var("GC_TOKEN").is_ok() || std::env::var("GITCODE_TOKEN").is_ok() {
-            return Ok(true);
-        }
+    if platform == "gitcode"
+        && (std::env::var("GC_TOKEN").is_ok() || std::env::var("GITCODE_TOKEN").is_ok())
+    {
+        return true;
     }
     // GitHub 检查 GH_TOKEN
     if platform == "github" && std::env::var("GH_TOKEN").is_ok() {
-        return Ok(true);
+        return true;
     }
 
     let args: &[&str] = match binary {
-        "gh" => &["auth", "status"],
-        "glab" => &["auth", "status"],
-        "gitcode" => &["auth", "status"],
-        "gc" => &["auth", "status"],
-        _ => return Ok(true),
+        "gh" | "glab" | "gitcode" | "gc" => &["auth", "status"],
+        _ => return true,
     };
 
     match Command::new(binary).args(args).output() {
-        Ok(out) => Ok(out.status.success()),
-        Err(_) => Ok(false),
+        Ok(out) => out.status.success(),
+        Err(_) => false,
     }
 }
 
@@ -240,7 +237,7 @@ pub fn extract_semver(s: &str) -> Option<String> {
 #[must_use]
 pub fn version_meets_minimum(found: &str, minimum: &str) -> bool {
     let parse = |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse().ok()).collect() };
-    parse(&found).cmp(&parse(&minimum)) != std::cmp::Ordering::Less
+    parse(found).cmp(&parse(minimum)) != std::cmp::Ordering::Less
 }
 
 #[cfg(test)]

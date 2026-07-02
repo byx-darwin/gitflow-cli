@@ -368,7 +368,7 @@ mod tests {
         let json = br#"{"login":"octocat","id":583231}"#;
         let user: ApiUser = serde_json::from_slice(json).expect("valid ApiUser");
         assert_eq!(user.login, "octocat");
-        assert_eq!(user.id, 583231);
+        assert_eq!(user.id, 583_231);
     }
 
     #[test]

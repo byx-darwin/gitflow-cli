@@ -107,7 +107,7 @@ impl From<&ApiUser> for UserSummary {
     fn from(u: &ApiUser) -> Self {
         Self {
             login: u.login.clone(),
-            id: u.id.to_string(),
+            id: u.id.clone(),
         }
     }
 }
