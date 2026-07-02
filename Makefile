@@ -47,8 +47,19 @@ install-skills: ## Install skills to ~/.claude/skills/
 	@cp -r skills/* ~/.claude/skills/
 	@echo "Skills installed."
 
-install: build ## Install the CLI binary locally
-	@cargo install --path apps/cli
+install-hooks: ## Register hook config in .claude/settings.json
+	@bash scripts/install.sh --no-build --no-skills
+
+install: ## Full install: build binary + skills + hooks (delegates to install.sh)
+	@bash scripts/install.sh
+
+list-skills: ## List installed gitflow skills
+	@ls ~/.claude/skills/ 2>/dev/null | grep gitflow || echo "No gitflow skills installed."
+
+uninstall-skills: ## Remove gitflow skills from ~/.claude/skills/
+	@echo "Removing gitflow skills from ~/.claude/skills/..."
+	@rm -rf ~/.claude/skills/gitflow-*
+	@echo "Gitflow skills removed."
 
 completions: build ## Generate shell completions (bash, zsh, fish)
 	@mkdir -p completions
@@ -110,7 +121,7 @@ release: ## Tag and publish a release
 	@git push origin master
 	@cargo release push --execute
 
-.PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install \
-        completions watch bench bench-cli coverage docs release-dry-run \
+.PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
+        list-skills uninstall-skills completions watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write
