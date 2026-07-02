@@ -28,7 +28,9 @@ jobs:
           persist-credentials: false
 
       - name: Install Rust
-        run: rustup toolchain install stable --component llvm-tools-preview
+        run: |
+          rustup toolchain install stable --component llvm-tools-preview
+          rustup toolchain install nightly --component rustfmt --component clippy
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
