@@ -269,7 +269,12 @@ impl PipelineProvider for GitHubPipelineProvider {
             if let Some(ref conclusion) = run.conclusion {
                 if conclusion == "success" {
                     success_count += 1;
-                } else if conclusion == "failure" {
+                } else if !matches!(
+                    conclusion.as_str(),
+                    "cancelled" | "skipped" | "neutral"
+                ) {
+                    // Counts all failure conclusions: "failure", "startup_failure",
+                    // "timed_out", and any other non-success/non-neutral conclusion.
                     *failure_counts.entry(conclusion.clone()).or_insert(0) += 1;
                 }
             }
@@ -640,5 +645,56 @@ mod tests {
         assert_eq!(total, 4);
         assert_eq!(success, 2);
         assert!((rate - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_should_count_all_failure_types_in_report_logic() {
+        // 验证 report 方法中的失败计数逻辑：
+        // "failure"、"startup_failure"、"timed_out" 都应被计入 top_failures，
+        // 而 "cancelled"、"skipped"、"neutral" 不应被计入。
+        use std::collections::HashMap;
+
+        let conclusions = [
+            "success",
+            "success",
+            "failure",
+            "failure",
+            "startup_failure",
+            "timed_out",
+            "cancelled",
+            "skipped",
+            "neutral",
+        ];
+
+        let mut success_count: u64 = 0;
+        let mut failure_counts: HashMap<String, u64> = HashMap::new();
+
+        for conclusion in &conclusions {
+            if *conclusion == "success" {
+                success_count += 1;
+            } else if !matches!(*conclusion, "cancelled" | "skipped" | "neutral") {
+                *failure_counts.entry(conclusion.to_string()).or_insert(0) += 1;
+            }
+        }
+
+        assert_eq!(success_count, 2);
+
+        assert_eq!(failure_counts.get("failure"), Some(&2));
+        assert_eq!(failure_counts.get("startup_failure"), Some(&1));
+        assert_eq!(failure_counts.get("timed_out"), Some(&1));
+        assert_eq!(failure_counts.get("cancelled"), None);
+        assert_eq!(failure_counts.get("skipped"), None);
+        assert_eq!(failure_counts.get("neutral"), None);
+
+        // 验证 top_failures 排序（按数量降序）
+        let mut failures: Vec<_> = failure_counts.into_iter().collect();
+        failures.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        let top_failures: Vec<String> = failures.into_iter().map(|(k, _)| k).collect();
+
+        // "failure" 有 2 次排第一，其余各 1 次按字母序
+        assert_eq!(top_failures[0], "failure");
+        assert!(top_failures.contains(&"startup_failure".to_string()));
+        assert!(top_failures.contains(&"timed_out".to_string()));
+        assert_eq!(top_failures.len(), 3);
     }
 }
