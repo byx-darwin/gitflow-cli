@@ -28,6 +28,7 @@ pub mod commit;
 pub mod issue;
 pub mod label;
 pub mod output;
+pub mod pipeline;
 pub mod platform;
 pub mod pr;
 pub mod release;
