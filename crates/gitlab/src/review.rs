@@ -119,16 +119,13 @@ impl ReviewProvider for GitLabReviewProvider {
         let note: NoteApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        let author = note
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = note.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
 
         Ok(ReviewData {
             id: note.id,
@@ -218,16 +215,13 @@ impl ReviewProvider for GitLabReviewProvider {
         let note: NoteApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        let author = note
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = note.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
 
         Ok(ReviewData {
             id: note.id,
@@ -328,8 +322,7 @@ mod tests {
             "created_at": "2026-05-20T14:30:00Z"
         }"#;
 
-        let note: NoteApiResponse =
-            serde_json::from_slice(json).expect("valid NoteApiResponse");
+        let note: NoteApiResponse = serde_json::from_slice(json).expect("valid NoteApiResponse");
         assert_eq!(note.id, 2001);
         assert_eq!(note.body, "Looks great, LGTM!");
         assert_eq!(note.author.as_ref().map(|a| &*a.username), Some("reviewer"));
@@ -344,8 +337,7 @@ mod tests {
             "created_at": "2026-05-21T09:00:00Z"
         }"#;
 
-        let note: NoteApiResponse =
-            serde_json::from_slice(json).expect("valid NoteApiResponse");
+        let note: NoteApiResponse = serde_json::from_slice(json).expect("valid NoteApiResponse");
         assert!(note.author.is_none());
     }
 
@@ -361,7 +353,11 @@ mod tests {
             created_at: Some("2026-01-01T00:00:00Z".parse().expect("valid date")),
         };
 
-        let author = note.author.as_ref().map(UserSummary::from).expect("has author");
+        let author = note
+            .author
+            .as_ref()
+            .map(UserSummary::from)
+            .expect("has author");
         let review = ReviewData {
             id: note.id,
             state: ReviewState::Commented,

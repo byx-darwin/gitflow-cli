@@ -49,7 +49,10 @@ impl GitLabPipelineProvider {
 
 /// `glab ci list --output json` 返回的 Pipeline JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct PipelineApiResponse {
     id: u64,
     #[serde(default)]
@@ -117,7 +120,10 @@ impl From<PipelineApiResponse> for PipelineStatus {
 
 /// `glab ci view --output json` 返回的 Job JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct JobApiResponse {
     id: u64,
     #[serde(default)]
@@ -434,14 +440,35 @@ mod tests {
 
     #[test]
     fn test_should_parse_pipeline_status_enum() {
-        assert_eq!(parse_pipeline_status("running"), PipelineStatusEnum::Running);
-        assert_eq!(parse_pipeline_status("success"), PipelineStatusEnum::Success);
+        assert_eq!(
+            parse_pipeline_status("running"),
+            PipelineStatusEnum::Running
+        );
+        assert_eq!(
+            parse_pipeline_status("success"),
+            PipelineStatusEnum::Success
+        );
         assert_eq!(parse_pipeline_status("failed"), PipelineStatusEnum::Failed);
-        assert_eq!(parse_pipeline_status("canceled"), PipelineStatusEnum::Cancelled);
-        assert_eq!(parse_pipeline_status("cancelled"), PipelineStatusEnum::Cancelled);
-        assert_eq!(parse_pipeline_status("pending"), PipelineStatusEnum::Pending);
-        assert_eq!(parse_pipeline_status("created"), PipelineStatusEnum::Pending);
-        assert_eq!(parse_pipeline_status("unknown"), PipelineStatusEnum::Pending);
+        assert_eq!(
+            parse_pipeline_status("canceled"),
+            PipelineStatusEnum::Cancelled
+        );
+        assert_eq!(
+            parse_pipeline_status("cancelled"),
+            PipelineStatusEnum::Cancelled
+        );
+        assert_eq!(
+            parse_pipeline_status("pending"),
+            PipelineStatusEnum::Pending
+        );
+        assert_eq!(
+            parse_pipeline_status("created"),
+            PipelineStatusEnum::Pending
+        );
+        assert_eq!(
+            parse_pipeline_status("unknown"),
+            PipelineStatusEnum::Pending
+        );
     }
 
     #[test]
@@ -456,8 +483,7 @@ mod tests {
             "web_url": "https://gitlab.com/org/project/-/jobs/5001"
         }"#;
 
-        let api: JobApiResponse =
-            serde_json::from_slice(json).expect("valid JobApiResponse");
+        let api: JobApiResponse = serde_json::from_slice(json).expect("valid JobApiResponse");
         let job: JobData = api.into();
 
         assert_eq!(job.id, 5001);
@@ -477,8 +503,7 @@ mod tests {
             "web_url": "https://gitlab.com/org/project/-/jobs/5002"
         }"#;
 
-        let api: JobApiResponse =
-            serde_json::from_slice(json).expect("valid JobApiResponse");
+        let api: JobApiResponse = serde_json::from_slice(json).expect("valid JobApiResponse");
         let job: JobData = api.into();
         assert_eq!(job.conclusion.as_deref(), Some("failure"));
     }
@@ -494,8 +519,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_job_list() {
         let json = b"[]";
-        let list: Vec<JobApiResponse> =
-            serde_json::from_slice(json).expect("valid empty list");
+        let list: Vec<JobApiResponse> = serde_json::from_slice(json).expect("valid empty list");
         assert!(list.is_empty());
     }
 }

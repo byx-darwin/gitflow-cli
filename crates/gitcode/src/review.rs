@@ -210,8 +210,7 @@ mod tests {
             "submittedAt": "2026-05-20T14:30:00Z"
         }"#;
 
-        let review: ReviewData =
-            serde_json::from_slice(gc_json).expect("valid ReviewData JSON");
+        let review: ReviewData = serde_json::from_slice(gc_json).expect("valid ReviewData JSON");
         assert_eq!(review.id, 2001);
         assert_eq!(review.state, ReviewState::Approved);
         assert_eq!(review.body.as_deref(), Some("Looks great, LGTM!"));

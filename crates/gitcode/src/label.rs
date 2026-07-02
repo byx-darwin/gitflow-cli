@@ -267,9 +267,10 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             cmd.arg("-f").arg(format!("due_on={}", due.to_rfc3339()));
         }
 
-        let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn gc api milestones: {e}"))
-        })?;
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc api milestones: {e}")))?;
 
         if !output.status.success() {
             let gc_err = parse_gc_error(&output.stderr);

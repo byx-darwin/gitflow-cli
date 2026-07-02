@@ -98,16 +98,13 @@ impl From<IssueApiResponse> for IssueData {
                 description: None,
             })
             .collect();
-        let author = api
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = api.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
 
         Self {
             number: api.iid,
@@ -142,16 +139,13 @@ struct CommentApiResponse {
 
 impl From<CommentApiResponse> for CommentData {
     fn from(api: CommentApiResponse) -> Self {
-        let author = api
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = api.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
         Self {
             id: api.id,
             body: api.body,
@@ -430,8 +424,7 @@ mod tests {
             "web_url": "https://gitlab.com/gitlab-org/gitlab/-/issues/42"
         }"#;
 
-        let api: IssueApiResponse =
-            serde_json::from_slice(json).expect("valid IssueApiResponse");
+        let api: IssueApiResponse = serde_json::from_slice(json).expect("valid IssueApiResponse");
         let issue: IssueData = api.into();
 
         assert_eq!(issue.number, 42);
@@ -463,8 +456,7 @@ mod tests {
             "web_url": "https://gitlab.com/org/project/-/issues/10"
         }"#;
 
-        let api: IssueApiResponse =
-            serde_json::from_slice(json).expect("valid IssueApiResponse");
+        let api: IssueApiResponse = serde_json::from_slice(json).expect("valid IssueApiResponse");
         let issue: IssueData = api.into();
         assert_eq!(issue.state, State::Closed);
     }
@@ -501,8 +493,7 @@ mod tests {
             "web_url": null
         }"#;
 
-        let api: IssueApiResponse =
-            serde_json::from_slice(json).expect("valid IssueApiResponse");
+        let api: IssueApiResponse = serde_json::from_slice(json).expect("valid IssueApiResponse");
         let issue: IssueData = api.into();
         assert_eq!(issue.author.login, "unknown");
         assert_eq!(issue.author.id, 0);
@@ -523,8 +514,7 @@ mod tests {
             "web_url": "https://gitlab.com/x/y/-/issues/1"
         }"#;
 
-        let api: IssueApiResponse =
-            serde_json::from_slice(json).expect("valid IssueApiResponse");
+        let api: IssueApiResponse = serde_json::from_slice(json).expect("valid IssueApiResponse");
         let issue: IssueData = api.into();
         assert_eq!(issue.labels.len(), 3);
         assert_eq!(issue.labels[0].name, "bug");
@@ -535,8 +525,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_issue_list() {
         let json = b"[]";
-        let list: Vec<IssueApiResponse> =
-            serde_json::from_slice(json).expect("valid empty list");
+        let list: Vec<IssueApiResponse> = serde_json::from_slice(json).expect("valid empty list");
         assert!(list.is_empty());
     }
 

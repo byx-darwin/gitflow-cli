@@ -80,18 +80,16 @@ pub async fn handle(
 
     match command {
         PipelineCommand::Status { branch } => {
-            let result = provider
-                .status(&branch)
-                .await
-                .map_err(|e| miette::miette!("Failed to get pipeline status for '{branch}': {e}"))?;
+            let result = provider.status(&branch).await.map_err(|e| {
+                miette::miette!("Failed to get pipeline status for '{branch}': {e}")
+            })?;
             let output = CliOutput::success(result, platform, "pipeline status");
             print_output(&output, &output_format)?;
         }
         PipelineCommand::Logs { pipeline_id } => {
-            let result = provider
-                .logs(pipeline_id)
-                .await
-                .map_err(|e| miette::miette!("Failed to get logs for pipeline {pipeline_id}: {e}"))?;
+            let result = provider.logs(pipeline_id).await.map_err(|e| {
+                miette::miette!("Failed to get logs for pipeline {pipeline_id}: {e}")
+            })?;
             let result_value = serde_json::json!({
                 "pipeline_id": pipeline_id,
                 "logs": result,
@@ -100,18 +98,16 @@ pub async fn handle(
             print_output(&output, &output_format)?;
         }
         PipelineCommand::Jobs { pipeline_id } => {
-            let result = provider
-                .jobs(pipeline_id)
-                .await
-                .map_err(|e| miette::miette!("Failed to get jobs for pipeline {pipeline_id}: {e}"))?;
+            let result = provider.jobs(pipeline_id).await.map_err(|e| {
+                miette::miette!("Failed to get jobs for pipeline {pipeline_id}: {e}")
+            })?;
             let output = CliOutput::success(result, platform, "pipeline jobs");
             print_output(&output, &output_format)?;
         }
         PipelineCommand::Report { branch, days } => {
-            let result = provider
-                .report(&branch, days)
-                .await
-                .map_err(|e| miette::miette!("Failed to generate pipeline report for '{branch}': {e}"))?;
+            let result = provider.report(&branch, days).await.map_err(|e| {
+                miette::miette!("Failed to generate pipeline report for '{branch}': {e}")
+            })?;
             let output = CliOutput::success(result, platform, "pipeline report");
             print_output(&output, &output_format)?;
         }
@@ -172,8 +168,7 @@ mod tests {
     #[test]
     fn test_should_parse_pipeline_status_default_branch() {
         use clap::Parser;
-        let cli =
-            crate::Cli::try_parse_from(["gitflow", "pipeline", "status"]).expect("parse");
+        let cli = crate::Cli::try_parse_from(["gitflow", "pipeline", "status"]).expect("parse");
         match cli.command {
             crate::Commands::Pipeline(PipelineCommand::Status { branch }) => {
                 assert_eq!(branch, "main");
@@ -185,14 +180,9 @@ mod tests {
     #[test]
     fn test_should_parse_pipeline_status_with_branch() {
         use clap::Parser;
-        let cli = crate::Cli::try_parse_from([
-            "gitflow",
-            "pipeline",
-            "status",
-            "--branch",
-            "develop",
-        ])
-        .expect("parse");
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pipeline", "status", "--branch", "develop"])
+                .expect("parse");
         match cli.command {
             crate::Commands::Pipeline(PipelineCommand::Status { branch }) => {
                 assert_eq!(branch, "develop");
@@ -204,14 +194,9 @@ mod tests {
     #[test]
     fn test_should_parse_pipeline_logs() {
         use clap::Parser;
-        let cli = crate::Cli::try_parse_from([
-            "gitflow",
-            "pipeline",
-            "logs",
-            "--pipeline-id",
-            "12345",
-        ])
-        .expect("parse");
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pipeline", "logs", "--pipeline-id", "12345"])
+                .expect("parse");
         match cli.command {
             crate::Commands::Pipeline(PipelineCommand::Logs { pipeline_id }) => {
                 assert_eq!(pipeline_id, 12_345);
@@ -223,14 +208,9 @@ mod tests {
     #[test]
     fn test_should_parse_pipeline_jobs() {
         use clap::Parser;
-        let cli = crate::Cli::try_parse_from([
-            "gitflow",
-            "pipeline",
-            "jobs",
-            "--pipeline-id",
-            "99",
-        ])
-        .expect("parse");
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pipeline", "jobs", "--pipeline-id", "99"])
+                .expect("parse");
         match cli.command {
             crate::Commands::Pipeline(PipelineCommand::Jobs { pipeline_id }) => {
                 assert_eq!(pipeline_id, 99);
@@ -242,8 +222,7 @@ mod tests {
     #[test]
     fn test_should_parse_pipeline_report_default() {
         use clap::Parser;
-        let cli =
-            crate::Cli::try_parse_from(["gitflow", "pipeline", "report"]).expect("parse");
+        let cli = crate::Cli::try_parse_from(["gitflow", "pipeline", "report"]).expect("parse");
         match cli.command {
             crate::Commands::Pipeline(PipelineCommand::Report { branch, days }) => {
                 assert_eq!(branch, "main");

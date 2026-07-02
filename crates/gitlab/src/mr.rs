@@ -96,16 +96,13 @@ impl From<MrApiResponse> for PrData {
         } else {
             State::Open
         };
-        let author = api
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = api.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
 
         Self {
             number: api.iid,
@@ -137,16 +134,13 @@ struct CommentApiResponse {
 
 impl From<CommentApiResponse> for CommentData {
     fn from(api: CommentApiResponse) -> Self {
-        let author = api
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = api.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
         Self {
             id: api.id,
             body: api.body,
@@ -498,8 +492,7 @@ mod tests {
             "web_url": "https://gitlab.com/gitlab-org/gitlab/-/merge_requests/123"
         }"#;
 
-        let api: MrApiResponse =
-            serde_json::from_slice(json).expect("valid MrApiResponse");
+        let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
 
         assert_eq!(pr.number, 123);
@@ -531,8 +524,7 @@ mod tests {
             "web_url": "https://gitlab.com/org/project/-/merge_requests/456"
         }"#;
 
-        let api: MrApiResponse =
-            serde_json::from_slice(json).expect("valid MrApiResponse");
+        let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert!(pr.draft);
         assert!(pr.body.is_none());
@@ -554,8 +546,7 @@ mod tests {
             "web_url": "https://gitlab.com/org/project/-/merge_requests/789"
         }"#;
 
-        let api: MrApiResponse =
-            serde_json::from_slice(json).expect("valid MrApiResponse");
+        let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert_eq!(pr.state, State::Closed);
     }
@@ -563,8 +554,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_mr_list() {
         let json = b"[]";
-        let list: Vec<MrApiResponse> =
-            serde_json::from_slice(json).expect("valid empty list");
+        let list: Vec<MrApiResponse> = serde_json::from_slice(json).expect("valid empty list");
         assert!(list.is_empty());
     }
 
@@ -629,8 +619,7 @@ mod tests {
             "web_url": null
         }"#;
 
-        let api: MrApiResponse =
-            serde_json::from_slice(json).expect("valid MrApiResponse");
+        let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert_eq!(pr.author.login, "unknown");
     }

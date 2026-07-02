@@ -93,16 +93,13 @@ struct ReleaseApiResponse {
 impl From<ReleaseApiResponse> for ReleaseData {
     fn from(api: ReleaseApiResponse) -> Self {
         let now = Utc::now();
-        let author = api
-            .author
-            .as_ref()
-            .map_or_else(
-                || UserSummary {
-                    login: "unknown".into(),
-                    id: 0,
-                },
-                UserSummary::from,
-            );
+        let author = api.author.as_ref().map_or_else(
+            || UserSummary {
+                login: "unknown".into(),
+                id: 0,
+            },
+            UserSummary::from,
+        );
 
         Self {
             id: api.id.unwrap_or(0),
@@ -274,12 +271,7 @@ impl ReleaseProvider for GitLabReleaseProvider {
         Ok(api_response.into())
     }
 
-    async fn upload_asset(
-        &self,
-        tag_name: &str,
-        file_path: &str,
-        _asset_name: &str,
-    ) -> Result<()> {
+    async fn upload_asset(&self, tag_name: &str, file_path: &str, _asset_name: &str) -> Result<()> {
         debug!(
             repo = %self.repo,
             tag = %tag_name,
@@ -305,7 +297,10 @@ impl ReleaseProvider for GitLabReleaseProvider {
         Ok(())
     }
 
-    #[allow(clippy::disallowed_methods, reason = "Path parent extraction required for download")]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "Path parent extraction required for download"
+    )]
     async fn download_asset(
         &self,
         tag_name: &str,
@@ -450,8 +445,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_release_list() {
         let json = b"[]";
-        let list: Vec<ReleaseApiResponse> =
-            serde_json::from_slice(json).expect("valid empty list");
+        let list: Vec<ReleaseApiResponse> = serde_json::from_slice(json).expect("valid empty list");
         assert!(list.is_empty());
     }
 

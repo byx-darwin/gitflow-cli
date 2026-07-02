@@ -13,8 +13,7 @@ use tracing::debug;
 use crate::error::parse_gh_error;
 
 /// `gh run list` 请求的 JSON 字段列表。
-const PIPELINE_FIELDS: &str =
-    "databaseId,headBranch,status,conclusion,createdAt,updatedAt,url";
+const PIPELINE_FIELDS: &str = "databaseId,headBranch,status,conclusion,createdAt,updatedAt,url";
 
 /// 将 GitHub `gh run list` 返回的 status 字符串映射为 [`PipelineStatusEnum`]。
 ///
@@ -185,9 +184,8 @@ impl PipelineProvider for GitHubPipelineProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        String::from_utf8(output.stdout).map_err(|e| {
-            CoreError::Platform(format!("Failed to decode log output as UTF-8: {e}"))
-        })
+        String::from_utf8(output.stdout)
+            .map_err(|e| CoreError::Platform(format!("Failed to decode log output as UTF-8: {e}")))
     }
 
     async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
@@ -266,10 +264,7 @@ impl PipelineProvider for GitHubPipelineProvider {
             if let Some(ref conclusion) = run.conclusion {
                 if conclusion == "success" {
                     success_count += 1;
-                } else if !matches!(
-                    conclusion.as_str(),
-                    "cancelled" | "skipped" | "neutral"
-                ) {
+                } else if !matches!(conclusion.as_str(), "cancelled" | "skipped" | "neutral") {
                     // Counts all failure conclusions: "failure", "startup_failure",
                     // "timed_out", and any other non-success/non-neutral conclusion.
                     *failure_counts.entry(conclusion.clone()).or_insert(0) += 1;
@@ -282,7 +277,7 @@ impl PipelineProvider for GitHubPipelineProvider {
             ) {
                 let duration = (updated.with_timezone(&chrono::Utc)
                     - created.with_timezone(&chrono::Utc))
-                    .num_seconds();
+                .num_seconds();
                 if duration > 0 {
                     #[allow(
                         clippy::cast_precision_loss,
@@ -553,8 +548,7 @@ mod tests {
             ]
         }"#;
 
-        let resp: JobsResponse =
-            serde_json::from_slice(json).expect("valid JobsResponse");
+        let resp: JobsResponse = serde_json::from_slice(json).expect("valid JobsResponse");
         assert_eq!(resp.jobs.len(), 1);
         assert_eq!(resp.jobs[0].database_id, 98765);
         assert_eq!(resp.jobs[0].name, "build");
@@ -641,8 +635,7 @@ mod tests {
             {"conclusion": null, "createdAt": "2026-07-01T13:00:00Z", "updatedAt": "2026-07-01T13:01:00Z"}
         ]"#;
 
-        let runs: Vec<TestReportRun> =
-            serde_json::from_slice(json).expect("valid");
+        let runs: Vec<TestReportRun> = serde_json::from_slice(json).expect("valid");
         assert_eq!(runs.len(), 4);
 
         let total = runs.len() as u64;

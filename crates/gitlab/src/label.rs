@@ -214,7 +214,10 @@ impl GitLabMilestoneProvider {
 
 /// `glab milestone --output json` 返回的 JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct MilestoneApiResponse {
     id: u64,
     #[serde(default)]
@@ -245,12 +248,14 @@ impl From<MilestoneApiResponse> for MilestoneData {
             if let Ok(dt) = DateTime::parse_from_rfc3339(&s) {
                 return Some(dt.with_timezone(&Utc));
             }
-            chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok().map(|d| {
-                let naive_dt = d
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap_or_else(|| d.and_hms_opt(12, 0, 0).unwrap_or_default());
-                DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc)
-            })
+            chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+                .ok()
+                .map(|d| {
+                    let naive_dt = d
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap_or_else(|| d.and_hms_opt(12, 0, 0).unwrap_or_default());
+                    DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc)
+                })
         });
 
         Self {
@@ -284,13 +289,13 @@ impl MilestoneProvider for GitLabMilestoneProvider {
         }
 
         if let Some(ref due) = args.due_on {
-            cmd.arg("--due-date").arg(due.format("%Y-%m-%d").to_string());
+            cmd.arg("--due-date")
+                .arg(due.format("%Y-%m-%d").to_string());
         }
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone create: {e}")))?;
+        let output = cmd.output().await.map_err(|e| {
+            CoreError::Platform(format!("Failed to spawn glab milestone create: {e}"))
+        })?;
 
         if !output.status.success() {
             let glab_err = parse_glab_error(&output.stderr);
@@ -314,7 +319,9 @@ impl MilestoneProvider for GitLabMilestoneProvider {
             .arg("json")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone list: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab milestone list: {e}"))
+            })?;
 
         if !output.status.success() {
             let glab_err = parse_glab_error(&output.stderr);
@@ -345,15 +352,13 @@ impl MilestoneProvider for GitLabMilestoneProvider {
         }
 
         if let Some(ref due) = args.due_on {
-            cmd.arg("--due-date").arg(due.format("%Y-%m-%d").to_string());
+            cmd.arg("--due-date")
+                .arg(due.format("%Y-%m-%d").to_string());
         }
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}"))
-            })?;
+        let output = cmd.output().await.map_err(|e| {
+            CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}"))
+        })?;
 
         if !output.status.success() {
             let glab_err = parse_glab_error(&output.stderr);
@@ -465,12 +470,14 @@ mod tests {
             "description": "Something isn't working"
         }"##;
 
-        let api: LabelApiResponse =
-            serde_json::from_slice(json).expect("valid LabelApiResponse");
+        let api: LabelApiResponse = serde_json::from_slice(json).expect("valid LabelApiResponse");
         let label: LabelData = api.into();
         assert_eq!(label.name, "bug");
         assert_eq!(label.color.as_deref(), Some("#d73a4a"));
-        assert_eq!(label.description.as_deref(), Some("Something isn't working"));
+        assert_eq!(
+            label.description.as_deref(),
+            Some("Something isn't working")
+        );
     }
 
     #[test]
@@ -480,8 +487,7 @@ mod tests {
             {"name": "feature", "color": "#0075ca", "description": null}
         ]"##;
 
-        let list: Vec<LabelApiResponse> =
-            serde_json::from_slice(json).expect("valid label list");
+        let list: Vec<LabelApiResponse> = serde_json::from_slice(json).expect("valid label list");
         assert_eq!(list.len(), 2);
         assert_eq!(list[0].name, "bug");
         assert_eq!(list[1].name, "feature");
@@ -490,8 +496,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_label_list() {
         let json = b"[]";
-        let list: Vec<LabelApiResponse> =
-            serde_json::from_slice(json).expect("valid empty list");
+        let list: Vec<LabelApiResponse> = serde_json::from_slice(json).expect("valid empty list");
         assert!(list.is_empty());
     }
 

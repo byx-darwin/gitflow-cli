@@ -183,9 +183,7 @@ async fn router(
             commands::label::handle_milestone(cmd, platform, repo, output).await
         }
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
-        Commands::Pipeline(cmd) => {
-            commands::pipeline::handle(cmd, platform, repo, output).await
-        }
+        Commands::Pipeline(cmd) => commands::pipeline::handle(cmd, platform, repo, output).await,
         Commands::SkillsInstall => Err(miette::miette!("skills install not yet implemented")),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"

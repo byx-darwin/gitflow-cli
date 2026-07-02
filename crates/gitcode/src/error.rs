@@ -98,8 +98,8 @@ mod tests {
 
         assert_eq!(
             err.message,
-            "gc: Not logged in. Please run `gc auth login` to authenticate.\nSecond line.\
-             \nThird line."
+            "gc: Not logged in. Please run `gc auth login` to authenticate.\nSecond line.\nThird \
+             line."
         );
         assert!(err.code.is_none());
         assert_eq!(

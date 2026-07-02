@@ -51,7 +51,10 @@ impl GitLabCommitProvider {
 /// GitLab API 返回的提交结构。
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct CommitApiResponse {
     id: String,
     #[serde(default)]
@@ -79,7 +82,10 @@ struct CommitApiResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct CommitStats {
     #[serde(default)]
     additions: u64,
@@ -92,7 +98,10 @@ struct CommitStats {
 /// GitLab diff 条目。
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct DiffResponse {
     #[serde(default)]
     old_path: String,
@@ -111,7 +120,10 @@ struct DiffResponse {
 /// GitLab commit comment 结构。
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code, reason = "Used for deserialization; not all fields are read")]
+#[allow(
+    dead_code,
+    reason = "Used for deserialization; not all fields are read"
+)]
 struct CommentApiResponse {
     #[serde(default)]
     note: String,
@@ -180,7 +192,10 @@ fn encode_project_path(repo: &str) -> String {
 }
 
 /// 从 diff 条目推断文件状态。
-#[allow(dead_code, reason = "Used in tests; reserved for future diff formatting")]
+#[allow(
+    dead_code,
+    reason = "Used in tests; reserved for future diff formatting"
+)]
 fn diff_status(diff: &DiffResponse) -> String {
     if diff.new_file {
         "added".into()
@@ -201,9 +216,7 @@ impl CommitProvider for GitLabCommitProvider {
         debug!(repo = %self.repo, sha, "spawning `glab api commit view`");
 
         let encoded_path = encode_project_path(&self.repo);
-        let api_path = format!(
-            "projects/{encoded_path}/repository/commits/{sha}"
-        );
+        let api_path = format!("projects/{encoded_path}/repository/commits/{sha}");
 
         let output = tokio::process::Command::new("glab")
             .args(["api", &api_path])
@@ -228,9 +241,7 @@ impl CommitProvider for GitLabCommitProvider {
         debug!(repo = %self.repo, sha, "spawning `glab api commit diff`");
 
         let encoded_path = encode_project_path(&self.repo);
-        let api_path = format!(
-            "projects/{encoded_path}/repository/commits/{sha}/diff"
-        );
+        let api_path = format!("projects/{encoded_path}/repository/commits/{sha}/diff");
 
         let output = tokio::process::Command::new("glab")
             .args(["api", &api_path])
@@ -266,9 +277,7 @@ impl CommitProvider for GitLabCommitProvider {
         debug!(repo = %self.repo, sha, "spawning `glab api commit patch`");
 
         let encoded_path = encode_project_path(&self.repo);
-        let api_path = format!(
-            "projects/{encoded_path}/repository/commits/{sha}.patch"
-        );
+        let api_path = format!("projects/{encoded_path}/repository/commits/{sha}.patch");
 
         let output = tokio::process::Command::new("glab")
             .args(["api", &api_path])
@@ -290,9 +299,7 @@ impl CommitProvider for GitLabCommitProvider {
         debug!(repo = %self.repo, sha, "spawning `glab api commit comment`");
 
         let encoded_path = encode_project_path(&self.repo);
-        let api_path = format!(
-            "projects/{encoded_path}/repository/commits/{sha}/comments"
-        );
+        let api_path = format!("projects/{encoded_path}/repository/commits/{sha}/comments");
 
         let full_note = format!("{body}\n\nFile: {path}, Line: {line}");
 
@@ -365,8 +372,7 @@ mod tests {
             "parent_ids": ["parent1"]
         }"#;
 
-        let api: CommitApiResponse =
-            serde_json::from_slice(json).expect("valid CommitApiResponse");
+        let api: CommitApiResponse = serde_json::from_slice(json).expect("valid CommitApiResponse");
         assert_eq!(api.id, "abc123def456");
         assert!(api.message.contains("Fix login bug"));
         assert_eq!(api.author_name, "alice");
@@ -431,8 +437,7 @@ mod tests {
             "deleted_file": false
         }"#;
 
-        let diff: DiffResponse =
-            serde_json::from_slice(json).expect("valid DiffResponse");
+        let diff: DiffResponse = serde_json::from_slice(json).expect("valid DiffResponse");
         assert_eq!(diff.old_path, "src/main.rs");
         assert_eq!(diff.new_path, "src/main.rs");
         assert!(!diff.new_file);
@@ -474,7 +479,13 @@ mod tests {
 
     #[test]
     fn test_should_encode_project_path() {
-        assert_eq!(encode_project_path("gitlab-org/gitlab"), "gitlab-org%2Fgitlab");
-        assert_eq!(encode_project_path("group/subgroup/project"), "group%2Fsubgroup%2Fproject");
+        assert_eq!(
+            encode_project_path("gitlab-org/gitlab"),
+            "gitlab-org%2Fgitlab"
+        );
+        assert_eq!(
+            encode_project_path("group/subgroup/project"),
+            "group%2Fsubgroup%2Fproject"
+        );
     }
 }

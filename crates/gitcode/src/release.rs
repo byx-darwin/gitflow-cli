@@ -224,7 +224,10 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         Ok(())
     }
 
-    #[allow(clippy::disallowed_methods, reason = "Path parent extraction is safe here")]
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "Path parent extraction is safe here"
+    )]
     async fn download_asset(
         &self,
         tag_name: &str,
@@ -328,8 +331,7 @@ mod tests {
             "url": "https://gitcode.com/octocat/hello-world/releases/tag/v1.0.0"
         }"#;
 
-        let release: ReleaseData =
-            serde_json::from_slice(gc_json).expect("valid ReleaseData JSON");
+        let release: ReleaseData = serde_json::from_slice(gc_json).expect("valid ReleaseData JSON");
         assert_eq!(release.id, 1001);
         assert_eq!(release.tag_name, "v1.0.0");
         assert_eq!(release.name.as_deref(), Some("Version 1.0.0"));

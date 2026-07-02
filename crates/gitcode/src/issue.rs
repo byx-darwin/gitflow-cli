@@ -376,8 +376,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_issue_list_from_gc_output() {
         let gc_json = b"[]";
-        let issues: Vec<IssueData> =
-            serde_json::from_slice(gc_json).expect("valid IssueData list");
+        let issues: Vec<IssueData> = serde_json::from_slice(gc_json).expect("valid IssueData list");
         assert!(issues.is_empty());
     }
 

@@ -101,8 +101,8 @@ mod tests {
 
         assert_eq!(
             err.message,
-            "glab: Not logged in. Please run `glab auth login` to authenticate.\nSecond line.\nThird \
-             line."
+            "glab: Not logged in. Please run `glab auth login` to authenticate.\nSecond \
+             line.\nThird line."
         );
         assert!(err.code.is_none());
         assert_eq!(
