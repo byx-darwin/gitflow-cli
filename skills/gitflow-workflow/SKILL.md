@@ -1,6 +1,6 @@
 ---
 name: gitflow-workflow
-description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow CLI 和 Superpowers 协同完成完整开发周期
+description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期
 ---
 
 # gitflow-workflow 全流程编排

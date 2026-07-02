@@ -1,6 +1,6 @@
 ---
 name: gitflow-review
-description: gitflow CLI 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查
+description: gitflow-cli 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查
 ---
 
 # gitflow-cli review
