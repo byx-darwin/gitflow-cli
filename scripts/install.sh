@@ -317,6 +317,16 @@ build_and_install() {
         mkdir -p "$install_dir"
     else
         install_dir="/usr/local/bin"
+        if [[ ! -d "$install_dir" ]]; then
+            error "安装目录不存在: ${install_dir}"
+            echo "  请创建目录: sudo mkdir -p ${install_dir}"
+            exit 1
+        fi
+        if [[ ! -w "$install_dir" ]]; then
+            error "无写入权限: ${install_dir}"
+            echo "  请使用 sudo 运行本脚本，或手动设置权限: sudo chmod o+w ${install_dir}"
+            exit 1
+        fi
     fi
 
     info "安装二进制到: ${install_dir}"
@@ -364,13 +374,6 @@ install_skills() {
         if [[ -d "$target_path" ]]; then
             warn "冲突: Skill '${skill_name}' 已存在于 ${target_path}，跳过"
             (( skipped++ )) || true
-            continue
-        fi
-
-        # 仅复制 SKILL.md 和子目录内容（不含 _common.sh 本身，它是共享库）
-        if [[ "$skill_name" == "_common.sh" ]]; then
-            # 共享库直接复制
-            cp "$skill_dir" "${SKILLS_TARGET_DIR}/_common.sh" 2>/dev/null || true
             continue
         fi
 
@@ -438,7 +441,27 @@ register_hooks() {
         fi
     fi
 
-    # 写入完整的 settings.json
+    # 仅当目标文件不存在或为空时写入，否则提示手动合并
+    if [[ -f "$settings_target" ]] && [[ -s "$settings_target" ]]; then
+        warn "settings.json 已存在且包含其他配置，不会自动覆盖"
+        warn "请手动将以下 Hook 配置合并到: ${settings_target}"
+        echo ""
+        echo '  在现有 JSON 对象中添加以下 "hooks" 键：'
+        echo ""
+        cat <<'MERGE_EOF'
+    "hooks": {
+      "Stop": [
+        {
+          "matcher": "gitflow",
+          "command": "bash hooks/auto-report-bug.sh"
+        }
+      ]
+    }
+MERGE_EOF
+        echo ""
+        return 0
+    fi
+
     cat > "$settings_target" <<'SETTINGS_EOF'
 {
   "hooks": {
