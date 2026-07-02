@@ -69,7 +69,7 @@ gitflow auth status
 
 ### 步骤 1.3：需求分析
 
-调用 `gitflow-issue-review`（计划中）对 Issue 进行结构化的需求分析：
+调用 `gitflow-issue-review` 对 Issue 进行结构化的需求分析：
 
 ```
 使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
@@ -241,7 +241,7 @@ git log --oneline -10
 
 ### 步骤 3.1：运行质量检查
 
-调用 `gitflow-quality`（计划中）skill 运行完整质量检查：
+调用 `gitflow-quality` skill 运行完整质量检查：
 
 ```
 使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
@@ -371,7 +371,7 @@ PR 要求：
 
 ### 步骤 4.4：发布（可选）
 
-如果需要发布新版本，调用 `gitflow-release-helper`（计划中）：
+如果需要发布新版本，调用 `gitflow-release-helper`：
 
 ```
 使用 gitflow-release-helper 技能，基于合并的变更创建 Release。
