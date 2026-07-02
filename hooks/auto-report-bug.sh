@@ -41,6 +41,10 @@ fi
 PENDING_CONTENT=$(cat "$PENDING_FILE")
 
 # Quick JSON sanity check — require at least "error_code" field.
+# NOTE: This is a shallow validation using grep; `jq` would be preferred
+# for robust JSON parsing but is not guaranteed to be available in all
+# environments. The error_reporter writes controlled-format JSON so this
+# heuristic is sufficient.
 if ! echo "$PENDING_CONTENT" | grep -q '"error_code"'; then
   # Invalid format — rename to .invalid and exit.
   mv "$PENDING_FILE" "${PENDING_FILE}.invalid"

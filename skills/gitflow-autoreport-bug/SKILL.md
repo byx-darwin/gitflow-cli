@@ -13,6 +13,15 @@ description: 自动分析 CLI 错误报告，去重检查后创建 GitHub/GitLab
 - `pending.json` 文件存在于 `.cache/bug-reports/pending.json`
 - `gitflow` CLI 已安装且可用
 
+**前置检查：** 在执行任何步骤之前，先验证 `gitflow` CLI 是否可用：
+
+```bash
+command -v gitflow
+```
+
+- 失败 → 输出「gitflow CLI 未安装，请运行：cargo install gitflow-cli」，保留 `pending.json`，结束
+- 成功 → 继续执行步骤
+
 ## 执行步骤
 
 ### Step 1: 读取 pending.json
@@ -26,6 +35,20 @@ description: 自动分析 CLI 错误报告，去重检查后创建 GitHub/GitLab
    - `error_code` — 错误代码
    - `error_message` — 错误信息
    - `timestamp` — 错误发生时间
+3. 检查 gitflow 认证状态：
+
+```bash
+gitflow auth status --platform {platform}
+```
+
+   - 失败 → 保留 `pending.json` + 追加记录到 `.cache/bug-reports/failed.log`：
+
+```bash
+echo "[{timestamp}] 命令: {command} | 平台: {platform} | 错误: {error_code} | 失败原因: auth 检查失败" >> .cache/bug-reports/failed.log
+```
+
+   输出「认证失败，已记录到 failed.log，pending.json 保留待后续重试」，结束
+   - 成功 → 继续 Step 2
 
 **异常处理：** 如果 JSON 格式无效（缺少必要字段或语法错误），将文件重命名为 `pending.json.invalid`，输出警告信息，结束。
 
@@ -74,7 +97,18 @@ gitflow issue create \
   --label "{error_code}"
 ```
 
-成功后删除 `.cache/bug-reports/pending.json`。
+**成功路径：** 删除 `.cache/bug-reports/pending.json`，继续 Step 5。
+
+**失败路径：** 如果 `gitflow issue create` 返回非零退出码或超时：
+
+1. 保留 `pending.json`（不删除）
+2. 追加失败记录到 `.cache/bug-reports/failed.log`：
+
+```bash
+echo "[{timestamp}] 命令: {command} | 平台: {platform} | 错误: {error_code} | 失败原因: Issue 创建失败" >> .cache/bug-reports/failed.log
+```
+
+3. 输出「Issue 创建失败，已记录到 failed.log，pending.json 保留待后续重试」，结束
 
 ### Step 5: 输出结果
 
@@ -85,6 +119,7 @@ gitflow issue create \
 
 | 场景 | 处理方式 |
 |------|----------|
+| `gitflow` CLI 未安装 | 输出安装提示 + 保留 `pending.json` + 结束 |
 | `gh auth` 失败 | 保留 `pending.json` + 记录到 `failed.log` |
 | Issue 创建失败 | 保留 `pending.json` + 记录到 `failed.log` |
 | `pending.json` 格式无效 | 重命名为 `.invalid` 后缀 |
