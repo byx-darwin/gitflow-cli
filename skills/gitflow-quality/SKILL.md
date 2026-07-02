@@ -63,8 +63,8 @@ fi
 |--------|---------|--------|-----|
 | build | `npm run build` | `python -m py_compile src/` | `go build ./...` |
 | test | `npm test` | `pytest` | `go test ./...` |
-| coverage | `npx c8 npm test` | `pytest --cov` | `go test -cover ./...` |
-| format | `npx prettier --check .` | `black --check .` | `gofmt -l .` |
+| coverage | `npx jest --coverage` 或 `npx vitest run --coverage`（取决于测试框架） | `pytest --cov` | `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| grep total` |
+| format | `npx prettier --check .` | `black --check .` | `test -z "$(gofmt -l .)"` |
 | static | `npx eslint .` | `ruff check .` | `golangci-lint run` |
 
 后续步骤以 Rust 为例，非 Rust 项目替换对应命令即可。
@@ -105,15 +105,18 @@ cargo test --workspace 2>&1
 ### 步骤 3：Coverage — 代码覆盖率
 
 ```bash
+# 读取自定义阈值，默认 80%
+THRESHOLD=${COVERAGE_THRESHOLD:-80}
+
 cargo tarpaulin --workspace 2>&1
 ```
 
-- **通过**：覆盖率 > 80% → 记录 `✅ coverage`
-- **失败**：覆盖率 <= 80% → 记录 `❌ coverage` + 当前覆盖率 → **fast-fail**
+- **通过**：覆盖率 > `$THRESHOLD` → 记录 `✅ coverage`
+- **失败**：覆盖率 <= `$THRESHOLD` → 记录 `❌ coverage` + 当前覆盖率 → **fast-fail**
 
 提取关键信息：
 - 当前覆盖率百分比
-- 阈值（80%）
+- 阈值（`$THRESHOLD`%，来自 `COVERAGE_THRESHOLD` 环境变量或默认 80%）
 
 **注意**：如果 `cargo tarpaulin` 未安装，提示用户安装：
 
@@ -239,14 +242,27 @@ fi
 
 **如果存在关联 Issue**：
 
-1. 将 Quality Report 写入临时文件 `quality-report.md`
-2. 发布到 Issue 评论：
+1. 检查 `gitflow` CLI 是否可用：
+
+```bash
+if ! command -v gitflow &>/dev/null; then
+    echo "⚠️ gitflow CLI 未安装，跳过自动发布，直接输出报告"
+    # 跳转到终端输出
+fi
+```
+
+2. 将 Quality Report 写入临时文件 `quality-report.md`
+3. 发布到 Issue 评论：
 
 ```bash
 gitflow issue comment "${ISSUE_NUMBER}" --body-file quality-report.md
 ```
 
-3. 清理临时文件
+4. 清理临时文件：
+
+```bash
+rm -f quality-report.md
+```
 
 **如果不存在关联 Issue**：
 
@@ -262,16 +278,16 @@ gitflow issue comment "${ISSUE_NUMBER}" --body-file quality-report.md
 使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
 ```
 
-### 仅检查特定项
+### 运行单个检查步骤
 
-如果用户只需检查特定项，可以单独运行：
+质量关卡按固定 5 项顺序执行，不支持参数化跳过。如需单独验证某项，可直接运行对应命令：
 
 ```bash
-# 仅运行 build 和 test
-cargo build --workspace && cargo test --workspace
+# 单独验证 build
+cargo build --workspace
 
-# 仅运行 format 和 static
-cargo +nightly fmt -- --check && cargo clippy --workspace --all-targets -- -D warnings
+# 单独验证 format
+cargo +nightly fmt -- --check
 ```
 
 ### 处理 fast-fail 场景
