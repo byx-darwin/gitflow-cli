@@ -1,0 +1,3067 @@
+#compdef gitflow-cli
+
+autoload -U is-at-least
+
+_gitflow-cli() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli_commands" \
+"*::: :->gitflow-cli" \
+&& ret=0
+    case $state in
+    (gitflow-cli)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-command-$line[1]:"
+        case $line[1] in
+            (issue)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__issue_commands" \
+"*::: :->issue" \
+&& ret=0
+
+    case $state in
+    (issue)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-issue-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+'--title=[Issue 标题（必填）。]:TITLE:_default' \
+'--body=[Issue 正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取 Issue 正文（可选）。]:BODY_FILE:_default' \
+'*--label=[标签列表（可多次指定）。]:LABEL:_default' \
+'*--assignee=[指派人列表（可多次指定）。]:ASSIGNEE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--state=[按状态过滤（\`open\` 或 \`closed\`）。]:STATE:_default' \
+'--search=[搜索关键词。]:SEARCH:_default' \
+'*--label=[按标签过滤（可多次指定）。]:LABEL:_default' \
+'--limit=[返回数量上限。]:LIMIT:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- Issue 编号。:_default' \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- Issue 编号。:_default' \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- Issue 编号。:_default' \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+'--body=[评论正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取评论正文（可选）。]:BODY_FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- Issue 编号。:_default' \
+&& ret=0
+;;
+(add-label)
+_arguments "${_arguments_options[@]}" : \
+'*--label=[要添加的标签（至少一个）。]:LABEL:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- Issue 编号。:_default' \
+&& ret=0
+;;
+(remove-label)
+_arguments "${_arguments_options[@]}" : \
+'--label=[要移除的标签名称。]:LABEL:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- Issue 编号。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__issue__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-issue-help-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(add-label)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-label)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(pr)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__pr_commands" \
+"*::: :->pr" \
+&& ret=0
+
+    case $state in
+    (pr)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-pr-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+'--title=[PR 标题（必填）。]:TITLE:_default' \
+'--head=[来源分支（可选，默认为当前 git 分支）。]:HEAD:_default' \
+'--base=[目标分支（可选，默认为 \`main\`）。]:BASE:_default' \
+'--body=[PR 正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取 PR 正文（可选）。]:BODY_FILE:_default' \
+'--repo=[目标仓库（\`owner/name\` 格式，可选，默认为当前仓库）。]:REPO:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'--draft[是否以草稿方式创建。]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--state=[按状态过滤（\`open\` 或 \`closed\`）。]:STATE:_default' \
+'--limit=[返回数量上限。]:LIMIT:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+'--body=[评论正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取评论正文（可选）。]:BODY_FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(merge)
+_arguments "${_arguments_options[@]}" : \
+'--strategy=[合并策略（\`merge\`、\`squash\` 或 \`rebase\`，默认为 \`merge\`）。]:STRATEGY:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(checkout)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(ready)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(wip)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(sync)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- PR 编号。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__pr__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-pr-help-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(merge)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(checkout)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(ready)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(wip)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(sync)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(release)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__release_commands" \
+"*::: :->release" \
+&& ret=0
+
+    case $state in
+    (release)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-release-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+'--tag-name=[Git tag 名称（必填）。]:TAG_NAME:_default' \
+'--name=[Release 标题（可选）。]:NAME:_default' \
+'--body=[Release 正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取 Release 正文（可选）。]:BODY_FILE:_default' \
+'--target-commitish=[目标 commitish（可选，默认为当前分支 HEAD）。]:TARGET_COMMITISH:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'--draft[以草稿方式创建。]' \
+'--prerelease[以预发布方式创建。]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--limit=[返回数量上限（可选）。]:LIMIT:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':tag -- Git tag 名称。:_default' \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+'--name=[Release 标题（可选）。]:NAME:_default' \
+'--body=[Release 正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取 Release 正文（可选）。]:BODY_FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':tag -- Git tag 名称。:_default' \
+&& ret=0
+;;
+(upload)
+_arguments "${_arguments_options[@]}" : \
+'--file=[本地文件路径。]:FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':tag -- Git tag 名称。:_default' \
+&& ret=0
+;;
+(download)
+_arguments "${_arguments_options[@]}" : \
+'--pattern=[文件名匹配模式（可选）。]:PATTERN:_default' \
+'--dir=[下载目录（可选）。]:DIR:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':tag -- Git tag 名称。:_default' \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-y[跳过确认提示。]' \
+'--yes[跳过确认提示。]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':tag -- Git tag 名称。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__release__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-release-help-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(upload)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(download)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(review)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__review_commands" \
+"*::: :->review" \
+&& ret=0
+
+    case $state in
+    (review)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-review-command-$line[1]:"
+        case $line[1] in
+            (comment)
+_arguments "${_arguments_options[@]}" : \
+'--body=[评论正文（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取评论正文（可选）。]:BODY_FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':pr_number -- PR 编号。:_default' \
+&& ret=0
+;;
+(approve)
+_arguments "${_arguments_options[@]}" : \
+'--body=[批准说明（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取批准说明（可选）。]:BODY_FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':pr_number -- PR 编号。:_default' \
+&& ret=0
+;;
+(request-changes)
+_arguments "${_arguments_options[@]}" : \
+'--body=[修改要求说明（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取修改要求（可选）。]:BODY_FILE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':pr_number -- PR 编号。:_default' \
+&& ret=0
+;;
+(submit)
+_arguments "${_arguments_options[@]}" : \
+'--body=[Review 总结说明（可选，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取 Review 总结（可选）。]:BODY_FILE:_default' \
+'--event=[Review 结论（\`approved\`、\`changes_requested\`、\`commented\`）。]:EVENT:((approved\:"审查通过，可以合并。"
+changes_requested\:"要求修改后才能合并。"
+commented\:"仅发表评论，不表态。"))' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':pr_number -- PR 编号。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__review__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-review-help-command-$line[1]:"
+        case $line[1] in
+            (comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(approve)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(request-changes)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(submit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(auth)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__auth_commands" \
+"*::: :->auth" \
+&& ret=0
+
+    case $state in
+    (auth)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-auth-command-$line[1]:"
+        case $line[1] in
+            (login)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(logout)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(token)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__auth__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-auth-help-command-$line[1]:"
+        case $line[1] in
+            (login)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(logout)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(token)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(label)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__label_commands" \
+"*::: :->label" \
+&& ret=0
+
+    case $state in
+    (label)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-label-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+'--color=[标签颜色（必填，十六进制格式，如 \`d73a4a\`）。]:COLOR:_default' \
+'--description=[标签描述（可选）。]:DESCRIPTION:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':name -- 标签名称（必填）。:_default' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+'--color=[新的标签颜色（可选）。]:COLOR:_default' \
+'--description=[新的标签描述（可选）。]:DESCRIPTION:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':name -- 要编辑的标签名称。:_default' \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-y[跳过确认提示（默认跳过确认直接删除）。]' \
+'--yes[跳过确认提示（默认跳过确认直接删除）。]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':name -- 要删除的标签名称。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__label__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-label-help-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(milestone)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__milestone_commands" \
+"*::: :->milestone" \
+&& ret=0
+
+    case $state in
+    (milestone)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-milestone-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+'--title=[里程碑标题（必填）。]:TITLE:_default' \
+'--description=[里程碑描述（可选）。]:DESCRIPTION:_default' \
+'--due-on=[截止日期（可选，RFC 3339 格式）。]:DUE_ON:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+'--title=[新的标题（可选）。]:TITLE:_default' \
+'--description=[新的描述（可选）。]:DESCRIPTION:_default' \
+'--due-on=[新的截止日期（可选，RFC 3339 格式）。]:DUE_ON:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- 里程碑编号。:_default' \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- 里程碑编号。:_default' \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':number -- 里程碑编号。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__milestone__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-milestone-help-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(commit)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__commit_commands" \
+"*::: :->commit" \
+&& ret=0
+
+    case $state in
+    (commit)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-commit-command-$line[1]:"
+        case $line[1] in
+            (view)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':sha -- Commit SHA 哈希值。:_default' \
+&& ret=0
+;;
+(diff)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':sha -- Commit SHA 哈希值。:_default' \
+&& ret=0
+;;
+(patch)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':sha -- Commit SHA 哈希值。:_default' \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+'--body=[评论内容（必填，与 \`--body-file\` 二选一）。]:BODY:_default' \
+'--body-file=[从文件读取评论内容（可选）。]:BODY_FILE:_default' \
+'--path=[文件路径（相对于仓库根目录，必填）。]:PATH:_default' \
+'--line=[评论的行号（1-based，必填）。]:LINE:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+':sha -- Commit SHA 哈希值。:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__commit__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-commit-help-command-$line[1]:"
+        case $line[1] in
+            (view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(diff)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(patch)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(pipeline)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+":: :_gitflow-cli__subcmd__pipeline_commands" \
+"*::: :->pipeline" \
+&& ret=0
+
+    case $state in
+    (pipeline)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-pipeline-command-$line[1]:"
+        case $line[1] in
+            (status)
+_arguments "${_arguments_options[@]}" : \
+'--branch=[分支名称（默认 \`main\`）。]:BRANCH:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(logs)
+_arguments "${_arguments_options[@]}" : \
+'--pipeline-id=[流水线 ID。]:PIPELINE_ID:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(jobs)
+_arguments "${_arguments_options[@]}" : \
+'--pipeline-id=[流水线 ID。]:PIPELINE_ID:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(report)
+_arguments "${_arguments_options[@]}" : \
+'--branch=[分支名称（默认 \`main\`）。]:BRANCH:_default' \
+'--days=[统计天数（默认 30）。]:DAYS:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__pipeline__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-pipeline-help-command-$line[1]:"
+        case $line[1] in
+            (status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(logs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(jobs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(report)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(skills)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(run)
+_arguments "${_arguments_options[@]}" : \
+'-n+[Override the configuration name (defaults to the name from the layered config or \`"gitflow-cli"\`)]:NAME:_default' \
+'--name=[Override the configuration name (defaults to the name from the layered config or \`"gitflow-cli"\`)]:NAME:_default' \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+'--platform=[Override platform auto-detection]:PLATFORM:((github\:"GitHub (github.com or Enterprise)"
+gitlab\:"GitLab (gitlab.com or self-hosted)"
+gitcode\:"\`GitCode\` (gitcode.com or self-hosted)"))' \
+'--output=[Output format (json or text)]:OUTPUT:((json\:"Structured JSON output (default; for machine consumption by skills)"
+text\:"Human-readable plain text output"))' \
+'(--uninstall)--install[Install the completion script to the shell'\''s configuration directory]' \
+'--uninstall[Uninstall the completion script from the shell'\''s configuration directory]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
+'::shell -- Shell to generate completions for:((bash\:"Bourne Again \`SHell\` (bash)"
+zsh\:"Z shell (zsh)"
+fish\:"Friendly interactive shell (fish)"))' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-command-$line[1]:"
+        case $line[1] in
+            (issue)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__issue_commands" \
+"*::: :->issue" \
+&& ret=0
+
+    case $state in
+    (issue)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-issue-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(add-label)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(remove-label)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(pr)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__pr_commands" \
+"*::: :->pr" \
+&& ret=0
+
+    case $state in
+    (pr)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-pr-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(merge)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(checkout)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(ready)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(wip)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(sync)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(release)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__release_commands" \
+"*::: :->release" \
+&& ret=0
+
+    case $state in
+    (release)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-release-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(upload)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(download)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(review)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__review_commands" \
+"*::: :->review" \
+&& ret=0
+
+    case $state in
+    (review)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-review-command-$line[1]:"
+        case $line[1] in
+            (comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(approve)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(request-changes)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(submit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(auth)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__auth_commands" \
+"*::: :->auth" \
+&& ret=0
+
+    case $state in
+    (auth)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-auth-command-$line[1]:"
+        case $line[1] in
+            (login)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(logout)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(token)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(label)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__label_commands" \
+"*::: :->label" \
+&& ret=0
+
+    case $state in
+    (label)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-label-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(milestone)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__milestone_commands" \
+"*::: :->milestone" \
+&& ret=0
+
+    case $state in
+    (milestone)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-milestone-command-$line[1]:"
+        case $line[1] in
+            (create)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(edit)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(close)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(reopen)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(commit)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__commit_commands" \
+"*::: :->commit" \
+&& ret=0
+
+    case $state in
+    (commit)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-commit-command-$line[1]:"
+        case $line[1] in
+            (view)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(diff)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(patch)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(comment)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(pipeline)
+_arguments "${_arguments_options[@]}" : \
+":: :_gitflow-cli__subcmd__help__subcmd__pipeline_commands" \
+"*::: :->pipeline" \
+&& ret=0
+
+    case $state in
+    (pipeline)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:gitflow-cli-help-pipeline-command-$line[1]:"
+        case $line[1] in
+            (status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(logs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(jobs)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(report)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(skills)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(run)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_gitflow-cli_commands] )) ||
+_gitflow-cli_commands() {
+    local commands; commands=(
+'issue:Issue operations (create, list, view)' \
+'pr:Pull request operations (create, list, view)' \
+'release:Release operations (create, list, view, edit, upload, download, delete)' \
+'review:Code review operations (comment, approve, request-changes, submit)' \
+'auth:Authentication operations (login, logout, status, token)' \
+'label:Label operations (create, list, edit, delete)' \
+'milestone:Milestone operations (create, list, edit, close, reopen)' \
+'commit:Commit operations (view, diff, patch, comment)' \
+'pipeline:Pipeline operations (status, logs, jobs, report)' \
+'skills:Install gitflow skills to \`~/.claude/skills/\`' \
+'run:Run the main application workflow (deprecated)' \
+'completions:Generate shell completion scripts' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth_commands] )) ||
+_gitflow-cli__subcmd__auth_commands() {
+    local commands; commands=(
+'login:执行登录流程。' \
+'logout:执行登出流程，清除本地凭据。' \
+'status:查询当前认证状态。' \
+'token:获取当前有效的访问 Token。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli auth commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__help_commands() {
+    local commands; commands=(
+'login:执行登录流程。' \
+'logout:执行登出流程，清除本地凭据。' \
+'status:查询当前认证状态。' \
+'token:获取当前有效的访问 Token。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli auth help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__help__subcmd__login_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__help__subcmd__login_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth help login commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__help__subcmd__logout_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__help__subcmd__logout_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth help logout commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__help__subcmd__status_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__help__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth help status commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__help__subcmd__token_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__help__subcmd__token_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth help token commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__login_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__login_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth login commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__logout_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__logout_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth logout commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__status_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth status commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__auth__subcmd__token_commands] )) ||
+_gitflow-cli__subcmd__auth__subcmd__token_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli auth token commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit_commands] )) ||
+_gitflow-cli__subcmd__commit_commands() {
+    local commands; commands=(
+'view:查看 Commit 详情。' \
+'diff:获取 Commit 的 unified diff 输出。' \
+'patch:获取 Commit 的原始 patch 内容。' \
+'comment:评论 Commit 中的特定文件行。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli commit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__diff_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__diff_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit diff commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__help_commands() {
+    local commands; commands=(
+'view:查看 Commit 详情。' \
+'diff:获取 Commit 的 unified diff 输出。' \
+'patch:获取 Commit 的原始 patch 内容。' \
+'comment:评论 Commit 中的特定文件行。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli commit help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__help__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__help__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit help comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__help__subcmd__diff_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__help__subcmd__diff_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit help diff commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__help__subcmd__patch_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__help__subcmd__patch_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit help patch commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__help__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__help__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit help view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__patch_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__patch_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit patch commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__commit__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__commit__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli commit view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__completions_commands] )) ||
+_gitflow-cli__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli completions commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__help_commands() {
+    local commands; commands=(
+'issue:Issue operations (create, list, view)' \
+'pr:Pull request operations (create, list, view)' \
+'release:Release operations (create, list, view, edit, upload, download, delete)' \
+'review:Code review operations (comment, approve, request-changes, submit)' \
+'auth:Authentication operations (login, logout, status, token)' \
+'label:Label operations (create, list, edit, delete)' \
+'milestone:Milestone operations (create, list, edit, close, reopen)' \
+'commit:Commit operations (view, diff, patch, comment)' \
+'pipeline:Pipeline operations (status, logs, jobs, report)' \
+'skills:Install gitflow skills to \`~/.claude/skills/\`' \
+'run:Run the main application workflow (deprecated)' \
+'completions:Generate shell completion scripts' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__auth_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__auth_commands() {
+    local commands; commands=(
+'login:执行登录流程。' \
+'logout:执行登出流程，清除本地凭据。' \
+'status:查询当前认证状态。' \
+'token:获取当前有效的访问 Token。' \
+    )
+    _describe -t commands 'gitflow-cli help auth commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__auth__subcmd__login_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__auth__subcmd__login_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help auth login commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__auth__subcmd__logout_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__auth__subcmd__logout_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help auth logout commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__auth__subcmd__status_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__auth__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help auth status commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__auth__subcmd__token_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__auth__subcmd__token_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help auth token commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__commit_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__commit_commands() {
+    local commands; commands=(
+'view:查看 Commit 详情。' \
+'diff:获取 Commit 的 unified diff 输出。' \
+'patch:获取 Commit 的原始 patch 内容。' \
+'comment:评论 Commit 中的特定文件行。' \
+    )
+    _describe -t commands 'gitflow-cli help commit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__commit__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__commit__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help commit comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__commit__subcmd__diff_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__commit__subcmd__diff_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help commit diff commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__commit__subcmd__patch_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__commit__subcmd__patch_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help commit patch commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__commit__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__commit__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help commit view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__completions_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help completions commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue_commands() {
+    local commands; commands=(
+'create:创建一个新的 Issue。' \
+'list:列出 Issue。' \
+'view:查看单个 Issue 详情。' \
+'close:关闭 Issue。' \
+'reopen:重新打开 Issue。' \
+'comment:评论 Issue。' \
+'add-label:为 Issue 添加标签。' \
+'remove-label:从 Issue 移除标签。' \
+    )
+    _describe -t commands 'gitflow-cli help issue commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__add-label_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__add-label_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue add-label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__remove-label_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__remove-label_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue remove-label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__issue__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__issue__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help issue view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__label_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__label_commands() {
+    local commands; commands=(
+'create:创建一个新的标签。' \
+'list:列出仓库中的所有标签。' \
+'edit:编辑一个已有的标签。' \
+'delete:删除一个标签。' \
+    )
+    _describe -t commands 'gitflow-cli help label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__label__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__label__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help label create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__label__subcmd__delete_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__label__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help label delete commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__label__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__label__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help label edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__label__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__label__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help label list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__milestone_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__milestone_commands() {
+    local commands; commands=(
+'create:创建一个新的里程碑。' \
+'list:列出仓库中的所有里程碑。' \
+'edit:编辑一个已有的里程碑。' \
+'close:关闭一个里程碑。' \
+'reopen:重新打开一个已关闭的里程碑。' \
+    )
+    _describe -t commands 'gitflow-cli help milestone commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help milestone close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help milestone create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help milestone edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help milestone list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__milestone__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help milestone reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pipeline_commands() {
+    local commands; commands=(
+'status:列出指定分支的流水线运行状态。' \
+'logs:查看指定流水线的日志。' \
+'jobs:列出指定流水线包含的任务。' \
+'report:生成流水线健康报告。' \
+    )
+    _describe -t commands 'gitflow-cli help pipeline commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__jobs_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__jobs_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pipeline jobs commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__logs_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pipeline logs commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__report_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__report_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pipeline report commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__status_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pipeline__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pipeline status commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr_commands() {
+    local commands; commands=(
+'create:创建一条新的 Pull Request。' \
+'list:列出 Pull Request。' \
+'view:查看单个 Pull Request 详情。' \
+'close:关闭 Pull Request。' \
+'reopen:重新打开 Pull Request。' \
+'comment:评论 Pull Request。' \
+'merge:合并 Pull Request。' \
+'checkout:在本地检出 Pull Request 的分支。' \
+'ready:将草稿 PR 标记为可审查状态。' \
+'wip:将 PR 标记为草稿状态。' \
+'sync:同步 PR 的分支（将 base 分支的最新变更合入 head 分支）。' \
+    )
+    _describe -t commands 'gitflow-cli help pr commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__checkout_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__checkout_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr checkout commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__merge_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__merge_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr merge commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__ready_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__ready_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr ready commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__sync_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__sync_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr sync commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__pr__subcmd__wip_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__pr__subcmd__wip_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help pr wip commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release_commands() {
+    local commands; commands=(
+'create:创建一个新的 Release。' \
+'list:列出 Release。' \
+'view:查看指定 tag 的 Release 详情。' \
+'edit:编辑指定 Release 的元数据。' \
+'upload:上传资源文件到 Release。' \
+'download:下载 Release 的资源文件。' \
+'delete:删除指定 Release。' \
+    )
+    _describe -t commands 'gitflow-cli help release commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__delete_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release delete commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__download_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__download_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release download commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__upload_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__upload_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release upload commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__release__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__release__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help release view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__review_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__review_commands() {
+    local commands; commands=(
+'comment:在 PR 上发表评论。' \
+'approve:批准 PR。' \
+'request-changes:要求对 PR 进行修改。' \
+'submit:提交一次完整的 Review。' \
+    )
+    _describe -t commands 'gitflow-cli help review commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__review__subcmd__approve_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__review__subcmd__approve_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help review approve commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__review__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__review__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help review comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__review__subcmd__request-changes_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__review__subcmd__request-changes_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help review request-changes commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__review__subcmd__submit_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__review__subcmd__submit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help review submit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__run_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__run_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help run commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__help__subcmd__skills_commands] )) ||
+_gitflow-cli__subcmd__help__subcmd__skills_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli help skills commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue_commands] )) ||
+_gitflow-cli__subcmd__issue_commands() {
+    local commands; commands=(
+'create:创建一个新的 Issue。' \
+'list:列出 Issue。' \
+'view:查看单个 Issue 详情。' \
+'close:关闭 Issue。' \
+'reopen:重新打开 Issue。' \
+'comment:评论 Issue。' \
+'add-label:为 Issue 添加标签。' \
+'remove-label:从 Issue 移除标签。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli issue commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__add-label_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__add-label_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue add-label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help_commands() {
+    local commands; commands=(
+'create:创建一个新的 Issue。' \
+'list:列出 Issue。' \
+'view:查看单个 Issue 详情。' \
+'close:关闭 Issue。' \
+'reopen:重新打开 Issue。' \
+'comment:评论 Issue。' \
+'add-label:为 Issue 添加标签。' \
+'remove-label:从 Issue 移除标签。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli issue help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__add-label_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__add-label_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help add-label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__remove-label_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__remove-label_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help remove-label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__help__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__help__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue help view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__remove-label_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__remove-label_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue remove-label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__issue__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__issue__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli issue view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label_commands] )) ||
+_gitflow-cli__subcmd__label_commands() {
+    local commands; commands=(
+'create:创建一个新的标签。' \
+'list:列出仓库中的所有标签。' \
+'edit:编辑一个已有的标签。' \
+'delete:删除一个标签。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli label commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__delete_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label delete commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__help_commands() {
+    local commands; commands=(
+'create:创建一个新的标签。' \
+'list:列出仓库中的所有标签。' \
+'edit:编辑一个已有的标签。' \
+'delete:删除一个标签。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli label help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__help__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__help__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label help create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__help__subcmd__delete_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__help__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label help delete commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__help__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__help__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label help edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__help__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label help list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__label__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__label__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli label list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone_commands] )) ||
+_gitflow-cli__subcmd__milestone_commands() {
+    local commands; commands=(
+'create:创建一个新的里程碑。' \
+'list:列出仓库中的所有里程碑。' \
+'edit:编辑一个已有的里程碑。' \
+'close:关闭一个里程碑。' \
+'reopen:重新打开一个已关闭的里程碑。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli milestone commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help_commands() {
+    local commands; commands=(
+'create:创建一个新的里程碑。' \
+'list:列出仓库中的所有里程碑。' \
+'edit:编辑一个已有的里程碑。' \
+'close:关闭一个里程碑。' \
+'reopen:重新打开一个已关闭的里程碑。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli milestone help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone help close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone help create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone help edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone help list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__help__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone help reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__milestone__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__milestone__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli milestone reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline_commands] )) ||
+_gitflow-cli__subcmd__pipeline_commands() {
+    local commands; commands=(
+'status:列出指定分支的流水线运行状态。' \
+'logs:查看指定流水线的日志。' \
+'jobs:列出指定流水线包含的任务。' \
+'report:生成流水线健康报告。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli pipeline commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__help_commands() {
+    local commands; commands=(
+'status:列出指定分支的流水线运行状态。' \
+'logs:查看指定流水线的日志。' \
+'jobs:列出指定流水线包含的任务。' \
+'report:生成流水线健康报告。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli pipeline help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__jobs_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__jobs_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline help jobs commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__logs_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline help logs commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__report_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__report_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline help report commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__status_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__help__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline help status commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__jobs_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__jobs_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline jobs commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__logs_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__logs_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline logs commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__report_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__report_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline report commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pipeline__subcmd__status_commands] )) ||
+_gitflow-cli__subcmd__pipeline__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pipeline status commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr_commands] )) ||
+_gitflow-cli__subcmd__pr_commands() {
+    local commands; commands=(
+'create:创建一条新的 Pull Request。' \
+'list:列出 Pull Request。' \
+'view:查看单个 Pull Request 详情。' \
+'close:关闭 Pull Request。' \
+'reopen:重新打开 Pull Request。' \
+'comment:评论 Pull Request。' \
+'merge:合并 Pull Request。' \
+'checkout:在本地检出 Pull Request 的分支。' \
+'ready:将草稿 PR 标记为可审查状态。' \
+'wip:将 PR 标记为草稿状态。' \
+'sync:同步 PR 的分支（将 base 分支的最新变更合入 head 分支）。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli pr commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__checkout_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__checkout_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr checkout commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help_commands() {
+    local commands; commands=(
+'create:创建一条新的 Pull Request。' \
+'list:列出 Pull Request。' \
+'view:查看单个 Pull Request 详情。' \
+'close:关闭 Pull Request。' \
+'reopen:重新打开 Pull Request。' \
+'comment:评论 Pull Request。' \
+'merge:合并 Pull Request。' \
+'checkout:在本地检出 Pull Request 的分支。' \
+'ready:将草稿 PR 标记为可审查状态。' \
+'wip:将 PR 标记为草稿状态。' \
+'sync:同步 PR 的分支（将 base 分支的最新变更合入 head 分支）。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli pr help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__checkout_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__checkout_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help checkout commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__close_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__close_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help close commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__merge_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__merge_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help merge commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__ready_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__ready_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help ready commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__sync_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__sync_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help sync commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__help__subcmd__wip_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__help__subcmd__wip_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr help wip commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__merge_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__merge_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr merge commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__ready_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__ready_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr ready commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__reopen_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__reopen_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr reopen commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__sync_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__sync_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr sync commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__pr__subcmd__wip_commands] )) ||
+_gitflow-cli__subcmd__pr__subcmd__wip_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli pr wip commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release_commands] )) ||
+_gitflow-cli__subcmd__release_commands() {
+    local commands; commands=(
+'create:创建一个新的 Release。' \
+'list:列出 Release。' \
+'view:查看指定 tag 的 Release 详情。' \
+'edit:编辑指定 Release 的元数据。' \
+'upload:上传资源文件到 Release。' \
+'download:下载 Release 的资源文件。' \
+'delete:删除指定 Release。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli release commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__delete_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release delete commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__download_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__download_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release download commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help_commands() {
+    local commands; commands=(
+'create:创建一个新的 Release。' \
+'list:列出 Release。' \
+'view:查看指定 tag 的 Release 详情。' \
+'edit:编辑指定 Release 的元数据。' \
+'upload:上传资源文件到 Release。' \
+'download:下载 Release 的资源文件。' \
+'delete:删除指定 Release。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli release help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__create_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__create_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help create commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__delete_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help delete commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__download_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__download_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help download commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__edit_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__edit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help edit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__upload_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__upload_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help upload commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__help__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__help__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release help view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__list_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release list commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__upload_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__upload_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release upload commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__release__subcmd__view_commands] )) ||
+_gitflow-cli__subcmd__release__subcmd__view_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli release view commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review_commands] )) ||
+_gitflow-cli__subcmd__review_commands() {
+    local commands; commands=(
+'comment:在 PR 上发表评论。' \
+'approve:批准 PR。' \
+'request-changes:要求对 PR 进行修改。' \
+'submit:提交一次完整的 Review。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli review commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__approve_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__approve_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review approve commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__help_commands() {
+    local commands; commands=(
+'comment:在 PR 上发表评论。' \
+'approve:批准 PR。' \
+'request-changes:要求对 PR 进行修改。' \
+'submit:提交一次完整的 Review。' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'gitflow-cli review help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__help__subcmd__approve_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__help__subcmd__approve_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review help approve commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__help__subcmd__comment_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__help__subcmd__comment_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review help comment commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__help__subcmd__help_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review help help commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__help__subcmd__request-changes_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__help__subcmd__request-changes_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review help request-changes commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__help__subcmd__submit_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__help__subcmd__submit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review help submit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__request-changes_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__request-changes_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review request-changes commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__review__subcmd__submit_commands] )) ||
+_gitflow-cli__subcmd__review__subcmd__submit_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli review submit commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__run_commands] )) ||
+_gitflow-cli__subcmd__run_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli run commands' commands "$@"
+}
+(( $+functions[_gitflow-cli__subcmd__skills_commands] )) ||
+_gitflow-cli__subcmd__skills_commands() {
+    local commands; commands=()
+    _describe -t commands 'gitflow-cli skills commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_gitflow-cli" ]; then
+    _gitflow-cli "$@"
+else
+    compdef _gitflow-cli gitflow-cli
+fi
