@@ -3,18 +3,18 @@ name: gitflow-pr-inline-review
 description: PR 行内评论工作流 — 获取 PR diff 并逐文件分析，针对具体代码行生成行内评论，覆盖逻辑错误、安全隐患、命名规范、边界条件四个维度
 ---
 
-# gitflow pr inline review 工作流
+# gitflow-cli pr inline review 工作流
 
-引导用户对 Pull Request 进行精细化的行内代码审查。通过获取 PR diff，逐文件分析代码变更，针对具体的代码行生成行内评论，并将评论通过 `gitflow commit comment` 命令直接发布到对应的代码行上，帮助 PR 作者快速定位和修复问题。
+引导用户对 Pull Request 进行精细化的行内代码审查。通过获取 PR diff，逐文件分析代码变更，针对具体的代码行生成行内评论，并将评论通过 `gitflow-cli commit comment` 命令直接发布到对应的代码行上，帮助 PR 作者快速定位和修复问题。
 
 ## 工作流
 
 ### 步骤 1：获取 PR Diff
 
-调用 `gitflow pr diff` 获取 PR 的完整 diff：
+调用 `gitflow-cli pr diff` 获取 PR 的完整 diff：
 
 ```bash
-gitflow pr diff <pr-number>
+gitflow-cli pr diff <pr-number>
 ```
 
 解析 diff 输出，提取以下信息：
@@ -94,10 +94,10 @@ gitflow pr diff <pr-number>
 
 ### 步骤 4：发布行内评论
 
-调用 `gitflow commit comment` 将评论发布到具体的代码行：
+调用 `gitflow-cli commit comment` 将评论发布到具体的代码行：
 
 ```bash
-gitflow commit comment <commit-sha> --body "<评论内容>" --path <file-path> --line <line-number>
+gitflow-cli commit comment <commit-sha> --body "<评论内容>" --path <file-path> --line <line-number>
 ```
 
 **注意事项：**
@@ -141,12 +141,12 @@ gitflow commit comment <commit-sha> --body "<评论内容>" --path <file-path> -
 
 ```bash
 # 获取 PR diff
-gitflow pr diff 101
+gitflow-cli pr diff 101
 
 # 分析后发现 3 个问题，逐一行内评论
 
 # 问题 1：安全隐患 — 未验证的用户输入
-gitflow commit comment abc1234 --body "**[security]** 用户输入未经验证
+gitflow-cli commit comment abc1234 --body "**[security]** 用户输入未经验证
 
 \`username\` 直接拼接到 SQL 查询中，存在 SQL 注入风险。
 
@@ -158,7 +158,7 @@ db.query(\"SELECT * FROM users WHERE name = ?\", &[&username])
 \`\`\`" --path src/user/service.rs --line 42
 
 # 问题 2：逻辑错误 — 边界条件遗漏
-gitflow commit comment abc1234 --body "**[logic]** 空集合未处理
+gitflow-cli commit comment abc1234 --body "**[logic]** 空集合未处理
 
 当 \`items\` 为空时，\`items[0]\` 会 panic。
 
@@ -169,7 +169,7 @@ let first = items.first().ok_or(Error::EmptyList)?;
 \`\`\`" --path src/cart/calculator.rs --line 87
 
 # 问题 3：命名规范
-gitflow commit comment abc1234 --body "**[naming]** 命名不够清晰
+gitflow-cli commit comment abc1234 --body "**[naming]** 命名不够清晰
 
 \`calc\` 缩写不当，建议使用完整名称。
 
@@ -179,10 +179,10 @@ gitflow commit comment abc1234 --body "**[naming]** 命名不够清晰
 ### 对修复 PR 进行行内审查
 
 ```bash
-gitflow pr diff 55
+gitflow-cli pr diff 55
 
 # 修复 PR 通常改动较小，重点关注修复是否完整
-gitflow commit comment def5678 --body "**[boundary]** 修复不完整
+gitflow-cli commit comment def5678 --body "**[boundary]** 修复不完整
 
 虽然修复了 \`None\` 的情况，但 \`Some(0)\` 仍然会导致除零错误。
 
@@ -197,7 +197,7 @@ if count.map_or(true, |c| c == 0) {
 
 ## 注意事项
 
-- 行内评论应针对具体的代码行，避免泛泛而谈。如果问题涉及整体架构，使用 `gitflow review comment` 发表总体评论
+- 行内评论应针对具体的代码行，避免泛泛而谈。如果问题涉及整体架构，使用 `gitflow-cli review comment` 发表总体评论
 - 每条评论只关注一个问题，保持聚焦，便于作者逐条处理
 - 评论语气应建设性而非指责性，提供具体的修改建议
 - 行号应以 diff 中的新文件行号为准（`+` 行），而非旧文件行号

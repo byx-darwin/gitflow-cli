@@ -1,11 +1,11 @@
 ---
 name: gitflow-pr-create
-description: 引导用户完成 Pull Request 创建工作流 — 检查分支、变更和 base 状态，填写标题描述后调用 gitflow pr create
+description: 引导用户完成 Pull Request 创建工作流 — 检查分支、变更和 base 状态，填写标题描述后调用 gitflow-cli pr create
 ---
 
-# gitflow pr create 工作流
+# gitflow-cli pr create 工作流
 
-引导用户通过结构化的流程创建高质量的 Pull Request，包括分支状态检查、变更审查、标题和描述编写，最终调用 `gitflow pr create` 完成创建。
+引导用户通过结构化的流程创建高质量的 Pull Request，包括分支状态检查、变更审查、标题和描述编写，最终调用 `gitflow-cli pr create` 完成创建。
 
 ## 工作流
 
@@ -99,10 +99,10 @@ Closes #N  <!-- 关联的 Issue 编号，多个用逗号分隔 -->
 
 ### 步骤 7：创建 PR
 
-调用 `gitflow pr create` 命令：
+调用 `gitflow-cli pr create` 命令：
 
 ```bash
-gitflow pr create --title "<标题>" --body "<描述>" --head <来源分支> --base <目标分支>
+gitflow-cli pr create --title "<标题>" --body "<描述>" --head <来源分支> --base <目标分支>
 ```
 
 如果需要以草稿方式创建（后续再标记为 ready），添加 `--draft` 标志。
@@ -111,7 +111,7 @@ gitflow pr create --title "<标题>" --body "<描述>" --head <来源分支> --b
 
 解析命令输出，提取并展示 PR URL。建议用户：
 
-- 草稿 PR：审查自身变更后可调用 `gitflow pr ready <number>` 标记为就绪
+- 草稿 PR：审查自身变更后可调用 `gitflow-cli pr ready <number>` 标记为就绪
 - 正式 PR：通知相关审查者进行审查
 
 ## 使用示例
@@ -120,7 +120,7 @@ gitflow pr create --title "<标题>" --body "<描述>" --head <来源分支> --b
 
 ```bash
 # 检查分支状态后执行：
-gitflow pr create \
+gitflow-cli pr create \
   --title "feat(cli): add two-factor authentication support" \
   --body "## 变更说明\n实现 TOTP 双因素认证流程\n\n## 相关 Issue\nCloses #42\n\n## 验证步骤\n1. 运行 \`make test\`\n2. 使用 auth skill 执行登录，验证 TOTP 码校验" \
   --head feature/two-factor-auth \
@@ -131,7 +131,7 @@ gitflow pr create \
 
 ```bash
 # 变更尚未完成，先创建草稿 PR 进行早期审查
-gitflow pr create \
+gitflow-cli pr create \
   --title "WIP: feat(cache): implement LRU cache with TTL" \
   --body "## 变更说明\n草稿：LRU 缓存实现，性能测试待补充\n\n## 相关 Issue\nRelated #55" \
   --head feature/lru-cache \
@@ -142,7 +142,7 @@ gitflow pr create \
 ### 修复类 PR
 
 ```bash
-gitflow pr create \
+gitflow-cli pr create \
   --title "fix(auth): handle expired token redirect loop" \
   --body "## 变更说明\n修复 token 过期时的重定向循环问题\n\n## 相关 Issue\nCloses #73\n\n## Checklist\n- [x] 已添加回归测试\n- [x] 无敏感信息泄露" \
   --head fix/redirect-loop \

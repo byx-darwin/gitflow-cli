@@ -1,11 +1,11 @@
 ---
 name: gitflow-repo
-description: 仓库操作核心命令工作流 — 封装 gitflow repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口
+description: 仓库操作核心命令工作流 — 封装 gitflow-cli repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口
 ---
 
 # gitflow-repo
 
-封装 `gitflow repo` 系列命令，提供仓库级别的常用操作入口。涵盖仓库克隆、列表查看、创建、统计数据获取、上游同步和详情查看，帮助开发者高效管理多个仓库。
+封装 `gitflow-cli repo` 系列命令，提供仓库级别的常用操作入口。涵盖仓库克隆、列表查看、创建、统计数据获取、上游同步和详情查看，帮助开发者高效管理多个仓库。
 
 ## 工作流
 
@@ -15,12 +15,12 @@ description: 仓库操作核心命令工作流 — 封装 gitflow repo 的 clone
 
 | 操作 | 命令 | 用途 |
 |------|------|------|
-| 克隆仓库 | `gitflow repo clone` | 克隆远程仓库到本地 |
-| 列出仓库 | `gitflow repo list` | 列出用户或组织下的仓库 |
-| 创建仓库 | `gitflow repo create` | 在远程平台创建新仓库 |
-| 仓库统计 | `gitflow repo stats` | 查看仓库统计数据 |
-| 同步上游 | `gitflow repo sync` | 同步上游仓库的最新变更 |
-| 查看详情 | `gitflow repo view` | 查看仓库详细信息 |
+| 克隆仓库 | `gitflow-cli repo clone` | 克隆远程仓库到本地 |
+| 列出仓库 | `gitflow-cli repo list` | 列出用户或组织下的仓库 |
+| 创建仓库 | `gitflow-cli repo create` | 在远程平台创建新仓库 |
+| 仓库统计 | `gitflow-cli repo stats` | 查看仓库统计数据 |
+| 同步上游 | `gitflow-cli repo sync` | 同步上游仓库的最新变更 |
+| 查看详情 | `gitflow-cli repo view` | 查看仓库详细信息 |
 
 ### 步骤 2：执行对应操作
 
@@ -30,13 +30,13 @@ description: 仓库操作核心命令工作流 — 封装 gitflow repo 的 clone
 
 ```bash
 # 克隆仓库（标准格式）
-gitflow repo clone <owner>/<repo>
+gitflow-cli repo clone <owner>/<repo>
 
 # 克隆到指定目录
-gitflow repo clone <owner>/<repo> --dir <target-dir>
+gitflow-cli repo clone <owner>/<repo> --dir <target-dir>
 
 # 克隆指定分支
-gitflow repo clone <owner>/<repo> --branch <branch>
+gitflow-cli repo clone <owner>/<repo> --branch <branch>
 ```
 
 克隆后自动执行初始化操作：
@@ -60,14 +60,14 @@ git fetch --all
 
 ```bash
 # 列出当前用户的仓库
-gitflow repo list
+gitflow-cli repo list
 
 # 列出指定组织的仓库
-gitflow repo list --org <organization>
+gitflow-cli repo list --org <organization>
 
 # 按条件过滤
-gitflow repo list --visibility public
-gitflow repo list --language rust
+gitflow-cli repo list --visibility public
+gitflow-cli repo list --language rust
 ```
 
 输出格式：
@@ -85,20 +85,20 @@ gitflow repo list --language rust
 
 ```bash
 # 创建公开仓库
-gitflow repo create --name <repo-name> --visibility public
+gitflow-cli repo create --name <repo-name> --visibility public
 
 # 创建私有仓库
-gitflow repo create --name <repo-name> --visibility private
+gitflow-cli repo create --name <repo-name> --visibility private
 
 # 创建并初始化
-gitflow repo create --name <repo-name> --visibility public --init
+gitflow-cli repo create --name <repo-name> --visibility public --init
 ```
 
 创建后的初始化流程：
 
 ```bash
 # 如果是 --init 创建，克隆到本地
-gitflow repo clone <owner>/<repo-name>
+gitflow-cli repo clone <owner>/<repo-name>
 cd <repo-name>
 
 # 初始化 Git 仓库
@@ -123,7 +123,7 @@ git push -u origin main
 
 ```bash
 # 获取仓库统计数据
-gitflow repo stats
+gitflow-cli repo stats
 
 # 等价于调用 gh CLI：
 gh repo view --json \
@@ -181,7 +181,7 @@ gh repo view --json \
 
 ```bash
 # 同步上游仓库
-gitflow repo sync
+gitflow-cli repo sync
 
 # 底层执行以下命令序列：
 git fetch upstream
@@ -219,10 +219,10 @@ git push origin <current-branch>
 
 ```bash
 # 查看当前仓库详情
-gitflow repo view
+gitflow-cli repo view
 
 # 查看指定仓库详情
-gitflow repo view <owner>/<repo>
+gitflow-cli repo view <owner>/<repo>
 ```
 
 输出格式：
@@ -255,7 +255,7 @@ gitflow repo view <owner>/<repo>
 
 ```bash
 # 克隆一个 fork 仓库
-gitflow repo clone myuser/gitflow-cli
+gitflow-cli repo clone myuser/gitflow-cli
 
 # 查看远程配置
 git remote -v
@@ -264,23 +264,23 @@ git remote -v
 git remote add upstream https://github.com/original-org/gitflow-cli.git
 
 # 后续通过 sync 保持同步
-gitflow repo sync
+gitflow-cli repo sync
 ```
 
 ### 查看组织下所有 Rust 仓库
 
 ```bash
-gitflow repo list --org my-org --language rust
+gitflow-cli repo list --org my-org --language rust
 ```
 
 ### 创建新仓库并初始化
 
 ```bash
 # 创建仓库
-gitflow repo create --name my-new-project --visibility public --init
+gitflow-cli repo create --name my-new-project --visibility public --init
 
 # 克隆到本地
-gitflow repo clone myuser/my-new-project
+gitflow-cli repo clone myuser/my-new-project
 cd my-new-project
 
 # 开始开发
@@ -289,7 +289,7 @@ cd my-new-project
 ### 查看仓库统计并分析健康度
 
 ```bash
-gitflow repo stats
+gitflow-cli repo stats
 
 # 基于统计结果分析：
 # - Star 增长趋势 → 项目受欢迎程度
@@ -299,11 +299,11 @@ gitflow repo stats
 
 ## 注意事项
 
-- `gitflow repo stats` 依赖 `gh repo view --json`，需要确保 `gh` CLI 已安装并认证
-- `gitflow repo sync` 前应先确认 `upstream` 远程已配置，否则会报错
+- `gitflow-cli repo stats` 依赖 `gh repo view --json`，需要确保 `gh` CLI 已安装并认证
+- `gitflow-cli repo sync` 前应先确认 `upstream` 远程已配置，否则会报错
 - 同步操作可能在本地产生合并冲突，需要先解决冲突再推送
 - 创建仓库时应根据实际需要选择 `public` 或 `private` 可见性
 - 列出仓库时可以使用过滤条件缩小范围，避免返回过多结果
-- 如果 `gitflow repo` 命令尚未实现，可通过直接使用 `gh` CLI 和 `git` 命令完成等效操作
+- 如果 `gitflow-cli repo` 命令尚未实现，可通过直接使用 `gh` CLI 和 `git` 命令完成等效操作
 - 仓库统计信息应定期查看，帮助了解项目健康状况和维护需求
 - 克隆仓库后建议立即配置 Git hooks 和开发环境（参考 `gitflow-repo-onboarding` 工作流）

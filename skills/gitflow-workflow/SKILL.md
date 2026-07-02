@@ -31,14 +31,14 @@ gitflow-issue-review         subagent-dev               coverage   ✅/❌      
 # 1. 确认在 git 仓库中
 git rev-parse --show-toplevel
 
-# 2. 确认 gitflow CLI 可用
-gitflow --version
+# 2. 确认 gitflow-cli 可用
+gitflow-cli --version
 
 # 3. 确认认证状态
-gitflow auth status
+gitflow-cli auth status
 ```
 
-如果认证失败，先执行 `gitflow auth login`。
+如果认证失败，先执行 `gitflow-cli auth login`。
 
 ---
 
@@ -88,7 +88,7 @@ gitflow auth status
 将 Phase 1 产出物评论到 Issue：
 
 ```bash
-gitflow issue comment <number> --body "## Phase 1: 需求澄清完成
+gitflow-cli issue comment <number> --body "## Phase 1: 需求澄清完成
 
 ### 需求分析报告
 
@@ -113,7 +113,7 @@ gitflow issue comment <number> --body "## Phase 1: 需求澄清完成
 **校验方法**：
 ```bash
 # 确认 Issue 存在且可访问
-gitflow issue view <number>
+gitflow-cli issue view <number>
 ```
 
 **违规处理**：
@@ -188,7 +188,7 @@ gitflow issue view <number>
 所有原子任务完成后，将任务清单评论到 Issue：
 
 ```bash
-gitflow issue comment <number> --body "## Phase 2: 开发实现完成
+gitflow-cli issue comment <number> --body "## Phase 2: 开发实现完成
 
 ### 原子任务清单
 
@@ -284,7 +284,7 @@ git log --oneline -10
 将质量检查结果评论到 Issue：
 
 ```bash
-gitflow issue comment <number> --body "## Phase 3: 质量关卡通过
+gitflow-cli issue comment <number> --body "## Phase 3: 质量关卡通过
 
 ### 质量检查报告
 
@@ -389,19 +389,19 @@ PR 合并后，确认 Issue 自动关闭（通过 `Closes #N`）：
 
 ```bash
 # 确认 Issue 状态
-gitflow issue view <number>
+gitflow-cli issue view <number>
 ```
 
 如果未自动关闭，手动关闭：
 
 ```bash
-gitflow issue close <number>
+gitflow-cli issue close <number>
 ```
 
 ### 步骤 4.6：发布最终审计日志
 
 ```bash
-gitflow issue comment <number> --body "## Phase 4: 交付完成
+gitflow-cli issue comment <number> --body "## Phase 4: 交付完成
 
 ### PR 信息
 - PR URL: <url>
@@ -449,7 +449,7 @@ gitflow issue comment <number> --body "## Phase 4: 交付完成
 
 ### 场景 2：修复一个 Bug
 
-用户说："gitflow issue create 在 GitLab 上报错 401"
+用户说："gitflow-cli issue create 在 GitLab 上报错 401"
 
 **执行流程**：
 
@@ -498,7 +498,7 @@ gitflow issue comment <number> --body "## Phase 4: 交付完成
 回退时，在 Issue 上记录回退原因：
 
 ```bash
-gitflow issue comment <number> --body "## 阶段回退
+gitflow-cli issue comment <number> --body "## 阶段回退
 
 **从 Phase <X> 回退到 Phase <Y>**
 

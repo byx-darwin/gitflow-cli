@@ -1,11 +1,11 @@
 ---
 name: gitflow-release-helper
-description: 发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gitflow release create 创建发布并输出 release URL
+description: 发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gitflow-cli release create 创建发布并输出 release URL
 ---
 
-# gitflow release helper 工作流
+# gitflow-cli release helper 工作流
 
-引导用户完成版本发布流程。通过分析自上次 release 以来的 git 提交历史，按照 conventional commits 规范自动分组生成 Release Note，调用 `gitflow release create` 命令创建发布，并输出 release URL 供团队确认。
+引导用户完成版本发布流程。通过分析自上次 release 以来的 git 提交历史，按照 conventional commits 规范自动分组生成 Release Note，调用 `gitflow-cli release create` 命令创建发布，并输出 release URL 供团队确认。
 
 ## 工作流
 
@@ -60,7 +60,7 @@ git log <last-tag>..HEAD --pretty=format:"%h %s" --no-merges
 或使用 gitflow 提供的命令（如支持）：
 
 ```bash
-gitflow release changelog --since <last-tag>
+gitflow-cli release changelog --since <last-tag>
 ```
 
 ### 步骤 3：按 Conventional Commits 分组生成 Release Note
@@ -133,10 +133,10 @@ gitflow release changelog --since <last-tag>
 
 ### 步骤 5：创建 Release
 
-调用 `gitflow release create` 创建发布：
+调用 `gitflow-cli release create` 创建发布：
 
 ```bash
-gitflow release create --tag <vX.Y.Z> --notes "<release-note>"
+gitflow-cli release create --tag <vX.Y.Z> --notes "<release-note>"
 ```
 
 如果 Release Note 内容较长，可以使用 `--notes-file` 参数从文件读取：
@@ -146,7 +146,7 @@ cat > /tmp/release-note.md << 'EOF'
 <!-- Release Note 内容 -->
 EOF
 
-gitflow release create --tag <vX.Y.Z> --notes-file /tmp/release-note.md
+gitflow-cli release create --tag <vX.Y.Z> --notes-file /tmp/release-note.md
 ```
 
 ### 步骤 6：输出 Release URL
@@ -221,7 +221,7 @@ cat > /tmp/release-note.md << 'EOF'
 EOF
 
 # 创建 release
-gitflow release create --tag v1.3.0 --notes-file /tmp/release-note.md
+gitflow-cli release create --tag v1.3.0 --notes-file /tmp/release-note.md
 # 输出: Release created: https://github.com/org/repo/releases/tag/v1.3.0
 
 rm -f /tmp/release-note.md
@@ -267,7 +267,7 @@ cat > /tmp/release-note.md << 'EOF'
 - **Files changed:** 8
 EOF
 
-gitflow release create --tag v2.0.0 --notes-file /tmp/release-note.md
+gitflow-cli release create --tag v2.0.0 --notes-file /tmp/release-note.md
 rm -f /tmp/release-note.md
 ```
 
@@ -295,7 +295,7 @@ cat > /tmp/release-note.md << 'EOF'
 - **Files changed:** 2
 EOF
 
-gitflow release create --tag v2.0.1 --notes-file /tmp/release-note.md
+gitflow-cli release create --tag v2.0.1 --notes-file /tmp/release-note.md
 rm -f /tmp/release-note.md
 ```
 

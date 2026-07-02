@@ -3,7 +3,7 @@ name: gitflow-quality
 description: 质量关卡 — 5 项质量检查闸门（build / test / coverage / format / static），全部通过才能进入交付阶段
 ---
 
-# gitflow quality 质量关卡
+# gitflow-cli quality 质量关卡
 
 在交付前运行 5 项质量检查，按顺序执行、失败即停（fast-fail），最终生成 Quality Report。编排层只做指挥，所有检查通过标准 CLI 命令执行。
 
@@ -245,8 +245,8 @@ fi
 1. 检查 `gitflow` CLI 是否可用：
 
 ```bash
-if ! command -v gitflow &>/dev/null; then
-    echo "⚠️ gitflow CLI 未安装，跳过自动发布，直接输出报告"
+if ! command -v gitflow-cli &>/dev/null; then
+    echo "⚠️ gitflow-cli 未安装，跳过自动发布，直接输出报告"
     # 跳转到终端输出
 fi
 ```
@@ -255,7 +255,7 @@ fi
 3. 发布到 Issue 评论：
 
 ```bash
-gitflow issue comment "${ISSUE_NUMBER}" --body-file quality-report.md
+gitflow-cli issue comment "${ISSUE_NUMBER}" --body-file quality-report.md
 ```
 
 4. 清理临时文件：

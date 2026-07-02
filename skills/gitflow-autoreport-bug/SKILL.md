@@ -38,7 +38,7 @@ command -v gitflow
 3. 检查 gitflow 认证状态：
 
 ```bash
-gitflow auth status --platform {platform}
+gitflow-cli auth status --platform {platform}
 ```
 
    - 失败 → 保留 `pending.json` + 追加记录到 `.cache/bug-reports/failed.log`：
@@ -73,10 +73,10 @@ echo "[{timestamp}] 命令: {command} | 平台: {platform} | 错误: {error_code
 ### Step 3: 去重检查
 
 1. 构造搜索关键词：`[auto-report] {command} {error_code}`
-2. 调用 `gitflow issue list` 搜索已有 Issue：
+2. 调用 `gitflow-cli issue list` 搜索已有 Issue：
 
 ```bash
-gitflow issue list --search "[auto-report] {command} {error_code}" --state all
+gitflow-cli issue list --search "[auto-report] {command} {error_code}" --state all
 ```
 
 3. 判断结果：
@@ -85,10 +85,10 @@ gitflow issue list --search "[auto-report] {command} {error_code}" --state all
 
 ### Step 4: 创建 Issue
 
-调用 `gitflow issue create` 创建 Issue：
+调用 `gitflow-cli issue create` 创建 Issue：
 
 ```bash
-gitflow issue create \
+gitflow-cli issue create \
   --title "[auto-report] gitflow {command} — {error_code}" \
   --body "<Step 2 生成的分析报告>" \
   --label "bug" \
@@ -99,7 +99,7 @@ gitflow issue create \
 
 **成功路径：** 删除 `.cache/bug-reports/pending.json`，继续 Step 5。
 
-**失败路径：** 如果 `gitflow issue create` 返回非零退出码或超时：
+**失败路径：** 如果 `gitflow-cli issue create` 返回非零退出码或超时：
 
 1. 保留 `pending.json`（不删除）
 2. 追加失败记录到 `.cache/bug-reports/failed.log`：
@@ -137,7 +137,7 @@ echo "[{timestamp}] 命令: {command} | 平台: {platform} | 错误: {error_code
 
 ```
 ✅ Bug 报告已创建: https://github.com/owner/repo/issues/123
-   标题: [auto-report] gitflow issue create — AUTH_FAILED
+   标题: [auto-report] gitflow-cli issue create — AUTH_FAILED
    严重程度: high
 ```
 

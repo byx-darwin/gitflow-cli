@@ -21,7 +21,7 @@ git remote -v
 git remote show origin | grep 'HEAD branch'
 
 # 查看仓库基本信息
-gitflow repo stats 2>/dev/null || echo "gitflow repo 不可用，使用 git 命令"
+gitflow-cli repo stats 2>/dev/null || echo "gitflow-cli repo 不可用，使用 git 命令"
 ```
 
 **检测项目语言和框架：**

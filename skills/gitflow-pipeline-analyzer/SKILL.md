@@ -1,11 +1,11 @@
 ---
 name: gitflow-pipeline-analyzer
-description: 流水线分析工作流 — 调用 gitflow pipeline report 获取流水线健康数据，分析成功率趋势、失败模式和最长耗时，输出分析报告和改进建议
+description: 流水线分析工作流 — 调用 gitflow-cli pipeline report 获取流水线健康数据，分析成功率趋势、失败模式和最长耗时，输出分析报告和改进建议
 ---
 
 # gitflow-pipeline-analyzer
 
-分析 CI/CD 流水线的运行健康状况。通过调用 `gitflow pipeline report` 获取指定分支和时间范围的流水线数据，从成功率趋势、失败模式、最长耗时三个维度进行深度分析，输出结构化的分析报告并提供可操作的改进建议。
+分析 CI/CD 流水线的运行健康状况。通过调用 `gitflow-cli pipeline report` 获取指定分支和时间范围的流水线数据，从成功率趋势、失败模式、最长耗时三个维度进行深度分析，输出结构化的分析报告并提供可操作的改进建议。
 
 ## 工作流
 
@@ -28,16 +28,16 @@ DAYS=7
 
 ### 步骤 2：获取流水线报告数据
 
-调用 `gitflow pipeline report` 获取流水线健康数据：
+调用 `gitflow-cli pipeline report` 获取流水线健康数据：
 
 ```bash
-gitflow pipeline report --branch "$BRANCH" --days "$DAYS"
+gitflow-cli pipeline report --branch "$BRANCH" --days "$DAYS"
 ```
 
 同时获取流水线状态概览：
 
 ```bash
-gitflow pipeline status --branch "$BRANCH"
+gitflow-cli pipeline status --branch "$BRANCH"
 ```
 
 记录以下关键数据：
@@ -118,12 +118,12 @@ gitflow pipeline status --branch "$BRANCH"
 找出耗时最长的 Pipeline 运行：
 
 - 记录最长耗时的 Pipeline ID
-- 通过 `gitflow pipeline jobs` 分析其各 Job 耗时分布
+- 通过 `gitflow-cli pipeline jobs` 分析其各 Job 耗时分布
 - 识别耗时最长的 Job（瓶颈步骤）
 
 ```bash
 # 查看耗时最长的 Pipeline 的 Job 列表
-gitflow pipeline jobs --pipeline-id <longest-pipeline-id>
+gitflow-cli pipeline jobs --pipeline-id <longest-pipeline-id>
 ```
 
 **5.2 耗时趋势**
@@ -205,33 +205,33 @@ gitflow pipeline jobs --pipeline-id <longest-pipeline-id>
 
 ```bash
 # 获取当前分支的流水线报告
-gitflow pipeline report --branch main --days 7
+gitflow-cli pipeline report --branch main --days 7
 
 # 获取流水线状态概览
-gitflow pipeline status --branch main
+gitflow-cli pipeline status --branch main
 
 # 查看某个失败 Pipeline 的详情
-gitflow pipeline jobs --pipeline-id 1234
-gitflow pipeline logs --pipeline-id 1234
+gitflow-cli pipeline jobs --pipeline-id 1234
+gitflow-cli pipeline logs --pipeline-id 1234
 ```
 
 ### 分析特定分支最近 30 天的流水线
 
 ```bash
-gitflow pipeline report --branch release/v1.3 --days 30
+gitflow-cli pipeline report --branch release/v1.3 --days 30
 ```
 
 ### 针对失败 Pipeline 的深入排查
 
 ```bash
 # 查看最近流水线状态
-gitflow pipeline status --branch main
+gitflow-cli pipeline status --branch main
 
 # 查看失败 Pipeline 的 Job 列表
-gitflow pipeline jobs --pipeline-id 1234
+gitflow-cli pipeline jobs --pipeline-id 1234
 
 # 查看特定 Job 的日志
-gitflow pipeline logs --pipeline-id 1234
+gitflow-cli pipeline logs --pipeline-id 1234
 ```
 
 ### 分析报告输出示例
@@ -270,7 +270,7 @@ gitflow pipeline logs --pipeline-id 1234
 
 ## 注意事项
 
-- 分析结果基于 `gitflow pipeline report` 返回的数据，确保有足够的 Pipeline 运行记录
+- 分析结果基于 `gitflow-cli pipeline report` 返回的数据，确保有足够的 Pipeline 运行记录
 - 成功率的质量等级阈值可根据团队实际情况调整
 - 对于 flaky test（间歇性失败的测试），建议单独标记并跟踪修复进度
 - 耗时分析应关注 P90/P95 而非仅看平均值，避免被极端值误导
