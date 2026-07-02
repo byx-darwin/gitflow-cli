@@ -21,6 +21,40 @@
 - **gitflow skills**：Issue 管理 / PR 创建审查 / 跨平台命令 / 安全审计 / Release 发布
 - **`gitflow-workflow`**：两者胶水层，知道每个阶段触发哪个 skill、何时交接
 
+## 平台支持
+
+### Git 平台
+
+`gitflow` CLI 统一封装了三大 Git 平台的差异，通过 `--platform` 自动检测或手动指定：
+
+| 平台 | CLI 依赖 | 特性 |
+|------|---------|------|
+| **GitHub** | `gh` (v2.0.0+) | Issue / PR / Release / Review / Pipeline / Repo |
+| **GitLab** | `glab` (v1.30.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
+| **GitCode** | `gc` (v0.6.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
+
+```bash
+# 自动检测（基于 git remote）
+gitflow issue list
+
+# 手动指定平台
+gitflow issue list --platform gitlab --output text
+```
+
+### Agent 平台
+
+Skills 可安装到任意支持的 AI Agent 平台，通过 `-g --agent` 指定：
+
+| Agent | 安装目录 | 安装命令 |
+|-------|---------|---------|
+| **Claude Code** | `~/.claude/skills/` | `gitflow skills install -g --agent claude` |
+| **Codex** (OpenAI) | `~/.codex/skills/` | `gitflow skills install -g --agent codex` |
+| **OpenCode** | `~/.opencode/skills/` | `gitflow skills install -g --agent open-code` |
+| **Gemini CLI** | `~/.gemini/skills/` | `gitflow skills install -g --agent gemini` |
+| **Copilot CLI** | `~/.copilot/skills/` | `gitflow skills install -g --agent copilot` |
+
+默认 `-g` 不指定 agent 时自动检测当前环境已有的平台目录。
+
 ## Skill 矩阵
 
 ### 编排
