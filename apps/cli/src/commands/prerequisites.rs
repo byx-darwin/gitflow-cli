@@ -48,8 +48,10 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
         "gitcode" => Some(CliRequirement {
             binary: "gc",
             min_version: "0.6.0",
-            install_url: "https://gitcode.com/gitcode-cli/gitcode-cli",
-            install_hint: "# 参考官方安装指引\ncurl -sSL https://gitcode.com/.../install.sh | bash",
+            install_url: "https://gitcode.com/gitcode-cli/gitcode-cli/releases",
+            install_hint: "brew install gitcode-cli    # macOS (if available)\n\
+                           go install gitcode.com/gitcode-cli/gc@latest   # Go toolchain\n\
+                           # Or download from: https://gitcode.com/gitcode-cli/gitcode-cli/releases",
         }),
         _ => None,
     }
@@ -59,7 +61,10 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
 #[derive(Debug, thiserror::Error)]
 pub enum PrerequisiteError {
     /// 原生 CLI 未在 PATH 中找到。
-    #[error("{binary} not found.\n\nInstall from {install_url}\n\nQuick install:\n{install_hint}")]
+    #[error(
+        "{binary} not found in PATH.\n\n📦 Install from: {install_url}\n\n💡 Quick \
+         install:\n{install_hint}"
+    )]
     NotFound {
         /// CLI 可执行文件名。
         binary: String,
@@ -70,7 +75,7 @@ pub enum PrerequisiteError {
     },
 
     /// 原生 CLI 版本过低。
-    #[error("{binary} v{required}+ required, found v{found}.\n\nUpgrade:\n{install_hint}")]
+    #[error("{binary} v{required}+ required, found v{found}.\n\n💡 Upgrade:\n{install_hint}")]
     VersionTooLow {
         /// CLI 可执行文件名。
         binary: String,
@@ -83,10 +88,20 @@ pub enum PrerequisiteError {
     },
 
     /// 无法从 `--version` 输出中解析 semver。
-    #[error("Failed to parse {binary} --version output")]
+    #[error(
+        "Failed to parse `{binary} --version` output — {binary} may not be the expected \
+         {platform} CLI.\n\n📦 Install the correct CLI from: {install_url}\n\n💡 Quick \
+         install:\n{install_hint}"
+    )]
     VersionParseFailed {
         /// CLI 可执行文件名。
         binary: String,
+        /// 对应的平台名称。
+        platform: String,
+        /// 快速安装命令。
+        install_hint: String,
+        /// 官方安装链接。
+        install_url: String,
     },
 
     /// 不支持的平台。
@@ -150,21 +165,45 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
 ///
 /// 执行失败或输出中无 semver 模式时返回 `PrerequisiteError::VersionParseFailed`。
 fn get_version(binary: &str) -> Result<String, PrerequisiteError> {
+    let find_hint = || -> (&str, &str) {
+        requirement_for(binary_to_platform(binary))
+            .map(|r| (r.install_hint, r.install_url))
+            .unwrap_or(("", ""))
+    };
+
     let output = Command::new(binary)
         .arg("--version")
         .output()
-        .map_err(|_| PrerequisiteError::VersionParseFailed {
-            binary: binary.into(),
+        .map_err(|_| {
+            let (hint, url) = find_hint();
+            PrerequisiteError::VersionParseFailed {
+                binary: binary.into(),
+                platform: binary_to_platform(binary).into(),
+                install_hint: hint.into(),
+                install_url: url.into(),
+            }
         })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // 提取 semver，适配各种 CLI 的输出格式：
-    // gh version 2.50.0 (2024-01-01)     → 2.50.0
-    // glab version 1.35.0 (2024-01-01)   → 1.35.0
-    // gc version v0.6.0                  → 0.6.0
-    extract_semver(&stdout).ok_or_else(|| PrerequisiteError::VersionParseFailed {
-        binary: binary.into(),
+    extract_semver(&stdout).ok_or_else(|| {
+        let (hint, url) = find_hint();
+        PrerequisiteError::VersionParseFailed {
+            binary: binary.into(),
+            platform: binary_to_platform(binary).into(),
+            install_hint: hint.into(),
+            install_url: url.into(),
+        }
     })
+}
+
+/// Map a binary name to its platform name for error messages.
+fn binary_to_platform(binary: &str) -> &'static str {
+    match binary {
+        "gh" => "github",
+        "glab" => "gitlab",
+        "gc" => "gitcode",
+        _ => "unknown",
+    }
 }
 
 /// 从字符串中提取第一个 semver 模式（`X.Y.Z`）。
