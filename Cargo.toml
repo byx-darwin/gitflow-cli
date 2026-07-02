@@ -54,6 +54,7 @@ secrecy = "0.11"
 gitflow-cli-core = { path = "crates/core" }
 gitflow-cli-github = { path = "crates/github" }
 gitflow-cli-gitlab = { path = "crates/gitlab" }
+gitflow-cli-gitcode = { path = "crates/gitcode" }
 gitflow-cli-cli = { path = "apps/cli" }
 
 [workspace.lints.rust]
