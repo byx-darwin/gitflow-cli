@@ -35,6 +35,10 @@ pub enum AgentPlatform {
     Codex,
     /// `OpenCode` — `~/.opencode/skills/`
     OpenCode,
+    /// Gemini CLI — `~/.gemini/skills/`
+    Gemini,
+    /// GitHub Copilot CLI — `~/.copilot/skills/`
+    Copilot,
 }
 
 impl AgentPlatform {
@@ -45,6 +49,8 @@ impl AgentPlatform {
             AgentPlatform::Claude => ".claude/skills",
             AgentPlatform::Codex => ".codex/skills",
             AgentPlatform::OpenCode => ".opencode/skills",
+            AgentPlatform::Gemini => ".gemini/skills",
+            AgentPlatform::Copilot => ".copilot/skills",
         }
     }
 
@@ -62,6 +68,8 @@ impl AgentPlatform {
             AgentPlatform::Claude,
             AgentPlatform::Codex,
             AgentPlatform::OpenCode,
+            AgentPlatform::Gemini,
+            AgentPlatform::Copilot,
         ] {
             if home.join(platform.skills_dir_name()).exists() {
                 return *platform;
@@ -402,7 +410,11 @@ mod tests {
         let platform = AgentPlatform::detect();
         assert!(matches!(
             platform,
-            AgentPlatform::Claude | AgentPlatform::Codex | AgentPlatform::OpenCode
+            AgentPlatform::Claude
+                | AgentPlatform::Codex
+                | AgentPlatform::OpenCode
+                | AgentPlatform::Gemini
+                | AgentPlatform::Copilot
         ));
     }
 
