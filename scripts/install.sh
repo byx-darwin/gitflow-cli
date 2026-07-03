@@ -33,6 +33,10 @@ readonly SKILLS_SOURCE_DIR="skills"
 readonly SKILLS_TARGET_DIR="${HOME}/.claude/skills"
 readonly HOOKS_SOURCE_DIR="hooks"
 readonly SETTINGS_FILE=".claude/settings.json"
+
+# 嵌套 Stop Hook 配置（对齐 Claude Code 官方 schema）
+# matcher 在顶层，hooks 数组包含 type+command 对象
+readonly HOOK_CONFIG='{"matcher": "gitflow", "hooks": [{"type": "command", "command": "bash hooks/auto-report-bug.sh"}]}'
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ---------------------------------------------------------------------------
@@ -436,7 +440,7 @@ register_hooks() {
             # 已有 hooks 字段但没匹配 — 需要手动合并
             warn "settings.json 已有 hooks 配置，但缺少 auto-report-bug"
             warn "请手动合并以下配置到: ${settings_target}"
-            echo '  {"matcher": "gitflow", "command": "bash hooks/auto-report-bug.sh"}'
+            echo "  ${HOOK_CONFIG}"
             return 0
         fi
     fi
@@ -448,13 +452,10 @@ register_hooks() {
         echo ""
         echo '  在现有 JSON 对象中添加以下 "hooks" 键：'
         echo ""
-        cat <<'MERGE_EOF'
+        cat <<MERGE_EOF
     "hooks": {
       "Stop": [
-        {
-          "matcher": "gitflow",
-          "command": "bash hooks/auto-report-bug.sh"
-        }
+        ${HOOK_CONFIG}
       ]
     }
 MERGE_EOF
@@ -462,14 +463,11 @@ MERGE_EOF
         return 0
     fi
 
-    cat > "$settings_target" <<'SETTINGS_EOF'
+    cat > "$settings_target" <<SETTINGS_EOF
 {
   "hooks": {
     "Stop": [
-      {
-        "matcher": "gitflow",
-        "command": "bash hooks/auto-report-bug.sh"
-      }
+      ${HOOK_CONFIG}
     ]
   }
 }
