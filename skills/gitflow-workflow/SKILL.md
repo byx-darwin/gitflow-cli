@@ -23,6 +23,10 @@ gitflow-issue-review         subagent-dev               coverage   ✅/❌      
       需求分析报告
 ```
 
+## 🚨 强制执行规则
+
+以下规则不可跳过，任何一步不满足就不能进入下一步。
+
 ## 启动条件
 
 在启动工作流之前，确认以下前置条件：
@@ -88,7 +92,9 @@ gitflow-cli auth status
 将 Phase 1 产出物评论到 Issue：
 
 ```bash
-gitflow-cli issue comment <number> --body "## Phase 1: 需求澄清完成
+# 写入临时文件
+cat > /tmp/phase-report.md << 'REPORT'
+## Phase 1: 需求澄清完成
 
 ### 需求分析报告
 
@@ -99,7 +105,11 @@ gitflow-cli issue comment <number> --body "## Phase 1: 需求澄清完成
 - 验收标准: <N> 项
 - 技术风险: <评估>
 
-✅ 已通过阶段闸门，可进入 Phase 2: 开发实现"
+✅ 已通过阶段闸门，可进入 Phase 2: 开发实现
+REPORT
+
+gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+rm -f /tmp/phase-report.md
 ```
 
 ---
@@ -125,6 +135,19 @@ gitflow-cli issue view <number>
 缺少以下证据：
 - [ ] Issue URL：未创建或未记录
 - [ ] 需求分析报告：未发布到 Issue 评论
+```
+
+### Phase 1 合规检查
+
+```
+Phase 1 合规检查:
+  [ ] 步骤 1: brainstorming — 明确的功能描述、验收标准、边界条件
+  [ ] 步骤 2: issue-create — Issue URL 已获取
+  [ ] 步骤 3: issue-review — 需求分析报告已完成
+  [ ] Issue 评论已发布: <comment_link>
+
+  缺失项: <list or "无">
+  是否允许进入下一阶段: [ ]
 ```
 
 ---
@@ -188,7 +211,9 @@ gitflow-cli issue view <number>
 所有原子任务完成后，将任务清单评论到 Issue：
 
 ```bash
-gitflow-cli issue comment <number> --body "## Phase 2: 开发实现完成
+# 写入临时文件
+cat > /tmp/phase-report.md << 'REPORT'
+## Phase 2: 开发实现完成
 
 ### 原子任务清单
 
@@ -204,7 +229,11 @@ gitflow-cli issue comment <number> --body "## Phase 2: 开发实现完成
 - 删除行数: -<N>
 - 测试用例: <N> 个
 
-✅ 已通过阶段闸门，可进入 Phase 3: 质量关卡"
+✅ 已通过阶段闸门，可进入 Phase 3: 质量关卡
+REPORT
+
+gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+rm -f /tmp/phase-report.md
 ```
 
 ---
@@ -231,6 +260,20 @@ git log --oneline -10
 以下原子任务未完成：
 - [ ] Task 3: <任务描述> — 状态: in_progress
 - [ ] Task 5: <任务描述> — 状态: pending
+```
+
+### Phase 2 合规检查
+
+```
+Phase 2 合规检查:
+  [ ] 步骤 1: writing-plans — 原子任务清单已生成
+  [ ] 步骤 2: TDD 循环 — 所有任务完成 RED→GREEN→REFACTOR
+  [ ] 步骤 3: subagent-dev — 每个任务有独立子代理执行记录
+  [ ] 步骤 4: requesting-review — 每个任务已完成代码审查
+  [ ] Issue 评论已发布: <comment_link>
+
+  缺失项: <list or "无">
+  是否允许进入下一阶段: [ ]
 ```
 
 ---
@@ -284,7 +327,9 @@ git log --oneline -10
 将质量检查结果评论到 Issue：
 
 ```bash
-gitflow-cli issue comment <number> --body "## Phase 3: 质量关卡通过
+# 写入临时文件
+cat > /tmp/phase-report.md << 'REPORT'
+## Phase 3: 质量关卡通过
 
 ### 质量检查报告
 
@@ -296,7 +341,11 @@ gitflow-cli issue comment <number> --body "## Phase 3: 质量关卡通过
 | 4 | format | ✅ 通过 | 格式规范 |
 | 5 | static | ✅ 通过 | 无警告 |
 
-✅ 已通过阶段闸门，可进入 Phase 4: 交付"
+✅ 已通过阶段闸门，可进入 Phase 4: 交付
+REPORT
+
+gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+rm -f /tmp/phase-report.md
 ```
 
 ---
@@ -321,6 +370,22 @@ gitflow-cli issue comment <number> --body "## Phase 3: 质量关卡通过
 - [✅] coverage
 - [✅] format
 - [✅] static
+```
+
+### Phase 3 合规检查
+
+```
+Phase 3 合规检查:
+  [ ] 步骤 1: build ✅ — 编译通过
+  [ ] 步骤 2: test ✅ — 全部测试通过
+  [ ] 步骤 3: coverage ✅ — 覆盖率达标
+  [ ] 步骤 4: format ✅ — 格式规范
+  [ ] 步骤 5: static ✅ — 无警告
+  [ ] 步骤 6: pre-commit ✅ — 全部 hook 通过 (或 N/A)
+  [ ] Issue 评论已发布: <comment_link>
+
+  缺失项: <list or "无">
+  是否允许进入下一阶段: [ ]
 ```
 
 ---
@@ -401,7 +466,9 @@ gitflow-cli issue close <number>
 ### 步骤 4.6：发布最终审计日志
 
 ```bash
-gitflow-cli issue comment <number> --body "## Phase 4: 交付完成
+# 写入临时文件
+cat > /tmp/phase-report.md << 'REPORT'
+## Phase 4: 交付完成
 
 ### PR 信息
 - PR URL: <url>
@@ -415,7 +482,26 @@ gitflow-cli issue comment <number> --body "## Phase 4: 交付完成
 ### 完成时间
 <timestamp>
 
-🎉 开发工作流全部完成！"
+🎉 开发工作流全部完成！
+REPORT
+
+gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+rm -f /tmp/phase-report.md
+```
+
+### Phase 4 合规检查
+
+```
+Phase 4 合规检查:
+  [ ] 步骤 1: pr-create — PR URL 已获取
+  [ ] 步骤 2: pr-review — 6 维度审查完成
+  [ ] 步骤 3: finishing — 分支已合并
+  [ ] 步骤 4: release-helper (可选) — Release 已创建
+  [ ] 步骤 5: issue-close — Issue 已关闭
+  [ ] Issue 最终审计日志已发布: <comment_link>
+
+  缺失项: <list or "无">
+  工作流是否全部完成: [ ]
 ```
 
 ---
@@ -519,3 +605,5 @@ gitflow-cli issue comment <number> --body "## 阶段回退
 - **审计日志必须发布**：每个阶段的产出物必须评论到 Issue
 - **回退是正常流程**：发现问题时回退是质量保证的一部分
 - **可选步骤需确认**：如 Release 步骤，需与用户确认是否执行
+- **--body-file 强制**：长内容（>100 字节）必须通过 `--body-file` 传入，不使用 `--body` 直接传
+- **合规检查不可跳过**：每个阶段结束必须输出合规清单，逐项打勾后才能进入下一阶段
