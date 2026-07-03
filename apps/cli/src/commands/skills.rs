@@ -119,6 +119,10 @@ pub struct InstallArgs {
     /// 强制覆盖已存在的 skills
     #[arg(short = 'f', long, action = ArgAction::SetTrue)]
     pub force: bool,
+
+    /// 启用自动 bug 上报（Stop Hook），默认开启
+    #[arg(long, default_value_t = true, action = ArgAction::SetTrue)]
+    pub report_bug: bool,
 }
 
 /// `skills list` 参数。
@@ -264,8 +268,10 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
         println!("⚠ Skills 源目录未找到（{}），仅安装 Hook", source.display());
     }
 
-    // 安装 auto-report-bug hook
-    install_hook(args.global, args.force)?;
+    // 安装 auto-report-bug hook（可通过 --report-bug=false 跳过）
+    if args.report_bug {
+        install_hook(args.global, args.force)?;
+    }
 
     Ok(())
 }
