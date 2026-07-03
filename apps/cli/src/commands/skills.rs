@@ -213,56 +213,166 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     let target = resolve_target_dir(args.global, args.agent, args.custom_path.as_deref())?;
     let source = skills_source_dir();
 
-    if !source.exists() {
-        return Err(miette::miette!("Skills 源目录不存在: {}", source.display()));
-    }
+    let has_source = source.exists();
+    if has_source {
+        std::fs::create_dir_all(&target)
+            .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
 
-    std::fs::create_dir_all(&target)
-        .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
+        let level = if args.global { "全局" } else { "项目级" };
+        println!("目标: {} ({level})", target.display());
 
-    let level = if args.global { "全局" } else { "项目级" };
-    println!("目标: {} ({level})", target.display());
+        let mut installed = 0u32;
+        let mut skipped = 0u32;
+        let mut overwritten = 0u32;
 
-    let mut installed = 0u32;
-    let mut skipped = 0u32;
-    let mut overwritten = 0u32;
+        for entry in std::fs::read_dir(&source)
+            .map_err(|e| miette::miette!("无法读取 skills 源目录 {}: {e}", source.display()))?
+        {
+            let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
 
-    for entry in std::fs::read_dir(&source)
-        .map_err(|e| miette::miette!("无法读取 skills 源目录 {}: {e}", source.display()))?
-    {
-        let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-
-        if !name_str.starts_with("gitflow-") {
-            continue;
-        }
-
-        let dest = target.join(&name);
-        if dest.exists() {
-            if args.force {
-                std::fs::remove_dir_all(&dest)
-                    .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
-                copy_dir_all(&entry.path(), &dest)
-                    .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
-                println!("♻ 已覆盖: {name_str}");
-                overwritten += 1;
-            } else {
-                eprintln!("⚠ 跳过已存在: {name_str}");
-                skipped += 1;
+            if !name_str.starts_with("gitflow-") {
+                continue;
             }
-            continue;
+
+            let dest = target.join(&name);
+            if dest.exists() {
+                if args.force {
+                    std::fs::remove_dir_all(&dest)
+                        .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
+                    copy_dir_all(&entry.path(), &dest)
+                        .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
+                    println!("♻ 已覆盖: {name_str}");
+                    overwritten += 1;
+                } else {
+                    eprintln!("⚠ 跳过已存在: {name_str}");
+                    skipped += 1;
+                }
+                continue;
+            }
+
+            copy_dir_all(&entry.path(), &dest)
+                .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
+            println!("✅ 已安装: {name_str}");
+            installed += 1;
         }
 
-        copy_dir_all(&entry.path(), &dest)
-            .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
-        println!("✅ 已安装: {name_str}");
-        installed += 1;
+        println!();
+        println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
+    } else {
+        println!("⚠ Skills 源目录未找到（{}），仅安装 Hook", source.display());
     }
 
-    println!();
-    println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
+    // 安装 auto-report-bug hook
+    install_hook(args.global, args.force)?;
+
     Ok(())
+}
+
+/// 安装 auto-report-bug Stop Hook。
+///
+/// 项目级：hook 脚本 → `.claude/hooks/auto-report-bug.sh`，
+/// 配置写入 `.claude/settings.json`。
+/// 全局级：hook 脚本 → `~/.claude/hooks/auto-report-bug.sh`，
+/// 配置写入 `~/.claude/settings.json`。
+fn install_hook(global: bool, force: bool) -> miette::Result<()> {
+    let hook_script = include_bytes!("../../../../hooks/auto-report-bug.sh");
+
+    let (hook_dir, settings_path, cmd) = if global {
+        let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+        let dir = home.join(".claude/hooks");
+        let settings = home.join(".claude/settings.json");
+        (
+            dir,
+            settings,
+            "bash ~/.claude/hooks/auto-report-bug.sh".to_string(),
+        )
+    } else {
+        let repo = git_repo_root()?;
+        let dir = repo.join(".claude/hooks");
+        let settings = repo.join(".claude/settings.json");
+        (dir, settings, "bash hooks/auto-report-bug.sh".to_string())
+    };
+
+    // 写 hook 脚本
+    std::fs::create_dir_all(&hook_dir).map_err(|e| miette::miette!("无法创建 hook 目录: {e}"))?;
+    let hook_path = hook_dir.join("auto-report-bug.sh");
+    if !hook_path.exists() || force {
+        std::fs::write(&hook_path, hook_script)
+            .map_err(|e| miette::miette!("无法写入 hook 脚本: {e}"))?;
+    }
+
+    // 合并 Hook 配置到 settings.json
+    let settings_json = if settings_path.exists() {
+        let content = std::fs::read_to_string(&settings_path)
+            .map_err(|e| miette::miette!("无法读取配置: {e}"))?;
+        serde_json::from_str::<serde_json::Value>(&content)
+            .map_err(|e| miette::miette!("无法解析配置: {e}"))?
+    } else {
+        serde_json::json!({})
+    };
+
+    let new_settings = merge_stop_hook(settings_json, &cmd);
+    let formatted =
+        serde_json::to_string_pretty(&new_settings).map_err(|e| miette::miette!("JSON: {e}"))?;
+    std::fs::write(&settings_path, formatted).map_err(|e| miette::miette!("写入配置: {e}"))?;
+
+    println!(
+        "✅ Hook 已安装 ({})",
+        if global { "全局" } else { "项目级" }
+    );
+    Ok(())
+}
+
+/// 合并 Stop Hook 配置到 JSON 对象中。
+fn merge_stop_hook(mut json: serde_json::Value, cmd: &str) -> serde_json::Value {
+    let hook = serde_json::json!({
+        "matcher": "gitflow",
+        "command": cmd
+    });
+
+    if let serde_json::Value::Object(obj) = &mut json {
+        let hooks = obj
+            .entry("hooks")
+            .or_insert(serde_json::json!({"Stop": []}));
+        if let serde_json::Value::Object(h) = hooks {
+            let stops = h.entry("Stop").or_insert(serde_json::json!([]));
+            if let serde_json::Value::Array(arr) = stops {
+                // 替换已存在的 gitflow hook 或追加
+                if let Some(existing) = arr
+                    .iter_mut()
+                    .find(|v| v.get("matcher").and_then(|m| m.as_str()) == Some("gitflow"))
+                {
+                    *existing = hook;
+                } else {
+                    arr.push(hook);
+                }
+            }
+        }
+    } else {
+        json = serde_json::json!({
+            "hooks": {
+                "Stop": [hook]
+            }
+        });
+    }
+
+    json
+}
+
+/// 获取当前仓库根目录。
+fn git_repo_root() -> miette::Result<std::path::PathBuf> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .map_err(|e| miette::miette!("git rev-parse: {e}"))?;
+    if !output.status.success() {
+        return Err(miette::miette!("不在 Git 仓库中"));
+    }
+    Ok(std::path::PathBuf::from(
+        String::from_utf8_lossy(&output.stdout).trim(),
+    ))
 }
 
 /// 列出已安装的 skills。
@@ -338,6 +448,46 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
         println!();
         println!("已卸载 {removed} 个 skills");
     }
+
+    // 移除 Hook 配置
+    uninstall_hook(args.global)?;
+
+    Ok(())
+}
+
+/// 从配置中移除 Stop Hook。
+fn uninstall_hook(global: bool) -> miette::Result<()> {
+    let settings_path = if global {
+        let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+        home.join(".claude/settings.json")
+    } else {
+        git_repo_root()?.join(".claude/settings.json")
+    };
+
+    if !settings_path.exists() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&settings_path)
+        .map_err(|e| miette::miette!("无法读取配置: {e}"))?;
+    let mut json: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| miette::miette!("无法解析: {e}"))?;
+
+    if let Some(obj) = json.as_object_mut() {
+        if let Some(hooks) = obj.get_mut("hooks") {
+            if let Some(stop) = hooks.get_mut("Stop") {
+                if let Some(arr) = stop.as_array_mut() {
+                    arr.retain(|v| v.get("matcher").and_then(|m| m.as_str()) != Some("gitflow"));
+                }
+            }
+        }
+    }
+
+    let formatted =
+        serde_json::to_string_pretty(&json).map_err(|e| miette::miette!("JSON: {e}"))?;
+    std::fs::write(&settings_path, formatted).map_err(|e| miette::miette!("写入: {e}"))?;
+    println!("✅ Hook 已卸载");
+
     Ok(())
 }
 

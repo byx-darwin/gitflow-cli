@@ -149,8 +149,10 @@ fn report_error_noninteractive(
 /// The `platform` and `repo` are resolved in `main()` before this
 /// function is called so they remain available in the error handler.
 async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> {
-    // Run native CLI prerequisite check before dispatching
-    commands::prerequisites::check(platform).map_err(|e| miette::miette!("{e}"))?;
+    // Skills/Completions don't need native CLI — skip prerequisite check
+    if !matches!(cli.command, Commands::Skills(_) | Commands::Completions(_)) {
+        commands::prerequisites::check(platform).map_err(|e| miette::miette!("{e}"))?;
+    }
 
     tokio::select! {
         result = router(cli.command, platform, repo, cli.output) => result,

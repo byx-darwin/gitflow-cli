@@ -2,8 +2,8 @@
   "hooks": {
     "Stop": [
       {
-        "matcher": "gitflow",
-        "command": "bash ~/.claude/hooks/auto-report-bug.sh"
+        "command": "bash hooks/auto-report-bug.sh",
+        "matcher": "gitflow"
       }
     ]
   }
