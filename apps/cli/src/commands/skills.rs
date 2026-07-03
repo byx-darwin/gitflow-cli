@@ -660,4 +660,105 @@ mod tests {
             .expect("Stop array should exist");
         assert_eq!(stop.len(), 2, "should keep other matcher and add gitflow");
     }
+
+    #[test]
+    fn test_uninstall_hook_removes_gitflow() {
+        // 用临时目录隔离，避免污染真实 HOME
+        let tmp = tempfile::tempdir().expect("create temp dir");
+
+        // 准备一个含 gitflow hook 的 settings.json（新嵌套格式）
+        let settings_path = tmp.path().join(".claude/settings.json");
+        std::fs::create_dir_all(tmp.path().join(".claude")).expect("create .claude dir");
+        let content = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "bash hooks/auto-report-bug.sh"
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+        std::fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&content).expect("serialize"),
+        )
+        .expect("write settings");
+
+        // 调用 uninstall_hook（全局模式），用 temp_env 隔离 HOME
+        temp_env::with_var("HOME", Some(tmp.path()), || {
+            super::uninstall_hook(true).expect("uninstall should succeed");
+        });
+
+        // 验证 gitflow hook 已被删除
+        let after = std::fs::read_to_string(&settings_path).expect("read after");
+        let parsed: serde_json::Value = serde_json::from_str(&after).expect("parse after");
+        let stop = parsed
+            .pointer("/hooks/Stop")
+            .and_then(serde_json::Value::as_array)
+            .expect("Stop should exist");
+        assert!(
+            stop.iter()
+                .all(|v| v.get("matcher").and_then(serde_json::Value::as_str) != Some("gitflow")),
+            "gitflow hook should be removed"
+        );
+    }
+
+    #[test]
+    fn test_uninstall_hook_preserves_others() {
+        let tmp = tempfile::tempdir().expect("create temp dir");
+
+        let settings_path = tmp.path().join(".claude/settings.json");
+        std::fs::create_dir_all(tmp.path().join(".claude")).expect("create .claude dir");
+        let content = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "bash hooks/auto-report-bug.sh"
+                            }
+                        ]
+                    },
+                    {
+                        "matcher": "other-agent",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "other.sh"
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+        std::fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&content).expect("serialize"),
+        )
+        .expect("write settings");
+
+        temp_env::with_var("HOME", Some(tmp.path()), || {
+            super::uninstall_hook(true).expect("uninstall should succeed");
+        });
+
+        let after = std::fs::read_to_string(&settings_path).expect("read after");
+        let parsed: serde_json::Value = serde_json::from_str(&after).expect("parse after");
+        let stop = parsed
+            .pointer("/hooks/Stop")
+            .and_then(serde_json::Value::as_array)
+            .expect("Stop should exist");
+        assert_eq!(stop.len(), 1, "other-agent hook should remain");
+        assert_eq!(
+            stop[0].get("matcher").and_then(serde_json::Value::as_str),
+            Some("other-agent")
+        );
+    }
 }

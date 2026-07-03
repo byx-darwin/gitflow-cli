@@ -184,19 +184,6 @@ deny = [
   #{ crate = "ansi_term@0.11.0", wrappers = ["this-crate-directly-depends-on-ansi_term"] },
 ]
 
-# List of features to allow/deny
-# Each entry the name of a crate and a version range. If version is
-# not specified, all versions will be matched.
-[[bans.features]]
-crate = "reqwest"
-deny = ["native-tls", "native-tls-alpn", "native-tls-vendored", "default-tls"]
-wrappers = []
-
-# Deny specific crates for security reasons
-# 把 openssl-sys 加到上面的 deny 列表中
-# （TODO: 确认是否需要，此处仅修复 TOML 语法冲突）
-
-
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
   #"ansi_term@0.11.0",
@@ -210,6 +197,17 @@ skip-tree = [
   #"ansi_term@0.11.0", # will be skipped along with _all_ of its direct and transitive dependencies
   #{ crate = "ansi_term@0.11.0", depth = 20 },
 ]
+
+# List of features to allow/deny
+# Each entry the name of a crate and a version range. If version is
+# not specified, all versions will be matched.
+[[bans.features]]
+crate = "reqwest"
+deny = ["native-tls", "native-tls-alpn", "native-tls-vendored", "default-tls"]
+
+# Deny specific crates for security reasons
+# 把 openssl-sys 加到上面的 deny 列表中
+# （TODO: 确认是否需要，此处仅修复 TOML 语法冲突）
 
 # This section is considered when running `cargo deny check sources`.
 # More documentation about the 'sources' section can be found here:

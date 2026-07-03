@@ -39,6 +39,7 @@ regex = "1"
 assert_cmd = "2"
 trycmd = "0.15"
 predicates = "3"
+temp-env = "0.3"
 
 # Uncomment when needed for your CLI tool:
 # reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
