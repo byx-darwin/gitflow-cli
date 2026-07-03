@@ -574,4 +574,85 @@ mod tests {
         let dir = skills_source_dir();
         assert!(dir.ends_with("skills"));
     }
+
+    #[test]
+    fn test_merge_stop_hook_creates_nested_format() {
+        let input = serde_json::json!({});
+        let result = merge_stop_hook(input, "bash hooks/auto-report-bug.sh");
+
+        let hooks = result
+            .pointer("/hooks/Stop/0/hooks")
+            .and_then(serde_json::Value::as_array)
+            .expect("should create nested hooks array");
+        assert_eq!(hooks.len(), 1);
+        assert_eq!(
+            hooks[0].get("type").and_then(serde_json::Value::as_str),
+            Some("command")
+        );
+        assert_eq!(
+            hooks[0].get("command").and_then(serde_json::Value::as_str),
+            Some("bash hooks/auto-report-bug.sh")
+        );
+        assert_eq!(
+            result
+                .pointer("/hooks/Stop/0/matcher")
+                .and_then(serde_json::Value::as_str),
+            Some("gitflow")
+        );
+    }
+
+    #[test]
+    fn test_merge_stop_hook_replaces_existing_gitflow() {
+        let input = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "command": "old-command.sh"
+                    }
+                ]
+            }
+        });
+        let result = merge_stop_hook(input, "bash hooks/auto-report-bug.sh");
+
+        let stop = result
+            .pointer("/hooks/Stop")
+            .and_then(serde_json::Value::as_array)
+            .expect("Stop array should exist");
+        assert_eq!(stop.len(), 1, "should replace, not duplicate");
+        assert!(
+            stop[0].get("hooks").is_some(),
+            "should use nested hooks format"
+        );
+        assert!(
+            stop[0].get("command").is_none(),
+            "flat command field should be gone"
+        );
+    }
+
+    #[test]
+    fn test_merge_stop_hook_preserves_other_hooks() {
+        let input = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "other-agent",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "other-command.sh"
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+        let result = merge_stop_hook(input, "bash hooks/auto-report-bug.sh");
+
+        let stop = result
+            .pointer("/hooks/Stop")
+            .and_then(serde_json::Value::as_array)
+            .expect("Stop array should exist");
+        assert_eq!(stop.len(), 2, "should keep other matcher and add gitflow");
+    }
 }
