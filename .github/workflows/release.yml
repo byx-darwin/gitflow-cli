@@ -112,6 +112,8 @@ jobs:
     name: Create GitHub Release
     needs: [build]
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.set-tag.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -139,3 +141,46 @@ jobs:
           files: release/*
           generate_release_notes: true
           prerelease: ${{ inputs.prerelease }}
+
+      - name: Set tag output
+        id: set-tag
+        run: echo "tag_name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Compute source tarball SHA256
+        id: sha
+        run: |
+          TAG="${{ needs.release.outputs.tag_name }}"
+          URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
+          SHA=$(curl -sL "$URL" | sha256sum | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Update HomebrewFormula/gitflow-cli.rb
+        run: |
+          TAG="${{ steps.sha.outputs.tag }}"
+          SHA="${{ steps.sha.outputs.sha256 }}"
+          FORMULA="HomebrewFormula/gitflow-cli.rb"
+
+          sed -i "s|^  url \".*\"|  url \"https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz\"|" "$FORMULA"
+          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$FORMULA"
+          sed -i "s|^  version \".*\"|  version \"${TAG#v}\"|" "$FORMULA"
+
+      - name: Commit and push formula update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add HomebrewFormula/gitflow-cli.rb
+          git diff --cached --quiet || git commit -m "chore: update Homebrew formula to ${{ steps.sha.outputs.tag }}"
+          git push origin main
