@@ -1,11 +1,11 @@
 ---
 name: gitflow-quality
-description: 质量关卡 — 5 项质量检查闸门（build / test / coverage / format / static），全部通过才能进入交付阶段
+description: 质量关卡 — 6 项质量检查闸门（build / test / coverage / format / static / pre-commit），全部通过才能进入交付阶段
 ---
 
 # gitflow-cli quality 质量关卡
 
-在交付前运行 5 项质量检查，按顺序执行、失败即停（fast-fail），最终生成 Quality Report。编排层只做指挥，所有检查通过标准 CLI 命令执行。
+在交付前运行 6 项质量检查，按顺序执行、失败即停（fast-fail），最终生成 Quality Report。编排层只做指挥，所有检查通过标准 CLI 命令执行。
 
 ## 前置条件
 
@@ -30,6 +30,9 @@ git status --porcelain
 | 3 | coverage | `cargo tarpaulin --workspace` | 覆盖率 > 80% |
 | 4 | format | `cargo +nightly fmt -- --check` | 退出码 0，无 diff |
 | 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | 退出码 0，无 warning |
+| 6 | pre-commit | `pre-commit run --all-files` 或读取 `.pre-commit-config.yaml` 检查配置 | 全部 hook 通过 |
+
+> **Pre-commit N/A 处理：** 如果项目没有 `.pre-commit-config.yaml` 配置文件，pre-commit 检查标记为 `N/A` 跳过。
 
 ---
 
@@ -66,6 +69,7 @@ fi
 | coverage | `npx jest --coverage` 或 `npx vitest run --coverage`（取决于测试框架） | `pytest --cov` | `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| grep total` |
 | format | `npx prettier --check .` | `black --check .` | `test -z "$(gofmt -l .)"` |
 | static | `npx eslint .` | `ruff check .` | `golangci-lint run` |
+| pre-commit | `npx lint-staged` 或留空 | `pre-commit run --all-files` | `pre-commit run --all-files` |
 
 后续步骤以 Rust 为例，非 Rust 项目替换对应命令即可。
 
@@ -162,6 +166,21 @@ cargo clippy --workspace --all-targets -- -D warnings 2>&1
 
 ---
 
+### 步骤 6：Pre-commit — pre-commit 检查
+
+如果项目配置了 `.pre-commit-config.yaml`：
+
+```bash
+pre-commit run --all-files 2>&1
+```
+
+- **通过**：全部 hook 通过 → 记录 `✅ pre-commit`
+- **失败**：有 hook 失败 → 记录 `❌ pre-commit` + 失败摘要 → **fast-fail**
+
+**N/A 处理**：如果项目没有 `.pre-commit-config.yaml`，标记为 `N/A` 跳过，不影响最终判定。
+
+---
+
 ## Quality Report 格式
 
 所有检查完成后（或 fast-fail 后），生成 Quality Report：
@@ -176,6 +195,11 @@ cargo clippy --workspace --all-targets -- -D warnings 2>&1
 | coverage | ✅     | 85.3% (threshold: 80%) |
 | format   | ✅     | No diff |
 | static   | ✅     | No warnings |
+| pre-commit | ✅     | All hooks passed |
+
+或
+
+| pre-commit | N/A    | No configuration |
 ```
 
 **Status 列**：
@@ -207,10 +231,11 @@ cargo clippy --workspace --all-targets -- -D warnings 2>&1
 
 检查按顺序执行，遇到第一个失败项立即停止：
 
-1. 如果 build 失败 → 跳过 test、coverage、format、static
-2. 如果 test 失败 → 跳过 coverage、format、static
-3. 如果 coverage 失败 → 跳过 format、static
-4. 如果 format 失败 → 跳过 static
+1. 如果 build 失败 → 跳过 test、coverage、format、static、pre-commit
+2. 如果 test 失败 → 跳过 coverage、format、static、pre-commit
+3. 如果 coverage 失败 → 跳过 format、static、pre-commit
+4. 如果 format 失败 → 跳过 static、pre-commit
+5. 如果 static 失败 → 跳过 pre-commit
 
 失败项在报告中标记为 `⏭️ SKIPPED`。
 
@@ -225,6 +250,7 @@ cargo clippy --workspace --all-targets -- -D warnings 2>&1
 | coverage | 增加测试用例覆盖未测试代码路径 |
 | format | `cargo +nightly fmt` 自动修复 |
 | static | `cargo clippy --fix --workspace --all-targets` 自动修复 |
+| pre-commit | `pre-commit run --all-files` 查看失败详情 |
 
 ---
 
@@ -275,12 +301,12 @@ rm -f quality-report.md
 ### 运行完整质量检查
 
 ```
-使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
+使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
 ```
 
 ### 运行单个检查步骤
 
-质量关卡按固定 5 项顺序执行，不支持参数化跳过。如需单独验证某项，可直接运行对应命令：
+质量关卡按固定 6 项顺序执行，不支持参数化跳过。如需单独验证某项，可直接运行对应命令：
 
 ```bash
 # 单独验证 build
@@ -300,6 +326,7 @@ cargo +nightly fmt -- --check
 - [⏭️] coverage — SKIPPED (previous check failed)
 - [⏭️] format — SKIPPED (previous check failed)
 - [⏭️] static — SKIPPED (previous check failed)
+- [⏭️] pre-commit — SKIPPED (previous check failed)
 
 修复建议：
 1. 运行 `cargo test --workspace -- --nocapture` 查看失败详情
@@ -312,8 +339,9 @@ cargo +nightly fmt -- --check
 ## 注意事项
 
 - **编排层不执行操作**：所有检查通过标准 CLI 命令执行
-- **闸门不可跳过**：5 项检查必须全部通过才能进入交付阶段
+- **闸门不可跳过**：6 项检查必须全部通过才能进入交付阶段
 - **fast-fail 策略**：遇到失败立即停止，节省时间
 - **覆盖率阈值**：默认 80%，可通过环境变量 `COVERAGE_THRESHOLD` 自定义
 - **非 Rust 项目**：检测项目语言后自动适配对应工具链
 - **审计日志**：检查结果自动发布到关联 Issue（如果存在）
+- **pre-commit 可选**：pre-commit 检查仅在项目配置了 `.pre-commit-config.yaml` 时执行，否则标记 N/A
