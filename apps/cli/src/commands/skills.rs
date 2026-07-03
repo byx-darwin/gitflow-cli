@@ -329,7 +329,12 @@ fn install_hook(global: bool, force: bool) -> miette::Result<()> {
 fn merge_stop_hook(mut json: serde_json::Value, cmd: &str) -> serde_json::Value {
     let hook = serde_json::json!({
         "matcher": "gitflow",
-        "command": cmd
+        "hooks": [
+            {
+                "type": "command",
+                "command": cmd
+            }
+        ]
     });
 
     if let serde_json::Value::Object(obj) = &mut json {
