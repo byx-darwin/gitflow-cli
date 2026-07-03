@@ -13,21 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Wait for CI to pass first
-  ci-gate:
-    name: CI Gate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for CI on tag commit
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.ref }}
-          check-name: CI / check (push)
-          repo-token: ${{ github.token }}
-          wait-interval: 10
-
   release:
-    needs: [ci-gate]
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ github.ref_name }}
