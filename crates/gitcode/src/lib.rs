@@ -75,6 +75,10 @@ pub use review::GitCodeReviewProvider;
 ///
 /// Searches PATH first, then pip user install directories
 /// (`~/Library/Python/*/bin/` on macOS, `~/.local/bin/` on Linux).
+#[allow(
+    clippy::disallowed_methods,
+    reason = "binary discovery runs at startup before async runtime is ready"
+)]
 pub(crate) fn gitcode_binary() -> String {
     // 1. which gitcode (pip/wheel/DEB/RPM install)
     if let Ok(p) = which::which("gitcode") {

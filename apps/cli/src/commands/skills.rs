@@ -484,14 +484,12 @@ fn uninstall_hook(global: bool) -> miette::Result<()> {
     let mut json: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| miette::miette!("无法解析: {e}"))?;
 
-    if let Some(obj) = json.as_object_mut() {
-        if let Some(hooks) = obj.get_mut("hooks") {
-            if let Some(stop) = hooks.get_mut("Stop") {
-                if let Some(arr) = stop.as_array_mut() {
-                    arr.retain(|v| v.get("matcher").and_then(|m| m.as_str()) != Some("gitflow"));
-                }
-            }
-        }
+    if let Some(obj) = json.as_object_mut()
+        && let Some(hooks) = obj.get_mut("hooks")
+        && let Some(stop) = hooks.get_mut("Stop")
+        && let Some(arr) = stop.as_array_mut()
+    {
+        arr.retain(|v| v.get("matcher").and_then(|m| m.as_str()) != Some("gitflow"));
     }
 
     let formatted =

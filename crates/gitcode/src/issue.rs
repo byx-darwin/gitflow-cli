@@ -63,10 +63,13 @@ impl From<IssueApiResponse> for IssueData {
                 _ => State::Open,
             },
             labels: api.labels.into_iter().map(Label::from).collect(),
-            author: api.user.map(UserSummary::from).unwrap_or(UserSummary {
-                login: "unknown".into(),
-                id: String::new(),
-            }),
+            author: api.user.map_or(
+                UserSummary {
+                    login: "unknown".into(),
+                    id: String::new(),
+                },
+                UserSummary::from,
+            ),
             assignees: api.assignees.into_iter().map(UserSummary::from).collect(),
             created_at: api
                 .created_at
@@ -75,7 +78,7 @@ impl From<IssueApiResponse> for IssueData {
                         .ok()
                         .map(|d| d.with_timezone(&Utc))
                 })
-                .unwrap_or_else(|| Utc::now()),
+                .unwrap_or_else(Utc::now),
             updated_at: api
                 .updated_at
                 .and_then(|s| {
@@ -83,7 +86,7 @@ impl From<IssueApiResponse> for IssueData {
                         .ok()
                         .map(|d| d.with_timezone(&Utc))
                 })
-                .unwrap_or_else(|| Utc::now()),
+                .unwrap_or_else(Utc::now),
             url: api.html_url,
         }
     }
@@ -116,6 +119,7 @@ pub struct GitCodeIssueProvider {
 }
 
 impl GitCodeIssueProvider {
+    /// 创建一个新的 `GitCodeIssueProvider`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
         Self { repo: repo.into() }

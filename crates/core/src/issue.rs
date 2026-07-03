@@ -16,7 +16,7 @@ use crate::{
 /// Issue 数据。
 ///
 /// 由平台实现填充并返回给上层命令。字段命名与 GitHub CLI 输出的 JSON 字段对齐（camelCase）。
-/// `number` 使用自定义反序列化兼容 GitCode CLI 返回的字符串格式。
+/// `number` 使用自定义反序列化兼容 `GitCode` CLI 返回的字符串格式。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueData {

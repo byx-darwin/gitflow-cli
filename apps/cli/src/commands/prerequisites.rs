@@ -211,11 +211,15 @@ fn is_authenticated(binary: &str, platform: &str) -> bool {
     }
 }
 
-/// Try to locate and validate a GitCode CLI binary.
+/// Try to locate and validate a `GitCode` CLI binary.
 ///
-/// GitCode has two binary names (`gc` on Linux/macOS, `gitcode` cross-platform),
+/// `GitCode` has two binary names (`gc` on Linux/macOS, `gitcode` cross-platform),
 /// and uses `version` subcommand instead of `--version`. This function tries
 /// `gc` first, then `gitcode`, returning the first one that passes version detection.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "binary discovery runs at startup before async runtime is ready"
+)]
 fn find_gitcode_cli(
     platform: &str,
 ) -> Result<(&'static str, std::path::PathBuf, String), PrerequisiteError> {
@@ -223,10 +227,10 @@ fn find_gitcode_cli(
 
     for &binary in &["gitcode"] {
         // 1. 常规 PATH 搜索
-        if let Ok(path) = which::which(binary) {
-            if let Ok(v) = get_version(binary, platform) {
-                return Ok((binary, path, v));
-            }
+        if let Ok(path) = which::which(binary)
+            && let Ok(v) = get_version(binary, platform)
+        {
+            return Ok((binary, path, v));
         }
 
         // 2. pip 用户安装路径（macOS ~/Library/Python/X.Y/bin/）
@@ -235,10 +239,10 @@ fn find_gitcode_cli(
             if let Ok(entries) = std::fs::read_dir(&lib) {
                 for entry in entries.flatten() {
                     let p = entry.path().join("bin").join(binary);
-                    if p.exists() {
-                        if let Ok(v) = get_version(&p.to_string_lossy(), platform) {
-                            return Ok((binary, p, v));
-                        }
+                    if p.exists()
+                        && let Ok(v) = get_version(&p.to_string_lossy(), platform)
+                    {
+                        return Ok((binary, p, v));
                     }
                 }
             }

@@ -8,8 +8,12 @@ use serde::{Deserialize, Serialize};
 
 /// Deserialize a `u64` that may be a number or string in JSON.
 ///
-/// GitHub/GitLab CLIs return numeric fields as integers, but GitCode CLI
+/// GitHub/GitLab CLIs return numeric fields as integers, but `GitCode` CLI
 /// returns them as strings (e.g. `"number": "3"`).
+///
+/// # Errors
+///
+/// Returns an error if the value cannot be parsed as a `u64`.
 pub fn deserialize_u64_or_string<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -17,7 +21,7 @@ where
     use serde::de;
 
     struct U64OrString;
-    impl<'de> de::Visitor<'de> for U64OrString {
+    impl de::Visitor<'_> for U64OrString {
         type Value = u64;
 
         fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
