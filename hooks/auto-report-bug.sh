@@ -1,26 +1,20 @@
 #!/usr/bin/env bash
-# Stop Hook: detect CLI errors written by gitflow-cli's error_reporter
-# and surface them to Claude for automated bug report creation.
+# Stop Hook: detect CLI errors and surface them for automated reporting.
 #
 # Triggered by the Claude Code Stop Hook configured in .claude/settings.json.
 # The Rust CLI writes error reports to .cache/bug-reports/pending.json
-# whenever it fails in non-interactive mode (CI / subprocess). This
-# script checks for that file and, if present, prints a banner so that
-# Claude picks up the content and delegates to the gitflow-autoreport-bug
-# skill.
+# whenever it fails in non-interactive mode (CI / subprocess). This script:
+#   1. Checks for pending.json
+#   2. Shallow-validates JSON
+#   3. Uses auth cache (24h TTL) to avoid redundant auth checks
+#   4. Outputs a banner that triggers the gitflow-autoreport-bug skill
 #
-# Exit codes:
-#   0  —  no pending report (nothing to do) OR report printed successfully
-#   0  —  not inside a git repository (silent no-op)
+# Exit codes: 0 always (silent no-op when nothing to do)
 
 set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || exit 0)
-
-# Not inside a git repository — nothing to do.
-if [ -z "${REPO_ROOT}" ]; then
-  exit 0
-fi
+[ -z "$REPO_ROOT" ] && exit 0
 
 PENDING_FILE="$REPO_ROOT/.cache/bug-reports/pending.json"
 
@@ -29,25 +23,18 @@ if [ ! -f "$PENDING_FILE" ]; then
   exit 0
 fi
 
-# Skip if running in an interactive terminal — the CLI's error_reporter
-# already suppresses pending.json in interactive mode, but guard against
-# edge cases where the file was left behind.
+# Interactive terminal guard — skip if in TTY.
 if [ -t 1 ] || [ -t 0 ]; then
-  # stdout or stdin is a TTY → interactive session, skip
   exit 0
 fi
 
-# Read and validate the pending report.
+# Read pending report content.
 PENDING_CONTENT=$(cat "$PENDING_FILE")
 
-# Quick JSON sanity check — require at least "error_code" field.
-# NOTE: This is a shallow validation using grep; `jq` would be preferred
-# for robust JSON parsing but is not guaranteed to be available in all
-# environments. The error_reporter writes controlled-format JSON so this
-# heuristic is sufficient.
+# Shallow JSON validation — require at least "error_code" field.
 if ! echo "$PENDING_CONTENT" | grep -q '"error_code"'; then
-  # Invalid format — rename to .invalid and exit.
   mv "$PENDING_FILE" "${PENDING_FILE}.invalid"
+  echo "⚠️  pending.json 格式异常，已重命名为 pending.json.invalid" >&2
   exit 0
 fi
 
@@ -55,6 +42,21 @@ fi
 COMMAND=$(echo "$PENDING_CONTENT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 ERROR_CODE=$(echo "$PENDING_CONTENT" | grep -o '"error_code"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 PLATFORM=$(echo "$PENDING_CONTENT" | grep -o '"platform"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+TIMESTAMP=$(echo "$PENDING_CONTENT" | grep -o '"timestamp"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+
+# Auth cache check (24h TTL).
+CACHE_FILE="$REPO_ROOT/.cache/auth-cache/${PLATFORM}.ttl"
+AUTH_CACHE_TTL=86400
+AUTH_STATUS="未知"
+
+if [ -f "$CACHE_FILE" ]; then
+  CACHED_TIME=$(cat "$CACHE_FILE")
+  NOW=$(date +%s 2>/dev/null || python3 -c "import time; print(int(time.time()))")
+  AGE=$(( NOW - CACHED_TIME ))
+  if [ "$AGE" -lt "$AUTH_CACHE_TTL" ]; then
+    AUTH_STATUS="✅ cache 命中（age: ${AGE}s）"
+  fi
+fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -64,6 +66,8 @@ echo ""
 echo "  命令:   ${COMMAND:-unknown}"
 echo "  平台:   ${PLATFORM:-unknown}"
 echo "  错误码: ${ERROR_CODE:-unknown}"
+echo "  时间:   ${TIMESTAMP:-unknown}"
+echo "  认证:   ${AUTH_STATUS}"
 echo ""
 echo "  原始报告:"
 echo "$PENDING_CONTENT"
@@ -73,3 +77,5 @@ echo "  请加载 gitflow-autoreport-bug Skill 执行自动 Bug 报告流程。"
 echo "  Skill 路径: skills/gitflow-autoreport-bug/SKILL.md"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
+
+exit 0
