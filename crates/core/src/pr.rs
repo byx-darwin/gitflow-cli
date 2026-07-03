@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
-    types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
+    types::{
+        CommentData, MergeResult, MergeStrategy, State, UserSummary, deserialize_u64_or_string,
+    },
 };
 
 /// Pull Request 数据。
@@ -21,6 +23,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct PrData {
     /// PR 编号（平台内唯一）。
+    #[serde(deserialize_with = "deserialize_u64_or_string")]
     pub number: u64,
     /// PR 标题。
     pub title: String,

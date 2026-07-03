@@ -6,6 +6,37 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Deserialize a `u64` that may be a number or string in JSON.
+///
+/// GitHub/GitLab CLIs return numeric fields as integers, but GitCode CLI
+/// returns them as strings (e.g. `"number": "3"`).
+pub fn deserialize_u64_or_string<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    struct U64OrString;
+    impl<'de> de::Visitor<'de> for U64OrString {
+        type Value = u64;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a u64 integer or string")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<u64, E> {
+            Ok(v)
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<u64, E> {
+            v.parse::<u64>()
+                .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(v), &self))
+        }
+    }
+
+    deserializer.deserialize_any(U64OrString)
+}
+
 /// A summary of a platform user.
 ///
 /// Contains the minimal identifying information needed to reference

@@ -10,17 +10,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
-    types::{CommentData, Label, State, UserSummary},
+    types::{CommentData, Label, State, UserSummary, deserialize_u64_or_string},
 };
 
 /// Issue 数据。
 ///
-/// 由平台实现填充并返回给上层命令。字段命名与 `gh issue`
-/// CLI 输出的 JSON 字段对齐（camelCase）。
+/// 由平台实现填充并返回给上层命令。字段命名与 GitHub CLI 输出的 JSON 字段对齐（camelCase）。
+/// `number` 使用自定义反序列化兼容 GitCode CLI 返回的字符串格式。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssueData {
     /// Issue 编号（平台内唯一）。
+    #[serde(deserialize_with = "deserialize_u64_or_string")]
     pub number: u64,
     /// Issue 标题。
     pub title: String,

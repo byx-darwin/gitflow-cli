@@ -140,7 +140,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
         platform: platform.into(),
     })?;
 
-    // 1. PATH 检查（gitcode 平台同时尝试 gc 和 gitcode，选择版本检测成功的）
+    // 1. PATH 检查（gitcode 平台会搜索 pip 路径等非标准位置）
     let (binary, path, version) = if platform == "gitcode" {
         find_gitcode_cli(platform)?
     } else {
@@ -203,7 +203,7 @@ fn is_authenticated(binary: &str, platform: &str) -> bool {
     }
 
     let args: &[&str] = match binary {
-        "gh" | "glab" | "gitcode" | "gc" => &["auth", "status"],
+        "gh" | "glab" | "gitcode" => &["auth", "status"],
         _ => return true,
     };
 
@@ -223,7 +223,7 @@ fn find_gitcode_cli(
 ) -> Result<(&'static str, std::path::PathBuf, String), PrerequisiteError> {
     let install_cmd = requirement_for(platform).map_or("", |r| r.install_cmd);
 
-    for &binary in &["gc", "gitcode"] {
+    for &binary in &["gitcode"] {
         // 1. 常规 PATH 搜索
         if let Ok(path) = which::which(binary) {
             if let Ok(v) = get_version(binary, platform) {
@@ -248,7 +248,7 @@ fn find_gitcode_cli(
     }
 
     Err(PrerequisiteError::NotFound {
-        binary: "gitcode/gc".into(),
+        binary: "gitcode".into(),
         platform: platform.into(),
         install_hint: requirement_for(platform)
             .map_or("", |r| r.install_hint)

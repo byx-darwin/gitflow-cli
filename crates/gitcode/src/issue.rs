@@ -1,45 +1,121 @@
 //! GitCode Issue 提供者实现。
 //!
-//! 通过 `gc` CLI 实现 [`IssueProvider`] trait，支持 Issue 的创建、列表、查看、
-//! 关闭、重新打开、评论及标签管理。
-//! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
+//! 通过 `gitcode` CLI 实现 [`IssueProvider`] trait。GitCode CLI
+//! 使用 `-R` 指定仓库、`--json` 为布尔标志、`version` 子命令检测版本。
+//! JSON 响应字段名与 GitHub/GitLab CLI 不同（`user` 而非 `author` 等），
+//! 通过 [`IssueApiResponse`] 做字段映射后转换为 core 类型。
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use gitflow_cli_core::{
     CoreError, Result,
     issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
-    types::{CommentData, State},
+    types::{CommentData, Label, State, UserSummary},
 };
+use serde::Deserialize;
 use tracing::debug;
 
 use crate::error::parse_gc_error;
 
-/// `gc issue` 请求的 JSON 字段列表。
-const ISSUE_FIELDS: &str =
-    "number,title,body,state,labels,author,assignees,createdAt,updatedAt,url";
+/// gitcode CLI `issue list --json` 的响应类型。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
+struct IssueApiResponse {
+    number: String,
+    title: String,
+    body: Option<String>,
+    state: String,
+    #[serde(default)]
+    labels: Vec<LabelApi>,
+    user: Option<UserApi>,
+    #[serde(default)]
+    assignees: Vec<UserApi>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+    html_url: String,
+}
 
-/// GitCode Issue 提供者，通过 `gc` CLI 操作。
-///
-/// 该结构体通过调用 `gc` CLI 实现 [`IssueProvider`] trait 的所有方法，
-/// 使上层命令能够以统一的方式操作 GitCode Issue。
-///
-/// # Examples
-///
-/// ```no_run
-/// use gitflow_cli_gitcode::GitCodeIssueProvider;
-///
-/// let provider = GitCodeIssueProvider::new("octocat/hello-world");
-/// ```
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
+struct LabelApi {
+    name: String,
+    #[serde(default)]
+    color: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct UserApi {
+    login: String,
+    #[serde(default)]
+    id: Option<String>,
+}
+
+impl From<IssueApiResponse> for IssueData {
+    fn from(api: IssueApiResponse) -> Self {
+        Self {
+            number: api.number.parse().unwrap_or(0),
+            title: api.title,
+            body: api.body,
+            state: match api.state.as_str() {
+                "closed" => State::Closed,
+                _ => State::Open,
+            },
+            labels: api.labels.into_iter().map(Label::from).collect(),
+            author: api.user.map(UserSummary::from).unwrap_or(UserSummary {
+                login: "unknown".into(),
+                id: String::new(),
+            }),
+            assignees: api.assignees.into_iter().map(UserSummary::from).collect(),
+            created_at: api
+                .created_at
+                .and_then(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .ok()
+                        .map(|d| d.with_timezone(&Utc))
+                })
+                .unwrap_or_else(|| Utc::now()),
+            updated_at: api
+                .updated_at
+                .and_then(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .ok()
+                        .map(|d| d.with_timezone(&Utc))
+                })
+                .unwrap_or_else(|| Utc::now()),
+            url: api.html_url,
+        }
+    }
+}
+
+impl From<LabelApi> for Label {
+    fn from(api: LabelApi) -> Self {
+        Self {
+            name: api.name,
+            color: api.color,
+            description: api.description,
+        }
+    }
+}
+
+impl From<UserApi> for UserSummary {
+    fn from(api: UserApi) -> Self {
+        Self {
+            login: api.login,
+            id: api.id.unwrap_or_default(),
+        }
+    }
+}
+
+/// GitCode Issue 提供者，通过 `gitcode`/`gc` CLI 操作。
 #[derive(Debug, Clone)]
 pub struct GitCodeIssueProvider {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
+    /// GitCode `owner/repo`。
     repo: String,
 }
 
 impl GitCodeIssueProvider {
-    /// 创建新的 GitCode Issue 提供者。
-    ///
-    /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
         Self { repo: repo.into() }
@@ -51,173 +127,139 @@ impl IssueProvider for GitCodeIssueProvider {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["issue", "create"])
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--title")
             .arg(&args.title)
-            .arg("--json")
-            .arg(ISSUE_FIELDS);
+            .arg("--json");
 
         if let Some(body) = &args.body {
             cmd.arg("--body").arg(body);
         }
-
-        if !args.labels.is_empty() {
-            cmd.arg("--label").arg(args.labels.join(","));
+        for label in &args.labels {
+            cmd.arg("--label").arg(label);
+        }
+        for assignee in &args.assignees {
+            cmd.arg("--assignee").arg(assignee);
         }
 
-        if !args.assignees.is_empty() {
-            cmd.arg("--assignee").arg(args.assignees.join(","));
-        }
-
-        debug!(repo = %self.repo, title = %args.title, "spawning `gc issue create`");
-
+        debug!(repo = %self.repo, title = %args.title, "spawning gitcode issue create");
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
-
+            .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            return Err(CoreError::Platform(
+                parse_gc_error(&output.stderr).to_string(),
+            ));
         }
-
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        serde_json::from_slice::<IssueApiResponse>(&output.stdout)
+            .map(|api: IssueApiResponse| IssueData::from(api))
+            .map_err(CoreError::Serialization)
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["issue", "list"])
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS);
+            .arg("--json");
 
-        if let Some(state) = &args.state {
+        if let Some(ref state) = args.state {
             cmd.arg("--state").arg(match state {
                 State::Open => "open",
                 State::Closed => "closed",
             });
         }
-
         if let Some(ref search) = args.search {
             cmd.arg("--search").arg(search);
         }
-
         if let Some(limit) = args.limit {
             cmd.arg("--limit").arg(limit.to_string());
         }
+        for label in &args.labels {
+            cmd.arg("--label").arg(label);
+        }
 
-        debug!(repo = %self.repo, "spawning `gc issue list`");
-
+        debug!(repo = %self.repo, "spawning gitcode issue list");
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
-
+            .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            return Err(CoreError::Platform(
+                parse_gc_error(&output.stderr).to_string(),
+            ));
         }
-
-        let issues: Vec<IssueData> =
+        let issues: Vec<IssueApiResponse> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issues)
+        Ok(issues.into_iter().map(IssueData::from).collect())
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
-        debug!(repo = %self.repo, number, "spawning `gc issue view`");
-
+        debug!(repo = %self.repo, number, "spawning gitcode issue view");
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "view"])
             .arg(number.to_string())
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            return Err(CoreError::Platform(
+                parse_gc_error(&output.stderr).to_string(),
+            ));
         }
-
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        serde_json::from_slice::<IssueApiResponse>(&output.stdout)
+            .map(|api: IssueApiResponse| IssueData::from(api))
+            .map_err(CoreError::Serialization)
     }
 
-    /// 关闭指定编号的 Issue。
-    ///
-    /// 调用 `gc issue close <number> --repo <repo> --json <fields>` 关闭 Issue，
-    /// 并返回更新后的完整 Issue 数据。
-    ///
-    /// # Errors
-    ///
-    /// 当 Issue 不存在、已关闭或 `gc` CLI 调用失败时返回错误。
     async fn close(&self, number: u64) -> Result<IssueData> {
-        debug!(repo = %self.repo, number, "spawning `gc issue close`");
-
+        debug!(repo = %self.repo, number, "spawning gitcode issue close");
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "close"])
             .arg(number.to_string())
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            return Err(CoreError::Platform(
+                parse_gc_error(&output.stderr).to_string(),
+            ));
         }
-
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        serde_json::from_slice::<IssueApiResponse>(&output.stdout)
+            .map(|api: IssueApiResponse| IssueData::from(api))
+            .map_err(CoreError::Serialization)
     }
 
-    /// 重新打开指定编号的 Issue。
-    ///
-    /// 调用 `gc issue reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 Issue，
-    /// 并返回更新后的完整 Issue 数据。
-    ///
-    /// # Errors
-    ///
-    /// 当 Issue 不存在、未关闭或 `gc` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<IssueData> {
-        debug!(repo = %self.repo, number, "spawning `gc issue reopen`");
-
+        debug!(repo = %self.repo, number, "spawning gitcode issue reopen");
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "reopen"])
             .arg(number.to_string())
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            return Err(CoreError::Platform(
+                parse_gc_error(&output.stderr).to_string(),
+            ));
         }
-
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        serde_json::from_slice::<IssueApiResponse>(&output.stdout)
+            .map(|api: IssueApiResponse| IssueData::from(api))
+            .map_err(CoreError::Serialization)
     }
 
     /// 在指定 Issue 上添加评论。
@@ -234,15 +276,14 @@ impl IssueProvider for GitCodeIssueProvider {
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "comment"])
             .arg(number.to_string())
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--body")
             .arg(body)
             .arg("--json")
-            .arg("id,body,author,createdAt")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
             let gc_err = parse_gc_error(&output.stderr);
@@ -274,7 +315,7 @@ impl IssueProvider for GitCodeIssueProvider {
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["issue", "edit"])
             .arg(number.to_string())
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo);
 
         for label in labels {
@@ -307,7 +348,7 @@ impl IssueProvider for GitCodeIssueProvider {
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["issue", "edit"])
             .arg(number.to_string())
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--remove-label")
             .arg(label)

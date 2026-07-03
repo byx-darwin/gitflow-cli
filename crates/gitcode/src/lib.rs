@@ -71,14 +71,32 @@ pub use pr::GitCodePrProvider;
 pub use release::GitCodeReleaseProvider;
 pub use review::GitCodeReviewProvider;
 
-/// Return the platform-appropriate GitCode CLI binary name.
+/// Return the GitCode CLI binary path.
 ///
-/// On all platforms, prefer `gitcode` (cross-platform, installed by pip/wheel).
-/// On Linux/macOS, fall back to `gc` if `gitcode` is not found.
-pub(crate) fn gitcode_binary() -> &'static str {
-    if which::which("gitcode").is_ok() {
-        "gitcode"
-    } else {
-        "gc"
+/// Searches PATH first, then pip user install directories
+/// (`~/Library/Python/*/bin/` on macOS, `~/.local/bin/` on Linux).
+pub(crate) fn gitcode_binary() -> String {
+    // 1. which gitcode (pip/wheel/DEB/RPM install)
+    if let Ok(p) = which::which("gitcode") {
+        return p.to_string_lossy().into_owned();
     }
+    // 2. pip user install paths (e.g. ~/Library/Python/3.9/bin/)
+    if let Ok(home) = std::env::var("HOME") {
+        let lib = std::path::PathBuf::from(&home).join("Library/Python");
+        if let Ok(entries) = std::fs::read_dir(&lib) {
+            for entry in entries.flatten() {
+                let p = entry.path().join("bin/gitcode");
+                if p.exists() {
+                    return p.to_string_lossy().into_owned();
+                }
+            }
+        }
+        // Also check ~/.local/bin
+        let p = std::path::PathBuf::from(&home).join(".local/bin/gitcode");
+        if p.exists() {
+            return p.to_string_lossy().into_owned();
+        }
+    }
+    // 3. Desperate fallback — hope it's in PATH
+    "gitcode".into()
 }
