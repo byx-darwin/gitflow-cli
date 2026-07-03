@@ -1,5 +1,5 @@
 [package]
-name = "gitflow-cli-cli"
+name = "gitflow-cli"
 description = "Cross-platform Git engineering workflow orchestration tool"
 version.workspace = true
 authors.workspace = true

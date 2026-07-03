@@ -56,7 +56,7 @@ gitflow-cli-core = { path = "crates/core" }
 gitflow-cli-github = { path = "crates/github" }
 gitflow-cli-gitlab = { path = "crates/gitlab" }
 gitflow-cli-gitcode = { path = "crates/gitcode" }
-gitflow-cli-cli = { path = "apps/cli" }
+gitflow-cli = { path = "apps/cli" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -91,5 +91,6 @@ cargo = { level = "warn", priority = -1 }
 indexing_slicing = "warn"
 
 # Pedantic lints that are too noisy for this template
+multiple_crate_versions = "allow"
 similar_names = "allow"
 module_name_repetitions = "allow"
