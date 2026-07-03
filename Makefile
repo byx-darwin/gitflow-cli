@@ -121,15 +121,40 @@ smoke-test-gitcode: ## Run smoke test for GitCode platform
 smoke-test-write: ## Run smoke test with write commands (help only)
 	@bash scripts/smoke-test.sh --write
 
-release: ## Tag and publish a release
-	@cargo release tag --execute
+release: release-push ## Usage: make release VERSION=patch|minor|major
+
+release-push: ## Step 1: bump version, commit, generate changelog, tag, push
+ifndef VERSION
+	$(error Usage: make release-push VERSION=patch|minor|major)
+endif
+	@cargo release version $(VERSION) --execute --workspace --no-confirm
+	@cargo release commit --execute --no-confirm
 	@git cliff -o CHANGELOG.md
 	@git commit -a -n -m "chore: update CHANGELOG.md" || true
-	@git push origin master
-	@cargo release push --execute
+	@cargo release tag --execute --workspace --no-confirm
+	@git push origin main --tags
+	@echo ""
+	@echo "==> Step 1 complete: tag pushed, waiting for CI..."
+	@echo "==> gh run list --limit 1"
+	@echo "==> Then: make release-publish"
+
+release-publish: ## Step 2: publish to crates.io (after CI passes)
+	@cargo release publish --execute --workspace --no-confirm
+
+package: ## Build and package current platform binary into dist/
+	@mkdir -p dist
+	@cargo build --release
+	@TARGET=$$(rustc -vV | sed -n 's|host: ||p'); \
+	BIN=target/release/gitflow-cli; \
+	if [ "$$(uname)" = "Darwin" ] || [ "$$(uname)" = "Linux" ]; then \
+		tar -czvf dist/gitflow-cli-$${TARGET}.tar.gz -C target/release gitflow-cli; \
+	else \
+		echo "Windows: use 7z to package target\\release\\gitflow-cli.exe"; \
+	fi
+	@echo "Packaged to dist/"
 
 .PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release \
-        smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog
+        smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
