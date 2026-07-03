@@ -520,10 +520,10 @@ command -v gitflow-cli
 2. 读取并解析 JSON
    - JSON 格式无效或缺少必填字段 → 重命名为 `pending.json.invalid`，输出警告，结束
 3. 提取以下字段：
-   - `error_id` — 错误唯一标识（必填）
+   - `id` — 错误唯一标识（必填）
    - `command` — 失败的 CLI 命令（必填）
    - `platform` — 目标平台（必填，github / gitlab / gitcode）
-   - `error_code` — 错误代码（必填）
+   - `error_code` — 错误代码（必填，字符串类型如 `"401"`）
    - `error_message` — 错误信息（必填）
    - `timestamp` — 错误发生时间（必填）
    - `auth_cache_ttl` — auth cache 有效期（可选，默认 86400 秒 = 24h）
@@ -635,10 +635,10 @@ rm -f .cache/bug-reports/pending.json
 
 ```json
 {
-  "error_id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "command": "gitflow issue create",
   "platform": "github",
-  "error_code": 401,
+  "error_code": "401",
   "error_message": "Unauthorized",
   "timestamp": "2026-07-03T10:00:00Z",
   "auth_cache_ttl": 86400

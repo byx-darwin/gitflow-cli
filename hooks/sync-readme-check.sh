@@ -30,14 +30,6 @@ get_readme_dirs() {
     | sort -u || true
 }
 
-# Get directories from skills/ subdirectory
-get_skill_names() {
-  find skills -maxdepth 1 -type d \
-    ! -name 'skills' \
-    | sed 's|skills/||' \
-    | sort
-}
-
 # Compare top-level structure
 actual_dirs=$(get_actual_dirs)
 readme_dirs=$(get_readme_dirs "README.md")

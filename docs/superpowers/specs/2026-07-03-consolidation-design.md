@@ -176,10 +176,10 @@ gitflow-cli issue create --title "..." --body "..." --label "auto-report"
 
 ```json
 {
-  "error_id": "uuid",
+  "id": "uuid",
   "command": "gitflow issue create",
   "platform": "github",
-  "error_code": 401,
+  "error_code": "401",
   "error_message": "Unauthorized",
   "timestamp": "2026-07-03T10:00:00Z",
   "auth_cache_ttl": 86400
