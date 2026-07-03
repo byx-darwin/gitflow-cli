@@ -665,6 +665,8 @@ mod tests {
         assert_eq!(stop.len(), 2, "should keep other matcher and add gitflow");
     }
 
+    /// Test is Unix-only: uses `dirs::home_dir()` which on Windows ignores HOME env var.
+    #[cfg(unix)]
     #[test]
     fn test_uninstall_hook_removes_gitflow() {
         // 用临时目录隔离，避免污染真实 HOME
@@ -713,6 +715,8 @@ mod tests {
         );
     }
 
+    /// Test is Unix-only: uses `dirs::home_dir()` which on Windows ignores HOME env var.
+    #[cfg(unix)]
     #[test]
     fn test_uninstall_hook_preserves_others() {
         let tmp = tempfile::tempdir().expect("create temp dir");
