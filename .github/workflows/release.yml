@@ -158,24 +158,46 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Compute source tarball SHA256
+      - name: Compute per-architecture SHA256
         id: sha
         run: |
           TAG="${{ needs.release.outputs.tag_name }}"
-          URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
-          SHA=$(curl -sL "$URL" | sha256sum | awk '{print $1}')
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          REPO="${{ github.repository }}"
+
+          declare -A URLS=(
+            [arm64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-aarch64-apple-darwin.tar.gz
+            [x86_64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-x86_64-apple-darwin.tar.gz
+            [linux_arm64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-aarch64-unknown-linux-gnu.tar.gz
+            [linux_x86_64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-x86_64-unknown-linux-gnu.tar.gz
+          )
+
+          for key in "${!URLS[@]}"; do
+            SHA=$(curl -sL "${URLS[$key]}" | sha256sum | awk '{print $1}')
+            echo "${key}=${SHA}" >> "$GITHUB_OUTPUT"
+          done
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Update HomebrewFormula/gitflow-cli.rb
         run: |
           TAG="${{ steps.sha.outputs.tag }}"
-          SHA="${{ steps.sha.outputs.sha256 }}"
           FORMULA="HomebrewFormula/gitflow-cli.rb"
 
-          sed -i "s|^  url \".*\"|  url \"https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz\"|" "$FORMULA"
-          sed -i "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$FORMULA"
-          sed -i "s|^  version \".*\"|  version \"${TAG#v}\"|" "$FORMULA"
+          # Update macos arm64
+          sed -i "/on_macos do/,/Hardware::CPU.arm?/{ /arm/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.arm64 }}\"| }" "$FORMULA"
+          sed -i "/on_macos do/,/Hardware::CPU.arm?/{ /arm/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-aarch64-apple-darwin.tar.gz\"| }" "$FORMULA"
+
+          # Update macos x86_64
+          sed -i "/on_macos do/,/end/{ /else/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.x86_64 }}\"| }" "$FORMULA"
+          sed -i "/on_macos do/,/end/{ /else/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-x86_64-apple-darwin.tar.gz\"| }" "$FORMULA"
+
+          # Update linux arm64
+          sed -i "/on_linux do/,/Hardware::CPU.arm?/{ /arm/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.linux_arm64 }}\"| }" "$FORMULA"
+          sed -i "/on_linux do/,/Hardware::CPU.arm?/{ /arm/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-aarch64-unknown-linux-gnu.tar.gz\"| }" "$FORMULA"
+
+          # Update linux x86_64
+          sed -i "/on_linux do/,/end/{ /else/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.linux_x86_64 }}\"| }" "$FORMULA"
+          sed -i "/on_linux do/,/end/{ /else/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-x86_64-unknown-linux-gnu.tar.gz\"| }" "$FORMULA"
 
       - name: Commit and push formula update
         run: |
