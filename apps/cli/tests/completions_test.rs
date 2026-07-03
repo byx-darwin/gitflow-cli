@@ -69,6 +69,7 @@ fn test_should_reject_install_and_uninstall_together() {
 
 /// `gitflow completions --install <shell>` writes the completion file to the
 /// expected location and emits the success message.
+#[cfg(unix)]
 #[test]
 fn test_should_install_completion_for_explicit_shell() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
@@ -97,6 +98,7 @@ fn test_should_install_completion_for_explicit_shell() {
 
 /// `gitflow completions --uninstall <shell>` removes a previously installed
 /// completion file.
+#[cfg(unix)]
 #[test]
 fn test_should_uninstall_existing_completion() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
@@ -143,6 +145,7 @@ fn test_should_fail_uninstall_when_file_missing() {
 }
 
 /// `gitflow completions --install` auto-detects the shell from `$SHELL`.
+#[cfg(unix)]
 #[test]
 fn test_should_auto_detect_shell_from_env() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
