@@ -120,7 +120,7 @@ pub enum PrerequisiteError {
 
     #[error(
         "[[PLATFORM]] {binary} is not authenticated.\n\n🔐 Interactive: {login_cmd}\n\n🔐 Paste \
-         token: {login_with_token}\n\n💡 Or set env var: export GC_TOKEN=your_token (gitcode) / \
+         token: {login_with_token}\n\n💡 Or set env var: export GITCODE_TOKEN=your_token (gitcode) / \
          export GH_TOKEN=your_token (github)"
     )]
     NotAuthenticated {
@@ -193,7 +193,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
 fn is_authenticated(binary: &str, platform: &str) -> bool {
     // GitCode 优先检查环境变量
     if platform == "gitcode"
-        && (std::env::var("GC_TOKEN").is_ok() || std::env::var("GITCODE_TOKEN").is_ok())
+        && std::env::var("GITCODE_TOKEN").is_ok()
     {
         return true;
     }
