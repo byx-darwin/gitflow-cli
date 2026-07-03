@@ -5,7 +5,7 @@
 
 **Goal:** 新增 GitLab 和 GitCode 两个平台的完整实现，使 gitflow-cli 成为真正的跨平台工具。同时补充 Pipeline 通用接口和三平台冒烟测试。
 
-**Architecture:** 新建 `crates/gitlab`（调用 `glab` CLI）和 `crates/gitcode`（调用 `gc` CLI），均实现 core 中定义的全部 trait。同时在 core 中新增 `PipelineProvider` trait，三个平台 crate 各自实现。依赖流保持 `apps/cli → crates/{github,gitlab,gitcode} → crates/core`。
+**Architecture:** 新建 `crates/gitlab`（调用 `glab` CLI）和 `crates/gitcode`（调用 `gitcode` CLI），均实现 core 中定义的全部 trait。同时在 core 中新增 `PipelineProvider` trait，三个平台 crate 各自实现。依赖流保持 `apps/cli → crates/{github,gitlab,gitcode} → crates/core`。
 
 **Tech Stack:** Rust 2024, clap, tokio, serde_json, async-trait, chrono
 
@@ -15,7 +15,7 @@
 - `#![forbid(unsafe_code)]` 所有 crate
 - 禁止 `unwrap()` / `expect()`，返回 `Result<T>`
 - 公共项必须文档化（`#![warn(missing_docs)]`）
-- GitLab crate 调用 `glab` CLI，GitCode crate 调用 `gc` CLI
+- GitLab crate 调用 `glab` CLI，GitCode crate 调用 `gitcode` CLI
 - 三个平台 crate 保持对称的代码结构和 API 风格
 
 ## GitHub Issue 规划
@@ -34,7 +34,7 @@
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings` 通过
 - [ ] `cargo +nightly fmt -- --check` 通过
 - [ ] `gitflow --platform gitlab issue list` 可执行（需 `glab` 环境）
-- [ ] `gitflow --platform gitcode pr list` 可执行（需 `gc` 环境）
+- [ ] `gitflow --platform gitcode pr list` 可执行（需 `gitcode` 环境）
 - [ ] `gitflow pipeline status` 三平台均可执行
 - [ ] 三平台冒烟测试通过
 
@@ -206,7 +206,7 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 6: crates/gitcode — crate 搭建 + 完整 Provider 实现
 
-**Description:** 新建 `crates/gitcode` crate。通过 `gc` CLI 实现全部 Provider trait。GitCode 使用 `gc` 作为原生 CLI。
+**Description:** 新建 `crates/gitcode` crate。通过 `gitcode` CLI 实现全部 Provider trait。GitCode 使用 `gitcode` 作为原生 CLI。
 
 **Dependencies:** Task 5（参考 GitLab 实现模式，保持三平台对称）
 
@@ -217,14 +217,14 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
   - `GcError` 结构 + `parse_gc_error()`
 
 - [ ] **Step 3-11: 实现全部 Provider**
-  - `issue.rs` → GitCodeIssueProvider（调用 `gc issue`）
-  - `pr.rs` → GitCodePrProvider（调用 `gc pr`）
-  - `release.rs` → GitCodeReleaseProvider（调用 `gc release`）
+  - `issue.rs` → GitCodeIssueProvider（调用 `gitcode issue`）
+  - `pr.rs` → GitCodePrProvider（调用 `gitcode pr`）
+  - `release.rs` → GitCodeReleaseProvider（调用 `gitcode release`）
   - `review.rs` → GitCodeReviewProvider
-  - `auth.rs` → GitCodeAuthProvider（调用 `gc auth`）
+  - `auth.rs` → GitCodeAuthProvider（调用 `gitcode auth`）
   - `label.rs` → GitCodeLabelProvider + GitCodeMilestoneProvider
   - `commit.rs` → GitCodeCommitProvider
-  - `pipeline.rs` → GitCodePipelineProvider（调用 `gc pipeline`）
+  - `pipeline.rs` → GitCodePipelineProvider（调用 `gitcode pipeline`）
   - `lib.rs` → pub mod + 重新导出
 
 - [ ] **Step 12: 写单元测试**

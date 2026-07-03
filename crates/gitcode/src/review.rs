@@ -1,6 +1,6 @@
 //! GitCode Review 提供者实现。
 //!
-//! 通过 `gc` CLI 实现 [`ReviewProvider`] trait，支持 PR 审查的评论、
+//! 通过 `gitcode` CLI 实现 [`ReviewProvider`] trait，支持 PR 审查的评论、
 //! 批准、要求修改及提交审查。
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
@@ -11,14 +11,14 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
 /// `gc pr review` 请求的 JSON 字段列表。
 const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
 
-/// GitCode Review 提供者，通过 `gc` CLI 操作。
+/// GitCode Review 提供者，通过 `gitcode` CLI 操作。
 ///
-/// 该结构体通过调用 `gc` CLI 实现 [`ReviewProvider`] trait 的所有方法，
+/// 该结构体通过调用 `gitcode` CLI 实现 [`ReviewProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitCode PR 审查。
 ///
 /// # Examples
@@ -61,11 +61,11 @@ impl ReviewProvider for GitCodeReviewProvider {
             .arg(REVIEW_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let review: ReviewData =
@@ -93,11 +93,11 @@ impl ReviewProvider for GitCodeReviewProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let review: ReviewData =
@@ -121,11 +121,11 @@ impl ReviewProvider for GitCodeReviewProvider {
             .arg(REVIEW_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let review: ReviewData =
@@ -169,11 +169,11 @@ impl ReviewProvider for GitCodeReviewProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let review: ReviewData =

@@ -10,7 +10,7 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
 /// `gc run list` 请求的 JSON 字段列表。
 const PIPELINE_FIELDS: &str = "databaseId,headBranch,status,conclusion,createdAt,updatedAt,url";
@@ -109,7 +109,7 @@ impl GcJob {
     }
 }
 
-/// GitCode Pipeline 提供者，通过 `gc` CLI 操作 CI/CD 流水线。
+/// GitCode Pipeline 提供者，通过 `gitcode` CLI 操作 CI/CD 流水线。
 ///
 /// # Examples
 ///
@@ -151,11 +151,11 @@ impl PipelineProvider for GitCodePipelineProvider {
             .arg("30")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let runs: Vec<GcRun> =
@@ -175,11 +175,11 @@ impl PipelineProvider for GitCodePipelineProvider {
             .arg("--log")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         String::from_utf8(output.stdout)
@@ -198,11 +198,11 @@ impl PipelineProvider for GitCodePipelineProvider {
             .arg("jobs")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let resp: JobsResponse =
@@ -240,11 +240,11 @@ impl PipelineProvider for GitCodePipelineProvider {
             .arg("100")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let runs: Vec<ReportRun> =

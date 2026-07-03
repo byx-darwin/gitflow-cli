@@ -1,6 +1,6 @@
 //! GitCode Release 提供者实现。
 //!
-//! 通过 `gc` CLI 实现 [`ReleaseProvider`] trait，支持 Release 的创建、列表、
+//! 通过 `gitcode` CLI 实现 [`ReleaseProvider`] trait，支持 Release 的创建、列表、
 //! 查看、编辑、资源上传/下载及删除。
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
@@ -11,15 +11,15 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
 /// `gc release` 请求的 JSON 字段列表。
 const RELEASE_FIELDS: &str =
     "id,tagName,name,body,draft,prerelease,author,createdAt,publishedAt,url";
 
-/// GitCode Release 提供者，通过 `gc` CLI 操作。
+/// GitCode Release 提供者，通过 `gitcode` CLI 操作。
 ///
-/// 该结构体通过调用 `gc` CLI 实现 [`ReleaseProvider`] trait 的所有方法，
+/// 该结构体通过调用 `gitcode` CLI 实现 [`ReleaseProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitCode Release。
 ///
 /// # Examples
@@ -85,11 +85,11 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let release: ReleaseData =
@@ -109,11 +109,11 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             .arg(RELEASE_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let releases: Vec<ReleaseData> =
@@ -134,11 +134,11 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             .arg(RELEASE_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let release: ReleaseData =
@@ -185,11 +185,11 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let release: ReleaseData =
@@ -214,11 +214,11 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             .arg(&self.repo)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())
@@ -257,14 +257,14 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             .arg(parent)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        // gc 使用资源的实际文件名下载，尝试找到并移动
+        // gitcode 使用资源的实际文件名下载，尝试找到并移动
         let downloaded = parent.join(asset_name);
         if downloaded != dest && downloaded.exists() {
             std::fs::rename(&downloaded, &dest).map_err(|e| {
@@ -288,11 +288,11 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             .arg("--yes")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())

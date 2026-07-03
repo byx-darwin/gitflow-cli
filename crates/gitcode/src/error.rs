@@ -1,29 +1,29 @@
-//! `gc` CLI 错误解析模块。
+//! `gitcode` CLI 错误解析模块。
 //!
-//! 提供 [`parse_gc_error`] 函数，用于将 `gc` CLI 的 stderr 输出
-//! 解析为结构化的 [`GcError`]。优先尝试 JSON 解析 `gc` 的标准错误格式，
+//! 提供 [`parse_gitcode_error`] 函数，用于将 `gitcode` CLI 的 stderr 输出
+//! 解析为结构化的 [`GitcodeError`]。优先尝试 JSON 解析 `gitcode` 的标准错误格式，
 //! 失败时回退到文本前三行。
 
 use std::fmt;
 
-/// `gc` CLI 错误。
+/// `gitcode` CLI 错误。
 ///
-/// 由 [`parse_gc_error`] 生成，包含从 stderr 解析出的错误信息。
-/// 当 `gc` 返回非零退出码时，其 stderr 可能为 JSON 格式或纯文本，
+/// 由 [`parse_gitcode_error`] 生成，包含从 stderr 解析出的错误信息。
+/// 当 `gitcode` 返回非零退出码时，其 stderr 可能为 JSON 格式或纯文本，
 /// 本结构体统一封装这两种情况。
 #[derive(Debug, Clone)]
-pub struct GcError {
+pub struct GitcodeError {
     /// 错误主信息。
     pub message: String,
-    /// 可选的错误代码（仅当 `gc` 输出为 JSON 且包含 `code` 字段时存在）。
+    /// 可选的错误代码（仅当 `gitcode` 输出为 JSON 且包含 `code` 字段时存在）。
     pub code: Option<String>,
     /// 可选的修复提示。
     pub hint: Option<String>,
 }
 
-impl fmt::Display for GcError {
+impl fmt::Display for GitcodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "gc: {}", self.message)?;
+        write!(f, "gitcode: {}", self.message)?;
         if let Some(ref code) = self.code {
             write!(f, " [{code}]")?;
         }
@@ -34,7 +34,7 @@ impl fmt::Display for GcError {
     }
 }
 
-/// 解析 `gc` CLI 的 stderr 输出为结构化错误。
+/// 解析 `gitcode` CLI 的 stderr 输出为结构化错误。
 ///
 /// 解析策略：
 /// 1. 优先尝试将 stderr 解析为 JSON，提取 `message` 与 `code` 字段。
@@ -43,22 +43,22 @@ impl fmt::Display for GcError {
 /// # Examples
 ///
 /// ```
-/// use gitflow_cli_gitcode::error::parse_gc_error;
+/// use gitflow_cli_gitcode::error::parse_gitcode_error;
 ///
-/// let stderr = b"gc: Not logged in";
-/// let err = parse_gc_error(stderr);
-/// assert_eq!(err.message, "gc: Not logged in");
+/// let stderr = b"gitcode: Not logged in";
+/// let err = parse_gitcode_error(stderr);
+/// assert_eq!(err.message, "gitcode: Not logged in");
 /// assert!(err.hint.is_some());
 /// ```
 #[must_use]
-pub fn parse_gc_error(stderr: &[u8]) -> GcError {
+pub fn parse_gitcode_error(stderr: &[u8]) -> GitcodeError {
     let text = String::from_utf8_lossy(stderr);
 
-    // 尝试解析 gc 的 JSON 错误格式
+    // 尝试解析 gitcode 的 JSON 错误格式
     if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr)
         && let Some(msg) = json.get("message").and_then(serde_json::Value::as_str)
     {
-        return GcError {
+        return GitcodeError {
             message: msg.into(),
             code: json
                 .get("code")
@@ -70,10 +70,10 @@ pub fn parse_gc_error(stderr: &[u8]) -> GcError {
 
     // 回退：取 stderr 文本的前三行
     let message = text.lines().take(3).collect::<Vec<_>>().join("\n");
-    GcError {
+    GitcodeError {
         message,
         code: None,
-        hint: Some("Run 'gc auth status' to verify authentication.".into()),
+        hint: Some("Run 'gitcode auth status' to verify authentication.".into()),
     }
 }
 
@@ -82,9 +82,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_should_parse_gc_error_from_json_stderr() {
+    fn test_should_parse_gitcode_error_from_json_stderr() {
         let json = br#"{"message": "Not found: repository does not exist", "code": "NOT_FOUND"}"#;
-        let err = parse_gc_error(json);
+        let err = parse_gitcode_error(json);
 
         assert_eq!(err.message, "Not found: repository does not exist");
         assert_eq!(err.code.as_deref(), Some("NOT_FOUND"));
@@ -92,48 +92,48 @@ mod tests {
     }
 
     #[test]
-    fn test_should_parse_gc_error_from_plain_text_stderr() {
-        let stderr = b"gc: Not logged in. Please run `gc auth login` to authenticate.\nSecond line.\nThird line.\nFourth line should be dropped.";
-        let err = parse_gc_error(stderr);
+    fn test_should_parse_gitcode_error_from_plain_text_stderr() {
+        let stderr = b"gitcode: Not logged in. Please run `gitcode auth login` to authenticate.\nSecond line.\nThird line.\nFourth line should be dropped.";
+        let err = parse_gitcode_error(stderr);
 
         assert_eq!(
             err.message,
-            "gc: Not logged in. Please run `gc auth login` to authenticate.\nSecond line.\nThird \
-             line."
+            "gitcode: Not logged in. Please run `gitcode auth login` to authenticate.\nSecond \
+             line.\nThird line."
         );
         assert!(err.code.is_none());
         assert_eq!(
             err.hint.as_deref(),
-            Some("Run 'gc auth status' to verify authentication.")
+            Some("Run 'gitcode auth status' to verify authentication.")
         );
     }
 
     #[test]
-    fn test_should_display_gc_error_with_code() {
-        let err = GcError {
+    fn test_should_display_gitcode_error_with_code() {
+        let err = GitcodeError {
             message: "not found".into(),
             code: Some("NOT_FOUND".into()),
             hint: None,
         };
-        assert_eq!(format!("{err}"), "gc: not found [NOT_FOUND]");
+        assert_eq!(format!("{err}"), "gitcode: not found [NOT_FOUND]");
     }
 
     #[test]
-    fn test_should_display_gc_error_with_hint() {
-        let err = GcError {
+    fn test_should_display_gitcode_error_with_hint() {
+        let err = GitcodeError {
             message: "auth failed".into(),
             code: None,
-            hint: Some("run gc auth login".into()),
+            hint: Some("run gitcode auth login".into()),
         };
         let display = format!("{err}");
-        assert!(display.contains("gc: auth failed"));
-        assert!(display.contains("Hint: run gc auth login"));
+        assert!(display.contains("gitcode: auth failed"));
+        assert!(display.contains("Hint: run gitcode auth login"));
     }
 
     #[test]
     fn test_should_fallback_when_json_has_no_message() {
         let json = br#"{"error": "something else"}"#;
-        let err = parse_gc_error(json);
+        let err = parse_gitcode_error(json);
 
         // 无 `message` 字段 → 回退到文本解析
         assert_eq!(err.message, r#"{"error": "something else"}"#);
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn test_should_handle_empty_stderr() {
-        let err = parse_gc_error(b"");
+        let err = parse_gitcode_error(b"");
         assert!(err.message.is_empty());
         assert!(err.code.is_none());
         assert!(err.hint.is_some());

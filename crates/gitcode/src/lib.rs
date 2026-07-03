@@ -3,7 +3,7 @@
 //! 本 crate 实现了 `gitflow-cli-core` 中定义的 [`IssueProvider`]、[`PrProvider`]、
 //! [`ReleaseProvider`]、[`ReviewProvider`]、[`AuthProvider`]、[`LabelProvider`]、
 //! [`MilestoneProvider`]、[`CommitProvider`] 与 [`PipelineProvider`] trait，
-//! 通过调用 `gc` CLI 获取数据并解析其 JSON 输出。
+//! 通过调用 `gitcode` CLI 获取数据并解析其 JSON 输出。
 //!
 //! # 主要类型
 //!
@@ -19,7 +19,7 @@
 //!
 //! # 错误处理
 //!
-//! 所有平台调用失败时，`gc` 的 stderr 会通过 [`error::parse_gc_error`] 解析，
+//! 所有平台调用失败时，`gitcode` 的 stderr 会通过 [`error::parse_gitcode_error`] 解析，
 //! 并统一映射为 [`CoreError::Platform`]。
 //!
 //! [`IssueProvider`]: gitflow_cli_core::issue::IssueProvider
@@ -63,7 +63,7 @@ pub mod review;
 
 pub use auth::GitCodeAuthProvider;
 pub use commit::GitCodeCommitProvider;
-pub use error::GcError;
+pub use error::GitcodeError;
 pub use issue::GitCodeIssueProvider;
 pub use label::{GitCodeLabelProvider, GitCodeMilestoneProvider};
 pub use pipeline::GitCodePipelineProvider;

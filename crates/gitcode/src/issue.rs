@@ -15,7 +15,7 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
 /// gitcode CLI `issue list --json` 的响应类型。
 #[derive(Debug, Clone, Deserialize)]
@@ -111,7 +111,7 @@ impl From<UserApi> for UserSummary {
     }
 }
 
-/// GitCode Issue 提供者，通过 `gitcode`/`gc` CLI 操作。
+/// GitCode Issue 提供者，通过 `gitcode`/`gitcode` CLI 操作。
 #[derive(Debug, Clone)]
 pub struct GitCodeIssueProvider {
     /// GitCode `owner/repo`。
@@ -154,7 +154,7 @@ impl IssueProvider for GitCodeIssueProvider {
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
             return Err(CoreError::Platform(
-                parse_gc_error(&output.stderr).to_string(),
+                parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
@@ -192,7 +192,7 @@ impl IssueProvider for GitCodeIssueProvider {
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
             return Err(CoreError::Platform(
-                parse_gc_error(&output.stderr).to_string(),
+                parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
         let issues: Vec<IssueApiResponse> =
@@ -214,7 +214,7 @@ impl IssueProvider for GitCodeIssueProvider {
 
         if !output.status.success() {
             return Err(CoreError::Platform(
-                parse_gc_error(&output.stderr).to_string(),
+                parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
@@ -236,7 +236,7 @@ impl IssueProvider for GitCodeIssueProvider {
 
         if !output.status.success() {
             return Err(CoreError::Platform(
-                parse_gc_error(&output.stderr).to_string(),
+                parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
@@ -258,7 +258,7 @@ impl IssueProvider for GitCodeIssueProvider {
 
         if !output.status.success() {
             return Err(CoreError::Platform(
-                parse_gc_error(&output.stderr).to_string(),
+                parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
@@ -273,7 +273,7 @@ impl IssueProvider for GitCodeIssueProvider {
     ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、`body` 为空或 `gc` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、`body` 为空或 `gitcode` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gc issue comment`");
 
@@ -290,8 +290,8 @@ impl IssueProvider for GitCodeIssueProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let comment: CommentData =
@@ -307,7 +307,7 @@ impl IssueProvider for GitCodeIssueProvider {
     ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、标签名无效或 `gc` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、标签名无效或 `gitcode` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
         debug!(
             repo = %self.repo,
@@ -329,11 +329,11 @@ impl IssueProvider for GitCodeIssueProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())
@@ -345,7 +345,7 @@ impl IssueProvider for GitCodeIssueProvider {
     ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、标签未附加到该 Issue 或 `gc` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、标签未附加到该 Issue 或 `gitcode` CLI 调用失败时返回错误。
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
         debug!(repo = %self.repo, number, label, "spawning `gc issue edit --remove-label`");
 
@@ -358,11 +358,11 @@ impl IssueProvider for GitCodeIssueProvider {
             .arg(label)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())

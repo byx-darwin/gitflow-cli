@@ -69,10 +69,10 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
                            # 方式 2 — PyPI:\n\
                            pip install gitcode-cli\n\n\
                            # 方式 3 — Linux DEB:\n\
-                           sudo dpkg -i gc_0.5.9_amd64.deb\n\n\
+                           sudo dpkg -i gitcode_0.5.9_amd64.deb\n\n\
                            # 方式 4 — 源码构建（Go 1.22+）:\n\
                            git clone https://gitcode.com/gitcode-cli/cli.git && cd cli\n\
-                           make build && mkdir -p ~/.local/bin && mv bin/gc ~/.local/bin/",
+                           make build && mkdir -p ~/.local/bin && mv bin/gitcode ~/.local/bin/",
             install_cmd: "pip install gitcode-cli",
             login_cmd: "gitcode auth login",
             login_with_token: "echo TOKEN | gitcode auth login --with-token",

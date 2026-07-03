@@ -1,6 +1,6 @@
 //! GitCode Pull Request 提供者实现。
 //!
-//! 通过 `gc` CLI 实现 [`PrProvider`] trait，支持 Pull Request 的创建、列表、查看、
+//! 通过 `gitcode` CLI 实现 [`PrProvider`] trait，支持 Pull Request 的创建、列表、查看、
 //! 关闭、合并、检出、草稿状态切换和分支同步。
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
@@ -12,15 +12,15 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
 /// `gc pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str =
     "number,title,body,state,draft,author,baseBranch,headBranch,createdAt,updatedAt,url";
 
-/// GitCode Pull Request 提供者，通过 `gc` CLI 操作。
+/// GitCode Pull Request 提供者，通过 `gitcode` CLI 操作。
 ///
-/// 该结构体通过调用 `gc` CLI 实现 [`PrProvider`] trait 的所有方法，
+/// 该结构体通过调用 `gitcode` CLI 实现 [`PrProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitCode Pull Request。
 ///
 /// # Examples
@@ -81,11 +81,11 @@ impl PrProvider for GitCodePrProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let pr: PrData =
@@ -118,11 +118,11 @@ impl PrProvider for GitCodePrProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let prs: Vec<PrData> =
@@ -143,11 +143,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(PR_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let pr: PrData =
@@ -163,7 +163,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、已关闭或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、已关闭或 `gitcode` CLI 调用失败时返回错误。
     async fn close(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr close`");
 
@@ -176,11 +176,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(PR_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let pr: PrData =
@@ -196,7 +196,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、未关闭或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、未关闭或 `gitcode` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr reopen`");
 
@@ -209,11 +209,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(PR_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let pr: PrData =
@@ -229,7 +229,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、`body` 为空或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、`body` 为空或 `gitcode` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gc pr comment`");
 
@@ -244,11 +244,11 @@ impl PrProvider for GitCodePrProvider {
             .arg("id,body,author,createdAt")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let comment: CommentData =
@@ -265,7 +265,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、存在冲突无法合并或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、存在冲突无法合并或 `gitcode` CLI 调用失败时返回错误。
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
         debug!(repo = %self.repo, number, ?strategy, "spawning `gc pr merge`");
 
@@ -290,11 +290,11 @@ impl PrProvider for GitCodePrProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         // `gc pr merge` outputs a human-readable message, not JSON.
@@ -313,7 +313,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、本地 git 操作失败或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、本地 git 操作失败或 `gitcode` CLI 调用失败时返回错误。
     async fn checkout(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gc pr checkout`");
 
@@ -324,11 +324,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(&self.repo)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())
@@ -341,7 +341,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、不是草稿状态或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、不是草稿状态或 `gitcode` CLI 调用失败时返回错误。
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr ready`");
 
@@ -352,11 +352,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(&self.repo)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         // `gc pr ready` does not return JSON; re-fetch the PR to get updated data.
@@ -370,7 +370,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、已是草稿状态或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、已是草稿状态或 `gitcode` CLI 调用失败时返回错误。
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gc pr convert-to-draft`");
 
@@ -381,11 +381,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(&self.repo)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         // `gc pr convert-to-draft` does not return JSON; re-fetch the PR.
@@ -399,7 +399,7 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、同步存在冲突或 `gc` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、同步存在冲突或 `gitcode` CLI 调用失败时返回错误。
     async fn sync_branch(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gc pr update-branch`");
 
@@ -410,11 +410,11 @@ impl PrProvider for GitCodePrProvider {
             .arg(&self.repo)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())

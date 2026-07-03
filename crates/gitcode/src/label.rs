@@ -16,9 +16,9 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
-/// GitCode Label 提供者，通过 `gc` CLI 管理仓库标签。
+/// GitCode Label 提供者，通过 `gitcode` CLI 管理仓库标签。
 ///
 /// # Examples
 ///
@@ -68,14 +68,13 @@ impl LabelProvider for GitCodeLabelProvider {
             cmd.arg("--description").arg(desc);
         }
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc label create: {e}")))?;
+        let output = cmd.output().await.map_err(|e| {
+            CoreError::Platform(format!("Failed to spawn gitcode label create: {e}"))
+        })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let label: LabelData =
@@ -95,11 +94,11 @@ impl LabelProvider for GitCodeLabelProvider {
             .arg(LABEL_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc label list: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label list: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let labels: Vec<LabelData> =
@@ -126,14 +125,14 @@ impl LabelProvider for GitCodeLabelProvider {
         let output = cmd
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc label edit: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label edit: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        // gc label edit 不返回 JSON，重新 fetch 获取最新数据
+        // gitcode label edit 不返回 JSON，重新 fetch 获取最新数据
         self.fetch_label(name).await
     }
 
@@ -148,11 +147,13 @@ impl LabelProvider for GitCodeLabelProvider {
             .arg(&self.repo)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc label delete: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode label delete: {e}"))
+            })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())
@@ -171,11 +172,11 @@ impl GitCodeLabelProvider {
             .arg(LABEL_FIELDS)
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc label view: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label view: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let label: LabelData =
@@ -267,14 +268,13 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             cmd.arg("-f").arg(format!("due_on={}", due.to_rfc3339()));
         }
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc api milestones: {e}")))?;
+        let output = cmd.output().await.map_err(|e| {
+            CoreError::Platform(format!("Failed to spawn gitcode api milestones: {e}"))
+        })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let api_response: MilestoneApiResponse =
@@ -292,11 +292,13 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             .args(["api", &api_path])
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc api milestones: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode api milestones: {e}"))
+            })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let milestones: Vec<MilestoneApiResponse> =
@@ -324,12 +326,12 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
         }
 
         let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn gc api milestone edit: {e}"))
+            CoreError::Platform(format!("Failed to spawn gitcode api milestone edit: {e}"))
         })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let api_response: MilestoneApiResponse =
@@ -348,12 +350,12 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gc api milestone close: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode api milestone close: {e}"))
             })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let api_response: MilestoneApiResponse =
@@ -372,12 +374,12 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gc api milestone reopen: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode api milestone reopen: {e}"))
             })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let api_response: MilestoneApiResponse =

@@ -11,9 +11,9 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
-/// GitCode 认证提供者，通过 `gc` CLI 操作认证。
+/// GitCode 认证提供者，通过 `gitcode` CLI 操作认证。
 ///
 /// # Examples
 ///
@@ -56,10 +56,10 @@ impl AuthProvider for GitCodeAuthProvider {
             .arg("login")
             .status()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc auth login: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}")))?;
 
         if !status.success() {
-            return Err(CoreError::Platform("gc auth login failed".into()));
+            return Err(CoreError::Platform("gitcode auth login failed".into()));
         }
 
         Ok(())
@@ -77,11 +77,13 @@ impl AuthProvider for GitCodeAuthProvider {
             .args(["auth", "logout"])
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc auth logout: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode auth logout: {e}"))
+            })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())
@@ -101,12 +103,14 @@ impl AuthProvider for GitCodeAuthProvider {
             .args(["auth", "status"])
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc auth status: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode auth status: {e}"))
+            })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
-        // gc auth status 在未登录时会返回非零退出码
+        // gitcode auth status 在未登录时会返回非零退出码
         if !output.status.success() {
             // 检查是否为未登录状态
             let text = format!("{stdout}{stderr}");
@@ -121,8 +125,8 @@ impl AuthProvider for GitCodeAuthProvider {
                 });
             }
 
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         // 解析登录用户：查找 "Logged in to gitcode.com as <username>" 行
@@ -131,7 +135,7 @@ impl AuthProvider for GitCodeAuthProvider {
         Ok(AuthStatus {
             logged_in: user.is_some(),
             user,
-            scopes: vec![], // gc auth status 不直接返回 scopes 列表
+            scopes: vec![], // gitcode auth status 不直接返回 scopes 列表
         })
     }
 
@@ -147,11 +151,11 @@ impl AuthProvider for GitCodeAuthProvider {
             .args(["auth", "token"])
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc auth token: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode auth token: {e}")))?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let token = String::from_utf8_lossy(&output.stdout);

@@ -130,11 +130,11 @@ gitflow-cli/
 │       ├── Cargo.toml
 │       └── src/
 │           ├── lib.rs
-│           ├── auth.rs         # 调用 gc auth
-│           ├── issue.rs        # 调用 gc issue
-│           ├── pr.rs           # 调用 gc pr
-│           ├── release.rs      # 调用 gc release
-│           ├── pipeline.rs     # 调用 gc pipeline
+│           ├── auth.rs         # 调用 gitcode auth
+│           ├── issue.rs        # 调用 gitcode issue
+│           ├── pr.rs           # 调用 gitcode pr
+│           ├── release.rs      # 调用 gitcode release
+│           ├── pipeline.rs     # 调用 gitcode pipeline
 │           └── ...
 │
 ├── skills/                     # 新增：Claude Code skills
@@ -1524,7 +1524,7 @@ fn extract_repo_from_url(url: &str) -> Option<String> {
 | 只检查不安装 | `gitflow` 不负责下载或管理原生 CLI |
 | 阻断式 | CLI 缺失或版本过低 → 拒绝执行，不降级、不回退 |
 | 明确提示 | 给出对应平台的官方安装命令 |
-| 平台对应 | 只检查当前目标平台需要的 CLI（GitHub → `gh`，GitLab → `glab`，GitCode → `gc`） |
+| 平台对应 | 只检查当前目标平台需要的 CLI（GitHub → `gh`，GitLab → `glab`，GitCode → `gitcode`） |
 
 #### 6.2 检查流程
 
@@ -1578,7 +1578,7 @@ fn requirement_for(platform: &str) -> CliRequirement {
             install_hint: "brew install glab   # macOS\napt install glab    # Ubuntu",
         },
         "gitcode" => CliRequirement {
-            binary: "gc",
+            binary: "gitcode",
             min_version: "0.6.0",
             install_url: "https://gitcode.com/gitcode-cli/gitcode-cli",
             install_hint: "# 参考官方安装指引\ncurl -sSL https://gitcode.com/.../install.sh | bash",
@@ -1635,7 +1635,7 @@ fn get_version(binary: &str) -> Result<String, PrerequisiteError> {
     // 提取 semver，适配各种 CLI 的输出格式：
     // gh version 2.50.0 (2024-01-01) → 2.50.0
     // glab version 1.35.0 (2024-01-01) → 1.35.0
-    // gc version v0.6.0 → 0.6.0
+    // gitcode version v0.6.0 → 0.6.0
     extract_semver(&stdout).ok_or_else(|| PrerequisiteError::VersionParseFailed {
         binary: binary.into(),
     })

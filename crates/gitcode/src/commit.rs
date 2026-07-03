@@ -12,7 +12,7 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gc_error;
+use crate::error::parse_gitcode_error;
 
 /// GitCode Commit 提供者，通过 `gc api` 查看提交信息。
 ///
@@ -177,11 +177,13 @@ impl CommitProvider for GitCodeCommitProvider {
             .args(["api", &api_path])
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc api commit view: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode api commit view: {e}"))
+            })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         let api_response: CommitApiResponse =
@@ -201,11 +203,13 @@ impl CommitProvider for GitCodeCommitProvider {
             .arg("Accept: application/vnd.gitcode.v3.diff")
             .output()
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gc api commit diff: {e}")))?;
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode api commit diff: {e}"))
+            })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -223,12 +227,12 @@ impl CommitProvider for GitCodeCommitProvider {
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gc api commit patch: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode api commit patch: {e}"))
             })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -251,12 +255,12 @@ impl CommitProvider for GitCodeCommitProvider {
             .arg("position=1");
 
         let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn gc api commit comment: {e}"))
+            CoreError::Platform(format!("Failed to spawn gitcode api commit comment: {e}"))
         })?;
 
         if !output.status.success() {
-            let gc_err = parse_gc_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gc_err}")));
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())

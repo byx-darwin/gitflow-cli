@@ -31,7 +31,7 @@
 |------|---------|------|
 | **GitHub** | `gh` (v2.0.0+) | Issue / PR / Release / Review / Pipeline / Repo（含 Enterprise） |
 | **GitLab** | `glab` (v1.30.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo（含自建实例） |
-| **GitCode** | `gc` (v0.6.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
+| **GitCode** | `gitcode` (v0.6.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
 
 ```bash
 # 自动检测（基于 git remote，支持 gitlab.com 及自建 GitLab 实例）

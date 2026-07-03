@@ -10,7 +10,7 @@
 - **原生 CLI**（按需安装）：
   - GitHub 平台：`gh` CLI（v2.0.0+）
   - GitLab 平台：`glab` CLI（v1.30.0+）
-  - GitCode 平台：`gc` CLI（v0.6.0+）
+  - GitCode 平台：`gitcode` CLI（v0.6.0+）
 
 ### 安装开发工具
 
@@ -65,7 +65,7 @@ gitflow-cli/
 │   ├── core/          # 领域类型 + trait 抽象
 │   ├── github/        # GitHub provider（调用 gh CLI）
 │   ├── gitlab/        # GitLab provider（调用 glab CLI）
-│   └── gitcode/       # GitCode provider（调用 gc CLI）
+│   └── gitcode/       # GitCode provider（调用 gitcode CLI）
 ├── skills/            # Superpowers Skills（26 个）
 ├── specs/             # 设计规格文档
 ├── docs/              # 项目文档
