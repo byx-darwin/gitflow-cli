@@ -138,8 +138,10 @@ endif
 	@echo "==> gh run list --limit 1"
 	@echo "==> Then: make release-publish"
 
-release-publish: ## Step 2: publish to crates.io (after CI passes)
-	@cargo release publish --execute --workspace --no-confirm
+release-publish: ## Placeholder: add crates.io when ready
+	@echo "Not published to crates.io yet."
+	@echo "GitHub Release with multi-platform artifacts created automatically on tag push."
+	@echo "Release URL: https://github.com/byx-darwin/gitflow-cli/releases"
 
 package: ## Build and package current platform binary into dist/
 	@mkdir -p dist

@@ -139,23 +139,3 @@ jobs:
           files: release/*
           generate_release_notes: true
           prerelease: ${{ inputs.prerelease }}
-
-  publish-crates:
-    name: Publish to crates.io
-    needs: [release]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag }}
-          persist-credentials: false
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Publish gitflow-cli-core
-        run: cargo publish -p gitflow-cli-core --token ${{ secrets.CARGO_TOKEN }}
-
-      - name: Publish gitflow-cli (main crate)
-        run: cargo publish -p gitflow-cli --token ${{ secrets.CARGO_TOKEN }}
