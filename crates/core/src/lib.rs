@@ -402,8 +402,12 @@ mod tests {
 
     #[test]
     fn test_safe_path_rejects_absolute() {
+        #[cfg(unix)]
+        let absolute_path = "/etc/passwd";
+        #[cfg(windows)]
+        let absolute_path = r"C:\Windows\system32";
         assert!(matches!(
-            SafePath::new("/etc/passwd"),
+            SafePath::new(absolute_path),
             Err(CoreError::Path(_))
         ));
     }
