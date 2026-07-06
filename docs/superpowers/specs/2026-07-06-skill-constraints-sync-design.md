@@ -190,8 +190,8 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 - [ ] Static 检查：cargo clippy --workspace -- -D warnings
 
 ### Task N+1: 交付
-- [ ] 创建 PR：gitflow-cli pr create
-- [ ] PR 审查：gitflow-cli pr-review
+- [ ] 创建 PR：调用 gitflow-pr-create skill
+- [ ] PR 审查：调用 gitflow-pr-review skill
 - [ ] 合并 PR：gitflow-cli pr merge
 
 ### Task N+2: 收尾
