@@ -182,23 +182,30 @@ jobs:
       - name: Update HomebrewFormula/gitflow-cli.rb
         run: |
           TAG="${{ steps.sha.outputs.tag }}"
-          FORMULA="HomebrewFormula/gitflow-cli.rb"
+          python3 << PYEOF
+          import re
 
-          # Update macos arm64
-          sed -i "/on_macos do/,/Hardware::CPU.arm?/{ /arm/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.arm64 }}\"| }" "$FORMULA"
-          sed -i "/on_macos do/,/Hardware::CPU.arm?/{ /arm/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-aarch64-apple-darwin.tar.gz\"| }" "$FORMULA"
+          FORMULA = "HomebrewFormula/gitflow-cli.rb"
+          with open(FORMULA, "r") as f:
+              content = f.read()
 
-          # Update macos x86_64
-          sed -i "/on_macos do/,/end/{ /else/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.x86_64 }}\"| }" "$FORMULA"
-          sed -i "/on_macos do/,/end/{ /else/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-x86_64-apple-darwin.tar.gz\"| }" "$FORMULA"
+          # Replace all SHA256 placeholders with computed values
+          content = content.replace("PLACEHOLDER_SHA256_ARM64", "${{ steps.sha.outputs.arm64 }}")
+          content = content.replace("PLACEHOLDER_SHA256_X86_64", "${{ steps.sha.outputs.x86_64 }}")
+          content = content.replace("PLACEHOLDER_SHA256_LINUX_ARM64", "${{ steps.sha.outputs.linux_arm64 }}")
+          content = content.replace("PLACEHOLDER_SHA256_LINUX_X86_64", "${{ steps.sha.outputs.linux_x86_64 }}")
 
-          # Update linux arm64
-          sed -i "/on_linux do/,/Hardware::CPU.arm?/{ /arm/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.linux_arm64 }}\"| }" "$FORMULA"
-          sed -i "/on_linux do/,/Hardware::CPU.arm?/{ /arm/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-aarch64-unknown-linux-gnu.tar.gz\"| }" "$FORMULA"
+          # Update version in on_macos / on_linux url paths
+          content = re.sub(
+              r'(releases/download/)v[\d.]+/',
+              r'\1' + "$TAG" + '/',
+              content,
+          )
 
-          # Update linux x86_64
-          sed -i "/on_linux do/,/end/{ /else/,+2s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.linux_x86_64 }}\"| }" "$FORMULA"
-          sed -i "/on_linux do/,/end/{ /else/,+2s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/gitflow-cli-x86_64-unknown-linux-gnu.tar.gz\"| }" "$FORMULA"
+          with open(FORMULA, "w") as f:
+              f.write(content)
+          print(f"Updated {FORMULA} to $TAG")
+          PYEOF
 
       - name: Commit and push formula update
         env:
