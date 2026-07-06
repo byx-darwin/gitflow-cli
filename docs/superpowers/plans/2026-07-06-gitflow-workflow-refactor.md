@@ -138,65 +138,33 @@ git commit -m "feat: 改造 Phase 1 整合 open issues 读取"
 
 ### Task N: 质量关卡
 
-**质量管道**：构建验证 → 全量测试 → 覆盖率检查 → 代码格式化 → 静态分析 → Pre-commit
+调用 `gitflow-quality` skill 运行完整质量检查：
 
-**任何一步失败都不允许进入下一步**。
+```
+使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
+```
 
-- [ ] **构建验证**
-  - [ ] Rust：cargo build --workspace
-  - [ ] Shell：bash -n hooks/*.sh（语法检查）
-  - [ ] Go（如有）：go build ./...
-  - [ ] JavaScript/TypeScript（如有）：npm run build 2>/dev/null || npx tsc --noEmit
-  - [ ] Python（如有）：python -m compileall src/ -q
-- [ ] **全量测试**
-  - [ ] Rust：cargo test --workspace
-  - [ ] Shell（如有）：bats tests/
-  - [ ] Go（如有）：go test ./... -race -count=1
-  - [ ] JavaScript/TypeScript（如有）：npm test
-- [ ] **覆盖率检查**
-  - [ ] Rust：cargo tarpaulin --workspace（≥ 80%）
-  - [ ] Go（如有）：go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out | grep total
-- [ ] **代码格式化**
-  - [ ] Rust：cargo +nightly fmt --check
-  - [ ] Shell：shfmt -d hooks/
-  - [ ] Markdown：markdownlint docs/ skills/
-  - [ ] Go（如有）：gofmt -l .
-  - [ ] JavaScript/TypeScript（如有）：prettier --check .
-- [ ] **静态分析**
-  - [ ] Rust：cargo clippy --workspace --all-targets -- -D warnings
-  - [ ] Shell：shellcheck hooks/*.sh
-  - [ ] Go（如有）：go vet ./... && golangci-lint run ./... 2>/dev/null || staticcheck ./...
-  - [ ] JavaScript/TypeScript（如有）：npx eslint . --ext .js,.ts,.jsx,.tsx
-  - [ ] 通用：grep -rn "TODO\|FIXME" --include="*.rs" --include="*.sh" --include="*.go" --include="*.js" --include="*.ts" .
-- [ ] **Pre-commit 检查**
-  - [ ] 调用 gitflow-precommit skill
+**gitflow-quality 自动处理**：
+- 多语言检测（Rust/Node.js/Python/Go）
+- 6 项检查（build/test/coverage/format/static/pre-commit）
+- Fast-fail 策略（任何一步失败就停止）
+- Quality Report 生成
+- 自动发布到关联 Issue
 
 **输出报告**：
 ```markdown
-## Quality Gate Report
+## Quality Report — YYYY-MM-DD
 
-### 构建
-- 状态: ✅/❌
-- 耗时: <time>
+| Check    | Status | Details |
+|----------|--------|---------|
+| build    | ✅     | 0 errors, 0 warnings |
+| test     | ✅     | 47 passed, 0 failed |
+| coverage | ✅     | 85.3% (threshold: 80%) |
+| format   | ✅     | No diff |
+| static   | ✅     | No warnings |
+| pre-commit | ✅     | All hooks passed |
 
-### 全量测试
-- 通过: N / 总计: N
-- 状态: ✅/❌
-
-### 覆盖率
-- 当前: X%
-- 状态: ✅/⚠️/❌
-
-### 格式化
-- 状态: ✅/❌
-
-### 静态分析
-- 状态: ✅/⚠️/❌
-
-### 最终判定
-[ ] 全部通过 — 可提交 PR
-[ ] 有警告 — 建议修复后提交
-[ ] 有错误 — 必须修复才能提交
+**Result: ✅ ALL CHECKS PASSED — Ready for delivery**
 ```
 
 ### Task N+1: 交付
