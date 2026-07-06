@@ -165,9 +165,7 @@ impl IssueProvider for GitLabIssueProvider {
             .arg("--repo")
             .arg(&self.repo)
             .arg("--title")
-            .arg(&args.title)
-            .arg("--output")
-            .arg("json");
+            .arg(&args.title);
 
         if let Some(body) = &args.body {
             cmd.arg("--description").arg(body);
@@ -193,10 +191,14 @@ impl IssueProvider for GitLabIssueProvider {
             return Err(CoreError::Platform(format!("{glab_err}")));
         }
 
-        let api_response: IssueApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // Parse the issue URL from stdout (format: https://gitlab.com/.../-/issues/123)
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let issue_iid = parse_issue_iid_from_url(&stdout).ok_or_else(|| {
+            CoreError::Platform(format!("Failed to parse issue URL from output: {stdout}"))
+        })?;
 
-        Ok(api_response.into())
+        // Fetch full issue details via view
+        self.view(issue_iid).await
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
@@ -392,6 +394,25 @@ impl IssueProvider for GitLabIssueProvider {
     }
 }
 
+/// Parse issue IID from GitLab URL.
+///
+/// Extracts the numeric IID from URLs like:
+/// - `https://gitlab.com/owner/repo/-/issues/123`
+/// - `https://gitlab.example.com/group/project/-/issues/456`
+fn parse_issue_iid_from_url(url: &str) -> Option<u64> {
+    url.lines().find_map(|line| {
+        let line = line.trim();
+        if line.contains("/-/issues/") {
+            line.rsplit("/-/issues/")
+                .next()
+                .and_then(|s| s.split('/').next())
+                .and_then(|s| s.parse().ok())
+        } else {
+            None
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -542,5 +563,40 @@ mod tests {
         let original = GitLabIssueProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    #[test]
+    fn test_should_parse_issue_iid_from_gitlab_url() {
+        assert_eq!(
+            parse_issue_iid_from_url("https://gitlab.com/owner/repo/-/issues/123"),
+            Some(123)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_issue_iid_from_self_hosted_url() {
+        assert_eq!(
+            parse_issue_iid_from_url("https://gitlab.example.com/group/project/-/issues/456"),
+            Some(456)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_issue_iid_from_multiline_output() {
+        let output = "Creating issue...\nhttps://gitlab.com/owner/repo/-/issues/789\nDone.";
+        assert_eq!(parse_issue_iid_from_url(output), Some(789));
+    }
+
+    #[test]
+    fn test_should_return_none_for_invalid_url() {
+        assert_eq!(parse_issue_iid_from_url("not a url"), None);
+    }
+
+    #[test]
+    fn test_should_return_none_for_url_without_iid() {
+        assert_eq!(
+            parse_issue_iid_from_url("https://gitlab.com/owner/repo/-/issues/"),
+            None
+        );
     }
 }

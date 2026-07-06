@@ -54,9 +54,7 @@ impl IssueProvider for GitHubIssueProvider {
             .arg("--repo")
             .arg(&self.repo)
             .arg("--title")
-            .arg(&args.title)
-            .arg("--json")
-            .arg(ISSUE_FIELDS);
+            .arg(&args.title);
 
         if let Some(body) = &args.body {
             cmd.arg("--body").arg(body);
@@ -82,10 +80,14 @@ impl IssueProvider for GitHubIssueProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // Parse the issue URL from stdout (format: https://github.com/owner/repo/issues/123)
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let issue_number = parse_issue_number_from_url(&stdout).ok_or_else(|| {
+            CoreError::Platform(format!("Failed to parse issue URL from output: {stdout}"))
+        })?;
 
-        Ok(issue)
+        // Fetch full issue details via view
+        self.view(issue_number).await
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
@@ -324,6 +326,25 @@ impl IssueProvider for GitHubIssueProvider {
     }
 }
 
+/// Parse issue number from GitHub URL.
+///
+/// Extracts the numeric issue number from URLs like:
+/// - `https://github.com/owner/repo/issues/123`
+/// - `https://github.enterprise.com/org/project/issues/456`
+fn parse_issue_number_from_url(url: &str) -> Option<u64> {
+    url.lines().find_map(|line| {
+        let line = line.trim();
+        if line.contains("/issues/") {
+            line.rsplit("/issues/")
+                .next()
+                .and_then(|s| s.split('/').next())
+                .and_then(|s| s.parse().ok())
+        } else {
+            None
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use gitflow_cli_core::types::UserSummary;
@@ -485,5 +506,40 @@ mod tests {
         let original = GitHubIssueProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    #[test]
+    fn test_should_parse_issue_number_from_github_url() {
+        assert_eq!(
+            parse_issue_number_from_url("https://github.com/owner/repo/issues/123"),
+            Some(123)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_issue_number_from_enterprise_url() {
+        assert_eq!(
+            parse_issue_number_from_url("https://github.enterprise.com/org/project/issues/456"),
+            Some(456)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_issue_number_from_multiline_output() {
+        let output = "Creating issue...\nhttps://github.com/owner/repo/issues/789\nDone.";
+        assert_eq!(parse_issue_number_from_url(output), Some(789));
+    }
+
+    #[test]
+    fn test_should_return_none_for_invalid_url() {
+        assert_eq!(parse_issue_number_from_url("not a url"), None);
+    }
+
+    #[test]
+    fn test_should_return_none_for_url_without_number() {
+        assert_eq!(
+            parse_issue_number_from_url("https://github.com/owner/repo/issues/"),
+            None
+        );
     }
 }
