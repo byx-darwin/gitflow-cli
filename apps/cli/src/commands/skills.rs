@@ -297,71 +297,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
         println!();
         println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
     } else if has_bundled {
-        // 从编译时嵌入的数据安装（release binary 场景）
-        std::fs::create_dir_all(&target)
-            .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
-
-        let level = if args.global { "全局" } else { "项目级" };
-        println!("目标: {} ({level})", target.display());
-        println!("使用内嵌 skills 数据（{} 个文件）", SKILLS.len());
-
-        let mut installed = 0u32;
-        let mut skipped = 0u32;
-        let mut overwritten = 0u32;
-
-        // 按 skill 目录分组
-        let mut skill_dirs: std::collections::HashMap<&str, Vec<(&str, &[u8])>> =
-            std::collections::HashMap::new();
-        for (path, data) in SKILLS {
-            let parts: Vec<&str> = path.split('/').collect();
-            if parts.len() >= 2 && parts[0].starts_with("gitflow-") {
-                let skill_name = parts[0];
-                let relative = &path[parts[0].len() + 1..];
-                skill_dirs
-                    .entry(skill_name)
-                    .or_default()
-                    .push((relative, *data));
-            }
-        }
-
-        for (skill_name, files) in &skill_dirs {
-            let dest = target.join(skill_name);
-            if dest.exists() {
-                if args.force {
-                    std::fs::remove_dir_all(&dest)
-                        .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
-                } else {
-                    eprintln!("⚠ 跳过已存在: {skill_name}");
-                    skipped += 1;
-                    continue;
-                }
-            }
-
-            let mut skill_installed = false;
-            for (rel_path, data) in files {
-                let file_path = dest.join(rel_path);
-                if let Some(parent) = file_path.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| miette::miette!("无法创建目录 {}: {e}", parent.display()))?;
-                }
-                std::fs::write(&file_path, data)
-                    .map_err(|e| miette::miette!("写入 {} 失败: {e}", file_path.display()))?;
-                skill_installed = true;
-            }
-
-            if skill_installed {
-                if dest.exists() && args.force {
-                    println!("♻ 已覆盖: {skill_name}");
-                    overwritten += 1;
-                } else {
-                    println!("✅ 已安装: {skill_name}");
-                    installed += 1;
-                }
-            }
-        }
-
-        println!();
-        println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
+        install_skills_bundled(&target, args)?;
     } else {
         println!("⚠ Skills 源目录未找到，且 binary 未内嵌 skills 数据");
         println!("  请从源码目录运行，或手动指定 --source <skills 目录路径>");
@@ -375,7 +311,89 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     Ok(())
 }
 
-/// 安装 auto-report-bug Stop Hook。
+/// 从编译时嵌入的 SKILLS 数据安装 skills。
+fn install_skills_bundled(target: &std::path::Path, args: &InstallArgs) -> miette::Result<()> {
+    std::fs::create_dir_all(target).map_err(|e| miette::miette!("无法创建目标目录: {e}"))?;
+
+    println!(
+        "目标: {} ({})",
+        target.display(),
+        if args.global { "全局" } else { "项目级" }
+    );
+    println!("使用内嵌 skills 数据（{} 个文件）", SKILLS.len());
+
+    // 按 skill 目录分组
+    let mut skill_dirs: std::collections::HashMap<&str, Vec<(&str, &[u8])>> =
+        std::collections::HashMap::new();
+    for (path, data) in SKILLS {
+        let parts: Vec<&str> = path.split('/').collect();
+        if parts.len() >= 2
+            && parts.first().is_some_and(|f| f.starts_with("gitflow-"))
+            && let Some(&first) = parts.first()
+        {
+            let relative = &path[first.len() + 1..];
+            skill_dirs.entry(first).or_default().push((relative, *data));
+        }
+    }
+
+    let mut installed = 0u32;
+    let mut skipped = 0u32;
+    let mut overwritten = 0u32;
+
+    for (skill_name, files) in &skill_dirs {
+        let dest = target.join(skill_name);
+        install_single_skill_bundled(
+            &dest,
+            files,
+            args,
+            &mut installed,
+            &mut skipped,
+            &mut overwritten,
+        )?;
+    }
+
+    println!();
+    println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
+    Ok(())
+}
+
+fn install_single_skill_bundled(
+    dest: &std::path::Path,
+    files: &[(&str, &[u8])],
+    args: &InstallArgs,
+    installed: &mut u32,
+    skipped: &mut u32,
+    overwritten: &mut u32,
+) -> miette::Result<()> {
+    if dest.exists() {
+        if args.force {
+            std::fs::remove_dir_all(dest).map_err(|e| miette::miette!("无法删除: {e}"))?;
+        } else {
+            eprintln!("⚠ 跳过已存在: {}", dest.display());
+            *skipped += 1;
+            return Ok(());
+        }
+    }
+
+    for (rel_path, data) in files {
+        let file_path = dest.join(rel_path);
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| miette::miette!("创建目录失败: {e}"))?;
+        }
+        std::fs::write(&file_path, data).map_err(|e| miette::miette!("写入失败: {e}"))?;
+    }
+
+    if args.force && dest.exists() {
+        println!("♻ 已覆盖: {}", dest.display());
+        *overwritten += 1;
+    } else {
+        println!("✅ 已安装: {}", dest.display());
+        *installed += 1;
+    }
+    Ok(())
+}
+
+/// 从文件系统目录安装 skills（开发场景）。
 ///
 /// 项目级：hook 脚本 → `.claude/hooks/auto-report-bug.sh`，
 /// 配置写入 `.claude/settings.json`。
