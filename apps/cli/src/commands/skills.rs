@@ -197,18 +197,18 @@ fn resolve_target_dir(
 /// Skills 源目录（仓库内的 skills/）。
 fn skills_source_dir() -> PathBuf {
     // 1. 优先：binary 所在目录的上级目录（release 安装场景：binary 在 ./，skills 在 ./skills/）
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
-            let candidate = exe_dir.join("skills");
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(exe_dir) = exe.parent()
+    {
+        let candidate = exe_dir.join("skills");
+        if candidate.exists() {
+            return candidate;
+        }
+        // binary 在子目录（如 bin/）的场景
+        if let Some(parent) = exe_dir.parent() {
+            let candidate = parent.join("skills");
             if candidate.exists() {
                 return candidate;
-            }
-            // binary 在子目录（如 bin/）的场景
-            if let Some(parent) = exe_dir.parent() {
-                let candidate = parent.join("skills");
-                if candidate.exists() {
-                    return candidate;
-                }
             }
         }
     }
