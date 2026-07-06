@@ -463,6 +463,28 @@ gitflow-cli issue view <number>
 gitflow-cli issue close <number>
 ```
 
+### 步骤 4.5.5：更新 Issue 验收标准
+
+PR 合并后，更新 Issue 中的验收标准 checkbox，标记已完成的项目：
+
+```bash
+# 添加评论说明验收标准完成情况
+gitflow-cli issue comment <number> --body "## ✅ 验收标准已完成
+
+根据 PR #<pr-number> 的实现，以下验收标准已全部满足：
+
+- [x] 标准 1：已完成
+- [x] 标准 2：已完成
+- [x] 标准 3：已完成
+
+### 验证结果
+- 所有测试通过
+- CI 检查通过
+- 代码审查通过"
+```
+
+**注意**：GitHub 不支持通过 API 直接更新 Issue body 中的 checkbox，因此通过评论方式记录验收标准的完成情况。
+
 ### 步骤 4.6：发布最终审计日志
 
 ```bash
