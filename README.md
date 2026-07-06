@@ -1,5 +1,8 @@
 # gitflow-cli
 
+[![Release](https://img.shields.io/github/v/release/byx-darwin/gitflow-cli)](https://github.com/byx-darwin/gitflow-cli/releases/latest)
+[![gitflow-cli/0.3.0](https://img.shields.io/badge/gitflow--cli-0.3.0-blue)](https://github.com/byx-darwin/gitflow-cli)
+
 多平台 Git 锻造 CLI + Superpowers Skills 集合，覆盖从需求到交付的完整 AI 编程工程循环。
 
 ## 架构

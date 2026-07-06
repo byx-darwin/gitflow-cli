@@ -15,7 +15,7 @@ allow-branch = ["main"]
 # Pre-release commit message (when versions are bumped)
 pre-release-commit-message = "chore: release v{{version}}"
 
-# Pre-release hook: run quality checks before tagging
+# Pre-release hook: update version references before tagging
 pre-release-replacements = [
   { file = "README.md", search = "gitflow-cli/[0-9.]+", replace = "gitflow-cli/{{version}}" },
 ]
