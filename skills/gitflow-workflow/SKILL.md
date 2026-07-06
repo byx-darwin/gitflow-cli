@@ -148,25 +148,16 @@ gitflow-cli auth status
 ### 步骤 1.1：读取 Open Issues
 
 **完整模式**：读取所有 open issues
-
 ```bash
-# 获取所有 open issues
 gitflow-cli issue list --state open --limit 100 --output json
 ```
-
-按类型分组显示：
-- feature/enhancement 类 issues
-- bug 类 issues
-- question/discussion 类 issues
+按类型分组显示：feature/enhancement、bug、question/discussion
 
 **快速模式**：只读取 bug 类型 issues
-
 ```bash
-# 获取 bug 类型的 open issues
 gitflow-cli issue list --state open --label bug --limit 50 --output json
 ```
-
-按优先级排序显示。
+按优先级排序显示
 
 用户选择要处理的 issues，进入下一步。
 
