@@ -143,46 +143,94 @@ gitflow-cli auth status
 
 ## Phase 1: 需求澄清
 
-**目标**：将模糊的想法转化为结构化的 Issue，并完成需求分析。
+**目标**：从 open issues 读取需求，或手动描述需求，转化为结构化的 Issue。
 
-### 步骤 1.1：触发 brainstorming
+### 步骤 1.1：读取 Open Issues
 
-如果用户尚未进行需求澄清，触发 Superpowers brainstorming：
+**完整模式**：读取所有 open issues
 
-- 调用 `superpowers:brainstorming` 探索用户意图、需求边界和设计约束
-- 产出：明确的功能描述、验收标准、边界条件
+```bash
+# 获取所有 open issues
+gitflow-cli issue list --state open --limit 100 --output json
+```
 
-如果用户已有明确需求（如已关联 Issue），跳过此步骤。
+按类型分组显示：
+- feature/enhancement 类 issues
+- bug 类 issues
+- question/discussion 类 issues
 
-### 步骤 1.2：创建 Issue
+**快速模式**：只读取 bug 类型 issues
 
-调用 `gitflow-issue-create` skill 引导创建 Issue：
+```bash
+# 获取 bug 类型的 open issues
+gitflow-cli issue list --state open --label bug --limit 50 --output json
+```
+
+按优先级排序显示。
+
+用户选择要处理的 issues，进入下一步。
+
+### 步骤 1.2：需求讨论
+
+对选中的 issues 逐个讨论：
+
+**完整模式**：
+- 调用 `superpowers:brainstorming` 探索需求边界
+- 产出：设计文档
+
+**快速模式**：
+- 直接分析 bug 原因
+- 产出：修复方案（可选设计文档）
+
+### 步骤 1.3：创建 Issue
+
+调用 `gitflow-issue-create` skill 创建 Issue：
 
 ```
-使用 gitflow-issue-create 技能，根据 brainstorming 产出创建 Issue。
+使用 gitflow-issue-create 技能，根据讨论产出创建 Issue。
 ```
 
 关键产出：
-- Issue URL（如 `https://github.com/owner/repo/issues/123`）
-- Issue 编号（如 `#123`）
+- Issue URL
+- Issue 编号
 
-### 步骤 1.3：需求分析
+### 步骤 1.4：生成需求文档
 
-调用 `gitflow-issue-review` 对 Issue 进行结构化的需求分析：
+**完整模式**：调用 `gitflow-issue-review` 进行需求分析，生成需求文档
 
 ```
 使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
 ```
 
-分析维度：
-- 需求完整性：验收标准是否明确、可测试
-- 技术可行性：是否与现有架构兼容
-- 范围界定：是否有隐含需求或范围蔓延风险
-- 依赖关系：是否阻塞其他 Issue 或被阻塞
-
 产出：需求分析报告（Markdown 格式）
+- 需求完整性分析
+- 技术可行性评估
+- 验收标准确认
+- 风险识别
 
-### 步骤 1.4：发布审计日志
+**快速模式**：生成简要修复方案文档
+
+```markdown
+## Bug 修复方案
+
+### 问题描述
+<从 issue 读取的问题描述>
+
+### 根因分析
+<分析 bug 的根本原因>
+
+### 修复方案
+<具体的修复步骤>
+
+### 测试计划
+<回归测试方案>
+
+### 验收标准
+- [ ] 标准 1
+- [ ] 标准 2
+```
+
+### 步骤 1.5：发布审计日志
 
 将 Phase 1 产出物评论到 Issue：
 
@@ -191,14 +239,13 @@ gitflow-cli auth status
 cat > /tmp/phase-report.md << 'REPORT'
 ## Phase 1: 需求澄清完成
 
-### 需求分析报告
-
-<分析报告内容>
+### 需求文档
+- 设计文档/修复方案：<路径或链接>
+- 验收标准：<N> 项
 
 ### 产出物
 - Issue URL: <url>
-- 验收标准: <N> 项
-- 技术风险: <评估>
+- 需求文档：已生成
 
 ✅ 已通过阶段闸门，可进入 Phase 2: 开发实现
 REPORT
@@ -249,33 +296,72 @@ Phase 1 合规检查:
 
 ## Phase 2: 开发实现
 
-**目标**：将需求拆解为原子任务，通过 TDD 和子代理驱动完成全部开发。
+**目标**：制定完整计划文档，通过子代理驱动完成全部开发。
 
-### 步骤 2.1：制定实现计划
+### 步骤 2.1：制定完整计划
 
-调用 Superpowers writing-plans 将需求拆解为原子任务：
+调用 Superpowers writing-plans 制定计划，**计划文档必须包含完整闭环**：
 
 ```
-使用 superpowers:writing-plans 技能，基于 Issue #N 的需求分析报告，制定实现计划。
+使用 superpowers:writing-plans 技能，基于 Issue #N 的需求文档，制定完整实现计划。
 ```
 
-计划要求：
-- 每个原子任务 2-5 分钟可完成
-- 任务间依赖关系明确
-- 每个任务有对应的测试用例
+**计划文档结构**：
 
-### 步骤 2.2：子代理驱动开发
+```markdown
+# [Feature Name] Implementation Plan
+
+## 任务清单
+
+### Task 1-3: Issue 管理
+- [ ] Task 1: 创建 Issue
+- [ ] Task 2: 同步状态为 in-progress
+- [ ] Task 3: 更新 Issue 描述（如需要）
+
+### Task 4-N: 开发任务（每个任务包含）
+- [ ] TDD 循环
+  - [ ] 写失败测试（RED）
+  - [ ] 写最小实现（GREEN）
+  - [ ] 重构优化（REFACTOR）
+  - [ ] 验证：cargo test
+- [ ] 代码审查
+  - [ ] 调用 superpowers:requesting-code-review
+  - [ ] 审查并修复问题
+- [ ] 提交
+  - [ ] git add -A
+  - [ ] git commit -m "feat: ... (#N)"
+
+### Task N+1: 质量关卡
+- [ ] Build 检查：cargo build --workspace
+- [ ] Test 检查：cargo test --workspace
+- [ ] Coverage 检查：cargo tarpaulin --workspace（> 80%）
+- [ ] Format 检查：cargo +nightly fmt --check
+- [ ] Static 检查：cargo clippy --workspace --all-targets -- -D warnings
+
+### Task N+2: 交付
+- [ ] 创建 PR：gitflow-cli pr create
+- [ ] PR 审查：gitflow-cli pr-review
+- [ ] 合并 PR：gitflow-cli pr merge
+
+### Task N+3: 收尾
+- [ ] 同步 Issue 状态为 done
+- [ ] 关闭 Issue
+- [ ] 验证：所有验收标准已满足
+```
+
+### 步骤 2.2：执行计划
 
 调用 Superpowers subagent-driven-development 执行计划：
 
 ```
-使用 superpowers:subagent-driven-development 技能，执行实现计划。
+使用 superpowers:subagent-driven-development 技能，执行完整计划文档。
 ```
 
 执行规则：
-- 每个原子任务遵循 TDD 循环：RED → GREEN → REFACTOR
-- 每个任务完成后更新任务状态
+- 按计划文档逐任务执行
+- 每个任务完成后标记 checkbox
 - 遇到阻塞时暂停，不跳过任务
+- 所有任务完成后进入 Phase 3
 
 ### 步骤 2.3：TDD 循环（每个原子任务）
 
