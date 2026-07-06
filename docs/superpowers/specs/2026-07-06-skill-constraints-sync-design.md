@@ -88,7 +88,15 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 
 用户选择要处理的 issues，进入下一步。
 
-### 步骤 1.2：需求讨论
+### 步骤 1.2：标签分析
+
+调用 `gitflow-label-stats` 分析现有标签使用情况：
+
+```
+使用 gitflow-label-stats 技能，分析现有标签，识别未分类的 issues。
+```
+
+### 步骤 1.3：需求讨论
 
 对选中的 issues 逐个讨论：
 
@@ -100,56 +108,38 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 - 直接分析 bug 原因
 - 产出：修复方案
 
-### 步骤 1.3：创建 Issue
+### 步骤 1.4：创建 Issue
 
 如果用户选择的是已有 issue，则跳过创建。
 
 如果需要创建新 issue，调用 `gitflow-issue-create` skill。
 
-### 步骤 1.4：生成需求文档
+### 步骤 1.5：需求分析
 
-**完整模式**：生成详细设计文档
+调用 `gitflow-issue-review` 进行需求分析：
 
-```markdown
-# 需求文档
-
-## 背景
-<问题或需求的上下文>
-
-## 目标
-<完成后应达到的效果>
-
-## 技术方案
-<实现方案>
-
-## 验收标准
-- [ ] 标准 1
-- [ ] 标准 2
-
-## 风险
-<潜在风险>
+```
+使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
 ```
 
-**快速模式**：生成简要修复方案
+### 步骤 1.6：安全审计（可选）
 
-```markdown
-## Bug 修复方案
+调用 `gitflow-security-check` 进行安全审计：
 
-### 根因分析
-<分析 bug 的根本原因>
-
-### 修复步骤
-<具体的修复步骤>
-
-### 测试计划
-<回归测试方案>
 ```
+使用 gitflow-security-check 技能，对需求进行安全审计。
+```
+
+### 步骤 1.7：发布审计日志
+
+将 Phase 1 产出物评论到 Issue。
 
 ### Phase 1 产出
 
 - 设计文档/修复方案
 - Issue #N
 - 需求讨论记录
+- 安全审计报告（如执行）
 
 ---
 
@@ -179,7 +169,7 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
   - [ ] 调用 superpowers:requesting-code-review
   - [ ] 审查并修复问题
 - [ ] 提交
-  - [ ] git add -A
+  - [ ] 调用 gitflow-commit skill
   - [ ] git commit -m "feat: ... (#N)"
 
 ### Task N: 质量关卡
@@ -188,16 +178,20 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 - [ ] Coverage 检查：cargo tarpaulin --workspace
 - [ ] Format 检查：cargo +nightly fmt --check
 - [ ] Static 检查：cargo clippy --workspace -- -D warnings
+- [ ] Pre-commit 检查：调用 gitflow-precommit skill
 
 ### Task N+1: 交付
 - [ ] 创建 PR：调用 gitflow-pr-create skill
 - [ ] PR 审查：调用 gitflow-pr-review skill
+- [ ] 审查反馈：调用 gitflow-pr-apply-feedback skill（如需要）
 - [ ] 合并 PR：gitflow-cli pr merge
 
 ### Task N+2: 收尾
 - [ ] 同步 Issue 状态为 done
 - [ ] 关闭 Issue
 - [ ] 更新验收标准
+- [ ] 回归测试：调用 gitflow-regression skill
+- [ ] 发布（可选）：调用 gitflow-release-helper skill
 ```
 
 ### Phase 2 产出
@@ -220,6 +214,7 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 - 按计划文档逐任务执行
 - 每个任务完成后标记 checkbox
 - 遇到阻塞时暂停，不跳过任务
+- 错误自动上报：调用 gitflow-autoreport-bug skill
 
 ### Phase 3 产出
 
@@ -227,6 +222,67 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 - 通过的测试
 - 合并的 PR
 - 关闭的 Issue
+
+---
+
+## Phase 4: 交付后
+
+### 步骤 4.1：流水线分析
+
+调用 `gitflow-pipeline-analyzer` 分析 CI/CD 流水线：
+
+```
+使用 gitflow-pipeline-analyzer 技能，分析流水线健康状况。
+```
+
+### 步骤 4.2：仓库分析
+
+调用 `gitflow-repo` 分析仓库状态：
+
+```
+使用 gitflow-repo 技能，分析仓库整体状态。
+```
+
+### 步骤 4.3：Issue 分类
+
+调用 `gitflow-issue-triage` 对相关 issues 进行分类：
+
+```
+使用 gitflow-issue-triage 技能，对 issues 进行分类和优先级排序。
+```
+
+### 步骤 4.4：代码审查
+
+调用 `gitflow-review` 进行整体代码审查：
+
+```
+使用 gitflow-review 技能，对整体变更进行代码审查。
+```
+
+### 步骤 4.5：周报生成（可选）
+
+调用 `gitflow-weekly-report` 生成周报：
+
+```
+使用 gitflow-weekly-report 技能，生成开发周报。
+```
+
+### 步骤 4.6：仓库入门（可选）
+
+调用 `gitflow-repo-onboarding` 更新仓库入门文档：
+
+```
+使用 gitflow-repo-onboarding 技能，更新仓库入门文档。
+```
+
+### Phase 4 产出
+
+- 流水线分析报告
+- 仓库状态报告
+- Issue 分类报告
+- 代码审查报告
+- 周报（如执行）
+- 更新的入门文档（如执行）
 
 ---
 
