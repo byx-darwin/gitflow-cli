@@ -55,6 +55,9 @@ elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
 # 检测 Go 项目
 elif [ -f "go.mod" ]; then
     LANG="go"
+# 检测 Java 项目
+elif [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
+    LANG="java"
 else
     LANG="unknown"
 fi
@@ -62,14 +65,14 @@ fi
 
 **非 Rust 项目的适配命令**：
 
-| 检查项 | Node.js | Python | Go |
-|--------|---------|--------|-----|
-| build | `npm run build` | `python -m py_compile src/` | `go build ./...` |
-| test | `npm test` | `pytest` | `go test ./...` |
-| coverage | `npx jest --coverage` 或 `npx vitest run --coverage`（取决于测试框架） | `pytest --cov` | `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| grep total` |
-| format | `npx prettier --check .` | `black --check .` | `test -z "$(gofmt -l .)"` |
-| static | `npx eslint .` | `ruff check .` | `golangci-lint run` |
-| pre-commit | `npx lint-staged` 或留空 | `pre-commit run --all-files` | `pre-commit run --all-files` |
+| 检查项 | Node.js | Python | Go | Java |
+|--------|---------|--------|-----|------|
+| build | `npm run build` | `python -m py_compile src/` | `go build ./...` | `mvn compile -q` 或 `gradle compileJava` |
+| test | `npm test` | `pytest` | `go test ./...` | `mvn test` 或 `gradle test` |
+| coverage | `npx jest --coverage` 或 `npx vitest run --coverage`（取决于测试框架） | `pytest --cov` | `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| grep total` | `mvn verify -Pcoverage` 或 `gradle jacocoTestReport` |
+| format | `npx prettier --check .` | `black --check .` | `test -z "$(gofmt -l .)"` | `mvn spotless:check` 或 `mvn formatter:format` |
+| static | `npx eslint .` | `ruff check .` | `golangci-lint run` | `mvn pmd:check` 或 `mvn spotbugs:check` |
+| pre-commit | `npx lint-staged` 或留空 | `pre-commit run --all-files` | `pre-commit run --all-files` | `pre-commit run --all-files` |
 
 后续步骤以 Rust 为例，非 Rust 项目替换对应命令即可。
 
