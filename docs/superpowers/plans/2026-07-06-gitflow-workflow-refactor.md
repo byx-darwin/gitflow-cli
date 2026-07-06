@@ -145,20 +145,29 @@ git commit -m "feat: 改造 Phase 1 整合 open issues 读取"
 - [ ] **构建验证**
   - [ ] Rust：cargo build --workspace
   - [ ] Shell：bash -n hooks/*.sh（语法检查）
+  - [ ] Go（如有）：go build ./...
+  - [ ] JavaScript/TypeScript（如有）：npm run build 2>/dev/null || npx tsc --noEmit
   - [ ] Python（如有）：python -m compileall src/ -q
 - [ ] **全量测试**
   - [ ] Rust：cargo test --workspace
   - [ ] Shell（如有）：bats tests/
+  - [ ] Go（如有）：go test ./... -race -count=1
+  - [ ] JavaScript/TypeScript（如有）：npm test
 - [ ] **覆盖率检查**
   - [ ] Rust：cargo tarpaulin --workspace（≥ 80%）
+  - [ ] Go（如有）：go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out | grep total
 - [ ] **代码格式化**
   - [ ] Rust：cargo +nightly fmt --check
   - [ ] Shell：shfmt -d hooks/
   - [ ] Markdown：markdownlint docs/ skills/
+  - [ ] Go（如有）：gofmt -l .
+  - [ ] JavaScript/TypeScript（如有）：prettier --check .
 - [ ] **静态分析**
   - [ ] Rust：cargo clippy --workspace --all-targets -- -D warnings
   - [ ] Shell：shellcheck hooks/*.sh
-  - [ ] 通用：grep -rn "TODO\|FIXME" --include="*.rs" --include="*.sh" .
+  - [ ] Go（如有）：go vet ./... && golangci-lint run ./... 2>/dev/null || staticcheck ./...
+  - [ ] JavaScript/TypeScript（如有）：npx eslint . --ext .js,.ts,.jsx,.tsx
+  - [ ] 通用：grep -rn "TODO\|FIXME" --include="*.rs" --include="*.sh" --include="*.go" --include="*.js" --include="*.ts" .
 - [ ] **Pre-commit 检查**
   - [ ] 调用 gitflow-precommit skill
 
