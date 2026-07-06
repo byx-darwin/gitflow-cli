@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/hooks/auto-report-bug.sh\"",
+            "command": "bash hooks/auto-report-bug.sh",
             "type": "command"
           }
         ],

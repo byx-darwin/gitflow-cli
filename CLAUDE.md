@@ -16,6 +16,7 @@ This repository is a reusable Rust 2024 workspace template. These rules are mand
 - Remove dead code instead of suppressing it. Do not add deprecation layers unless explicitly requested.
 - Never expose secrets in commands, logs, URLs, comments, errors, or tool arguments.
 - **禁止修改以下配置文件（除非用户明确要求）：`deny.toml` 中的 `allow`/`deny`/`wildcards` 等策略配置、`.pre-commit-config.yaml` 中的 hook 类型和阶段配置、`rust-toolchain.toml` 中的工具链版本。这些配置影响 CI/CD 流程，变更需用户确认。**
+- **严格执行 gitflow-workflow 流程**：当使用 `/gitflow-workflow` 时，必须按照四阶段完整流程执行，不得跳过任何 Superpowers skills（brainstorming、writing-plans、TDD、subagent-dev、requesting-review、finishing-dev-branch）。即使任务看起来"简单"，也必须走完所有步骤。
 
 ### Completion Discipline
 

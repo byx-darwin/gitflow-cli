@@ -27,6 +27,47 @@ gitflow-issue-review         subagent-dev               coverage   ✅/❌      
 
 以下规则不可跳过，任何一步不满足就不能进入下一步。
 
+### 必须调用的 Skills 清单
+
+**Phase 1 必须调用：**
+- ✅ `superpowers:brainstorming` - 即使需求明确也要走流程
+- ✅ `gitflow-issue-create` - 创建 Issue
+- ✅ `gitflow-issue-review` - 需求分析
+
+**Phase 2 必须调用：**
+- ✅ `superpowers:writing-plans` - 制定实现计划
+- ✅ `superpowers:subagent-driven-development` - 子代理驱动开发
+- ✅ `superpowers:test-driven-development` - 每个任务 TDD 循环
+- ✅ `superpowers:requesting-code-review` - 每个任务代码审查
+
+**Phase 3 必须调用：**
+- ✅ `gitflow-quality` - 质量检查
+
+**Phase 4 必须调用：**
+- ✅ `gitflow-pr-create` - 创建 PR
+- ✅ `gitflow-pr-review` - PR 审查
+- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
+
+### 禁止行为
+
+- ❌ **禁止跳过任何 Superpowers skill** - 即使任务"简单"也必须走完所有步骤
+- ❌ **禁止合并步骤** - 每个 skill 必须独立调用
+- ❌ **禁止自行实现流程** - 必须使用指定的 skills
+
+### 流程检查点
+
+每个阶段结束时，必须输出检查清单：
+
+```
+Phase X 检查点:
+- [ ] skill-1 已调用
+- [ ] skill-2 已调用
+- [ ] skill-3 已调用
+- [ ] 产出物已记录
+
+是否允许进入下一阶段: [ ]
+```
+
 ## 启动条件
 
 在启动工作流之前，确认以下前置条件：
