@@ -267,41 +267,7 @@ git commit -m "docs: 同步更新 README.md 对齐 gitflow-workflow"
 
 ---
 
-### Task 5: 删除冗余 skills
-
-**Files:**
-- Delete: `skills/gitflow-issue-create/SKILL.md`
-- Delete: `skills/gitflow-issue-review/SKILL.md`
-- Delete: `apps/cli/src/commands/skills.rs`（修改）
-
-**Interfaces:**
-- Consumes: 无
-- Produces: 清理后的 skills 目录
-
-- [ ] **Step 1: 确认无其他依赖**
-
-```bash
-grep -r "gitflow-issue-create" apps/ skills/ --include="*.rs" --include="*.md" | grep -v "skills/gitflow-issue-create/SKILL.md"
-grep -r "gitflow-issue-review" apps/ skills/ --include="*.rs" --include="*.md" | grep -v "skills/gitflow-issue-review/SKILL.md"
-```
-
-- [ ] **Step 2: 删除冗余 skills**
-
-```bash
-rm -rf skills/gitflow-issue-create
-rm -rf skills/gitflow-issue-review
-```
-
-- [ ] **Step 3: 提交修改**
-
-```bash
-git add -A
-git commit -m "chore: 删除被 gitflow-workflow 整合的冗余 skills"
-```
-
----
-
-### Task 6: 验证和测试
+### Task 5: 验证和测试
 
 **Files:**
 - Test: 无
