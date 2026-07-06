@@ -41,18 +41,46 @@ impl Default for GitLabAuthProvider {
 
 #[async_trait]
 impl AuthProvider for GitLabAuthProvider {
-    async fn login(&self) -> Result<()> {
+    async fn login(&self, token: Option<&str>) -> Result<()> {
         debug!("spawning `glab auth login`");
 
-        let status = tokio::process::Command::new("glab")
-            .arg("auth")
-            .arg("login")
-            .status()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth login: {e}")))?;
+        let mut cmd = tokio::process::Command::new("glab");
+        cmd.arg("auth").arg("login");
 
-        if !status.success() {
-            return Err(CoreError::Platform("glab auth login failed".into()));
+        // If token is provided, use non-interactive mode via stdin
+        if let Some(token) = token {
+            cmd.arg("--stdin");
+            cmd.stdin(std::process::Stdio::piped());
+            let mut child = cmd.spawn().map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab auth login: {e}"))
+            })?;
+
+            // Write token to stdin
+            if let Some(mut stdin) = child.stdin.take() {
+                use tokio::io::AsyncWriteExt;
+                stdin.write_all(token.as_bytes()).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to write token to stdin: {e}"))
+                })?;
+                // Drop stdin to close the pipe
+                drop(stdin);
+            }
+
+            let status = child.wait().await.map_err(|e| {
+                CoreError::Platform(format!("Failed to wait for glab auth login: {e}"))
+            })?;
+
+            if !status.success() {
+                return Err(CoreError::Platform("glab auth login failed".into()));
+            }
+        } else {
+            // Interactive mode
+            let status = cmd.status().await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab auth login: {e}"))
+            })?;
+
+            if !status.success() {
+                return Err(CoreError::Platform("glab auth login failed".into()));
+            }
         }
 
         Ok(())
@@ -104,7 +132,9 @@ impl AuthProvider for GitLabAuthProvider {
             return Err(CoreError::Platform(format!("{glab_err}")));
         }
 
-        let user = parse_user_from_status(&stdout);
+        // glab auth status outputs to stderr, not stdout
+        let combined = format!("{stdout}{stderr}");
+        let user = parse_user_from_status(&combined);
 
         Ok(AuthStatus {
             logged_in: user.is_some(),

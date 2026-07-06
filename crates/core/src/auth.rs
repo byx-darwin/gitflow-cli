@@ -41,12 +41,15 @@ pub struct AuthStatus {
 pub trait AuthProvider: std::fmt::Debug + Send + Sync {
     /// 执行登录流程（交互式或非交互式）。
     ///
+    /// 如果提供了 `token`，则使用 token 进行非交互式登录；
+    /// 否则启动交互式登录流程。
+    ///
     /// 登录成功后凭据会被持久化到本地存储。
     ///
     /// # Errors
     ///
     /// 当认证失败或凭据存储失败时返回错误。
-    async fn login(&self) -> Result<()>;
+    async fn login(&self, token: Option<&str>) -> Result<()>;
 
     /// 执行登出流程，清除本地凭据。
     ///

@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "bash hooks/auto-report-bug.sh",
+            "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/hooks/auto-report-bug.sh\"",
             "type": "command"
           }
         ],
@@ -13,7 +13,7 @@
       {
         "hooks": [
           {
-            "command": "bash hooks/sync-readme-check.sh",
+            "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/hooks/sync-readme-check.sh\"",
             "type": "command"
           }
         ],

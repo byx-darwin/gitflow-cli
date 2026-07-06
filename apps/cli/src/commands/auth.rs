@@ -18,7 +18,11 @@ use crate::OutputFormat;
 #[derive(Debug, Subcommand)]
 pub enum AuthCommand {
     /// 执行登录流程。
-    Login,
+    Login {
+        /// 直接提供 Token 进行非交互式登录（可选）。
+        #[arg(long)]
+        token: Option<String>,
+    },
 
     /// 执行登出流程，清除本地凭据。
     Logout,
@@ -66,9 +70,9 @@ pub async fn handle(
     let _ = repo;
 
     match command {
-        AuthCommand::Login => {
+        AuthCommand::Login { token } => {
             provider
-                .login()
+                .login(token.as_deref())
                 .await
                 .map_err(|e| miette::miette!("Failed to login: {e}"))?;
             let result = serde_json::json!({
@@ -157,7 +161,22 @@ mod tests {
         use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "auth", "login"]).expect("parse");
         match cli.command {
-            crate::Commands::Auth(AuthCommand::Login) => {}
+            crate::Commands::Auth(AuthCommand::Login { token }) => {
+                assert!(token.is_none());
+            }
+            _ => panic!("Expected AuthCommand::Login"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_auth_login_with_token() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "auth", "login", "--token", "my-token"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Auth(AuthCommand::Login { token }) => {
+                assert_eq!(token, Some("my-token".to_string()));
+            }
             _ => panic!("Expected AuthCommand::Login"),
         }
     }

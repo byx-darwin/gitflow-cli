@@ -44,22 +44,50 @@ impl AuthProvider for GitCodeAuthProvider {
     /// 执行交互式登录。
     ///
     /// 调用 `gc auth login`，将子进程的 stdout/stderr 透传给终端。
+    /// 如果提供了 token，则通过 `--with-token` 参数进行非交互式登录。
     ///
     /// # Errors
     ///
     /// 当认证失败或 `gc` 调用失败时返回错误。
-    async fn login(&self) -> Result<()> {
+    async fn login(&self, token: Option<&str>) -> Result<()> {
         debug!("spawning `gc auth login`");
 
-        let status = tokio::process::Command::new(crate::gitcode_binary())
-            .arg("auth")
-            .arg("login")
-            .status()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}")))?;
+        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
+        cmd.arg("auth").arg("login");
 
-        if !status.success() {
-            return Err(CoreError::Platform("gitcode auth login failed".into()));
+        if let Some(token) = token {
+            // Non-interactive mode with token
+            cmd.arg("--with-token");
+            cmd.stdin(std::process::Stdio::piped());
+            let mut child = cmd.spawn().map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}"))
+            })?;
+
+            // Write token to stdin
+            if let Some(mut stdin) = child.stdin.take() {
+                use tokio::io::AsyncWriteExt;
+                stdin.write_all(token.as_bytes()).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to write token to stdin: {e}"))
+                })?;
+                drop(stdin);
+            }
+
+            let status = child.wait().await.map_err(|e| {
+                CoreError::Platform(format!("Failed to wait for gitcode auth login: {e}"))
+            })?;
+
+            if !status.success() {
+                return Err(CoreError::Platform("gitcode auth login failed".into()));
+            }
+        } else {
+            // Interactive mode
+            let status = cmd.status().await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}"))
+            })?;
+
+            if !status.success() {
+                return Err(CoreError::Platform("gitcode auth login failed".into()));
+            }
         }
 
         Ok(())
