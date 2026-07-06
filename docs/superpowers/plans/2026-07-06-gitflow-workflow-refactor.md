@@ -137,19 +137,58 @@ git commit -m "feat: 改造 Phase 1 整合 open issues 读取"
   - [ ] git commit -m "feat: ... (#N)"
 
 ### Task N: 质量关卡
-- [ ] **Rust 代码检查**
-  - [ ] Build 检查：cargo build --workspace
-  - [ ] Test 检查：cargo test --workspace
-  - [ ] Format 检查：cargo +nightly fmt --check
-  - [ ] Static 检查：cargo clippy --workspace -- -D warnings
-- [ ] **Shell 脚本检查**
-  - [ ] Shellcheck 检查：shellcheck hooks/*.sh
-  - [ ] 执行权限检查：hooks/*.sh 必须有 +x
-- [ ] **Markdown 文档检查**
-  - [ ] 链接检查：markdownlint docs/ skills/
-  - [ ] 格式检查：markdownlint --fix
+
+**质量管道**：构建验证 → 全量测试 → 覆盖率检查 → 代码格式化 → 静态分析 → Pre-commit
+
+**任何一步失败都不允许进入下一步**。
+
+- [ ] **构建验证**
+  - [ ] Rust：cargo build --workspace
+  - [ ] Shell：bash -n hooks/*.sh（语法检查）
+  - [ ] Python（如有）：python -m compileall src/ -q
+- [ ] **全量测试**
+  - [ ] Rust：cargo test --workspace
+  - [ ] Shell（如有）：bats tests/
+- [ ] **覆盖率检查**
+  - [ ] Rust：cargo tarpaulin --workspace（≥ 80%）
+- [ ] **代码格式化**
+  - [ ] Rust：cargo +nightly fmt --check
+  - [ ] Shell：shfmt -d hooks/
+  - [ ] Markdown：markdownlint docs/ skills/
+- [ ] **静态分析**
+  - [ ] Rust：cargo clippy --workspace --all-targets -- -D warnings
+  - [ ] Shell：shellcheck hooks/*.sh
+  - [ ] 通用：grep -rn "TODO\|FIXME" --include="*.rs" --include="*.sh" .
 - [ ] **Pre-commit 检查**
   - [ ] 调用 gitflow-precommit skill
+
+**输出报告**：
+```markdown
+## Quality Gate Report
+
+### 构建
+- 状态: ✅/❌
+- 耗时: <time>
+
+### 全量测试
+- 通过: N / 总计: N
+- 状态: ✅/❌
+
+### 覆盖率
+- 当前: X%
+- 状态: ✅/⚠️/❌
+
+### 格式化
+- 状态: ✅/❌
+
+### 静态分析
+- 状态: ✅/⚠️/❌
+
+### 最终判定
+[ ] 全部通过 — 可提交 PR
+[ ] 有警告 — 建议修复后提交
+[ ] 有错误 — 必须修复才能提交
+```
 
 ### Task N+1: 交付
 - [ ] 创建 PR：调用 gitflow-pr-create skill
