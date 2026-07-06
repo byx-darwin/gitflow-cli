@@ -8,8 +8,8 @@ class GitflowCli < Formula
       url "https://github.com/byx-darwin/gitflow-cli/releases/download/v0.1.0/gitflow-cli-aarch64-apple-darwin.tar.gz"
       sha256 "PLACEHOLDER_SHA256_ARM64"
     else
-      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v0.1.0/gitflow-cli-x86_64-apple-darwin.tar.gz"
-      sha256 "PLACEHOLDER_SHA256_X86_64"
+      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v0.2.0/gitflow-cli-x86_64-apple-darwin.tar.gz"
+      sha256 "79b9d9104a42e7c107603b3e03069c1710ed8e32d35239d9e059ee8918b0db26"
     end
   end
 
@@ -18,8 +18,8 @@ class GitflowCli < Formula
       url "https://github.com/byx-darwin/gitflow-cli/releases/download/v0.1.0/gitflow-cli-aarch64-unknown-linux-gnu.tar.gz"
       sha256 "PLACEHOLDER_SHA256_LINUX_ARM64"
     else
-      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v0.1.0/gitflow-cli-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "PLACEHOLDER_SHA256_LINUX_X86_64"
+      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v0.2.0/gitflow-cli-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "fcbc9a7a2b387f244d6dbc041f395fb0bc9dc895dcb672ac7aee5dd3ae400eea"
     end
   end
 
