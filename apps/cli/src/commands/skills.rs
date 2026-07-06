@@ -415,7 +415,13 @@ fn install_hook(global: bool, force: bool) -> miette::Result<()> {
         let repo = git_repo_root()?;
         let dir = repo.join(".claude/hooks");
         let settings = repo.join(".claude/settings.json");
-        (dir, settings, "bash hooks/auto-report-bug.sh".to_string())
+        // 使用动态路径，避免工作目录变化导致 hook 找不到
+        (
+            dir,
+            settings,
+            "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/hooks/auto-report-bug.sh\""
+                .to_string(),
+        )
     };
 
     // 写 hook 脚本
