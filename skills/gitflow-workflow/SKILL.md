@@ -314,7 +314,7 @@ Phase 1 合规检查:
   - [ ] 写失败测试（RED）
   - [ ] 写最小实现（GREEN）
   - [ ] 重构优化（REFACTOR）
-  - [ ] 验证：cargo test
+  - [ ] 验证：运行测试确认通过
 - [ ] 代码审查
   - [ ] 调用 superpowers:requesting-code-review
   - [ ] 审查并修复问题
@@ -322,12 +322,20 @@ Phase 1 合规检查:
   - [ ] git add -A
   - [ ] git commit -m "feat: ... (#N)"
 
-### Task N+1: 质量关卡
-- [ ] Build 检查：cargo build --workspace
-- [ ] Test 检查：cargo test --workspace
-- [ ] Coverage 检查：cargo tarpaulin --workspace（> 80%）
-- [ ] Format 检查：cargo +nightly fmt --check
-- [ ] Static 检查：cargo clippy --workspace --all-targets -- -D warnings
+### Task N+1: 质量关卡（完整计划闭环）
+- [ ] 调用 gitflow-quality 技能，运行 6 项质量检查
+  ```
+  使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
+  ```
+  检查项（语言自动检测，非 Rust 项目自动适配）：
+  - Build 检查
+  - Test 检查
+  - Coverage 检查（默认 > 80%）
+  - Format 检查
+  - Static 检查
+  - Pre-commit 检查（如配置了 `.pre-commit-config.yaml`）
+- [ ] 确认 Quality Report 结果为 `ALL CHECKS PASSED`
+- [ ] 如有失败项，按报告修复建议修复后重新运行
 
 ### Task N+2: 交付
 - [ ] 创建 PR：gitflow-cli pr create
