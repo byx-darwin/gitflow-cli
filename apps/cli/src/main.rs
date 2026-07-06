@@ -106,22 +106,35 @@ fn main() -> std::process::ExitCode {
     };
 
     // Resolve platform and repository early so they are available in the
-    // error handler below. `cli.platform` is cloned because `cli` itself
-    // is moved into `async_main`.
-    let (platform, repo) = match resolve_platform(cli.platform.clone()) {
-        Ok(pr) => pr,
-        Err(e) => {
-            report_error_noninteractive(&command_name, "unknown", &e.to_string(), "PLATFORM_ERROR");
-            eprintln!("{e:?}");
-            return std::process::ExitCode::from(1);
+    // error handler below. Skills and Completions commands don't need
+    // platform info, so skip resolve_platform for them (allows running
+    // outside a git repository).
+    let platform_needed = !matches!(cli.command, Commands::Skills(_) | Commands::Completions(_));
+    let (platform, repo) = if platform_needed {
+        match resolve_platform(cli.platform.clone()) {
+            Ok(pr) => pr,
+            Err(e) => {
+                report_error_noninteractive(
+                    &command_name,
+                    "unknown",
+                    &e.to_string(),
+                    "PLATFORM_ERROR",
+                );
+                eprintln!("{e:?}");
+                return std::process::ExitCode::from(1);
+            }
         }
+    } else {
+        ("unknown".to_string(), String::new())
     };
 
     // Block on the async main, handling graceful shutdown signals
     match rt.block_on(async_main(cli, &platform, &repo)) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
-            report_error_noninteractive(&command_name, &platform, &e.to_string(), "CLI_ERROR");
+            if platform_needed {
+                report_error_noninteractive(&command_name, &platform, &e.to_string(), "CLI_ERROR");
+            }
             eprintln!("{e:?}");
             std::process::ExitCode::from(1)
         }

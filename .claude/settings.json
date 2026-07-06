@@ -2,22 +2,22 @@
   "hooks": {
     "Stop": [
       {
-        "matcher": "gitflow",
         "hooks": [
           {
-            "type": "command",
-            "command": "bash hooks/auto-report-bug.sh"
+            "command": "bash hooks/auto-report-bug.sh",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "gitflow"
       },
       {
-        "matcher": "",
         "hooks": [
           {
-            "type": "command",
-            "command": "bash hooks/sync-readme-check.sh"
+            "command": "bash hooks/sync-readme-check.sh",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": ""
       }
     ]
   }

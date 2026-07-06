@@ -1,13 +1,16 @@
 //! `gitflow skills` 子命令实现。
 //!
 //! 管理 gitflow Skills 的安装、列出和卸载。
-//! Skills 从仓库的 `skills/` 目录复制到目标目录。
+//! Skills 可以从仓库的 `skills/` 目录复制，也可以从编译时嵌入的
+//! 数据中提取（release 场景，binary 发布包不带 skills/ 目录）。
 //!
 //! 支持多 Agent 平台（Claude Code / Gemini CLI / Codex / Copilot CLI），
 //! 支持用户级 / 项目级 / 自定义路径安装。
 //!
 //! Note: the install/uninstall helpers use `std::fs` for synchronous
 //! file operations. This module is invoked before the `tokio` runtime is
+//! initialized. This is intentional — these operations are
+//! short-lived I/O that do not benefit from async.
 //! constructed (see `main()`), so `tokio::fs` is not available here.
 
 #![allow(
@@ -17,6 +20,9 @@
 )]
 
 use std::path::PathBuf;
+
+// 编译时由 build.rs 生成的 skills 清单（release binary 内嵌）
+include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
 
 use clap::{ArgAction, Args, Subcommand, ValueEnum};
 
@@ -179,17 +185,22 @@ fn resolve_target_dir(
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
         Ok(home.join(platform.skills_dir_name()))
     } else {
-        // 默认：项目级
+        // 默认：项目级 - 尝试 git rev-parse，失败则回退到当前目录
         let output = std::process::Command::new("git")
             .args(["rev-parse", "--show-toplevel"])
-            .output()
-            .map_err(|e| miette::miette!("无法执行 git rev-parse: {e}"))?;
-        if !output.status.success() {
-            return Err(miette::miette!(
-                "当前目录不在 Git 仓库中，项目级安装需要 Git 仓库。使用 -g 安装到全局目录。"
-            ));
-        }
-        let repo_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            .output();
+        let repo_root = match output {
+            Ok(out) if out.status.success() => {
+                String::from_utf8_lossy(&out.stdout).trim().to_string()
+            }
+            _ => {
+                // 不在 git 仓库中，使用当前工作目录
+                std::env::current_dir()
+                    .map_err(|e| miette::miette!("无法获取当前目录: {e}"))?
+                    .to_string_lossy()
+                    .to_string()
+            }
+        };
         Ok(PathBuf::from(repo_root).join(".claude").join("skills"))
     }
 }
@@ -236,7 +247,10 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     let source = skills_source_dir();
 
     let has_source = source.exists();
+    let has_bundled = !SKILLS.is_empty();
+
     if has_source {
+        // 从文件系统目录安装（开发场景或 cargo install --path）
         std::fs::create_dir_all(&target)
             .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
 
@@ -282,8 +296,75 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
 
         println!();
         println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
+    } else if has_bundled {
+        // 从编译时嵌入的数据安装（release binary 场景）
+        std::fs::create_dir_all(&target)
+            .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
+
+        let level = if args.global { "全局" } else { "项目级" };
+        println!("目标: {} ({level})", target.display());
+        println!("使用内嵌 skills 数据（{} 个文件）", SKILLS.len());
+
+        let mut installed = 0u32;
+        let mut skipped = 0u32;
+        let mut overwritten = 0u32;
+
+        // 按 skill 目录分组
+        let mut skill_dirs: std::collections::HashMap<&str, Vec<(&str, &[u8])>> =
+            std::collections::HashMap::new();
+        for (path, data) in SKILLS {
+            let parts: Vec<&str> = path.split('/').collect();
+            if parts.len() >= 2 && parts[0].starts_with("gitflow-") {
+                let skill_name = parts[0];
+                let relative = &path[parts[0].len() + 1..];
+                skill_dirs
+                    .entry(skill_name)
+                    .or_default()
+                    .push((relative, *data));
+            }
+        }
+
+        for (skill_name, files) in &skill_dirs {
+            let dest = target.join(skill_name);
+            if dest.exists() {
+                if args.force {
+                    std::fs::remove_dir_all(&dest)
+                        .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
+                } else {
+                    eprintln!("⚠ 跳过已存在: {skill_name}");
+                    skipped += 1;
+                    continue;
+                }
+            }
+
+            let mut skill_installed = false;
+            for (rel_path, data) in files {
+                let file_path = dest.join(rel_path);
+                if let Some(parent) = file_path.parent() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| miette::miette!("无法创建目录 {}: {e}", parent.display()))?;
+                }
+                std::fs::write(&file_path, data)
+                    .map_err(|e| miette::miette!("写入 {} 失败: {e}", file_path.display()))?;
+                skill_installed = true;
+            }
+
+            if skill_installed {
+                if dest.exists() && args.force {
+                    println!("♻ 已覆盖: {skill_name}");
+                    overwritten += 1;
+                } else {
+                    println!("✅ 已安装: {skill_name}");
+                    installed += 1;
+                }
+            }
+        }
+
+        println!();
+        println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
     } else {
-        println!("⚠ Skills 源目录未找到（{}），仅安装 Hook", source.display());
+        println!("⚠ Skills 源目录未找到，且 binary 未内嵌 skills 数据");
+        println!("  请从源码目录运行，或手动指定 --source <skills 目录路径>");
     }
 
     // 安装 auto-report-bug hook（可通过 --report-bug=false 跳过）
@@ -390,18 +471,17 @@ fn merge_stop_hook(mut json: serde_json::Value, cmd: &str) -> serde_json::Value 
     json
 }
 
-/// 获取当前仓库根目录。
+/// 获取当前仓库根目录（不在 git 仓库中则回退到当前目录）。
 fn git_repo_root() -> miette::Result<std::path::PathBuf> {
     let output = std::process::Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .map_err(|e| miette::miette!("git rev-parse: {e}"))?;
-    if !output.status.success() {
-        return Err(miette::miette!("不在 Git 仓库中"));
+        .output();
+    match output {
+        Ok(out) if out.status.success() => Ok(std::path::PathBuf::from(
+            String::from_utf8_lossy(&out.stdout).trim(),
+        )),
+        _ => std::env::current_dir().map_err(|e| miette::miette!("无法获取当前目录: {e}")),
     }
-    Ok(std::path::PathBuf::from(
-        String::from_utf8_lossy(&output.stdout).trim(),
-    ))
 }
 
 /// 列出已安装的 skills。
