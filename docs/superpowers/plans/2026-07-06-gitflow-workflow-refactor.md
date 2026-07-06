@@ -137,12 +137,19 @@ git commit -m "feat: 改造 Phase 1 整合 open issues 读取"
   - [ ] git commit -m "feat: ... (#N)"
 
 ### Task N: 质量关卡
-- [ ] Build 检查：cargo build --workspace
-- [ ] Test 检查：cargo test --workspace
-- [ ] Coverage 检查：cargo tarpaulin --workspace
-- [ ] Format 检查：cargo +nightly fmt --check
-- [ ] Static 检查：cargo clippy --workspace -- -D warnings
-- [ ] Pre-commit 检查：调用 gitflow-precommit skill
+- [ ] **Rust 代码检查**
+  - [ ] Build 检查：cargo build --workspace
+  - [ ] Test 检查：cargo test --workspace
+  - [ ] Format 检查：cargo +nightly fmt --check
+  - [ ] Static 检查：cargo clippy --workspace -- -D warnings
+- [ ] **Shell 脚本检查**
+  - [ ] Shellcheck 检查：shellcheck hooks/*.sh
+  - [ ] 执行权限检查：hooks/*.sh 必须有 +x
+- [ ] **Markdown 文档检查**
+  - [ ] 链接检查：markdownlint docs/ skills/
+  - [ ] 格式检查：markdownlint --fix
+- [ ] **Pre-commit 检查**
+  - [ ] 调用 gitflow-precommit skill
 
 ### Task N+1: 交付
 - [ ] 创建 PR：调用 gitflow-pr-create skill
