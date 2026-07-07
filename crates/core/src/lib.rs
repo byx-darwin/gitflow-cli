@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 pub mod auth;
+pub mod auth_checker;
 pub mod commit;
 pub mod issue;
 pub mod label;
@@ -35,7 +36,8 @@ pub mod release;
 pub mod review;
 pub mod types;
 
-// Re-export output types at the crate root for convenience.
+// Re-export types at the crate root for convenience.
+pub use auth_checker::{AuthCheckResult, AuthChecker};
 pub use output::{CliError, CliOutput};
 
 /// Application error type.

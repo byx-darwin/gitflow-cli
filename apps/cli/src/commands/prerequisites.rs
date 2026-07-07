@@ -17,6 +17,7 @@ use std::process::Command;
 
 /// 原生 CLI 版本要求。
 #[derive(Debug, Clone)]
+#[allow(dead_code, reason = "Fields reserved for future use")]
 pub struct CliRequirement {
     /// CLI 可执行文件名。
     pub binary: &'static str,
@@ -118,16 +119,12 @@ pub enum PrerequisiteError {
         install_cmd: String,
     },
 
-    #[error(
-        "[[PLATFORM]] {binary} is not authenticated.\n\n🔐 Interactive: {login_cmd}\n\n🔐 Paste \
-         token: {login_with_token}\n\n💡 Or set env var: export GITCODE_TOKEN=your_token \
-         (gitcode) / export GH_TOKEN=your_token (github)"
-    )]
+    #[error("[[PLATFORM]] Not authenticated.\n\n🔍 Reason: {reason}\n\n🔧 Fix: {hint}")]
     NotAuthenticated {
         binary: String,
         platform: String,
-        login_cmd: String,
-        login_with_token: String,
+        reason: String,
+        hint: String,
     },
 
     #[error("Unsupported platform: {platform}. Supported: github, gitlab, gitcode")]
@@ -175,13 +172,15 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
         "Version OK"
     );
 
-    // 3. 认证检查
-    if !is_authenticated(binary, platform) {
+    // 3. 认证检查（使用 AuthChecker）
+    let auth_checker = create_auth_checker(platform);
+    if !auth_checker.is_authenticated() {
+        let result = auth_checker.check_status();
         return Err(PrerequisiteError::NotAuthenticated {
             binary: binary.into(),
             platform: platform.into(),
-            login_cmd: req.login_cmd.into(),
-            login_with_token: req.login_with_token.into(),
+            reason: result.reason.unwrap_or_else(|| "Unknown reason".into()),
+            hint: result.hint.unwrap_or_else(|| req.login_cmd.into()),
         });
     }
 
@@ -189,25 +188,13 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
     Ok(())
 }
 
-/// 检测 CLI 认证状态。
-fn is_authenticated(binary: &str, platform: &str) -> bool {
-    // GitCode 优先检查环境变量
-    if platform == "gitcode" && std::env::var("GITCODE_TOKEN").is_ok() {
-        return true;
-    }
-    // GitHub 检查 GH_TOKEN
-    if platform == "github" && std::env::var("GH_TOKEN").is_ok() {
-        return true;
-    }
-
-    let args: &[&str] = match binary {
-        "gh" | "glab" | "gitcode" => &["auth", "status"],
-        _ => return true,
-    };
-
-    match Command::new(binary).args(args).output() {
-        Ok(out) => out.status.success(),
-        Err(_) => false,
+/// 创建平台特定的认证检查器。
+fn create_auth_checker(platform: &str) -> Box<dyn gitflow_cli_core::AuthChecker> {
+    match platform {
+        "github" => Box::new(gitflow_cli_github::GitHubAuthProvider::new()),
+        "gitlab" => Box::new(gitflow_cli_gitlab::GitLabAuthProvider::new()),
+        "gitcode" => Box::new(gitflow_cli_gitcode::GitCodeAuthProvider::new()),
+        _ => unreachable!("Platform already validated by requirement_for"),
     }
 }
 

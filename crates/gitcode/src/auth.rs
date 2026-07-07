@@ -191,9 +191,99 @@ impl AuthProvider for GitCodeAuthProvider {
     }
 }
 
+// AuthChecker 是同步 trait，必须使用 std::process::Command
+#[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
+impl gitflow_cli_core::AuthChecker for GitCodeAuthProvider {
+    fn is_authenticated(&self) -> bool {
+        // 1. 优先检查环境变量
+        if std::env::var("GITCODE_TOKEN").is_ok() {
+            return true;
+        }
+
+        // 2. 检查 gitcode CLI 是否可用
+        let binary = crate::gitcode_binary();
+        debug!(binary = %binary, "checking gitcode authentication");
+
+        let output = std::process::Command::new(&binary)
+            .args(["auth", "status"])
+            .output();
+
+        match output {
+            Ok(out) => {
+                debug!(
+                    exit_code = %out.status,
+                    stdout = %String::from_utf8_lossy(&out.stdout),
+                    stderr = %String::from_utf8_lossy(&out.stderr),
+                    "gitcode auth status result"
+                );
+                out.status.success()
+            }
+            Err(e) => {
+                debug!(error = %e, "failed to execute gitcode auth status");
+                false
+            }
+        }
+    }
+
+    fn check_status(&self) -> gitflow_cli_core::AuthCheckResult {
+        // 1. 检查环境变量
+        if std::env::var("GITCODE_TOKEN").is_ok() {
+            return gitflow_cli_core::AuthCheckResult {
+                authenticated: true,
+                user: None,
+                reason: None,
+                hint: None,
+            };
+        }
+
+        // 2. 执行 gitcode auth status
+        let binary = crate::gitcode_binary();
+        let output = match std::process::Command::new(&binary)
+            .args(["auth", "status"])
+            .output()
+        {
+            Ok(out) => out,
+            Err(e) => {
+                return gitflow_cli_core::AuthCheckResult {
+                    authenticated: false,
+                    user: None,
+                    reason: Some(format!("Failed to execute gitcode: {e}")),
+                    hint: Some("Ensure gitcode CLI is installed: pip install gitcode-cli".into()),
+                };
+            }
+        };
+
+        // 3. 解析结果
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let user = parse_user_from_status(&stdout);
+
+            gitflow_cli_core::AuthCheckResult {
+                authenticated: true,
+                user,
+                reason: None,
+                hint: None,
+            }
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            gitflow_cli_core::AuthCheckResult {
+                authenticated: false,
+                user: None,
+                reason: Some(stderr.to_string()),
+                hint: Some("Run `gitcode auth login` to authenticate".into()),
+            }
+        }
+    }
+}
+
 /// 从 `gc auth status` 的输出中解析用户名。
+///
+/// 支持两种格式：
+/// - 旧格式: `"Logged in to gitcode.com as <username>"`
+/// - 新格式: `"Logged in as <username>"`
 fn parse_user_from_status(output: &str) -> Option<String> {
-    // 匹配模式："Logged in to gitcode.com as <username>"
+    // 匹配模式：查找 " as " 后跟用户名（两种格式都适用）
     for line in output.lines() {
         if let Some(pos) = line.find(" as ") {
             let after_as = &line[pos + 4..];
@@ -268,5 +358,37 @@ mod tests {
     fn test_should_parse_user_without_suffix() {
         let status = "Logged in to gitcode.com as bob";
         assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
+    }
+
+    #[test]
+    fn test_should_parse_user_from_status_new_format() {
+        let status = "Logged in as alice";
+        assert_eq!(parse_user_from_status(status), Some("alice".to_string()));
+    }
+
+    #[test]
+    fn test_should_parse_user_from_status_new_format_with_suffix() {
+        let status = "Logged in as bob (oauth_token)";
+        assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
+    }
+
+    #[test]
+    fn test_auth_checker_is_authenticated_with_env_var() {
+        use gitflow_cli_core::AuthChecker;
+        temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
+            let provider = GitCodeAuthProvider::new();
+            assert!(provider.is_authenticated());
+        });
+    }
+
+    #[test]
+    fn test_auth_checker_check_status_with_env_var() {
+        use gitflow_cli_core::AuthChecker;
+        temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
+            let provider = GitCodeAuthProvider::new();
+            let result = provider.check_status();
+            assert!(result.authenticated);
+            assert!(result.reason.is_none());
+        });
     }
 }
