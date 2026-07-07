@@ -43,6 +43,10 @@ pub enum IssueCommand {
         /// 指派人列表（可多次指定）。
         #[arg(long = "assignee")]
         assignee: Vec<String>,
+
+        /// 目标仓库（可选，格式：owner/repo，覆盖从 remote 自动检测的值）。
+        #[arg(long)]
+        repo: Option<String>,
     },
 
     /// 列出 Issue。
@@ -141,10 +145,19 @@ pub async fn handle(
     repo: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    // Allow `--repo` on Create to override the auto-detected repo.
+    let effective_repo = match &command {
+        IssueCommand::Create {
+            repo: Some(override_repo),
+            ..
+        } => override_repo.as_str(),
+        _ => repo,
+    };
+
     let provider: Box<dyn IssueProvider> = match platform {
-        "github" => Box::new(GitHubIssueProvider::new(repo)),
-        "gitlab" => Box::new(GitLabIssueProvider::new(repo)),
-        "gitcode" => Box::new(GitCodeIssueProvider::new(repo)),
+        "github" => Box::new(GitHubIssueProvider::new(effective_repo)),
+        "gitlab" => Box::new(GitLabIssueProvider::new(effective_repo)),
+        "gitcode" => Box::new(GitCodeIssueProvider::new(effective_repo)),
         other => {
             return Err(miette::miette!(
                 "Platform '{other}' not yet supported for issue commands"
@@ -159,6 +172,7 @@ pub async fn handle(
             body_file,
             label,
             assignee,
+            repo: _,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
             let args = CreateIssueArgs {
@@ -489,6 +503,42 @@ mod tests {
                 assert_eq!(label, "wontfix");
             }
             _ => panic!("Expected IssueCommand::RemoveLabel"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_create_with_repo() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "create",
+            "--title",
+            "Bug report",
+            "--repo",
+            "owner/repo",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Create { title, repo, .. }) => {
+                assert_eq!(title, "Bug report");
+                assert_eq!(repo, Some("owner/repo".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_create_without_repo() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "create", "--title", "Bug report"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Create { repo, .. }) => {
+                assert!(repo.is_none());
+            }
+            _ => panic!("Expected IssueCommand::Create"),
         }
     }
 }
