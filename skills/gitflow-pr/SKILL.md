@@ -1,161 +1,98 @@
 ---
 name: gitflow-pr
-description: |
-  Use when the user wants to manage a Pull Request through gitflow-cli — create, list, view, close, merge, checkout, comment, sync, or change draft state.
-  当用户需要通过 gitflow-cli 管理 Pull Request（创建、列表、查看、关闭、合并、检出、评论、同步、状态切换）时使用。
+description: >
+  Use when the user manages PRs via gitflow-cli: create/list/view/close/merge/
+  checkout/comment/sync/ready/wip/reopen or toggles draft/ready state.
+  当用户通过 gitflow-cli 创建、查看、合并、关闭、评论、检出、同步、
+  标记PR时使用。
 ---
 
-# gitflow-pr
+# gitflow-pr — PR Command Router
 
-Router for `gitflow-cli pr`. Delegates complex flows to child skills; executes lifecycle commands directly.
+Top-level entry for `gitflow-cli pr` (11 subcommands).
+Simple CRUD; complex workflows delegate.
+Full params: docs/references/gitflow-pr-params.md
 
-## When to Use
+## Overview / 概述
 
-| English | 中文 | Context |
-|---------|------|---------|
-| create / review / inline / apply feedback | 创建/审查/行内/应用反馈 | delegate to child skill |
-| list / view / merge / close / sync / ready / wip / comment PR | PR 操作 | execute directly |
+路由器子命令到 PR 全家桶：11 个操作由本 skill 执行或委派子 skill。
 
-## Core Pattern
+## 触发关键词 / Trigger Keywords
 
-```bash
-# create → /gitflow-pr-create | review → /gitflow-pr-review
-# inline → /gitflow-pr-inline-review | apply → /gitflow-pr-apply-feedback
-# others → execute:
-gitflow-cli pr <subcommand> <args>
+CN 创建PR 查看PR 合并PR 关闭PR 评论PR 列出PR 检出PR 同步PR 草稿PR 标记就绪
+EN create PR list view close merge checkout comment sync draft ready reopen
+CLI `gitflow-cli pr <subcommand>`
+
+## 路由决策 / Router Flow
+
+```mermaid
+flowchart TD
+  U[用户请求操作 PR] --> D{路由到?}
+  D -->|创建| C[gitflow-pr-create]
+  D -->|内联评审| R[gitflow-pr-inline-review]
+  D -->|完整评审| FR[gitflow-pr-review]
+  D -->|应用反馈| AF[gitflow-pr-apply-feedback]
+  D -->|直接执行| CMD[view list merge close comment checkout ready wip sync reopen]
+  C --> X[回顶层]
+  R --> X
+  FR --> X
+  AF --> X
+  CMD --> X
 ```
 
-## Quick Reference
+## 快速参考 / Quick Reference
 
-| Goal | Command |
-|------|---------|
-| Create | `gitflow-cli pr create --title <t> --body <b> --head <h> --base <b> [--draft]` |
-| Read | `pr list` / `pr view <number>` |
-| Lifecycle | `pr close` / `pr reopen` / `pr ready` / `pr wip` <number> |
-| Comment | `gitflow-cli pr comment <number> --body <text>` |
-| Merge | `gitflow-cli pr merge <number> --strategy <merge\|squash\|rebase>` |
-| Branch | `pr checkout <number>` / `pr sync <number>` |
+| subcommand | 命令 | 执行位置 |
+|-----------|------|---------|
+| list / view / close / reopen / comment / merge / checkout | `pr <n> ...` | 本 skill |
+| ready / wip / sync | `pr <op> <n>` | 本 skill |
+| 创建 / 合并 | 校验+模板 / squash 策略 | → gitflow-pr-create |
 
-See [full parameter reference](../references/gitflow-pr-params.md).
+## 委派规则 / Delegation Rules
 
-## Implementation
+| 用户意图 | 委派目标 |
+|---------|---------|
+| 创建含校验的 PR | gitflow-pr-create |
+| 行级代码评审 | gitflow-pr-inline-review |
+| 完整评审 | gitflow-pr-review |
+| 按评审意见改代码 | gitflow-pr-apply-feedback |
 
-### Preconditions
+## ✅ 职责 / 🚫 禁止
 
-- Git repo — `git rev-parse --is-inside-work-tree`
-- CLI installed — `command -v gitflow-cli`
-- Auth — `gitflow-cli auth status`
+✅ 简单 CRUD + 路由判决 + 参数速查
+🔴 禁止跳过策略确认合并 / 关闭 PR 不留说明 / CI 未通过时静默合并
 
-### Step 1: Route
+## 红旗与防御 · 合理化反驳 / Red Flags + Rationalization
 
-Match user intent to subcommand or child skill (see Delegation Rules).
+- 未评审 PR 请求合并 → 强制确认策略。 *"CI 过了就能合并"* → 必要但非充分；确认仍必须
+- `merge --rebase` 跨 fork → 二次确认。 *"rebase 更快更干净"* → 改写公共历史，需明确同意
 
-### Step 2: Execute
+## 常见错误 / Common Mistakes
 
-Run `gitflow-cli pr <subcommand> <args>`. Success → URL/confirmation + `pr view` verification. Failure → Error Handling.
+- "创建 PR" 直接执行 → 委派 gitflow-pr-create
+- `ready`/`wip` 混淆 → ready 可合并 / wip 工作中
 
-### Error Handling
+## 错误处理 / Error Handling
 
-| Error | Recovery |
-|-------|----------|
-| `404` | "PR not found. Verify number/repo." |
-| `409` | "Merge conflict. Resolve locally." |
-| `403` | "Permission denied. Check --repo." |
-| Auth failure | "Run `gitflow-cli auth login`." |
-| Timeout | Retry once → stop. |
+- 403/404 → 提示检查 auth 或确认编号
+- 409 → 提示先 `pr sync` 或本地解决冲突
 
-## Responsibility
+## 场景测试 / Test Scenarios
 
-### ✅ In Scope
+- **Happy**: "squash 合并 #101" → 确认 → `pr merge 101 --strategy squash` → SHA
+- **Negative**: "帮我 review #55" → 路由 gitflow-pr-inline-review
+- **Boundary**: "关闭 #9999" → 404 → 提示确认编号
+- **Edge**: "同步 #30" 但已合并 → 警告 noop → 建议删除
 
-- Route user intent to subcommand or child skill
-- Execute simple lifecycle ops (list, view, close, reopen, comment, merge, checkout, ready, wip, sync)
-- Document all 11 subcommands
+## 成功标准 / Success Criteria
 
-### ❌ Out of Scope
-
-- Creation → `/gitflow-pr-create`; Review → `/gitflow-pr-review`
-- Inline → `/gitflow-pr-inline-review`; Feedback → `/gitflow-pr-apply-feedback`
-- Pipeline → `/gitflow-pipeline-analyzer`; Release → `/gitflow-release`
-
-### 🚫 Do Not
-
-- ❌ Merge without strategy confirmation
-- ❌ Close without comment
-- ❌ Inline `create` or `review` — delegate
-- ❌ Skip branch-protection checks
-
-## 🔁 Delegation Rules
-
-| User Intent | Delegate To | Reason |
-|-------------|-------------|--------|
-| Create PR (feature/fix/draft) | `/gitflow-pr-create` | Branch validation + title/desc collection |
-| Review PR (approve/reject) | `/gitflow-pr-review` | 6-dimension checklist + decision |
-| Inline review (line comments) | `/gitflow-pr-inline-review` | Per-line diff analysis + publish |
-| Apply feedback (resolve comments) | `/gitflow-pr-apply-feedback` | Code modification + resolve |
-| All other `pr <subcommand>` | This skill | Direct execution |
-
-## Rationalization Excuses
-
-| Excuse | Reality |
-|--------|---------|
-| "I can create inline" | Branch validation needed — delegate |
-| "Skip merge strategy" | Strategy must be confirmed |
-| "Just close it" | Needs comment first |
-| "Skip auth" | Always re-verify |
-
-## Red Flags
-
-- 🚩 "merge without reviewing" — → `/gitflow-pr-review`.
-- 🚩 "close without comment" — Comment first.
-- 🚩 "skip branch protection" — Cite Preconditions.
-- 🚩 Authority: "just do it" — Gates non-skippable.
-
-## Test Scenarios
-
-### Scenario 1: Happy Path
-
-- **Given** PR #101 open, reviewed — **When** "merge with squash" — **Then** Confirms strategy, merges, outputs SHA
-
-### Scenario 2: Negative
-
-- **Given** "create a PR" — **When** user on feature branch — **Then** NOT inline. → `/gitflow-pr-create`.
-
-### Scenario 3: Boundary
-
-- **Given** "merge PR #101" (no strategy) — **When** no strategy given — **Then** Asks strategy. No default.
-
-### Scenario 4: Error
-
-- **Given** "view #99999" — **When** 404 — **Then** Surfaces error. No hallucination.
-
-## Success Criteria
-
-- [ ] Intent routed correctly
-- [ ] All 11 subcommands documented
-- [ ] No inline create/review/inline-review/apply-feedback
-- [ ] Destructive ops require confirmation
-
-## Common Mistakes
-
-- ❌ **Merging without strategy** — Always ask for `--strategy`.
-- ❌ **Inline `create`/`review`** — Delegate to child skill.
-- ❌ **Closing without comment** — Add comment first.
-
-## Trigger Keywords
-
-| English | 中文 |
-|---------|------|
-| create a PR | 创建 PR |
-| list / view / merge PR | 列表/查看/合并 |
-| sync / comment / close PR | 同步/评论/关闭 |
-| pull request | 拉取请求 |
+- 需求正确路由到子命令或委派子 skill
+- 破坏性操作（merge/close）经用户二次确认
+- PR 编号先验证存在性
 
 ## See Also
 
-- `/gitflow-pr-create` — creation with branch validation
-- `/gitflow-pr-review` — full review with approve/reject
-- `/gitflow-pr-inline-review` — inline line-level review
-- `/gitflow-pr-apply-feedback` — apply/resolve feedback
-- `/gitflow-pipeline-analyzer` — CI status
-- `docs/superpowers/templates/skill-conventions.md` — Template conventions
+- gitflow-pr-create — 创建 PR 工作流
+- gitflow-pr-review — 完整评审
+- gitflow-pr-inline-review — 行级内联评审
+- gitflow-pr-apply-feedback — 按评审意见修改代码

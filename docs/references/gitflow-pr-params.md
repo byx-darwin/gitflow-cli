@@ -1,80 +1,65 @@
-# gitflow-cli pr Subcommand Parameter Reference
+# gitflow-cli pr 子命令参数完整参考
 
-> **Companion to:** `skills/gitflow-pr/SKILL.md`
-> **Purpose:** Full parameter tables for all 11 `pr` subcommands. The parent skill embeds only the Quick Reference; this file holds the detailed reference to keep the parent skill within the 500-word budget.
+> 本文档为 `gitflow-pr` skill 的子命令参数速查，由 SKILL.md 主文档外部化引用。
 
----
+## `pr create`
 
-## `gitflow-cli pr create`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `--title` | string | 是 | PR 标题 |
+| `--body` | string | 否 | PR 正文（Markdown） |
+| `--head` | string | 是 | 来源分支名 |
+| `--base` | string | 是 | 目标分支名 |
+| `--draft` | flag | 否 | 以草稿方式创建 |
+| `--repo` | string | 否 | 目标仓库（`owner/name` 格式） |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `--title` | string | Yes | PR title |
-| `--body` | string | No | PR body (Markdown) |
-| `--head` | string | Yes | Source branch name |
-| `--base` | string | Yes | Target branch name |
-| `--draft` | flag | No | Create as draft |
-| `--repo` | string | No | Target repo (`owner/name`) |
+## `pr list`
 
-## `gitflow-cli pr list`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `--state` | string | 否 | 按状态过滤：`open`/`closed`/`merged`/`all` |
+| `--limit` | int | 否 | 返回数量上限，默认 30 |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `--state` | string | No | Filter: `open`, `closed`, `merged`, `all` |
-| `--limit` | int | No | Max results (default 30) |
+## `pr view`
 
-## `gitflow-cli pr view`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
+## `pr close`
 
-## `gitflow-cli pr close`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
+## `pr reopen`
 
-## `gitflow-cli pr reopen`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
+## `pr comment`
 
-## `gitflow-cli pr comment`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |
+| `--body` | string | 是 | 评论内容（Markdown） |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
-| `--body` | string | Yes | Comment text (Markdown) |
+## `pr merge`
 
-## `gitflow-cli pr merge`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |
+| `--strategy` | string | 否 | 合并策略：`merge`/`squash`/`rebase` |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
-| `--strategy` | string | No | `merge`, `squash`, or `rebase` |
+## `pr checkout`
 
-## `gitflow-cli pr checkout`
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
+## `pr ready` / `pr wip` / `pr sync`
 
-## `gitflow-cli pr ready`
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
-
-## `gitflow-cli pr wip`
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
-
-## `gitflow-cli pr sync`
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `<number>` | int | Yes | PR number |
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `<number>` | int | 是 | PR 编号 |

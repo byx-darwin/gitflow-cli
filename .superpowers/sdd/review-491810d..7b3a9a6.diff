@@ -1,0 +1,232 @@
+# Review package: 491810d..HEAD
+
+## Commits
+7b3a9a6 docs: analyze gitflow-issue-create skill (#26)
+
+## Files changed
+ .../skill-analysis-gitflow-issue-create.md         | 216 +++++++++++++++++++++
+ 1 file changed, 216 insertions(+)
+
+## Diff
+diff --git a/docs/research/skill-analysis-gitflow-issue-create.md b/docs/research/skill-analysis-gitflow-issue-create.md
+new file mode 100644
+index 0000000..ba5f24f
+--- /dev/null
++++ b/docs/research/skill-analysis-gitflow-issue-create.md
+@@ -0,0 +1,216 @@
++# Skill Analysis: `gitflow-issue-create`
++
++**Date:** 2026-07-07
++**Source:** `skills/gitflow-issue-create/SKILL.md`
++**GitHub Issue:** #26
++**Analyst:** implementer subagent
++
++## Abstract
++
++The `gitflow-issue-create` skill is a straightforward linear workflow guide for creating GitHub issues through the `gitflow-cli issue create` command. It follows a sequential six-step flow (title → description → labels → assignee → execute → present result). While functionally adequate, it lacks the structure, boundary declarations, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
++
++---
++
++## Dimension 1: Skill Structure & Documentation Conventions
++
++**Rating: ⚠️ 需改进 (Needs Improvement)**
++
++### ✅ Strengths
++
++| Item | Status | Notes |
++|------|--------|-------|
++| YAML frontmatter present | ✅ | Has `name` field |
++| `name` field correct | ✅ | `gitflow-issue-create` matches directory name |
++| File location | ✅ | `skills/gitflow-issue-create/SKILL.md` |
++| Language consistency | ✅ | Entirely in Chinese, no dilution |
++| Token efficiency | ✅ | ~115 lines, well under 500-word limit for a full skill guide |
++
++### ❌ Deficiencies
++
++| Item | Status | Details |
++|------|--------|---------|
++| `description` format | ❌ | Current: `"引导用户完成 Issue 创建工作流 — 从模板填写到调用 gitflow-cli issue create 并输出 Issue URL"` — describes *what* it does, not *when* to trigger. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
++| Structural sections | ⚠️ | Missing canonical sections: `When to Use`, `Core Pattern`, `Quick Reference`, `Implementation`, `Common Mistakes`. Current structure is a flat workflow list without the layered design writing-skills prescribes. |
++| Trigger keywords | ❌ | No `Trigger` section enumerating error messages, user phrases, or contextual cues (e.g., "create issue", "new bug report", `issue create` command). |
++| Anti-patterns present | ⚠️ | Uses narrative prose for workflow steps instead of pattern-language. Step descriptions read like tutorial rather than like a skill contract. |
++
++### Recommended Description Rewrite
++
++```yaml
++description: "Use when the user wants to create a new GitHub issue through gitflow-cli — including bug reports, feature requests, and chores. Triggers on phrases like 'create an issue', 'new bug', 'file an issue', or direct invocation of `gitflow-cli issue create`."
++```
++
++---
++
++## Dimension 2: Responsibility Boundary Clarity
++
++**Rating: ❌ 不合格 (Unacceptable)**
++
++### Missing Elements
++
++| Required Element | Present? | Gap |
++|------------------|----------|-----|
++| Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never states what it owns vs. what the underlying CLI owns. |
++| Prohibition list (`🚫 Do not...`) | ❌ | No explicit prohibitions. Unclear whether the skill should: create issues in bulk, edit existing issues, delete issues, or manage comments. |
++| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gitflow-issue-triage`, `gitflow-label-milestone`, or `gitflow-issue-review`. |
++| "Rationalization excuse" counter-table | ❌ | No `## When NOT to use this skill` table that preempts common justifications for misapplication (e.g., "I can also add labels while creating — should I call label-milestone instead?"). |
++| Red Flags list | ❌ | No `## Red Flags` section warning about misapplication contexts (e.g., creating issues from CI pipelines, batch-creation, or cross-repository creation). |
++
++### Recommended Scope Contract
++
++```
++## ✅ Responsible For
++- Interactive collection of title, description, labels, assignee
++- Recommending conventional-commit prefix for titles
++- Invoking `gitflow-cli issue create` with collected parameters
++- Presenting the resulting Issue URL
++
++## ❌ Not Responsible For
++- Editing or closing existing issues (→ gitflow-issue / gitflow-issue-triage)
++- Managing labels or milestones at scale (→ gitflow-label-milestone)
++- Reviewing or triaging issues (→ gitflow-issue-review, gitflow-issue-triage)
++- Assigning issues in bulk or to teams (→ gitflow-issue-triage)
++
++## 🚫 Do Not
++- Create issues without user confirmation of title/description
++- Add labels not approved by the user
++- Reassign existing issues
++- Create issues across multiple repositories from a single invocation
++```
++
++---
++
++## Dimension 3: Testability
++
++**Rating: ❌ 不合格 (Unacceptable)**
++
++### Missing Elements
++
++| Required Element | Present? | Gap |
++|------------------|----------|-----|
++| Test scenarios | ❌ | No `## Test Scenarios` section with concrete input/expected-output pairs. |
++| Baseline test (no-skill behavior) | ❌ | No description of what happens without the skill — user must manually recall CLI flags, format conventions, and parameter ordering. |
++| Stress / edge-case scenarios | ❌ | No coverage of: Unicode titles, very long descriptions, missing optional fields, invalid label names, or CLI failure modes. |
++| Success criteria | ❌ | No measurable definition of "skill worked correctly" (e.g., "a valid Issue URL is displayed", "all user-supplied labels are attached"). |
++| Writing-skills test methodology | ❌ | No alignment with the `superpowers:writing-skills` approach: no trigger-accuracy test, no spurious-trigger negative test, no hallucination probe. |
++
++### Recommended Test Scenario Skeleton
++
++```
++## Test Scenarios
++
++### Scenario 1: Happy-path bug report
++Input:  user says "create a bug for the auth redirect loop"
++Expect: skill collects title (fix: prefix), description with 背景/目标/验收标准,
++        assigns `bug` label, invokes CLI, returns Issue URL.
++
++### Scenario 2: Minimal title-only creation
++Input:  user runs `gitflow-cli issue create --title "docs: update CLAUDE.md"`
++Expect: skill does not force additional fields, passes through, returns URL.
++
++### Scenario 3: Long description with Unicode
++Input:  description contains CJK characters and 2000+ characters
++Expect: skill preserves body without truncation, CLI receives full multiline string.
++
++### Scenario 4: Invalid label name
++Input:  user requests label "urgent-现在"
++Expect: skill warns that label may not exist, offers to proceed or correct.
++
++### Baseline (without skill)
++User manually types `gitflow-cli issue create` — must recall flag names,
++conventional-commit prefix convention, and Markdown body format from memory.
++```
++
++---
++
++## Dimension 4: Alignment with Superpowers Best Practices
++
++**Rating: ⚠️ 需改进 (Needs Improvement)**
++
++### ✅ Compliant Aspects
++
++| Practice | Status | Notes |
++|----------|--------|-------|
++| No flowchart abuse | ✅ | No flowchart; uses sequential steps which are appropriate for a linear workflow. |
++| No embedded code in flowcharts | ✅ | N/A |
++| Single-skill single-responsibility (conceptually) | ✅ | The skill does one thing: create an issue. |
++| Has examples | ✅ | Three concrete command examples provided. |
++
++### ❌ Gaps
++
++| Practice | Status | Details |
++|----------|--------|---------|
++| TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
++| Description describes triggers only | ❌ | Description describes the full workflow, not just the trigger condition. |
++| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "new issue", "file a bug", "open a ticket", "issue create", `gitflow-cli issue create`, "create ticket", "bug report". |
++| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-issue`, `gitflow-issue-triage`, `gitflow-issue-review`, `gitflow-label-milestone`. |
++| Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
++| Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern structure. |
++
++### Recommended Trigger Keywords
++
++```
++## Trigger Keywords
++
++- Direct:   "create an issue", "new issue", "file a bug", "open a ticket"
++- CLI:      `gitflow-cli issue create`
++- Symptoms: user describes a problem or feature request but has not yet formalized it
++- Synonyms: "bug report", "feature request", "chore", "ticket"
++```
++
++---
++
++## Improvement Recommendations
++
++### P0 (Must Fix — blocking compliance)
++
++1. **Rewrite `description` frontmatter** — convert from workflow-description to `Use when...` trigger-only format.
++2. **Add Responsibility Boundary section** — `## ✅ Responsible For` / `## ❌ Not Responsible For` / `## 🚫 Do Not` lists.
++3. **Add Trigger Keywords section** — list direct phrases, CLI commands, synonyms, symptoms.
++4. **Add Test Scenarios** — at least: happy-path bug report, minimal creation, Unicode/edge-case, and CLI-failure handling.
++5. **Add When-NOT-to-Use table** — with common rationalization excuses and counter-arguments.
++
++### P1 (Should Fix — recommended for polish)
++
++6. **Add cross-references** — `## See Also` linking to `gitflow-issue`, `gitflow-issue-triage`, `gitflow-label-milestone`.
++7. **Add Quick Reference section** — one-page command cheat-sheet for advanced users.
++8. **Add Common Mistakes section** — e.g., using non-conventional-commit titles, omitting acceptance criteria, passing unescaped quotes in `--body`.
++9. **Add Red Flags section** — warnings about batch creation, pipeline usage, and cross-repo creation.
++10. **Convert narrative steps to pattern language** — each `步骤 N` becomes a named `## Pattern: <name>` with `### Anti-pattern` callouts.
++
++### P2 (Optional — nice to have)
++
++11. **Baseline test** — explicit description of no-skill behavior for comparison.
++12. **Stress test** — Unicode, very long body, empty label list, network failure simulation.
++13. **Token budget** — if skill grows beyond 200 lines, split into `SKILL.md` (core) + `references/` (examples).
++14. **Localization audit** — ensure all examples use ASCII shells/script names; keep user-facing prose in Chinese.
++
++---
++
++## Success Criteria (Acceptance)
++
++After the refactor is applied, the skill SHOULD pass the following checks:
++
++- [ ] `description` matches `/^Use when/i` and contains no workflow description.
++- [ ] Contains a `## ✅ Responsible For` / `## ❌ Not Responsible For` section.
++- [ ] Contains a `## 🚫 Do Not` prohibition list with ≥ 3 items.
++- [ ] Contains a `## Trigger Keywords` section with ≥ 5 trigger phrases.
++- [ ] Contains a `## Test Scenarios` section with ≥ 4 scenarios (including 1 negative).
++- [ ] Contains a `## See Also` cross-reference section.
++- [ ] Contains a `## When NOT to Use this Skill` table with rationalization-counterpairs.
++- [ ] No `cargo` commands are embedded in narrative; only in ` ```bash ` code blocks.
++- [ ] `make check-agent-sync` passes (if applicable).
++- [ ] `superpowers:writing-skills` review returns zero P0 findings.
++
++---
++
++## Summary Scorecard
++
++| Dimension | Rating | Key Gap |
++|-----------|--------|---------|
++| 1. Structure & Documentation | ⚠️ 需改进 | Description violates trigger-only rule; missing canonical sections |
++| 2. Responsibility Boundaries | ❌ 不合格 | No boundary, scope, prohibition, or red-flag declarations |
++| 3. Testability | ❌ 不合格 | No test scenarios, baseline, or success criteria |
++| 4. Superpowers Best Practices | ⚠️ 需改进 | Missing keywords, cross-references, quick-ref; TDD not applied |
++
++**Overall verdict:** The skill functions as a linear workflow tutorial but does not meet the writing-skills standard for trigger-accuracy, boundary clarity, testability, or anti-scope-creep guardrails. The P0 recommendations should be applied before this skill is considered safe for autonomous invocation.

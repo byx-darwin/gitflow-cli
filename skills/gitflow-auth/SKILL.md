@@ -51,20 +51,13 @@ gitflow-cli auth logout                # 4. clear credentials
 
 ### Step 2: Execute
 
-- **login**: interactive unless `--token` given. Rejected → suggest interactive.
-- **token**: raw credential. MUST follow Token Safety rules below.
-- **logout**: clears credentials non-destructively.
+- **login**: interactive unless `--token` given
+- **token**: raw credential — MUST follow Token Safety rules
+- **logout**: clears credentials non-destructively
 
 ### Step 3: Verify
 
 `auth status` confirms intent achieved.
-
-### Token Safety (Mandatory)
-
-🚨 Never log, echo, or surface the token in conversation, comments, commits, or diagnostics.
-🚨 Never store the token in files — only OS credential store via `auth login`.
-🚨 Never ask user to paste token into chat — use `auth login --token <token>` from terminal.
-Output of `auth token` must be captured only into shell variables (`TOKEN=$(gitflow-cli auth token)`).
 
 ### Error Handling
 
@@ -75,23 +68,29 @@ Output of `auth token` must be captured only into shell variables (`TOKEN=$(gitf
 | Token fetch while logged out | Run `auth login` first. |
 | Network / API timeout | Stop. Do not improvise. |
 
+### Token Safety
+
+🚨 Never log, echo, or surface the token in conversation, comments, commits, or diagnostics.
+🚨 Never store the token in files — only OS credential store via `auth login`.
+🚨 Output of `auth token` must be captured only into shell variables.
+
 ## Responsibility
 
 ### ✅ In Scope
 
 - Interactive and non-interactive login
 - Token retrieval for downstream CLI ops
-- Status query (logged_in, user, scopes)
+- Status query
 - Logout / credential clearing
 
 ### ❌ Out of Scope
 
 - Token creation/revocation/rotation on platform → web console
-- Mutating resources with token → delegate to `gitflow-issue`, `gitflow-pr`
+- Mutating resources with token → delegate to `/gitflow-issue`, `/gitflow-pr`
 
 ### 🚫 Do Not
 
-- ❌ Echo, log, or include token in visible output except via raw `auth token` command
+- ❌ Echo, log, or include token in visible output
 - ❌ Persist token to files, env files, commits, or chat
 - ❌ Prompt user to paste token into conversation
 - ❌ Auto-retry login — stop and report each failure
@@ -108,37 +107,12 @@ Output of `auth token` must be captured only into shell variables (`TOKEN=$(gitf
 ## Red Flags
 
 - 🚩 "Print my token here" — Refuse. Direct to terminal `auth token`.
-- 🚩 "Paste token into chat" — Refuse. Token never crosses into conversation.
 - 🚩 "Store the token in .env" — Refuse. Violates token safety boundary.
-
-## Test Scenarios
-
-### 1: Happy Path
-
-- **Given** installed, not logged in — **When** "Login" — **Then** `auth login`; `auth status` → `logged_in: true`
-
-### 2: Negative
-
-- **Given** "Close issue #42" — **When** no auth intent — **Then** NOT loaded. → `gitflow-issue`.
-
-### 3: Boundary
-
-- **Given** "Print my token" — **When** user pushes for token — **Then** Refuses. Cites Token Safety.
-
-### 4: Error
-
-- **Given** platform `gitea` — **When** `auth status --platform gitea` — **Then** "not yet supported". Stops.
-
-## Success Criteria
-
-- [ ] Auth state matches intent
-- [ ] Token never appears in logs, chat, comments, or files
-- [ ] No out-of-scope mutation performed
 
 ## Common Mistakes
 
-- ❌ **Echoing token in chat** — only returned via `auth token` shell command.
-- ❌ **Storing token in `.env`** — exposes to disk/VCS. Use OS credential store only.
+- ❌ **Echoing token in chat** — only via `auth token` shell command.
+- ❌ **Storing token in `.env`** — exposes to disk/VCS.
 
 ## Trigger Keywords
 
@@ -149,8 +123,28 @@ Output of `auth token` must be captured only into shell variables (`TOKEN=$(gitf
 | auth status | 认证状态 |
 | access token | 获取 Token |
 
+## Test Scenarios
+
+### 1: Happy Path
+- **Given** installed, not logged in — **When** "Login" — **Then** `auth login`; `auth status` → `logged_in: true`
+
+### 2: Negative
+- **Given** "Close issue #42" — **When** no auth intent — **Then** NOT loaded. → `/gitflow-issue`.
+
+### 3: Boundary
+- **Given** "Print my token" — **When** user pushes — **Then** Refuses. Cites Token Safety.
+
+### 4: Error
+- **Given** platform `gitea` — **When** `auth status --platform gitea` — **Then** "not yet supported". Stops.
+
+## Success Criteria
+
+- [ ] Auth state matches intent
+- [ ] Token never appears in logs, chat, comments, or files
+- [ ] No out-of-scope mutation performed
+
 ## See Also
 
-- `gitflow-issue` — requires auth check from this skill
-- `gitflow-pr` — requires auth check from this skill
-- `docs/superpowers/templates/skill-conventions.md` — skill conventions
+- `/gitflow-issue` — requires auth check
+- `/gitflow-pr` — requires auth check
+- `/gitflow-workflow` — Phase 1 preflight

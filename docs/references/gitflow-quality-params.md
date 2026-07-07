@@ -1,41 +1,59 @@
-# gitflow-quality Multi-Language Command Reference
+# Quality Gate Reference — Parameters and Multi-Language Support
 
-> **Companion to:** `skills/gitflow-quality/SKILL.md`
-> **Purpose:** Non-Rust project command matrix. The skill itself only embeds the Rust path; this file covers Node.js, Python, Go, Java.
+## Quality Report Template
 
----
+```markdown
+## Quality Report — YYYY-MM-DD
 
-## Language Detection
-
-```bash
-if [ -f "Cargo.toml" ]; then
-    LANG="rust"
-elif [ -f "package.json" ]; then
-    LANG="node"
-elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-    LANG="python"
-elif [ -f "go.mod" ]; then
-    LANG="go"
-elif [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
-    LANG="java"
-else
-    LANG="unknown"
-fi
+| Check       | Status | Details                                   |
+|-------------|--------|-------------------------------------------|
+| build       | ✅     | 0 errors, 0 warnings                      |
+| test        | ✅     | 47 passed, 0 failed                       |
+| coverage    | ✅     | 85.3% (threshold: 80%)                    |
+| format      | ✅     | No diff                                   |
+| static      | ✅     | No warnings                               |
+| pre-commit  | ✅ / N/A | All hooks passed / No .pre-commit-config.yaml |
 ```
 
-## Command Matrix
+**Overall conclusion:**
 
-| Check | Rust | Node.js | Python | Go | Java |
-|-------|------|---------|--------|-----|------|
-| build | `cargo build --workspace` | `npm run build` | `python -m py_compile src/` | `go build ./...` | `mvn compile -q` / `gradle compileJava` |
-| test | `cargo test --workspace` | `npm test` | `pytest` | `go test ./...` | `mvn test` / `gradle test` |
-| coverage | `cargo tarpaulin --workspace` | `npx jest --coverage` / `npx vitest run --coverage` | `pytest --cov` | `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| grep total` | `mvn verify -Pcoverage` / `gradle jacocoTestReport` |
-| format | `cargo +nightly fmt -- --check` | `npx prettier --check .` | `black --check .` | `test -z "$(gofmt -l .)"` | `mvn spotless:check` / `mvn formatter:format` |
-| static | `cargo clippy --workspace --all-targets -- -D warnings` | `npx eslint .` | `ruff check .` | `golangci-lint run` | `mvn pmd:check` / `mvn spotbugs:check` |
-| pre-commit | `pre-commit run --all-files` | `npx lint-staged` / skip | `pre-commit run --all-files` | `pre-commit run --all-files` | `pre-commit run --all-files` |
+- `**Result: ✅ ALL CHECKS PASSED — Ready for delivery**`
+- `**Result: ❌ QUALITY GATE FAILED — Return to Phase 2 for fixes**`
 
-## Notes
+Skipped gates in failed reports are marked `⏭️ SKIPPED`.
 
-- **Rust** is the primary path for this project. All other languages are fallback.
-- **Coverage threshold** defaults to 80% (`COVERAGE_THRESHOLD` env var overrides).
-- **Pre-commit N/A**: if `.pre-commit-config.yaml` is absent, mark `N/A` and continue.
+## Multi-Language Toolchains
+
+When the project manifest is **not** `Cargo.toml`, swap commands per language.
+
+| Gate      | Node.js                       | Python            |Go                          | Java                          |
+|-----------|-------------------------------|-------------------|----------------------------|-------------------------------|
+| build     | `npm run build`               | `python -m py_compile src/` | `go build ./...`    | `mvn compile -q`              |
+| test      | `npm test`                    | `pytest`          | `go test ./...`            | `mvn test`                    |
+| coverage  | `npx jest --coverage`         | `pytest --cov`    | `go test -coverprofile=...`| `mvn verify -Pcoverage`       |
+| format    | `npx prettier --check .`      | `black --check .` | `test -z "$(gofmt -l .)"`  | `mvn spotless:check`          |
+| static    | `npx eslint .`                | `ruff check .`    | `golangci-lint run`        | `mvn pmd:check`               |
+| pre-commit| `npx lint-staged`             | `pre-commit run --all-files` | `pre-commit run --all-files` | `pre-commit run --all-files` |
+
+Use `rustfmt.toml`, `clippy.toml`, `eslintrc`, etc. to infer convention where installed.
+
+## Issue Publishing Behavior
+
+When `.claude/gh-issue/current-issue.txt` exists and `gitflow-cli` is on `PATH`:
+
+1. Render report to temp file `quality-report.md`.
+2. Ask user to confirm publish.
+3. On yes: `gitflow-cli issue comment "${ISSUE_NUMBER}" --body-file quality-report.md`, then `rm -f quality-report.md`.
+
+Otherwise: output report to terminal only.
+
+## Fix Commands by Gate (shown to user, not run automatically)
+
+| Gate      | User Fix Command                              |
+|-----------|-----------------------------------------------|
+| build     | `cargo build --workspace` — read errors        |
+| test      | `cargo test --workspace -- --nocapture`        |
+| coverage  | Add tests for untested paths                   |
+| format    | `cargo +nightly fmt`                           |
+| static    | `cargo clippy --fix --workspace --all-targets` |
+| pre-commit| `pre-commit run --all-files` — inspect failures |

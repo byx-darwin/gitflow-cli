@@ -1,0 +1,42 @@
+# Review package: 0b33fec..e6cc606
+
+## Commits
+e6cc606 fix: use nested hooks format for Stop Hook config
+
+## Files changed
+ apps/cli/src/commands/skills.rs | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+## Diff
+diff --git a/apps/cli/src/commands/skills.rs b/apps/cli/src/commands/skills.rs
+index 695f6bb..82d5f8d 100644
+--- a/apps/cli/src/commands/skills.rs
++++ b/apps/cli/src/commands/skills.rs
+@@ -322,21 +322,26 @@ fn install_hook(global: bool, force: bool) -> miette::Result<()> {
+         "✅ Hook 已安装 ({})",
+         if global { "全局" } else { "项目级" }
+     );
+     Ok(())
+ }
+
+ /// 合并 Stop Hook 配置到 JSON 对象中。
+ fn merge_stop_hook(mut json: serde_json::Value, cmd: &str) -> serde_json::Value {
+     let hook = serde_json::json!({
+         "matcher": "gitflow",
+-        "command": cmd
++        "hooks": [
++            {
++                "type": "command",
++                "command": cmd
++            }
++        ]
+     });
+
+     if let serde_json::Value::Object(obj) = &mut json {
+         let hooks = obj
+             .entry("hooks")
+             .or_insert(serde_json::json!({"Stop": []}));
+         if let serde_json::Value::Object(h) = hooks {
+             let stops = h.entry("Stop").or_insert(serde_json::json!([]));
+             if let serde_json::Value::Array(arr) = stops {
+                 // 替换已存在的 gitflow hook 或追加

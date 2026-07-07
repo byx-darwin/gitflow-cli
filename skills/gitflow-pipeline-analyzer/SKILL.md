@@ -1,182 +1,103 @@
 ---
 name: gitflow-pipeline-analyzer
-description: |
-  Use when the user wants to analyze CI/CD pipeline health (success rate trends, failure patterns, duration bottlenecks), diagnose flaky tests, or generate a pipeline improvement report.
-  当用户想要分析 CI/CD 流水线健康状况（成功率趋势、失败模式、耗时瓶颈）、诊断 flaky test 或生成流水线改进报告时使用。
+description: >
+  Use when the user wants to analyze CI/CD pipeline health — success-rate trends,
+  failure patterns, duration bottlenecks, flaky tests, or a pipeline improvement
+  report. 当用户需要分析流水线成功率、归类失败原因、识别耗时瓶颈、
+  flaky test，或生成流水线优化报告时使用。
 ---
 
-# gitflow-pipeline-analyzer
+# gitflow-pipeline-analyzer — CI/CD Pipeline Health Analyzer
 
-Analyzes CI/CD pipeline health across success-rate trends, failure patterns, and duration. Produces prioritized improvement reports from `docs/templates/pipeline-report.md`. Read-only — no pipeline modifications.
+三维度分析：成功率趋势 / 失败模式 / 耗时分布 → 报告 + 优先级改进建议。
+Read-only: never triggers/reruns/cancels pipelines.
+Full params & report template: docs/references/gitflow-pipeline-analyzer-params.md
 
-## When to Use
+## Overview / 概述
 
-| English | 中文 | Context |
-|---------|------|---------|
-| pipeline health check | 流水线健康检查 | analyze success, failures, duration |
-| flaky test diagnosis | 间歇性失败诊断 | identify recurring failures |
-| CI analysis / report | CI 分析报告 | generate improvement report |
-| pipeline is unstable | 流水线老挂 / 不稳定 | explain why pipelines fail |
-| CI is slow | CI 太慢 / 耗时长 | identify duration bottlenecks |
-| build keeps failing | build 持续失败 | **NOT** for fixing — analysis only |
+只读分析 CI/CD 三维度健康指标，按优先级排序改进建议。
 
-## Core Pattern
+## 触发关键词 / Trigger Keywords
 
-```bash
-command -v gitflow-cli && git rev-parse --show-toplevel    # preconditions
-BRANCH=$(git branch --show-current); DAYS=7                 # parameters
-gitflow-cli pipeline report --branch "$BRANCH" --days "$DAYS"
-gitflow-cli pipeline status --branch "$BRANCH"
-gitflow-cli pipeline jobs --pipeline-id <longest-id>         # duration deep-dive
+CN 流水线分析 CI失败 flaky test 耗时分析
+EN pipeline health analyze flaky test CI slow success rate
+CLI `gitflow-cli pipeline report --branch <B> --days <N>`
+
+## 路由决策 / Data Sufficiency Flow
+
+```mermaid
+flowchart TD
+  U[用户请求分析] --> PRE{CLI 是否可用?}
+  PRE -->|否| ERR1[提示未安装]
+  PRE -->|是| DATA[pipeline report --branch --days]
+  DATA --> H{有数据?}
+  H -->|无| NODATA[提示无记录]
+  H -->|有| ANALYZE[三维度分析]
+  ANALYZE --> REPORT[报告 + 建议]
+  REPORT --> OUT[输出给用户]
 ```
 
-## Quick Reference
+## 快速参考 / Quick Reference
 
-| Goal | Command |
+| Step | Command |
 |------|---------|
-| Report / Status | `pipeline report --branch <b> --days <n>` / `pipeline status --branch <b>` |
-| Jobs / Logs | `pipeline jobs --id <id>` / `pipeline logs --id <id>` |
+| 报告 | `gitflow-cli pipeline report --branch <B> --days <N>` |
+| 状态 | `gitflow-cli pipeline status --branch <B>` |
+| Jobs | `gitflow-cli pipeline jobs --pipeline-id <ID>` |
+| Logs | `gitflow-cli pipeline logs --pipeline-id <ID>` |
 
-| Success Rate | Grade | Trend Arrow | Meaning |
-|--------------|-------|-------------|---------|
-| ≥ 95% | 🟢 Healthy | Latter half higher | 📈 Improving |
-| 80%–94% | 🟡 Watch | Latter half lower | 📉 Degrading |
-| < 80% | 🔴 Alert | Delta < 5% | ➡️ Stable |
+## 核心模式 / Pattern Triplets
 
-| Priority | Condition |
-|----------|-----------|
-| 🔴 Urgent | < 80% or持续性 build 失败 |
-| 🟠 High | 80%–94% or flaky test |
-| 🟡 Medium | duration ↑ > 20% or lint repeats |
-| 🟢 Low | ≥ 95% but room to optimize |
+| 用户输入 | 处理 |
+|---------|------|
+| "流水线老挂" | `report --days 7` → success <80% → 🟡/🔴 告警 |
+| "CI 太慢" | `jobs --pipeline-id <longest>` → 瓶颈 + 缓存建议 |
+| "flaky test" | 间歇失败 ≥2 次 → 标记 flaky |
 
-## Implementation
+## ✅ 职责 / 🚫 禁止
 
-### Preconditions
+✅ read-only 三维度分析 + 报告 + 建议
+🔴 禁止 trigger/rerun/cancel / 改 CI 配置 / 自动创建 Issue
 
-- `command -v gitflow-cli` succeeds
-- `git rev-parse --show-toplevel` succeeds
-- Branch has pipeline runs in range
+## 红旗与防御 / Red Flags + Defense
 
-### Step 1: Gather
+- "自动修复流水线" → 仅分析；修复需用户决定
+- "重试所有失败" → 拒绝；需用户确认每次
 
-```bash
-gitflow-cli pipeline report --branch "$BRANCH" --days "$DAYS"
-gitflow-cli pipeline status --branch "$BRANCH"
-```
+## 常见错误 / Common Mistakes
 
-Extract total, passed, failed, canceled, avg/max duration, per-job rate. **Empty → prompt to widen scope; stop.**
+| 错误 | 修正 |
+|------|------|
+| 仅看平均成功率 | 看 P90/P95 更有信号 |
+| 间歇失败当持续 | 连续 ≥3 才是持续；否则 flaky |
 
-### Step 2: Success-Rate Trend
+## 合理化反驳 / Rationalization
 
-`passed / total × 100%` → grade. Split range in half → trend arrow.
+"重试失败 pipeline" → 写操作超出只读范围
 
-### Step 3: Failure Patterns
+## 错误处理 / Error Handling
 
-Group by job. Classify: build / test / lint / deploy / timeout. ≥ 3 consecutive = persistent; intermittent = flaky; same stage cluster = shared root cause.
+| 错误 | 处理 |
+|------|------|
+| `report` 空 | 提示无记录；建议扩大 --days |
+| `jobs` 失败 | 提示权限或 pipeline ID 不存在 |
+| 字段缺失 | 跳过耗时分析；仅做成功率+失败模式 |
 
-### Step 4: Duration Distribution
+## 场景测试 / Test Scenarios
 
-Longest run → `pipeline jobs` → bottleneck. Use P50/P90/P95 — not just mean.
+- **Happy**: 分析 main 7 天 → 三维度报告 + 改进建议
+- **Negative**: "帮我重试失败" → 拒绝，建议手动
+- **Boundary**: 新分支无记录 → 提示不足，建议 --days 30
+- **Error**: `report` 403 → 提示权限，建议检查 auth
 
-### Step 5: Report
+## 成功标准 / Success Criteria
 
-Render from `docs/templates/pipeline-report.md`. Required: overview, narrative, failure table, duration table, prioritized suggestions.
-
-## Error Handling
-
-| Error | Recovery |
-|-------|----------|
-| `pipeline report` empty | Prompt to widen scope; stop |
-| `pipeline report` non-zero | Output error; suggest wider scope; stop |
-| `pipeline jobs` / `logs` failure | Skip deep-dive; report available |
-
-## Responsibility
-
-### ✅ In Scope
-
-- Fetch data via `report` / `status` / `jobs` / `logs`
-- Analyze 3 dimensions: success-rate trend, failure pattern, duration
-- Generate report from `docs/templates/pipeline-report.md`
-- Produce prioritized suggestions
-
-### ❌ Out of Scope
-
-- Modify CI config (`.gitlab-ci.yml`, `.github/workflows/*.yml`)
-- Retry / cancel / trigger pipelines
-- Auto-create issues or PRs
-- Push results to Slack / email / external channels
-- Fix root causes
-
-### 🚫 Do Not
-
-- ❌ Trigger, retry, cancel, or modify any pipeline run
-- ❌ Edit CI configuration files
-- ❌ Auto-create issues / PR based on findings
-- ❌ Send reports to external channels without explicit request
-- ❌ Generate a report when `pipeline report` returns no data
-- ❌ Fabricate trend numbers when data is insufficient
-
-## Rationalization
-
-| Excuse | Reality |
-|--------|---------|
-| "Just retry the failed pipeline" | Read-only; never trigger |
-| "Fix the CI config while I'm at it" | Out of scope; analysis only |
-| "Auto-create an issue to track this" | Out of scope; user decides |
-| "Send report to the team chat" | Out of scope; user decides |
-| "User said fix it" | Redirect to `/gitflow-workflow` |
-| "Data's thin — I'll extrapolate" | Widen scope; never fabricate |
-
-## Red Flags
-
-- 🚩 "Fix the pipeline config" — refuse; analysis only
-- 🚩 "Retry all failures" — refuse; never trigger
-- 🚩 "Send this to Slack" — refuse without explicit request
-- 🚩 "Skip the trend analysis" — non-skippable
-- 🚩 "Just give a quick verdict" — all 3 dimensions required
-- 🚩 "No data, just guess" — refuse; widen scope
-
-## Test Scenarios
-
-### Scenario 1: Happy Path
-
-- **Given** Branch with ≥ 1 run in range
-- **When** "流水线最近老挂，帮我分析一下"
-- **Then** Report with 3 dimensions + prioritized suggestions; no pipeline modified
-
-### Scenario 2: Negative — Wants Fix
-
-- **Given** "帮我修一下流水线配置"
-- **When** Targets CI config edits
-- **Then** Do NOT load; redirect — skill is read-only
-
-### Scenario 3: Boundary — Tempted to Retry
-
-- **Given** Report shows repeated failures
-- **When** Claude considers retrying failed ones
-- **Then** Refuse; cite 🚫 Do Not; stick to report
-
-### Scenario 4: Error — Empty Report
-
-- **Given** New branch, no runs in range
-- **When** `pipeline report` returns empty
-- **Then** "No data — widen `--days` or change branch"; no empty report
-
-## Success Criteria
-
-- [ ] All 3 dimensions analyzed (success-rate trend, failure pattern, duration)
-- [ ] Report rendered from `docs/templates/pipeline-report.md`
-- [ ] Grade + trend + priority follow thresholds
-- [ ] No pipeline triggered, modified, or retried
-- [ ] No CI config edited, no issue/PR auto-created, no external push
-- [ ] Empty data handled with scope-widening prompt, not fabricated report
+- 三维度覆盖 ≥2
+- 建议按优先级排序
+- 不足时优雅降级
+- 全程无写操作
 
 ## See Also
 
-- `gitflow-precommit` — pre-commit checks correlate with pipeline failures
-- `gitflow-quality` — code quality gate ties into CI health
-- `gitflow-regression` — regression investigation on test failures
-- `gitflow-weekly-report` — cites pipeline analysis in weekly report
-- `superpowers:systematic-debugging` — systematic debug for pipeline failures
-- `docs/templates/pipeline-report.md` — report template
+- gitflow-precommit — 本地检查避免失败
+- gitflow-quality — 代码质量 6-gate

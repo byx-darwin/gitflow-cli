@@ -1,158 +1,151 @@
 ---
 name: gitflow-security-check
 description: |
-  Use when the user requests a security audit, vulnerability scan, secret leak detection, or input validation review.
-  当用户请求安全审计、漏洞扫描、密钥泄露检测或输入验证审查时使用。
+  Use when the user wants to audit the codebase for hardcoded secrets, dependency vulnerabilities, unsafe code, or license compliance.
+  当用户需要检查密钥硬编码、依赖漏洞、unsafe 代码、或许可证合规时使用。
 ---
 
 # gitflow-security-check
 
-## Overview
-
-Scan-only audit covering deps, secret patterns, input validation. Reports only — no fix, no exfil.
+Security audit checklist: dependency vulnerabilities, hardcoded secrets, unsafe code, license compliance. **Detection only — never auto-fix.**
 
 ## When to Use
 
 | English | 中文 | Context |
 |---------|------|---------|
-| security audit | 安全审计 | Full security review |
-| vulnerability scan | 漏洞扫描 | `cargo audit`, dep safety |
-| secret leak | 密钥泄露 | Hardcoded key worry |
-| input validation | 输入验证 | Injection / SSRF / traversal |
-| code style | 代码风格 | NOT this — redirect `gitflow-quality` |
+| security audit | 安全审计 | scan for vulnerabilities |
+| dependency vulns | 依赖漏洞 | cargo audit |
+| hardcoded secrets | 密钥硬编码 | grep patterns |
+| license compliance | 许可证合规 | cargo deny |
+| unsafe code check | unsafe 代码检查 | grep unsafe |
 
 ## Core Pattern
 
 ```bash
-cargo audit --version && cargo deny --version
-cargo audit
-cargo deny check
-grep -rnE "(pwd|secret|token)\s*=\s*['\"]" --include="*.rs" src/
-git ls-files | grep "\.env"
-# spot input guards → report
+cargo audit                                              # 1. dependency vulns
+cargo deny check                                         # 2. license compliance
+grep -rn "password\|secret\|api_key\|token\s*=" src/     # 3. hardcoded secrets
+grep -rn "unsafe" --include="*.rs" src/                  # 4. unsafe code
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Vulns | `cargo audit` |
-| License | `cargo deny check` |
-| Secrets | `grep -rnE "(pwd\|secret\|token)\s*=\s*['\"]" --include="*.rs" src/` |
-| Fix vuln | `cargo update -p <crate>` |
+| Dependency audit | `cargo audit` |
+| License check | `cargo deny check` |
+| Find secrets | `grep -rn "password\|secret\|api_key" src/` |
+| Find unsafe | `grep -rn "unsafe" --include="*.rs" src/` |
 
 ## Implementation
 
 ### Preconditions
 
-`test -f Cargo.toml`; `cargo audit --version`; `cargo deny --version`; `git rev-parse --is-inside-work-tree`.
+- `cargo-audit` installed
+- `cargo-deny` installed
+- Advisory DB up to date
 
-### Steps
+### Step 1: Run Scans
 
-1. `cargo audit` → parse CRITICAL / HIGH. db-fetch fail → `--no-fetch`, continue.
-2. `cargo deny check licenses advisories` → log failures, continue.
-3. grep + `git ls-files` — file + line only; **never log secret value**. Tracked `.env` = CRITICAL.
-4. Spot auth / DB / file-op for length, `SafePath`, parameterized query, scheme allowlist — gaps = MEDIUM/LOW.
-5. Emit three tables (dependency, secret, input-validation) + Summary. Sev: live secret/RCE = CRITICAL; missing public guard = HIGH; debug leak = MEDIUM.
+Execute the 4 scan commands from Core Pattern. Capture output.
+
+### Step 2: Triage Findings
+
+Classify by severity: `CRITICAL` > `HIGH` > `MEDIUM` > `LOW`.
+
+### Step 3: Report
+
+Produce a Security Audit Report with sections per scan type. Suggest fix commands (e.g., `cargo update -p <crate>`) — do NOT execute them.
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| db fetch fail | `--no-fetch`, note staleness |
-| `cargo-deny` missing | Note N/A, continue |
-| No grep match | Note "0 findings" |
-| `cargo audit` non-zero | Report, do not improvise |
+| `cargo-audit` not installed | Suggest `cargo install cargo-audit`. Do not improvise. |
+| Advisory DB stale | `cargo audit` auto-updates. Persist otherwise. |
+| `cargo deny` unavailable | Skip license section. Note in report. |
+| No Rust src/ | Stop. Skill applicable to Rust only. |
 
 ## Responsibility
 
 ### ✅ In Scope
 
-Run `cargo audit`, `cargo deny`, grep; spot-check; emit report; recommend (text only).
+- Run `cargo audit`, `cargo deny`, pattern greps
+- Produce Security Audit Report
+- Suggest fix commands (in report, not executed)
 
 ### ❌ Out of Scope
 
-Edit `audit.toml` / `deny.toml`; fix code (`gitflow-workflow`); commit/PR/Issue (`gitflow-{issue-create,pr-create}`); external send.
+- Auto-fixing vulnerabilities
+- Modifying `audit.toml` ignore list
+- Patching source code — `/gitflow-workflow`
+- Reporting vulns to Issue — `/gitflow-autoreport-bug`
 
 ### 🚫 Do Not
 
-- ❌ Auto-fix any vuln or missing guard
-- ❌ Edit `audit.toml` / `deny.toml`
-- ❌ Output secret values
-- ❌ Upload results externally
-- ❌ Create commits/PRs/Issues unless asked
+- ❌ Run `cargo update` or apply patches
+- ❌ Modify `.gitignore`, `audit.toml`, or source
+- ❌ Report vulns to Issue without user confirmation
+- ❌ Skip severity triage — CRITICAL must be called out
 
-## Rationalization Excuse Counter-Table
+## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "Fix this one quick" | Scan-only; redirect `gitflow-workflow` |
-| "Ignoring this CVE" | Never edit `audit.toml`; log |
-| "Send to analyzer" | Data local; refuse |
-| "Test code exempt" | Still log; user decides |
-| "Skip cargo-deny" | Allow only if missing; note gap |
+| "Just patch it quickly" | Detection only; patching is out of scope. |
+| "The test-only secret is harmless" | Flag it; let the user decide. |
+| "Skip cargo deny if not installed" | Skip is OK — but note it in the report. |
 
 ## Red Flags
 
-- 🚩 "Auto-fix findings" — Refuse. Stop.
-- 🚩 Live token found — CRITICAL; advise rotation; no paste.
-- 🚩 "Ignore CVE-XXXX" — Refuse; log with note.
-- 🚩 Report externally — Refuse.
-- 🚩 DB corrupt → `--no-fetch`. No unofficial API.
-
-## Test Scenarios
-
-### 1: Happy Path
-
-- **Given** Valid Rust project, tools installed
-- **When** "security audit"
-- **Then** All 5 steps run, report emitted, no out-of-scope command.
-
-### 2: Negative
-
-- **Given** "run the quality gate before ship"
-- **When** No security/secret/vuln keyword
-- **Then** Does NOT load. Redirects to `gitflow-quality`.
-
-### 3: Boundary
-
-- **Given** HIGH vuln in `libfoo v0.2`
-- **When** "just `cargo update -p libfoo` for me"
-- **Then** Refuses. Recommends action, asks confirm.
-
-### 4: Error
-
-- **Given** No `cargo-deny`
-- **When** `cargo deny --version` fails
-- **Then** Notes "N/A", continues.
-
-## Success Criteria
-
-- [ ] 3 tables + Summary
-- [ ] No secret value in output
-- [ ] No files modified, no commit/PR/Issue created
-- [ ] Error Handling recovery used verbatim
-- [ ] ≥1 cross-reference resolved for fix action
+- 🚩 "Fix all the vulns now" — Refuse. Detection only.
+- 🚩 "Add to audit.toml to silence" — Refuse. User decides.
+- 🚩 "Ignore CRITICAL because it's transitive" — Refuse. Triage honestly.
+- 🚩 "Report vulns to Issue automatically" — Refuse. Confirm with user first.
 
 ## Common Mistakes
 
-- ❌ **Logging a secret** — Redact to `***`; log file + line only.
-- ❌ **Silent skip when cargo-deny missing** — Note N/A.
-- ❌ **Fixing a vuln after finding** — Report-only. Offer `gitflow-workflow`.
-- ❌ **Exempting test-module hardcode** — Still log; user decides.
+- ❌ **Running `cargo update -p <crate>` to "help"** — never auto-fix.
+- ❌ **Marking `MEDIUM` as "ok to skip"** — present findings neutrally.
 
 ## Trigger Keywords
 
 | English | 中文 |
 |---------|------|
 | security audit | 安全审计 |
-| vulnerability scan | 漏洞扫描 |
-| secret leak | 密钥泄露 |
-| input validation | 输入验证 |
+| cargo audit | 依赖漏洞 |
+| hardcoded secrets | 密钥硬编码 |
+| unsafe code | unsafe 代码 |
+| license check | 许可证合规 |
+
+## Test Scenarios
+
+### 1: Happy Path
+- **Given** Rust workspace with `cargo-audit` + `cargo-deny` — **When** "run security audit"
+- **Then** 4 scans run → report produced → fix suggestions (not executed)
+
+### 2: Negative
+- **Given** "fix the unsafe code in src/foo.rs" — **When** user asks for fix
+- **Then** skill NOT loaded — redirect `/gitflow-workflow`
+
+### 3: Boundary
+- **Given** CRITICAL vuln found — **When** "just patch it quickly"
+- **Then** refuse; cite Out of Scope
+
+### 4: Error
+- **Given** `cargo-audit` not installed — **When** skill runs
+- **Then** suggest install; do not improvise with raw `curl`/`wget`
+
+## Success Criteria
+
+- [ ] 4 scans attempted
+- [ ] Findings classified by severity
+- [ ] Fix commands suggested, not executed
+- [ ] No source/config modifications
 
 ## See Also
 
-- `gitflow-quality` — 6-gate post-fix quality check
-- `gitflow-precommit` — commit-time gate overlapping scan
-- `gitflow-autoreport-bug` — same report-only boundary
-- `docs/superpowers/templates/skill-template.md` — template conformance
+- `/gitflow-quality` — 6-gate pre-delivery check
+- `/gitflow-precommit` — pre-commit security hook
+- `/gitflow-pipeline-analyzer` — CI/CD security gates
+- `/gitflow-autoreport-bug` — file vuln as Issue

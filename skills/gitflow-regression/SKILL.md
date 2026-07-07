@@ -1,197 +1,146 @@
 ---
 name: gitflow-regression
 description: |
-  Use when running smoke or regression tests against gitflow CLI, parsing test results for regressions, or reporting smoke-test failures.
-  当运行冒烟/回归测试、解析测试结果、或上报冒烟测试失败时使用。
+  Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results for regressions, or wants automatic bug reporting for smoke-test failures.
+  当用户运行冒烟/回归测试、解析测试结果或需要自动上报失败时使用。
 ---
 
 # gitflow-regression
 
-Run `scripts/smoke-test.sh`, parse PASS/FAIL/SKIP, classify failures, report only genuine CLI bugs via `gitflow-autoreport-bug`. Read-only default; write requires explicit confirmation.
+Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to `/gitflow-autoreport-bug`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
 
 ## When to Use
 
-| English | 中文 | Trigger Context |
-|---------|------|-----------------|
-| smoke test | 冒烟测试 | E2E CLI verify |
-| regression check | 回归检查 | after changes, pre-release |
-| any regressions | 有回归吗 | user asks post-change |
-| pre-release check | 发版前检查 | gate before release |
-
-> **Chain boundary** — invokes `gitflow-autoreport-bug` for CLI-bug failures only — never auth/network.
+| English | 中文 | Context |
+|---------|------|---------|
+| smoke test | 冒烟测试 | quick CLI check |
+| regression test | 回归测试 | post-change verification |
+| pre-release check | 发版前检查 | before release |
+| run smoke | 跑一下冒烟 | casual trigger |
 
 ## Core Pattern
 
 ```bash
-test -f scripts/smoke-test.sh && chmod +x scripts/smoke-test.sh
-command -v gitflow-cli
-OUTPUT=$(bash scripts/smoke-test.sh --platform "${PLATFORM:-github}" 2>&1); EXIT=$?
-PASS=$(grep -oP '\d+(?=\s+passed)' <<< "$OUTPUT" || echo 0)
-FAIL=$(grep -oP '\d+(?=\s+failed)' <<< "$OUTPUT" || echo 0)
-SKIP=$(grep -oP '\d+(?=\s+skipped)' <<< "$OUTPUT" || echo 0)
-[ $EXIT -eq 0 ] && { echo "GREEN"; exit 0; }
-grep '\[FAIL\]' <<< "$OUTPUT" | classify_non_auth
+test -f scripts/smoke-test.sh
+bash scripts/smoke-test.sh --platform github 2>&1
+# parse EXIT + PASS/FAIL/SKIP
+# FAIL>0 → classify → /gitflow-autoreport-bug
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Default read-only | `bash scripts/smoke-test.sh --platform <p>` |
-| Verbose | append `--verbose` |
-| Write (must confirm) | append `--write` |
-| Version | `bash scripts/smoke-test.sh --version` |
+| Read-only | `bash scripts/smoke-test.sh --platform github` |
+| Verbose | `bash scripts/smoke-test.sh --platform github --verbose` |
+| Write mode | `bash scripts/smoke-test.sh --platform github --write` |
+
+Platforms: github, gitlab, gitcode. Default mode: read-only; `--write` requires explicit user confirmation.
 
 ## Implementation
 
 ### Preconditions
 
-- `git rev-parse --show-toplevel`
-- `test -f scripts/smoke-test.sh` (chmod +x if needed)
-- `command -v gitflow-cli`
+- In git repo — `git rev-parse --show-toplevel`
+- `scripts/smoke-test.sh` executable
+- `gitflow-cli` on PATH — `command -v gitflow-cli`
+- Auth valid — `gitflow-cli auth status` (auth-fail → `gitflow auth login`, stop)
 
-### Step 1: Run & Parse
+### Steps
 
-User asked `--write` → write mode. Else `--read-only` mandatory.
-
-```bash
-OUTPUT=$(bash scripts/smoke-test.sh --platform "${PLATFORM:-github}" 2>&1); EXIT=$?
-```
-
-Extract PASS/FAIL/SKIP. `EXIT=0` → "GREEN", done. `FAIL>0` → Step 2.
-
-### Step 2: Classify
-
-| Failure | Pattern | Report? |
-|---------|---------|---------|
-| CLI crash / mismatch | `panic`, `segfault`, `mismatch` | ✅ |
-| API 4xx/5xx (non-auth) | except 401/403/429 | ✅ |
-| Auth | `401`, `403`, `token` | ❌ notify |
-| Network / rate limit | `timeout`, `429` | ❌ notify |
-| Not found | `command not found` | ❌ notify |
-
-### Step 3: Report
-
-For each genuine CLI bug → `pending.json` → `/gitflow-autoreport-bug` → URL. See `gitflow-autoreport-bug` for schema.
-
-### Step 4: Summary
-
-`PASS: <n> | FAIL: <n> | SKIP: <n>` + URLs or "auth/network — not reported".
-
-## Flowchart
-
-```mermaid
-flowchart TD
-    A[Start] --> B{preconditions ok?}
-    B -->|no| Z[stop]
-    B -->|yes| C{user --write?}
-    C -->|yes| F[write mode]
-    C -->|no| F
-    F --> G{exit 0?}
-    G -->|yes| H[all green]
-    G -->|no| I{classify Fails}
-    I --> J{auth/net?}
-    J -->|yes| K[notify only]
-    J -->|no| L[pending.json]
-    L --> M[autoreport-bug]
-    M --> N[URL]
-    H --> End
-    K --> End
-    N --> End
-    Z --> End
-```
-
-## Responsibility
-
-### ✅ In Scope
-
-- Run smoke-test.sh, parse output
-- Classify failures vs auth/network/env
-- Generate pending.json for genuine CLI bugs only
-- Invoke gitflow-autoreport-bug (chain boundary)
-
-### ❌ Out of Scope
-
-- Fixing source — see `gitflow-workflow`
-- Fixing auth — see `gitflow-auth`
-- Modifying smoke-test.sh
-
-### 🚫 Do Not
-
-- ❌ Run `--write` without user confirmation
-- ❌ Report auth/network as bugs
-- ❌ Suppress temporary errors
+1. **Parameters** — platform default `github`; `--write` only on explicit user request.
+2. **Run** — `bash scripts/smoke-test.sh --platform <p> [--write] [--verbose]`; capture output + exit code.
+3. **Parse** — extract `PASS_COUNT`, `FAIL_COUNT`, `SKIP_COUNT`. Exit 0 → report, done. Else Step 4.
+4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no autoreport. Real bug → write `.cache/bug-reports/pending.json`, invoke `/gitflow-autoreport-bug`.
+5. **Report** — render markdown summary table + per-failure detail + reported Issue URLs.
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| `smoke-test.sh` missing | Stop; restore from git |
-| `gitflow-cli` missing | Stop; `cargo build` |
-| All auth failures | Stop; `/gitflow-auth` |
+| script missing | `chmod +x` or stop |
+| auth/network fail | Stop. Advise `gitflow auth login` |
+| flaky | Re-run once; flag if persists |
+| >5 failures | Single collective Issue |
 
-## Rationalization Excuse
+## Responsibility
+
+### ✅ In Scope
+
+- Run script, parse output, classify, delegate to autoreport, render report
+
+### ❌ Out of Scope
+
+- Fixing bugs — autoreport-bug reports only
+- Editing `scripts/smoke-test.sh`
+- Closing reported Issues
+
+### 🚫 Do Not
+
+- ❌ Run `--write` without explicit confirmation
+- ❌ Report transient auth/network failures
+- ❌ Invoke autoreport-bug from CI pipelines
+- ❌ Duplicate-report known flaky failures
+
+## 🔁 Delegation
+
+| Intent | Delegate To |
+|--------|-------------|
+| Run smoke test | This skill |
+| File bug | `/gitflow-autoreport-bug` |
+| Fix root cause | `/gitflow-workflow` |
+| Pre-release gate | `/gitflow-release` |
+
+## Rationalization
 
 | Excuse | Reality |
 |--------|---------|
-| "Just smoke — safe" | `--write` mutates remote — always confirm. |
-| "Skip auth check — user knows" | Auth ≠ CLI bug. Never report. |
+| "Just a smoke test" | Write mode still mutates remotes |
+| "Auth later" | Auth-less runs yield false failures |
 
 ## Red Flags
 
-- 🚩 "skip the precondition" — refuse; check env
-- 🚩 "run --write, I know risk" — confirmation mandatory
-- 🚩 "report auth too" — refuse; auth ≠ CLI bug
-
-## Test Scenarios
-
-### Scenario 1: Happy Path
-
-- **Given** exec `scripts/smoke-test.sh`, valid auth
-- **When** "run smoke test"
-- **Then** `--read-only`, `PASS: <n> | FAIL: 0 | SKIP: <m>`, zero Issues
-
-### Scenario 2: Negative
-
-- **Given** pre-commit subtree. **When** "fix smoke-test.sh"
-- **Then** Claude does NOT load; redirects to `/gitflow-workflow`
-
-### Scenario 3: Boundary
-
-- **Given** 2 fails, both `401`. **When** "report all including auth"
-- **Then** refuses; classifies as auth; notifies user; zero autoreport-bug calls
-
-### Scenario 4: Chain Boundary
-
-- **Given** 3 fails: 1 panic, 1 timeout, 1 `500`
-- **When** Claude processes
-- **Then** panic + 500 → autoreport-bug; timeout → notify; 2 URLs
-
-## Success Criteria
-
-- [ ] `--read-only` default; `--write` only on explicit ask
-- [ ] Auth/network/env out; only CLI bugs → autoreport-bug
-- [ ] Report has PASS/FAIL/SKIP + URLs
-- [ ] Chain boundary respected
-
-## Common Mistakes
-
-- ❌ **Reporting auth as bug** — classify first; only crashes → report
-- ❌ **Defaulting to `--write`** — read-only mandatory unless user asks
+- 🚩 "Run write mode" — Confirm non-production env
+- 🚩 "Ignore auth" — Refuse. Auth-fix first
+- 🚩 "Report every failure" — Suppress transient
+- 🚩 CI + autoreport — Refuse; CI uses exit code only
 
 ## Trigger Keywords
 
 | English | 中文 |
 |---------|------|
-| smoke test | 冒烟测试 |
-| regression test | 回归测试 |
-| any regressions | 有回归吗 |
-| pre-release check | 发版前检查 |
-| verify CLI works | 验证 CLI 正常 |
+| smoke test, regression test | 冒烟测试、回归测试 |
+| pre-release check, verify CLI | 发版前检查、验证 CLI |
+
+## Test Scenarios
+
+### 1: Happy Path — git repo, script present, auth valid, "run smoke test" → read-only, EXIT=0, summary report, done.
+
+### 2: Negative — "fix login bug" → NOT loaded. → `/gitflow-workflow`.
+
+### 3: Boundary — 3 auth-related failures → classified transient, autoreport NOT called, user advised `auth login`.
+
+### 4: Error — `--write` in production → Refuses. Confirm scope first.
+
+### 5: Error — script missing → Stop.
+
+## Success Criteria
+
+- [ ] Read-only unless user opts into write
+- [ ] PASS/FAIL/SKIP parsed and reported
+- [ ] Transient failures filtered
+- [ ] Real bugs delegated to autoreport
+- [ ] Markdown report rendered
+
+## Common Mistakes
+
+- ❌ **Defaulting to write mode** — read-only is default
+- ❌ **Reporting auth failures** — `auth status` first
+- ❌ **Ignoring non-zero exit** — always triggers Step 4
 
 ## See Also
 
-- `gitflow-autoreport-bug` — downstream chain boundary; reports CLI bugs as Issues
-- `gitflow-release` — pre-release smoke gate
-- `gitflow-quality` — complementary 6-gate check
-- `docs/superpowers/templates/skill-conventions.md` — template conventions
+- `gitflow-autoreport-bug` — bug reporting
+- `gitflow-release` — pre-release gate
+- `gitflow-quality` — quality checks
+- `gitflow-pipeline-analyzer` — CI inspection

@@ -1,167 +1,150 @@
 ---
 name: gitflow-quality
 description: |
-  Use when running the 6-gate quality check (build, test, coverage, format, lint, pre-commit), verifying a branch is ready, or generating a Quality Report.
-  当交付前运行 6 项质量检查、验证分支可交付性、或为关联 Issue 生成 Quality Report 时使用。
+  Use when running the 6-gate quality check (build, test, coverage, format, lint, pre-commit) before delivery, verifying a branch is ready for release, or generating a Quality Report.
+  当用户在交付前需运行 build/test/coverage/format/static/pre-commit 6 项质量检查、验证分支可交付或生成 Quality Report 时使用。
 ---
 
 # gitflow-quality
 
-6 quality gates with fast-fail. Diagnosis only. Non-Rust: see [command matrix](../references/gitflow-quality-params.md).
+## Overview
+
+6-gate fast-fail quality gate. Run gates in order; first failure stops the chain. Output a `Quality Report`. Optionally publish to a linked Issue **after user confirmation**. Full report template and non-Rust toolchains: `docs/references/gitflow-quality-params.md`.
 
 ## When to Use
 
-| English | 中文 | Trigger Context |
-|---------|------|-----------------|
-| quality gate | 质量关卡 | full 6-gate pre-delivery |
-| coverage too low | 覆盖率太低 | coverage regression |
-| clippy warnings | clippy 警告 | lint regression |
-| pre-commit failed | pre-commit 挂了 | partial → full audit |
-| is this ready | 能交付了吗 | readiness gate |
+| Trigger | 中文 | Redirect |
+|---------|------|----------|
+| run checks / quality gate | 跑检查, 质量闸门 | — |
+| is this ready / safe to release | 能交付吗, 可以发布吗 | — |
+| pre-commit failed | pre-commit 挂了 | → `gitflow-precommit` |
+| just commit | — | → `gitflow-commit` |
 
 ## Core Pattern
 
 ```bash
-git rev-parse --show-toplevel && [ -z "$(git status --porcelain)" ]
-cargo build --workspace 2>&1 || exit 1
-cargo test --workspace 2>&1 || exit 1
-cargo tarpaulin --workspace 2>&1 || exit 1
-cargo +nightly fmt -- --check 2>&1 || exit 1
-cargo clippy --workspace --all-targets -- -D warnings 2>&1 || exit 1
-[ -f .pre-command-config.yaml ] && pre-command run --all-files 2>&1 || echo "N/A"
+cargo build --workspace --quiet                 # 1. build
+cargo test --workspace --quiet                  # 2. test
+cargo tarpaulin --workspace 2>&1 | tail -3      # 3. coverage > 80%
+cargo +nightly fmt -- --check                  # 4. format
+cargo clippy --workspace --all-targets -- -D warnings  # 5. static
+pre-commit run --all-files                      # 6. pre-commit (or N/A)
 ```
 
-## Quick Reference
+Env var `COV_THRESHOLD` or `COVERAGE_THRESHOLD` overrides 80% default.
 
-| Goal | Command |
-|------|---------|
-| Build | `cargo build --workspace` |
-| Test | `cargo test --workspace` |
-| Coverage (threshold `${COVERAGE_THRESHOLD:-80}`) | `cargo tarpaulin --workspace` |
-| Format check / fix | `cargo +nightly fmt -- --check` / `cargo +nightly fmt` |
-| Lint check / fix | `cargo clippy --workspace --all-targets -- -D warnings` |
-| Pre-commit | `pre-command run --all-files` |
+## Quick Reference / Preconditions
 
-## Implementation
-
-### Preconditions
-- `git rev-parse --show-toplevel`
-- `git status --porcelain` empty
-- `cargo-tarpaulin` present — else prompt install
-
-### Step 1: Fast-fail 6-gate
-
-```mermaid
-flowchart TD
-    A[Start] --> B{gate N pass?}
-    B -->|exit 0| C[record ✅]
-    C --> D{more gates?}
-    D -->|yes| E[next gate]
-    E --> B
-    D -->|no| F[Done — all ✅]
-    B -->|exit ≠ 0| G[record ❌ + detail]
-    G --> H[mark rest ⏭️ SKIPPED]
-    H --> I[generate report]
-    F --> I
-```
-
-Coverage: `$COVERAGE_THRESHOLD` (default 80%, strict `>`). Pre-command `N/A` when `.pre-command-config.yaml` absent.
-
-### Step 2: Quality Report
-
-```markdown
-## Quality Report — YYYY-MM-DD
-| Check | Status | Details |  ← build, test, coverage, format, static, pre-command
-**Result: ✅ ALL CHECKS PASSED — Ready for delivery** or **Result: ❌ QUALITY GATE FAILED — Fix and re-run**
-```
-
-### Step 3: Issue Publish — CONFIRMATION GATE (P0)
-
-🚩 **ALWAYS ask: "Post Quality Report to Issue?"**
-- No → terminal only. Yes → read `<number>` from `.claude/gh-issue/current-issue.txt` → `gitflow-cli issue comment <number> --body-file quality-report.md` → return URL. Else skip.
-
-## Responsibility
-
-### ✅ In Scope
-- Run 6 gates, fast-fail
-- Generate Quality Report (6 statuses + result)
-- Publish to Issue AFTER user confirmation
-- Suggest fix commands — never execute them
-
-### ❌ Out of Scope
-- Fixing source / auto-fixing (`cargo fmt`, `cargo clippy --fix`, `cargo clean`)
-- Modifying configs
-- `git add`/`git commit`
-- `cargo install …`
-- Language detection — see [command matrix](../references/gitflow-quality-params.md)
-
-### 🚫 Do Not
-- ❌ Publish without per-invocation user confirmation
-- ❌ Run `cargo fmt`/`cargo clippy --fix`/`cargo clean`
-- ❌ Mark coverage/lint/format `N/A` when tool missing
+| # | Gate | Pass | Precondition |
+|---|------|------|-------------|
+| 1 | build | exit 0 | `git rev-parse --show-toplevel` |
+| 2 | test | all pass | clean workspace (`git status --porcelain` empty) |
+| 3 | coverage | > 80% | `cargo tarpaulin` installed (else skip, warn) |
+| 4 | format | exit 0, no diff | — |
+| 5 | static | exit 0, no warnings | — |
+| 6 | pre-commit | all hooks pass | `.pre-commit-config.yaml` exists |
 
 ## Rationalization Excuse
 
 | Excuse | Reality |
 |--------|---------|
-| "Report has no secrets — safe" | Always ask user. |
-| "Issue linked — implied consent" | Confirm per invocation. |
-| "Skip coverage — tarpaulin missing" | Prompt install. |
-| "Auto-fix fmt to unblock" | Out of Scope. |
-| "User in hurry — bypass" | Urgency does not override gates. |
+| "fmt clean, auto-fix diff" | Report only; user fixes |
+| "minor clippy, auto-fix" | Report, do not fix by default |
+| "Just publish the report" | User confirms first |
+| "Install tarpaulin for them" | Recommend install only |
+| "Skip pre-commit when no config" | Correct — mark N/A |
 
 ## Red Flags
 
-- 🚩 "skip the {check} / ship it" — refuse; stop
-- 🚩 "you don't need all 6" (any authority) — non-skippable
-- 🚩 "auto-fix" / "publish now" / "already checked" — detect only; confirm every invocation
+- 🚩 "Auto-fix all lint issues" — report only
+- 🚩 "Skip coverage for speed" — gate 3 mandatory unless opt-out
+- 🚩 "Publish report straight to Issue" — require confirmation
+- 🚩 "Run cargo clean to fix build" — never
+
+## Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Gate 1 fails | Fast-fail → gates 2-6 = `SKIPPED` |
+| Gate 2 fails | Fast-fail → list failed tests |
+| `tarpaulin` missing | Warn; gate = `SKIPPED` |
+| Coverage < threshold | Fast-fail → show value vs threshold |
+| Format diff | Fast-fail → list files |
+| Clippy warnings | Fast-fail → summarize by file |
+| No pre-commit config | Mark `N/A` |
+| Issue file missing | Output terminal only |
+| `gitflow-cli` missing | Output terminal only |
+
+## Flowchart
+
+```mermaid
+flowchart TD
+  A[Start] -->{workspace clean?}
+  |dirty| ASK[Commit or stash?] --> G1[cargo build]
+  |clean| G1
+  G1-->|fail|F1[SKIPPED 2-6] --> REPORT
+  G1-->|ok| G2[cargo test]
+  G2-->|fail|F2[SKIPPED 3-6]
+  G2-->|ok|{tarpaulin?}
+  |no| W[Warn, skip gate 3] --> G4
+  |yes| G3b{coverage > threshold?}
+  G3b-->|below|F3[SKIPPED 4-6]
+  G3b-->|ok| G4[cargo fmt --check]
+  G4-->|diff|F4[SKIPPED 5-6]
+  G4-->|ok| G5[cargo clippy -- -D warnings]
+  G5-->|warn|F5[SKIPPED 6]
+  G5-->|ok|{pre-commit config?}
+  |no| NA[Mark N/A] --> REPORT
+  |yes| G6b[pre-commit run --all-files]
+  G6b-->|fail|F6[Fail gate 6]
+  G6b-->|ok|PASS[All pass]
+  F2 & F3 & F4 & F5 & F6 --> REPORT
+  REPORT[Render report] -->{Issue file?}
+  |no| TERM[Terminal only]
+  |yes| CONFIRM{Confirm publish?}
+  CONFIRM-->|yes|PUB[gitflow-cli issue comment] --> TERM
+  CONFIRM-->|no| TERM
+  TERM--> END
+```
 
 ## Test Scenarios
 
-### Scenario 1: Happy Path
-- **Given** clean Rust workspace, 6 tools, `current-issue.txt`=`42`
-- **When** "run quality gate"
-- **Then** gates run → report → ask "Post to #42?" → confirms → URL
+### 1: Happy Path
+- **Given** clean workspace + tarpaulin · **When** "run checks" · **Then** All 6 gates pass → "ALL CHECKS PASSED"
 
-### Scenario 2: Negative
-- **Given** pre-commit subtree only. **When** "fix my hook"
-- **Then** Claude redirects to `/gitflow-precommand`; does NOT load
+### 2: Negative
+- **Given** "run pre-commit only" · **Then** NOT loaded → `gitflow-precommit`
 
-### Scenario 3: Boundary
-- **Given** format gate fails. **When** "just format them"
-- **Then** Claude refuses; cites §Out of Scope; suggests `cargo +nightly fmt`
+### 3: Boundary
+- **Given** coverage = 80.0% · **Then** Gate 3 PASSED
 
-### Scenario 4: Error
-- **Given** `cargo-tarpaulin` absent. **When** gate 3 fails
-- **Then** records `❌`, fast-fails, suggests install, NOT N/A
+### 4: Error
+- **Given** gate 2 fails · **Then** `test=failed`, gates 3-6 = `SKIPPED`
+### 5: Publish Consent
+- **Given** `.claude/gh-issue/current-issue.txt` exists · **Then** Show summary; ask consent before publish
 
 ## Success Criteria
 
-- [ ] 6 gates fixed order; fast-fail on first non-zero
-- [ ] Report has date + 6 rows + Result line
-- [ ] Pre-command `N/A` when config absent
-- [ ] Publish requires explicit confirm; URL returned
-- [ ] No auto-fix / no `cargo install`
+- [ ] All 6 gates attempted (or N/A) before report
+- [ ] Fast-fail enforced
+- [ ] Pre-commit absent → `N/A`
+- [ ] Report has: date, gates, Result
+- [ ] Issue publish only after explicit confirmation
+- [ ] No source modified · no auto-fix · no installs
 
-## Common Mistakes
+## See Also
 
-- ❌ **Marking `coverage` N/A** — only pre-command N/A-able; missing → `❌`
-- ❌ **Auto-applying `cargo fmt`** — never execute
+- `gitflow-precommit` — gate 6 in isolation
+- `gitflow-commit` — commit after passing gate
+- `gitflow-release` — release workflow (gate is pre-req)
+- `gitflow-security-check` — security layer alongside quality
+- `gitflow-pipeline-analyzer` — CI inspection after quality gate
 
 ## Trigger Keywords
 
 | English | 中文 |
 |---------|------|
-| quality gate | 质量关卡 |
-| run checks | 运行检查 |
-| coverage too low | 覆盖率太低 |
-| clippy warnings | clippy 警告 |
-| pre-commit failed | pre-commit 挂了 |
-| is this ready | 能交付了吗 |
-
-## See Also
-
-- `gitflow-precommit` — fmt/clippy/test before commit
-- `gitflow-commit` — commits after quality gate passes
-- `gitflow-release` — uses gate as pre-release check
-- `docs/superpowers/templates/skill-conventions.md` — template conventions
+| quality gate, run checks | 质量闸门, 跑检查, 质量检查 |
+| is this ready, safe to release | 能交付吗, 可以发布吗 |
+| pre-commit failed, coverage too low | pre-commit 挂了, 覆盖率不够 |
+| clippy warnings, format check | clippy 警告, 格式检查 |

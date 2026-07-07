@@ -1,0 +1,284 @@
+# Review package: dcf645d..HEAD
+
+## Commits
+d0b0d26 docs: analyze gitflow-repo skill (#19)
+
+## Files changed
+ docs/research/skill-analysis-gitflow-repo.md | 268 +++++++++++++++++++++++++++
+ 1 file changed, 268 insertions(+)
+
+## Diff
+diff --git a/docs/research/skill-analysis-gitflow-repo.md b/docs/research/skill-analysis-gitflow-repo.md
+new file mode 100644
+index 0000000..0cbcc9b
+--- /dev/null
++++ b/docs/research/skill-analysis-gitflow-repo.md
+@@ -0,0 +1,268 @@
++# gitflow-repo Skill 分析报告
++
++> **分析日期：** 2026-07-07
++> **分析目标：** `skills/gitflow-repo/SKILL.md`
++> **对应 Issue：** #19
++> **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
++
++---
++
++## 一、当前状态总览
++
++| 维度 | 评分 | 说明 |
++|------|------|------|
++| 维度 1：Skill 结构和文档规范 | ⚠️ 需改进 | Frontmatter 基本合规，文档包含命令表格和使用示例，但 description 不符合 Superpowers 规范，缺少结构化章节，token 严重超标 |
++| 维度 2：职责边界清晰度 | ❌ 不合格 | 完全缺失职责边界声明、禁止行为清单和红旗列表 |
++| 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
++| 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论，description 为功能描述，缺少关键词覆盖和跨引用 |
++
++**总体评估：** gitflow-repo 当前是一个"命令参考手册 + 使用示例合集"，而非符合 Superpowers 规范的 skill。它描述了 6 个子命令的功能和参数，但没有描述"何时触发""边界在哪""如何验证"。文档冗长（约 900+ 词），信息密度低，缺乏决策引导。
++
++---
++
++## 二、维度 1 分析 — Skill 结构和文档规范
++
++### 2.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-repo` |
++| YAML frontmatter 含 description 字段 | ✅ | 存在 description |
++| description 以 "Use when..." 开头 | ❌ | 当前为"仓库操作核心命令工作流 — 封装 gitflow-cli repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口"——这是功能描述而非触发条件 |
++| description 只描述触发条件 | ❌ | 描述功能范围和命令列表，未描述触发场景 |
++| 含 Overview 章节 | ❌ | 无 Overview 章节（开头段落类似概述，但非结构化标题） |
++| 含 When to Use 章节 | ❌ | 无触发条件说明 |
++| 含 Core Pattern 章节 | ❌ | 无核心模式 |
++| 含 Quick Reference | ⚠️ | 步骤 1 的命令表格可以算作快速参考，但缺少参数对照 |
++| 含 Implementation 章节 | ⚠️ | 步骤 2 包含子命令代码示例，但格式是"参考手册"而非"可执行步骤" |
++| 含 Common Mistakes | ⚠️ | "注意事项"章节包含 8 条警告，但非结构化 Common Mistakes |
++| Token 效率 < 500 词 | ❌ | 文档约 900+ 词（含 6 个子命令的完整代码示例、输出格式模板、使用示例），远超 500 词上限 |
++| 无叙事性示例反模式 | ❌ | "使用示例"章节包含完整的叙事性场景（"克隆并设置上游仓库"、"创建新仓库并初始化"等），违反了 Superpowers 反模式 |
++| 无多语言稀释 | ⚠️ | 文档全中文，代码示例为英文命令，未造成稀释但缺少英文触发关键词 |
++| 无流程图中嵌入代码 | ✅ | 无流程图 |
++
++### 2.2 具体问题
++
++1. **description 严重违反 Superpowers 规范**：当前 description 包含了 6 个子命令的完整列表和功能描述。这会导致：
++   - Claude 无法从 description 中判断何时应加载此 skill
++   - 将所有"仓库"相关的问题都路由到此 skill，产生过度触发
++   - 挤占上下文窗口——即使只需要 `repo list` 的操作，也会加载全部 6 个子命令的完整参考
++
++2. **文档结构不符合 Superpowers 模板**：当前结构是"命令参考手册"风格：
++   - 按子命令逐一展开（clone → list → create → stats → sync → view）
++   - 每个子命令都附带 bash 代码块和 Markdown 输出模板
++   - 缺少可执行的决策流程：用户/Claude 应该按什么顺序思考？
++
++3. **Token 效率极低**：
++   - 输出格式模板（stats 和 view 各有一个完整的 Markdown 表格模板）占大量 token 但运行时价值低
++   - "使用示例"章节的叙事性场景占大量 token
++   - 作为高频操作的 skill（clone、list、view 都是常用命令），应控制在 200 词以内
++
++4. **注意事项章节定位不清**：8 条注意事项混合了：
++   - 前置条件（`gh` CLI 已安装）
++   - 使用说明（`sync` 需要先有 upstream）
++   - 风险提示（合并冲突）
++   - 过滤建议
++   - 跨引用（`gitflow-repo-onboarding`）
++   - 这些信息应分散到各自对应的结构化章节中
++
++### 2.3 评分：⚠️ 需改进
++
++---
++
++## 三、维度 2 分析 — 职责边界清晰度
++
++### 3.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| 有明确的职责边界声明 | ❌ | 完全缺失 |
++| 有禁止行为清单（🚫 不得...） | ❌ | 缺失 |
++| 有职责范围说明（✅ 负责... / ❌ 不负责...） | ❌ | 缺失 |
++| 有"合理化借口"反制表格 | ❌ | 缺失 |
++| 有红旗列表（Red Flags） | ❌ | 缺失 |
++
++### 3.2 具体问题
++
++1. **完全无职责边界**：gitflow-repo 涉及的 `create` 和 `sync` 操作具有副作用（远程创建、`git push`、`git merge`），但文档中没有任何边界声明。可能导致：
++   - Claude 自动执行 `repo create` 创建仓库，而非向用户确认
++   - Claude 执行 `repo sync` 时自动推送合并结果到 origin
++   - Claude 在 `repo clone` 后自动修改远程配置
++   - Claude 执行推送操作时覆盖远程分支
++
++2. **缺少禁止行为清单**：应明确禁止：
++   - 不得在未确认可见性的情况下创建仓库
++   - 不得自动推送同步结果到 origin
++   - 不得在 `list` 返回过多结果时继续无意义操作
++   - 不得将 `repo stats` 数据外传或写入不安全位置
++
++3. **缺少红旗信号**：应有的红旗包括：
++   - 用户要求"删除仓库"（delete 操作不存在但 Claude 可能尝试其他方式）
++   - 用户要求"强制推送同步结果"
++   - 用户要求"创建仓库但不初始化"
++   - 自动化脚本中调用 `repo sync` 而无人工确认
++
++4. **对比参考（gitflow-autoreport-bug）**：autoreport-bug 是项目中唯一具备完整职责边界声明的 skill（含 🚫 禁止行为、✅ 职责范围、🔧 修复流程）。gitflow-repo 作为涉及远程写操作的 skill，比 report-bug 更需要边界声明。
++
++### 3.3 评分：❌ 不合格
++
++---
++
++## 四、维度 3 分析 — 可测试性
++
++### 4.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| 定义了测试场景 | ❌ | 无测试场景定义 |
++| 有基线测试（无 skill 时的行为） | ❌ | 缺失 |
++| 有压力测试场景 | ❌ | 缺失 |
++| 有成功标准 | ❌ | 缺失 |
++| 可使用 writing-skills 方法论测试 | ❌ | 无测试钩子 |
++
++### 4.2 具体问题
++
++1. **零测试覆盖**：应定义如何验证 Claude 正确执行了 skill：
++   - 如何判断 "Claude 正确选择了子命令"（例如用户说"看看这个仓库"→ 应选 `view` 而非 `stats`）？
++   - 如何判断 "Claude 正确处理了 clone 失败的场景"？
++   - 如何判断 "Claude 没有在不应操作时操作"（如用户没说 sync，Claude 不应主动 sync）？
++
++2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型错误行为作为对照基线：
++   - 无 skill：可能直接运行 `gh repo view` 而非 `gitflow-cli repo view`
++   - 无 skill：可能忘记添加 upstream 远程
++   - 无 skill：可能在 sync 冲突时不知所措
++
++3. **无压力测试场景**：应覆盖：
++   - 仓库不存在时的 `clone` / `view` / `stats`
++   - `list` 返回成百上千个仓库时的分页/过滤策略
++   - `sync` 遇到冲突且用户不在场的处理
++   - `create` 时名称已被占用
++   - `stats` 在没有 `gh` CLI 环境中的降级方案
++   - 多平台（github / gitlab / gitcode）切换
++
++### 4.3 评分：❌ 不合格
++
++---
++
++## 五、维度 4 分析 — 与 Superpowers 最佳实践的差距
++
++### 5.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程 |
++| description 只描述触发条件，不描述流程 | ❌ | description 描述了功能范围和子命令列表 |
++| 关键词覆盖（错误信息、症状、同义词、工具） | ❌ | 无关键词覆盖 |
++| 跨引用其他 skills | ⚠️ | "注意事项"末尾提及 `gitflow-repo-onboarding`，但非结构化跨引用 |
++| 必要时使用 flowchart | N/A | 6 个子命令是独立的线性关系，无需流程图 |
++
++### 5.2 具体问题
++
++1. **未遵循 writing-skills 方法论**：
++   - 未进行 "baseline test"（不用 skill 让 Claude 执行仓库操作，记录差距）
++   - 未基于差距优化 skill 内容
++   - 未迭代验证
++
++2. **description 应是触发条件而非功能描述**：
++   - ❌ 当前：`仓库操作核心命令工作流 — 封装 gitflow-cli repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口`
++   - ✅ 应为：`Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gitflow-cli`
++
++3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
++   - "克隆"/"clone"/"拉代码"/"下载仓库"
++   - "仓库列表"/"my repos"/"our repositories"/"列出项目"
++   - "创建仓库"/"new repo"/"init project"/"建个新项目"
++   - "仓库统计"/"仓库数据"/"repo stats"/"仓库健康度"
++   - "同步上游"/"sync fork"/"更新 fork"/"pull upstream"
++   - "仓库详情"/"repo info"/"项目信息"/"查看仓库"
++   - "fork 同步"/"upstream sync"/"merge upstream"
++
++4. **跨引用不完整**：
++   - 现有仅提及 `gitflow-repo-onboarding`，缺少对以下 skills 的引用：
++     - `gitflow-workflow`（新仓库创建后启动工作流）
++     - `gitflow-commit`（查看仓库 commits）
++     - `gitflow-issue`（查看仓库 issues）
++     - `gitflow-pr`（查看/创建 PR）
++     - `gitflow-release`（查看/创建 Release）
++     - `gitflow-auth`（认证状态检查，clone/create 前需要）
++
++5. **缺少决策流程**：当前文档只是命令列表，缺少：
++   - 如何判断用户意图属于哪个子命令的决策逻辑
++   - 子命令之间的依赖关系（如 create → clone → onboarding）
++   - 操作安全等级（只读 vs 写操作 vs 不可逆操作）
++
++### 5.3 评分：❌ 不合格
++
++---
++
++## 六、改进建议
++
++### P0（必须修复 — 阻断性问题）
++
++| # | 改进项 | 维度 | 说明 |
++|---|--------|------|------|
++| P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式，只描述场景不含命令名列表 |
++| P0-2 | 添加职责边界声明章节 | D2 | create 和 sync 有远程写操作，必须明确 🚫 禁止行为和 ✅ 职责范围，防止 Claude 自动执行不可逆操作 |
++| P0-3 | 添加关键词覆盖 | D4 | 覆盖用户表达方式（克隆、同步 fork、仓库列表等）和同义词 |
++| P0-4 | 添加结构化跨引用 | D4 | 明确引用 gitflow-workflow、gitflow-auth、gitflow-commit、gitflow-issue、gitflow-pr 等相关 skills |
++
++### P1（建议修复 — 提升质量）
++
++| # | 改进项 | 维度 | 说明 |
++|---|--------|------|------|
++| P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
++| P1-2 | 大幅压缩文档至 200 词以内 | D1 | 移除输出格式模板、叙事性示例和冗余描述，保留命令核心参数和决策逻辑 |
++| P1-3 | 添加错误处理章节 | D1 | 覆盖 clone 失败、create 名称冲突、sync 合并冲突、stats 依赖缺失等异常场景 |
++| P1-4 | 添加红旗列表 | D2 | 标识高风险操作：自动推送 sync 结果、未确认可见性创建仓库、覆盖远程配置 |
++| P1-5 | 添加前置条件检查 | D1 | 执行前验证 CLI 可用性、认证状态、当前是否在 git 仓库中 |
++
++### P2（可选改进 — 锦上添花）
++
++| # | 改进项 | 维度 | 说明 |
++|---|--------|------|------|
++| P2-1 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（如直接用 `gh` CLI） |
++| P2-2 | 定义成功标准 | D3 | 每个子命令的预期输出和退出码 |
++| P2-3 | 添加压力测试场景 | D3 | 大量仓库列表分页、冲突无人值守、多平台切换等 |
++| P2-4 | 提供英文版 description | D1 | 当前仅中文，可考虑 bilingual 以支持更多 Claude 入口 |
++| P2-5 | 添加安全等级分类 | D2 | 标注每个子命令的安全等级（只读 / 本地写 / 远程写 / 不可逆） |
++| P2-6 | 创建子命令索引 | D1 | 将 6 个子命令拆分为独立的 skill 文件，减少单次加载 token |
++
++---
++
++## 七、验收标准
++
++- [ ] description 以 "Use when..." 开头，仅描述触发条件
++- [ ] 含职责边界声明章节（含 🚫 禁止行为）
++- [ ] 含关键词覆盖（用户表达、同义词、工具名）
++- [ ] 含结构化跨引用（至少引用 1 个相关 skill）
++- [ ] 文档结构包含 Overview / When to Use / Quick Reference
++- [ ] 含错误处理章节
++- [ ] 含红旗列表（高风险操作需用户确认）
++- [ ] 文档总量控制在 200 词以内（高频 skill 推荐）
++
++---
++
++## 八、与同类 Skill 对比
++
++| 对比项 | gitflow-repo | gitflow-autoreport-bug | 差距 |
++|--------|-------------|----------------------|------|
++| 职责边界 | ❌ 缺失 | ✅ 完整 | 差距大 |
++| 测试场景 | ❌ 缺失 | ❌ 缺失 | — |
++| 触发条件 | ❌ 功能描述 | ⚠️ 描述流程 | autoreport-bug 也需改进 |
++| 跨引用 | ⚠️ 仅 1 处提及 | ❌ 缺失 | 略好但仍不足 |
++| 错误处理 | ⚠️ 混合在注意事项 | ✅ 有异常处理章节 | 差距大 |
++| Token 控制 | ❌ 约 900+ 词 | ⚠️ 偏长 | 都需改进 |
++
++---
++
++## 九、总结
++
++gitflow-repo 当前的定位是"命令参考手册 + 使用示例合集"，信息全面但缺乏 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
++
++核心差距：
++1. **description 是功能列表** → Claude 无法准确判断触发时机
++2. **无职责边界** → Claude 可能自动执行远程写操作
++3. **无测试场景** → 无法定义 skill 的成功标准和验证方法
++4. **Token 严重超标** → 作为常用 skill，加载成本过高
++5. **叙事性示例** → 违反 Superpowers 反模式，挤占上下文窗口
++
++重构方向：将其从"6 合 1 参考手册"转型为"精简可执行指令 + 边界声明 + 验证标准"的完整 skill，或将高频子命令（clone、list、view）独立为单独 skill 以控制 token 消耗。

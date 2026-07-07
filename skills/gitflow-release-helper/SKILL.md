@@ -1,153 +1,110 @@
 ---
 name: gitflow-release-helper
-description: |
-  Use when the user wants to create a new release with auto-generated release notes from conventional commits since the last tag.
-  当用户想基于上次 tag 以来的 conventional commits 自动生成 Release Note 并创建发布时使用。
+description: >
+  Use when the user wants to create a new release, auto-generate release notes
+  from conventional commits since the last tag, or decide SemVer version bumps.
+  当用户需要按 conventional commits 决定版本号、生成 changeline、创建
+  Release 时使用。
 ---
 
-# gitflow-release-helper
+# gitflow-release-helper — Semantic Release Helper
 
-## Overview
+Automates: determine next version → generate changelog → create release → output URL.
+Full reference: docs/references/gitflow-release-helper-params.md
 
-Orchestrates release workflow: infers SemVer from conventional commits, generates release notes, calls `/gitflow-release` to create, emits URL. No CRUD on existing releases.
+## Overview / 概述
 
-## When to Use
+按 conventional commits 推断版本号 + 生成 changelog + 创建 release。
 
-| English | 中文 | Context |
-|---------|------|---------|
-| create release / publish version | 发布版本 | user asks to cut a release |
-| bump version / next version | 升级版本 | user asks what next version should be |
-| release notes / changelog | 发布说明 | user wants tag-to-HEAD notes |
-| delete / edit release | 删除/编辑 release | **do NOT fire** → `/gitflow-release` |
+## 触发关键词 / Trigger Keywords
 
-## Core Pattern
+CN 发布 release 版本号 changelog 打标签
+EN create release bump version semantic version release notes tag major minor
+CLI `gitflow-cli release-helper <subcommand>`
 
-```bash
-command -v gitflow-cli && git rev-parse --git-dir
-last=$(git describe --tags --abbrev=0)
-git log "$last"..HEAD --pretty=format:"%h %s" --no-merges
-# infer → confirm → create
-gitflow-cli release create --tag "$next" --notes-file /tmp/rel.md
-rm -f /tmp/rel.md
+## 路由决策 / Version Decision Flow
+
+```mermaid
+flowchart TD
+  U[用户要发布] --> A{有 tag?}
+  A -->|无 tag| B[初始化 v0.1.0 或 v1.0.0]
+  A -->|有 tag| C[git describe --tags --abbrev=0]
+  C --> D[git log <last-tag>..HEAD --pretty=format:'%h %s']
+  D --> E{commit 类型判断}
+  E -->|含 feat! / BREAKING CHANGE| MAJOR[Major X+1.0.0]
+  E -->|含 feat 无 breaking| MINOR[Minor x.Y+1.0]
+  E -->|仅 fix/perf/refactor| PATCH[Patch x.y.Z+1]
+  MAJOR --> CONFIRM[用户确认版本号]
+  MINOR --> CONFIRM
+  PATCH --> CONFIRM
+  CONFIRM --> GEN[分组生成 changelog]
+  GEN --> REVIEW[用户审阅]
+  REVIEW --> CREATE[release create --tag <v> --notes '...']
+  CREATE --> OUT[输出 Release URL]
 ```
 
-## Quick Reference
+## 快速参考 / Quick Reference
 
-| Goal | Command |
+| Step | Command |
 |------|---------|
-| Latest tag | `git describe --tags --abbrev=0` |
-| Commits since tag | `git log <tag>..HEAD --pretty=format:"%h %s" --no-merges` |
-| Create release | `gitflow-cli release create --tag <v> --notes-file <path>` |
-| Draft release | `gitflow-cli release create --tag <v> --draft --notes-file <path>` |
+| 最新 tag | `git describe --tags --abbrev=0` |
+| commits | `git log <tag>..HEAD --pretty=format:"%h %s" --no-merges` |
+| 创建 release | `gitflow-cli release create --tag <v> --notes "..."` |
 
-## Implementation
+## 核心步骤 / Pattern Triplets
 
-### Preconditions
+| 场景 | 处理 |
+|------|------|
+| breaking change | Major +1 → 确认 → changelog → `release create` |
+| 仅有 feat | Minor +1 |
+| 仅有 fix/refactor/perf | Patch +1 |
 
-- `command -v gitflow-cli` installed
-- `git rev-parse --git-dir` inside a repo
-- `gitflow-cli auth status` valid
-- On `main` or `release/*`
-- CI green (if `.github/workflows` exists) — `gitflow-cli pipeline status`
+## ✅ 职责 / 🚫 禁止
 
-### Step 1 — Determine Next Version
+✅ 版本推断 + changelog 生成 + 调用 `release create`
+🔴 禁止擅自决定版本号 / 无人值守发布 / 跳过 draft / 修改 tag
 
-`git describe --tags --abbrev=0` → `<last>` (or repo root if no tag). Pull commits; infer: `feat!`/breaking → major; `feat` → minor; `fix`/`perf`/`refactor` → patch. **Present inference — wait for explicit yes.**
+## 红旗与防御 / Red Flags + Defense
 
-### Step 2 — Release Notes
+- "自动发布" → 拒绝；必须用户交互确认
+- 不展示 Release Note 就创建 → 强制审阅
 
-Group commits by conventional type; breaking changes pinned top. Write to `/tmp/rel.md`. Show; await approval.
+## 常见错误 / Common Mistakes
 
-### Step 3 — Create Release
+| 错误 | 修正 |
+|------|------|
+| breaking 未升 Major | 每次重新检查 |
+| `--notes-file` 未清理 | 发布成功后删除临时文件 |
 
-```bash
-gitflow-cli release create --tag <v> --notes-file /tmp/rel.md
-```
+## 合理化反驳 / Rationalization
 
-Success → emit URL. Failure → Error Handling table.
+"版本号我猜一个" → SemVer 影响依赖，必须确认
 
-### Step 4 — Cleanup
+## 错误处理 / Error Handling
 
-`rm -f /tmp/rel.md`. Present version, tag, URL.
+| 错误 | 处理 |
+|------|------|
+| 无 tag 全新仓库 | 建议 v0.1.0，用户确认 |
+| CI 未通过 | 建议先调 pipeline-analyzer |
+| `release create` 失败 | 保留 Note；提示重试 |
 
-## Error Handling
+## 场景测试 / Test Scenarios
 
-| Error | Recovery |
-|-------|----------|
-| No tags | Repo root as baseline; continue |
-| CI not green | Refuse; offer `--draft` on explicit request |
-| Tag exists | Refuse; ask different version |
-| API failure | Preserve `/tmp/rel.md`; emit error; stop |
+- **Happy**: "发下一个版本" → 推断 Minor → 确认 → changelog → 创建 → URL
+- **Negative**: "删除这个 release" → 拒绝；建议 gitflow-release CRUD
+- **Boundary**: breaking 但仍选 Patch → 警告不匹配；坚持改 Major
+- **Error**: 仓库无 tag → 提示全新开始 v0.1.0；用户确认后创建
 
-## Responsibility
+## 成功标准 / Success Criteria
 
-- ✅ Infer SemVer, generate notes, create release, emit URL
-- ❌ Edit/delete → `/gitflow-release` · Tags → manual `git` · CI fix → `/gitflow-workflow`
-- ❌ Do not: decide version without confirmation · unattended CI/CD · skip draft gate · delete/move tags · delete any release
-
-## Rationalization Excuses
-
-| Excuse | Reality |
-|--------|---------|
-| "User isn't here, I'll pick the version" | Explicit confirmation required — always wait |
-| "CI is flaky, skip the check" | Non-negotiable; offer `--draft` |
-| "Delete the old release too" | Out of scope; never mutate releases |
-
-## Red Flags
-
-- 🚩 "auto-publish" / "without asking" — refuse; confirmation mandatory
-- 🚩 "skip the CI check" — refuse; cite Preconditions
-- 🚩 "just pick the version" — require explicit yes
-- 🚩 "release from this feature branch" — refuse; only `main`/`release/*`
-
-## Trigger Keywords
-
-| English | 中文 |
-|---------|------|
-| create release | 创建发布 |
-| publish version | 发布版本 |
-| release notes | 发布说明 |
-| bump version | 升级版本 |
-| changelog | 变更日志 |
-| breaking change | 破坏性变更 |
-
-## Test Scenarios
-
-### S1 Happy
-- **Given** authed, `main`, tag `v1.2.0`, commits `feat:`/`fix:`/`docs:`
-- **When** "create a new release"
-- **Then** proposes `v1.3.0`, shows notes, waits, creates, emits URL
-
-### S2 Negative
-- **Given** "delete v1.0.0 release"
-- **When** delete/edit intent
-- **Then** does NOT load; redirects to `/gitflow-release`
-
-### S3 Boundary
-- **Given** "publish without confirmation"
-- **When** user bypasses gate
-- **Then** refuses, cites `🚫`, stops
-
-### S4 Error
-- **Given** `auth status` → `401`
-- **When** `release create` runs
-- **Then** `auth login --platform <p>`, retry once; if still failing preserves `/tmp/rel.md`, stops. No `gh release create`.
-
-## Success Criteria
-
-- [ ] Version proposed and confirmed before mutation
-- [ ] `gitflow-cli release create` returned URL
-- [ ] No out-of-scope action
-- [ ] Temp file cleaned on success; preserved on failure
-
-## Common Mistakes
-
-- ❌ **Auto-selecting version** — always present + wait for confirmation
-- ❌ **Skipping CI gate** — unconditional; offer `--draft`
-- ❌ **Using `gh release create` as fallback** — follow Error Handling only
+- 版本号推断符合 SemVer
+- 版本号、Release Note 经用户确认后才创建
+- Release URL 成功输出
+- 临时文件已清理
 
 ## See Also
 
-- `/gitflow-release` — CRUD on existing releases
-- `/gitflow-auth` — authentication prerequisite
-- `docs/superpowers/templates/skill-conventions.md` — template conventions
+- gitflow-release — Release CRUD
+- gitflow-auth — 发布前状态检查
+- gitflow-pipeline-analyzer — 发布前确认 CI 状态
+- gitflow-label-milestone — 版本里程碑关联

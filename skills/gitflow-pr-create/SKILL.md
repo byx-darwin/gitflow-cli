@@ -168,8 +168,7 @@ flowchart TD
 
 ## See Also
 
-- `/gitflow-pr` — close, approve, merge PR lifecycle
-- `/gitflow-pr-review` — initial code review
-- `/gitflow-pr-inline-review` — inline review comments
-- `/gitflow-pr-apply-feedback` — apply reviewer feedback
-- `docs/superpowers/templates/skill-conventions.md` — template conventions
+- `gitflow-pr` — close, approve, merge PR lifecycle
+- `gitflow-pr-review` — initial code review
+- `gitflow-pr-inline-review` — inline review comments
+- `gitflow-pr-apply-feedback` — apply reviewer feedback

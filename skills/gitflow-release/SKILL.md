@@ -1,34 +1,30 @@
 ---
 name: gitflow-release
 description: |
-  Use when the user needs to manage releases: create, list, view, edit, upload/download assets, or delete a release on GitHub/GitLab/GitCode.
-  当用户需要管理 release（创建、列表、查看、编辑、上传/下载资源、删除发布）时使用。
+  Use when the user wants to manage Git releases through gitflow-cli — create, list, view, edit, upload/download assets, or delete.
+  当用户希望通过 gitflow-cli 管理版本发布（创建、列表、查看、编辑、上传/下载资源或删除）时使用。
 ---
 
 # gitflow-release
 
-## Overview
-
-Release CRUD (create, list, view, edit, upload/download, delete). Does NOT decide versions, generate changelogs, or drive publish workflows.
+CRUD wrapper for `gitflow-cli release`. Manages GitHub/GitLab/GitCode releases — metadata only; tag must exist first. Delete is irreversible.
 
 ## When to Use
 
 | English | 中文 | Context |
 |---------|------|---------|
-| create release | 创建 release | publish a version |
-| upload asset | 上传资源 | attach binary to release |
-| download release | 下载 release | fetch release binary |
-| list / edit / delete release | 列表/编辑/删除 | lifecycle management |
-| prerelease / draft | 预发布 / 草稿 | RC or draft release |
-| changelog / version decision | 变更日志 / 版本决策 | **NOT** → `gitflow-release-helper` |
+| / create a release | 创建 Release | tag exists, needs publish |
+| list releases | 列出 Release | review published versions |
+| view / edit release | 查看/编辑 Release | metadata update |
+| upload / download asset | 上传/下载资源 | binaries, archives |
+| delete release | 删除 Release | rollback / mistake |
 
 ## Core Pattern
 
 ```bash
-gitflow-cli auth status                     # 1. verify auth
-gitflow-cli release view <tag>              # 2. verify target
-gitflow-cli release <sub> <args>            # 3. execute
-gitflow-cli release view <tag>              # 4. verify outcome
+gitflow-cli auth status
+git tag -l <tag>
+gitflow-cli release <subcommand> ...
 ```
 
 ## Quick Reference
@@ -47,106 +43,96 @@ gitflow-cli release view <tag>              # 4. verify outcome
 
 ### Preconditions
 
-`command -v gitflow-cli`, `git rev-parse --is-inside-work-tree`, verified auth via `gitflow-cli auth status`.
+- Tag exists locally and on remote — `git tag -l <tag>`
+- `gitflow-cli` authenticated — `auth status`
+- For upload: local file exists
 
-### Steps
+### Flow by subcommand
 
-1. **Auth guard.** `gitflow-cli auth status` — failure → "Run `gitflow-cli auth login`", stop.
-2. **Target check** (edit/delete/upload only). `gitflow-cli release view <tag>` — 404 → "Not found", stop.
-3. **Execute** user intent against Quick Reference. Delete & non-draft publish **require explicit user confirmation** (see Red Flags).
-4. **Verify.** `release view <tag>` (or `list`) — confirm state, return URL.
+- **create** — confirm tag, draft/prerelease flags, then `release create`. Wait for success. Report Release ID + URL.
+- **list** — `release list`. Tabular output: tag, name, draft, prerelease, created.
+- **view** — `release view <tag>`. 404 → "Release `<tag>` not found.".
+- **edit** — `release edit <tag> ...`. Only non-empty flags required; confirms before publish.
+- **upload** — confirm file, optional rename, `release upload`. Reports asset URL.
+- **download** — confirm asset + dest, `release download <tag> --asset <n> [--dest <dir>]`.
+- **delete** — **Irreversible.** Confirm `<tag>` twice, then `delete`.
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| `401` | "Run `auth login`", stop |
-| `404` | "Release not found", stop |
-| `409` (tag exists) | "Tag conflict — use different tag or delete existing first", stop |
-| Timeout | Retry once, then "Network error", stop |
-| Upload file missing | "File not found", stop |
+| Tag missing | Stop. `git tag` first. |
+| Unauthenticated | Stop. `auth login`. |
+| Not found (404) | Stop. Inform user. |
+| Upload failure | Surface error; do not retry. |
+| Delete already done | Stop. Confirm before invoking. |
 
 ## Responsibility
 
 ### ✅ In Scope
 
-CRUD + auth/target checks + confirm destructive ops.
+- Execute CRUD against Release resource
+- Report new/modified/delivered URLs
 
 ### ❌ Out of Scope
 
-Version decisions / changelog → `gitflow-release-helper`. Publish workflow → `gitflow-release-helper`. Auth → `gitflow-auth`.
+- Creating the Git tag → `git tag`, `git push --tags`
+- Changelog generation → `/gitflow-release-helper`
+- Release orchestration → `/gitflow-release-helper`
 
 ### 🚫 Do Not
 
-- ❌ Delete without explicit confirmation
-- ❌ Overwrite asset
-- ❌ Publish non-draft without confirmation
-- ❌ Modify tags
-- ❌ Decide versions / changelog
+- ❌ Delete without double-confirm
+- ❌ Create release without first confirming tag exists
+- ❌ Upload non-existent file
+- ❌ Generate changelog text — leave to release-helper
 
-## Rationalization
+## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "Skip confirmation — user wants publish" | Publish/delete always require confirmation |
-| "Asset matches — safe" | Overwriting requires confirmation |
-| "Tag exists — must be stale" | Ask before delete |
-| "Release handles this" | Helper drives workflow; this executes CRUD |
-| "Quick delete — busy" | Irreversible ops need confirmation |
+| "Tag probably exists" | Missing tag → CLI fails. Verify first. |
+| "Just delete it, easy restore" | Release deletion is **irreversible** on all platforms. |
+| "Skip the name" | Name defaults to tag; confirm if that's intended. |
 
 ## Red Flags
 
-- 🚩 "Delete release" — Require confirmation. Irreversible.
-- 🚩 "Overwrite asset" — Require confirmation. Destructive.
-- 🚩 "Skip confirmation" — Refuse. Cite §Do Not. Stop.
-- 🚩 "Publish without asking" — Refuse. Confirm first.
-- 🚩 "Skip precondition" — Non-skippable. Stop.
+- 🚩 "Delete the release" — Double confirm tag before invoking.
+- 🚩 "Upload without checking file" — Verify path exists first.
+- 🚩 "Create release, tag doesn't matter" — Stop, tag is required.
 
 ## Test Scenarios
 
 ### 1: Happy Path
-
-- **Given** Auth OK, tag absent, user confirms — **When** "Create release v1.0.0" — **Then** create → view → URL returned
+- **Given** tag `v1.0.0` exists — **When** "create release v1.0.0" — **Then** invokes `release create --tag v1.0.0 ...`, returns Release URL.
 
 ### 2: Negative
-
-- **Given** "Generate changelog and decide version" — **When** No CRUD keyword — **Then** Does NOT load → `gitflow-release-helper`
+- **Given** "delete tag v1.0.0" — **Then** NOT loaded. → git CLI. This skill is for releases, not tags.
 
 ### 3: Boundary
-
-- **Given** Release exists — **When** "Delete it" without user confirming — **Then** Claude asks, refuses `release delete` until confirmed
+- **Given** "upload binary and also generate the changelog" — **Then** `upload` only; redirect changelog → `/gitflow-release-helper`.
 
 ### 4: Error
+- **Given** "create release v3.0.0" but no such tag — **Then** stop, "Tag v3.0.0 missing. Run `git tag` first."
 
-- **Given** Not authenticated — **When** `auth status` → `401` — **Then** "Run `gitflow-cli auth login`", stop
+### 5: Boundary
+- **Given** "delete release v1.0.0" — **Then** prompt for double-confirm. Do not invoke on first ask.
 
 ## Success Criteria
 
-- [ ] URL returned
-- [ ] Delete/publish: explicit confirmation
-- [ ] Preconditions verified
-- [ ] Error recovery verbatim
-- [ ] No version/changelog decisions
+- [ ] Release URL returned on create
+- [ ] Tag existence verified before create
+- [ ] Delete required double-confirm
+- [ ] Out-of-scope intents redirected
 
 ## Common Mistakes
 
-- ❌ **Deleting without confirmation** — Irreversible. Always ask.
-- ❌ **Creating release on existing tag** — Tag conflict. Check first.
-- ❌ **Generating changelog** — Out of scope → `gitflow-release-helper`.
-
-## Trigger Keywords
-
-| English | 中文 |
-|---------|------|
-| create release | 创建 release |
-| upload / download asset | 上传/下载资源 |
-| list releases | 列出 releases |
-| edit release | 编辑发布 |
-| delete release | 删除 release |
-| prerelease / draft | 预发布 / 草稿 |
+- ❌ **Creating release on missing tag** — verify tag first.
+- ❌ **Deleting without confirmation** — always double-confirm.
 
 ## See Also
 
-- `gitflow-release-helper` — version decision + changelog + publish workflow
-- `gitflow-auth` — authentication prerequisite
-- `docs/superpowers/templates/skill-conventions.md` — conventions
+- `gitflow-release-helper` — version decision, changelog, release orchestration
+- `gitflow-quality` — pre-release quality gate
+- `gitflow-pr` — PR lifecycle
+- `gitflow-label-milestone` — milestone association

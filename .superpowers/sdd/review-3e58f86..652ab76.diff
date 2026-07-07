@@ -1,0 +1,56 @@
+# Review package: 3e58f86..HEAD
+
+## Commits
+652ab76 refactor(workflow): 更新 Phase 1 步骤 1.1 格式，匹配计划规范
+
+## Files changed
+ skills/gitflow-workflow/SKILL.md | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+## Diff
+diff --git a/skills/gitflow-workflow/SKILL.md b/skills/gitflow-workflow/SKILL.md
+index 4aa0062..59a1e96 100644
+--- a/skills/gitflow-workflow/SKILL.md
++++ b/skills/gitflow-workflow/SKILL.md
+@@ -141,39 +141,30 @@ gitflow-cli auth status
+
+ ---
+
+ ## Phase 1: 需求澄清
+
+ **目标**：从 open issues 读取需求，或手动描述需求，转化为结构化的 Issue。
+
+ ### 步骤 1.1：读取 Open Issues
+
+ **完整模式**：读取所有 open issues
+-
+ ```bash
+-# 获取所有 open issues
+ gitflow-cli issue list --state open --limit 100 --output json
+ ```
+-
+-按类型分组显示：
+-- feature/enhancement 类 issues
+-- bug 类 issues
+-- question/discussion 类 issues
++按类型分组显示：feature/enhancement、bug、question/discussion
+
+ **快速模式**：只读取 bug 类型 issues
+-
+ ```bash
+-# 获取 bug 类型的 open issues
+ gitflow-cli issue list --state open --label bug --limit 50 --output json
+ ```
+-
+-按优先级排序显示。
++按优先级排序显示
+
+ 用户选择要处理的 issues，进入下一步。
+
+ ### 步骤 1.2：需求讨论
+
+ 对选中的 issues 逐个讨论：
+
+ **完整模式**：
+ - 调用 `superpowers:brainstorming` 探索需求边界
+ - 产出：设计文档

@@ -1,174 +1,142 @@
 ---
 name: gitflow-issue
 description: |
-  Use when the user needs to create, list, view, close, reopen, comment on, or label a repository issue.
-  当用户需要创建、列出、查看、关闭、重开、评论或打标签 issue 时使用。
+  Use when the user needs to manage issues via gitflow-cli — create, list, view, close, reopen, comment, or manage labels.
+  当用户需要通过 gitflow-cli 管理 Issue（创建、列表、查看、关闭、重新打开、评论、标签）时使用。
 ---
 
 # gitflow-issue
 
-Single-issue CRUD. Use `gitflow-issue-create`/`-review`/`-triage` for workflows.
+## Overview
+
+封装 `gitflow-cli issue`。7 个子命令：`create · list · view · close · reopen · comment · label`。
 
 ## When to Use
 
-| English | 中文 | Trigger Context |
-|---------|------|-----------------|
-| create issue / file a bug | 创建 issue | New issue wanted |
-| list issues / show open | 列出 issues | Browse or filter |
-| view issue / details | 查看 issue | Number given |
-| close / resolve issue | 关闭 issue | Close with number |
-| reopen issue | 重新打开 issue | Reopen closed |
-| comment on issue | 评论 issue | Add comment |
-| label issue / tag | 打标签 | Add/remove labels |
+| Trigger | 中文 | Redirect |
+|---------|------|----------|
+| create / open | 创建 Issue | — |
+| list / view | 列出 Issue | — |
+| view / show #N | #N 详情 | — |
+| close / resolve | 关闭 Issue | — |
+| reopen | 重新打开 | — |
+| add comment | 添加评论 | — |
+| add label | 添加标签 | — |
+| full workflow | 全流程 | → `gitflow-issue-create` |
+| analyze requirements | — | → `gitflow-issue-review` |
 
 ## Core Pattern
 
 ```bash
-gitflow-cli auth status          # 1. precondition
-gitflow-cli issue view <n>       # 2. confirm target
-gitflow-cli issue <cmd> <args>   # 3. execute
-gitflow-cli issue view <n>       # 4. verify
+gitflow-cli issue create --title <t> --body <b> --label <l> --assignee <a>
+gitflow-cli issue list [--state open|closed|all] [--label <l>] [--limit <n>]
+gitflow-cli issue view <number>
+gitflow-cli issue close <number>
+gitflow-cli issue reopen <number>
+gitflow-cli issue comment <number> --body <text>
+gitflow-cli issue label <number> --add <l> --remove <l>
+```
+
+## Preconditions
+
+```bash
+git rev-parse --is-inside-work-tree
+command -v gitflow-cli
+gitflow-cli auth status
 ```
 
 ## Quick Reference
 
-| Goal | Command |
-|------|---------|
-| Create | `gitflow-cli issue create --title <t> [--body <b>] [--label <l>] [--assignee <u>]` |
-| List | `gitflow-cli issue list --state open\|closed\|all [--label <l>] [--limit <n>]` |
-| View | `gitflow-cli issue view <n>` |
-| Close | `gitflow-cli issue close <n>` |
-| Reopen | `gitflow-cli issue reopen <n>` |
-| Comment | `gitflow-cli issue comment <n> --body <text>` |
-| Label | `gitflow-cli issue label <n> --add <l> --remove <l>` |
-
-## Flowchart
-
-```mermaid
-flowchart TD
-    A[User request] --> B{Subcommand?}
-    B -->|create| C[issue create]
-    B -->|list| D[issue list]
-    B -->|view| E[issue view]
-    B -->|close/reopen/comment/label| F{Number confirmed?}
-    F -->|no| G[Ask user] --> B
-    F -->|yes| H[Execute + verify]
-```
-
-## Implementation
-
-### Preconditions
-
-- `gitflow-cli auth status` — authenticated
-- `gitflow-cli repo current` — valid repo
-- Mutations require confirmed `<n>` via `issue view`
-
-### Steps
-
-1. Preconditions. On auth failure: `gitflow-cli auth login --platform <p>`, retry.
-2. Resolve subcommand (Flowchart). Confirm `<n>` if ambiguous.
-3. Execute.
-4. Verify via `issue view <n>`.
-
-### Error Handling
-
-| Error | Recovery |
-|-------|----------|
-| `401 Unauthorized` | Re-authenticate, retry once |
-| `404 Not Found` | Confirm `<n>`; abort if still invalid |
-| `403 Forbidden` | Stop — permission denied |
-| Rate limit / timeout | Wait 60s, retry once; stop if persistent |
+| Goal | Command | Precondition |
+|------|---------|--------------|
+| Create | `issue create --title <t> --label <l>` | Auth |
+| List | `issue list [--state] [--label] [--limit]` | In repo |
+| View | `issue view <number>` | Issue exists |
+| Close | `issue close <number>` | Issue open |
+| Reopen | `issue reopen <number>` | Issue closed |
+| Comment | `issue comment <number> --body <text>` | Issue exists |
+| Label | `issue label <number> --add <l> --remove <l>` | Issue exists |
 
 ## Responsibility
 
-### ✅ In Scope
+**In:** select sub-command · run read or state change · format output · record action.
 
-- Single-issue CRUD via `gitflow-cli issue`
-- Precondition checks
-- Number confirmation before mutations
-
-### ❌ Out of Scope
-
-- Interactive creation → `gitflow-issue-create`
-- Requirement analysis → `gitflow-issue-review`
-- Bulk triage → `gitflow-issue-triage`
-- Milestones → `gitflow-label-milestone`
-- Deleting issues (unsupported)
+**Out:** interactive workflow (`gitflow-issue-create`) · triage (`gitflow-issue-review` · `gitflow-issue-triage`) · bulk operations · mutating others' issues without confirmation.
 
 ### 🚫 Do Not
 
-- ❌ Mutate without confirmed `<n>`
-- ❌ Batch-mutate unless user lists each number
-- ❌ Touch another repo without `--repo`
-- ❌ Improvise recovery — follow Error Handling table
+- ❌ Bulk-close/list-update — ask user to scope
+- ❌ Modify non-label fields via `issue label` — not supported
+- ❌ Delete comments — not supported
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "I'll close this related issue too" | Only mutate what user named |
-| "The number is probably fine" | Always confirm via `issue view` |
-| "Skip auth, it worked before" | Auth expires; precondition is mandatory |
+| "User said close, just do it" | Confirm issue number first |
+| "Auth cached, skip status" | Always validate auth |
+| "Auto-add label" | Explicit user approval |
+| "Already created, don't notify" | Always report created URL |
 
 ## Red Flags
 
-- 🚩 "Skip the auth check" — Refuse. Cite Preconditions. Stop.
-- 🚩 "Close all open issues" — Refuse. Batch out of scope.
-- 🚩 "Delete this issue" — Refuse. Unsupported.
-- 🚩 "No need to confirm" — Refuse. Confirmation is non-skippable.
+- 🚩 "Close all open issues" — scope with user
+- 🚩 "Delete issue" — `gh issue delete`
+- 🚩 "Edit issue title" — not supported; web UI
+- 🚩 "Archive project" — out of scope
 
-## Common Mistakes
+## Error Handling
 
-- ❌ **Closing without view-first** — Always run `issue view <n>` before mutation.
-- ❌ **Blind retry on 401** — Re-authenticate first.
+| Error | Recovery |
+|-------|----------|
+| Not in git repo | `cd` or `gitflow-cli repo clone` |
+| Unauthenticated | `gitflow-cli auth login` |
+| Issue not found | 404; confirm number |
+| Create duplicate | `issue list --search` |
+| Rate limit | Pause then retry |
+| Label missing | `gitflow label list` |
+| Close already-closed | no-op + state note |
 
 ## Test Scenarios
 
-### Scenario 1: Happy Path — Close Issue
+### 1: Happy Path
+- **Given** "create: title=X label=bug" · **Then** `issue create` → output URL
 
-- **Given** Authenticated, in repo, #42 open
-- **When** User says "close issue 42"
-- **Then** Claude runs `issue view 42`, confirms, runs `issue close 42`, verifies `closed`, returns URL
+### 2: Negative
+- **Given** "do review issue #5" · **Then** → `gitflow-issue-review`
 
-### Scenario 2: Negative — Should Not Trigger
+### 3: Boundary
+- **Given** close already-closed #N · **Then** no-op + state note
 
-- **Given** User says "analyze requirements for issue 42"
-- **When** Focus is requirement analysis
-- **Then** Claude does NOT load `gitflow-issue`; redirects to `gitflow-issue-review`
-
-### Scenario 3: Boundary — Overstep Temptation
-
-- **Given** User says "close 42 and clean up stale issues"
-- **When** User pushes into batch mutation
-- **Then** Claude refuses batch, cites Out of Scope, stops. Only closes #42.
-
-### Scenario 4: Error — Issue Not Found
-
-- **Given** User says "close 99999"
-- **When** `issue view 99999` returns `404`
-- **Then** Claude reports 404, asks corrected number, does NOT invent fallback
+### 4: Error
+- **Given** auth missing · **Then** `gitflow-cli auth login` first
 
 ## Success Criteria
 
-- [ ] Mutation completed with URL or state confirmation
-- [ ] Precondition passed before mutation
-- [ ] No out-of-scope action (no batch, no delete, no cross-repo without `--repo`)
-- [ ] All side effects have issue URLs as evidence
+- [ ] Correct sub-command per trigger
+- [ ] Issue number confirmed for state changes
+- [ ] Auth checked before mutation
+- [ ] Created issue URL reported
+- [ ] Unsupported ops redirected early
+
+## See Also
+
+- `gitflow-issue-create` — interactive creation
+- `gitflow-issue-review` — requirement analysis
+- `gitflow-issue-triage` — classification
+- `gitflow-label-milestone` — labels/milestones
+- `gitflow-autoreport-bug` — auto-create from CLI error
+- `gitflow-workflow` — end-to-end workflow
+- `gitflow-pr` — PR 关联
 
 ## Trigger Keywords
 
 | English | 中文 |
 |---------|------|
-| create issue | 创建 issue |
-| list issues | 列出 issues |
-| view issue | 查看 issue |
-| close issue | 关闭 issue |
-| reopen issue | 重新打开 issue |
-| comment on issue | 评论 issue |
-| label issue | 打标签 |
-
-## See Also
-
-- `gitflow-issue-create` — Guides interactive creation
-- `gitflow-issue-review` — Analyzes requirements
-- `gitflow-issue-triage` — Classifies open issues
+| create issue, open issue | 创建 Issue |
+| list issues, view issues | 列表 Issue |
+| show #N, view #N | 查看 #N |
+| close issue, resolve | 关闭 Issue |
+| reopen issue | 重新打开 |
+| add comment | 添加评论 |
+| add label, tag | 添加标签 |

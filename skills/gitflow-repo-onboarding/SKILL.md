@@ -2,20 +2,23 @@
 name: gitflow-repo-onboarding
 description: |
   Use when generating a project onboarding guide from repo structure, conventions, and toolchain. Chat-only output — never writes files.
+  当用户要求生成项目入门指南或总结项目结构和约定时使用 — 输出纯对话，不写入文件。
 ---
 
 # gitflow-repo-onboarding
 
-Read-only analysis → onboarding walkthrough in chat. **Never writes files.**
+## Overview
+
+Read-only analysis → onboarding walkthrough in chat. Never writes files.
 
 ## When to Use
 
 | Trigger | 中文 | Redirect |
 |---------|------|----------|
-| onboarding, walkthrough | 入门指南、上手 | — |
-| how to build/setup/contribute | 如何构建 | — |
+| onboarding, walkthrough | 入门指南, 上手 | — |
+| how to build / setup / contribute | 如何构建 | — |
 | repo conventions | 项目约定 | — |
-| PR review | PR/审查 | → `gitflow-pr-review` |
+| PR review | 审查 PR | → `gitflow-pr-review` |
 
 ## Core Pattern
 
@@ -27,79 +30,107 @@ make help 2>/dev/null; ls .github/workflows/ 2>/dev/null
 git log --oneline -10 && git branch -r | head -5
 ```
 
+## Preconditions
+
+```bash
+test -d .git || { echo "Not in a git repo"; exit 1; }
+command -v git
+```
+
+Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml` · `go.mod` · `pom.xml` · `Makefile`.
+
+## Steps
+
+1. **Detect** — `git remote -v` + `ls -F`. Map language + default branch.
+2. **Toolchain** — `ls Makefile Cargo.toml package.json 2>/dev/null; make help 2>/dev/null`. Makefile first, native CLI fallback.
+3. **Conventions** — `rustfmt.toml`, `commitlint`, `git log -15`, `git branch -r | head -10`.
+4. **CI** — `ls .github/workflows/`. Cite actual; never invent.
+5. **Synthesize** — Sections: overview · prereqs · quickstart · tree · conventions · CI · resources. Stay in chat.
+
 ## Quick Reference
 
 | Goal | Action |
 |------|--------|
-| Toolchain | Manifests |
-| Build/test/lint | `make help` → CLI |
-| Lint/fmt/commit | `rustfmt.toml`, `commitlint` |
-| CI | `.github/workflows/*` — cite only actual |
-
-## Steps
-
-Confirm `git rev-parse --is-inside-work-tree`.
-
-1. **Detect** — `git remote` + `ls -F`. Map language + branch.
-2. **Toolchain** — `ls Makefile Cargo.toml package.json 2>/dev/null; make help 2>/dev/null`. Makefile first, CLI fallback.
-3. **Conventions** — `rustfmt.toml`, `commitlint`, `git log -15`, `git branch -r | head -10`.
-4. **CI** — `ls .github/workflows/`. Cite actual; never invent.
-5. **Synthesize** — Sections: overview · prereqs · quickstart · tree · conventions · CI · resources. **Stay in chat.**
-
-### Error Handling
-
-| Error | Recovery |
-|-------|----------|
-| Not a git repo | Run inside repo |
-| No Makefile / No CI | CLI fallback / Omit |
-| Ambiguous manifests | Parse top two |
+| Toolchain | Manifest → Cargo.toml / package.json / go.mod / ... |
+| Build/test/lint | `make help` → native CLI fallback |
+| Lint/fmt/commit | `rustfmt.toml`, `commitlint`, `git log -15` |
+| CI | `.github/workflows/*` — cite actual only |
 
 ## Responsibility
 
-**In:** Read-only analysis · synthesize walkthrough · chat.
+**In:** read-only analysis · synthesize walkthrough · chat output.
 
-**Out:** Writing files · editing configs/CI · installs · repo pages (→ `gitflow-repo`).
+**Out:** writing files · editing configs/CI · installs · repo pages (→ `gitflow-repo`).
 
-**Prohibited:** ❌ Writing files · ❌ Fabricating CI · ❌ Executing installs · ❌ Editing manifests.
+### 🚫 Do Not
+
+- ❌ Auto-write the guide (even if user asks "save") — ask explicit consent first
+- ❌ Fabricate CI steps — only cite existing workflow files
+- ❌ Execute installs — describe commands only
+- ❌ Edit manifests or `.pre-commit-config.yaml`
 
 ## Rationalization Excuses
 
-| Excuse | Truth |
-|--------|-------|
-| "Save" | User decides. |
-| "Missing CI" | Omit. |
-| "Install hooks" | Describe. |
+| Excuse | Reality |
+|--------|---------|
+| "Save the output" | User decides — never auto-write |
+| "Missing CI is fine" | Omit CI section when absent |
+| "Install hooks for them" | Describe only; do not execute |
+| "Infer build from README" | Verify with actual manifest + `make help` |
 
 ## Red Flags
 
-- 🚩 "save the guide" — no auto-write
-- 🚩 "skip conventions" — non-negotiable
-- 🚩 "assume CI checks" — cite real config
-- 🚩 "install hooks for them" — describe only
+- 🚩 "Save as `docs/ONBOARDING.md`" — confirm before `Write`
+- 🚩 "Skip conventions" — conventions are non-negotiable
+- 🚩 "Assume CI checks" — must cite real `.github/workflows/` config
+- 🚩 "Install the hooks" — describe, do not execute
+
+## Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Not a git repo | Run inside repo (`cd` or `gitflow-cli repo clone`) |
+| No Makefile/CI | CLI fallback / Omit CI section |
+| Ambiguous manifests | Parse top two; multi-language sections |
+| README missing | Skip prereqs summary |
 
 ## Test Scenarios
 
 ### 1: Happy Path
-- **Given** Rust workspace · **When** "generate" · **Then** Walkthrough in chat.
+- **Given** Rust workspace · **When** "generate onboarding" · **Then** Walkthrough in chat
 
 ### 2: Negative
-- **Given** "merge my PR?" · **Then** → `gitflow-pr`.
+- **Given** "merge my PR?" · **Then** → `gitflow-pr` (NOT loaded)
 
 ### 3: Boundary
-- **Given** "save as docs/ONBOARDING.md" · **Then** Ask consent before `Write`.
+- **Given** "save as `docs/ONBOARDING.md`" · **Then** Ask explicit consent before Write
 
 ### 4: Error
-- **Given** No Makefile/CI · **Then** Native CLI; omit CI.
+- **Given** No Makefile/CI · **Then** Native CLI fallback; omit CI section
 
 ## Success Criteria
 
-- [ ] Commands from actual files
-- [ ] Commit/branch from git history
-- [ ] CI matches real workflows
-- [ ] Chat-only output
-- [ ] Plain language
-- [ ] No auto-write, no fabricated CI, no executed installs
+- [ ] Commands derived from actual files (never guessed)
+- [ ] Commit/branch conventions from `git log`
+- [ ] CI matches real workflow files — no fabrication
+- [ ] Chat-only output (no auto-write)
+- [ ] Plain-language, newbie-friendly
+- [ ] No fabricated CI, no executed installs
+
+## See Also
+
+- `gitflow-repo` — write the repo-level changes (clone, create, sync)
+- `gitflow-auth` — check login before read-only operations
+- `gitflow-commit` — commit conventions shown in walkthrough
+- `gitflow-precommit` — install hooks (described, not executed)
+- `gitflow-issue` — project conventions and labels
+- `gitflow-label-milestone` — 初始化默认标签和里程碑
 
 ## Trigger Keywords
 
-onboarding, newcomer, walkthrough, setup, contribute, conventions, code tour
+| English | 中文 |
+|---------|------|
+| onboarding, walkthrough, newcomer | 入门指南, 上手, 新人 |
+| how to build / setup / contribute | 如何构建, 如何开始 |
+| repo conventions, code style | 项目约定, 代码规范 |
+| getting started, quick start | 快速开始, 快速上手 |

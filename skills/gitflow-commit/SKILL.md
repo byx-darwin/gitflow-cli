@@ -7,12 +7,12 @@ description: |
 
 # gitflow-commit
 
-Encapsulates `gitflow-cli commit` for viewing, diffing, patching, and line-commenting on commits. Read-only except `comment`, which publishes.
+Encapsulates `gitflow-cli commit` for viewing, diffing, patching, and line-commenting commits. Read-only except `comment`, which publishes.
 
 ## When to Use
 
-| English | 中文 | Trigger Context |
-|---------|------|-----------------|
+| English | 中文 | Context |
+|---------|------|---------|
 | view / inspect a commit | 查看 commit | details, files changed, stats |
 | diff / what changed | commit diff | unified diff |
 | patch / export commit | 导出 commit | raw patch |
@@ -56,8 +56,8 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 
 ### Step 3: Comment on Commit (mutation)
 
-1. Auth check — `gitflow-cli auth status`; fail → "Run `gitflow-cli auth login`."
-2. Draft body. Show draft to user.
+1. Auth check — `gitflow-cli auth status`
+2. Draft body. Show to user.
 3. STOP. Await explicit confirmation.
 4. POST via `gitflow-cli commit comment`.
 5. Output URL.
@@ -90,7 +90,7 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 
 - ❌ Post `comment` without explicit user confirmation
 - ❌ Assume SHA validity without `git cat-file -t`
-- ❌ Use `commit comment` as PR-review decision — different skill
+- ❌ Use `commit comment` as PR-review tool — different skill
 - ❌ Edit source code or create commits
 
 ## Rationalization
@@ -110,42 +110,9 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 - 🚩 "Fix the issue" — redirect `/gitflow-workflow`
 - 🚩 "Add task" — redirect `/gitflow-issue`
 
-## Test Scenarios
-
-### Scenario 1: Happy Path — View & Diff
-
-- **Given** valid SHA `abc123`
-- **When** "show commit abc123 and its diff"
-- **Then** `commit view` + `commit diff` run; no mutation
-
-### Scenario 2: Negative — PR Review
-
-- **Given** "review PR #101"
-- **When** user asks for PR review — not commit inspection
-- **Then** skill NOT loaded; redirect `/gitflow-pr-inline-review`
-
-### Scenario 3: Boundary — Comment Without Confirmation
-
-- **Given** SHA + `--body` + `--path` + `--line` ready
-- **When** Claude POSTs without confirmation
-- **Then** refuse; show draft; STOP
-
-### Scenario 4: Error — Invalid SHA
-
-- **Given** bogus SHA `0000000`
-- **When** `git cat-file -t` fails
-- **Then** stop "SHA not found"; no command run
-
-## Success Criteria
-
-- [ ] `view`/`diff`/`patch` return correct data
-- [ ] Invalid SHA caught before API call
-- [ ] `comment` only after explicit confirmation
-- [ ] No PR / issue / fix actions performed
-
 ## Common Mistakes
 
-- ❌ **Posting without confirmation** — always draft-then-confirm (Step 3.3)
+- ❌ **Posting without confirmation** — always draft-then-confirm (Step 3)
 - ❌ **Skipping SHA validation** — always run `git cat-file -t`
 
 ## Trigger Keywords
@@ -158,10 +125,36 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 | comment on commit | 在 commit 上评论 |
 | show changes in commit | 显示 commit 变更 |
 
+## Test Scenarios
+
+### 1: Happy Path — View & Diff
+- **Given** valid SHA `abc123` — **When** "show commit abc123 and its diff"
+- **Then** `commit view` + `commit diff`; no mutation
+
+### 2: Negative — PR Review
+- **Given** "review PR #101" — **When** user asks for PR review
+- **Then** skill NOT loaded; redirect `/gitflow-pr-inline-review`
+
+### 3: Boundary — Comment Without Confirmation
+- **Given** SHA + `--body` + `--path` + `--line` ready
+- **When** Claude POSTs without confirmation
+- **Then** refuse; show draft; STOP
+
+### 4: Error — Invalid SHA
+- **Given** bogus SHA `0000000` — **When** `git cat-file -t` fails
+- **Then** stop "SHA not found"; no command run
+
+## Success Criteria
+
+- [ ] `view`/`diff`/`patch` return correct data
+- [ ] Invalid SHA caught before API call
+- [ ] `comment` only after explicit confirmation
+- [ ] No PR / issue / fix actions performed
+
 ## See Also
 
 - `/gitflow-pr-inline-review` — inline comments on PRs
 - `/gitflow-pr-review` — overall PR review
 - `/gitflow-pr` — PR lifecycle
-- `/gitflow-issue` — post-comment-on-issue pattern
-- `docs/superpowers/templates/skill-conventions.md` — skill conventions
+- `/gitflow-precommit` — pre-commit quality gate
+- `/gitflow-quality` — 6-gate quality check

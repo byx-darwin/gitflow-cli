@@ -1,0 +1,281 @@
+# Review package: 0a15b70..HEAD
+
+## Commits
+fd352c0 docs: analyze gitflow-security-check skill (#22)
+
+## Files changed
+ .../skill-analysis-gitflow-security-check.md       | 265 +++++++++++++++++++++
+ 1 file changed, 265 insertions(+)
+
+## Diff
+diff --git a/docs/research/skill-analysis-gitflow-security-check.md b/docs/research/skill-analysis-gitflow-security-check.md
+new file mode 100644
+index 0000000..9d83618
+--- /dev/null
++++ b/docs/research/skill-analysis-gitflow-security-check.md
+@@ -0,0 +1,265 @@
++# gitflow-security-check Skill 分析报告
++
++> **分析日期：** 2026-07-07
++> **分析目标：** `skills/gitflow-security-check/SKILL.md`
++> **对应 Issue：** #21
++> **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
++
++---
++
++## 一、当前状态总览
++
++| 维度 | 评分 | 说明 |
++|------|------|------|
++| 维度 1：Skill 结构和文档规范 | ⚠️ 需改进 | Frontmatter 存在但 description 不符合 Superpowers 规范；文档结构偏向"审计清单"而非"可执行指令" |
++| 维度 2：职责边界清晰度 | ❌ 不合格 | 完全缺失职责边界声明、禁止行为清单和红旗列表 |
++| 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
++| 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 部分内容（命令、检查项）具体可执行，但整体缺乏触发条件、关键词覆盖和跨引用 |
++
++**总体评估：** gitflow-security-check 当前是一份"安全审计 checklist 文档"，提供了有价值的检查项和命令，但不符合 Superpowers 对 skill 的结构性要求。它回答了"检查什么"和"用什么命令检查"，但没有回答"何时触发此 skill""Claude 如何一步步执行""边界在哪""如何验证执行正确"。
++
++---
++
++## 二、维度 1 分析 — Skill 结构和文档规范
++
++### 2.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-security-check` |
++| YAML frontmatter 含 description 字段 | ✅ | 存在 description |
++| description 以 "Use when..." 开头 | ❌ | 当前为 "安全审计工作流 — 检查密钥硬编码、依赖漏洞和输入验证，调用 cargo audit 执行依赖漏洞扫描"——这是功能描述而非触发条件 |
++| description 只描述触发条件 | ❌ | 描述了三类功能和工具调用，而非触发时机 |
++| 含 Overview 章节 | ❌ | 仅有简短介绍句，无 Overview 章节 |
++| 含 When to Use 章节 | ❌ | 无触发条件说明 |
++| 含 Core Pattern 章节 | ❌ | 无核心模式/算法骨架 |
++| 含 Quick Reference | ⚠️ | 有 checklist 表格和命令示例，但缺少"触发 → 执行 → 输出"的快速对照 |
++| 含 Implementation 章节 | ⚠️ | 有步骤 1-6 的工作流，但更偏向"审计流程"而非"Claude 执行指令" |
++| 含 Common Mistakes | ❌ | 仅有"注意事项"段落，非结构化的常见错误说明 |
++| Token 效率 < 500 词 | ⚠️ | 约 450-500 词（含代码块），接近上限，作为"按需加载"的 skill 偏大 |
++| 无叙事性示例反模式 | ❌ | 步骤 5 中的审计报告示例是典型的叙事性示例（包含虚构数据） |
++| 无多语言稀释 | ⚠️ | 全中文，未提供英文 description（Superpowers 推荐的 description 是英文触发条件） |
++| 无流程图中嵌入代码 | ✅ | 无流程图 |
++
++### 2.2 具体问题
++
++1. **Frontmatter description 违反 Superpowers 规范**：
++   - 当前：`安全审计工作流 — 检查密钥硬编码、依赖漏洞和输入验证，调用 cargo audit 执行依赖漏洞扫描`
++   - 问题：描述了 skill 能做什么（功能清单），而非何时应加载
++   - 应为：`Use when the user asks for security audits, vulnerability scanning, secret leak detection, or input validation review.`
++   - 后果：Claude 无法基于场景判断是否加载此 skill，可能在不相关对话中过度加载或应加载时遗漏
++
++2. **文档结构是"checklist 集合"而非"可执行 skill"**：
++   - 当前结构：6 个独立检查维度 → 工作流步骤 → 示例 → 注意事项
++   - 缺少 Superpowers 要求的核心章节：
++     - 前置条件（何时可执行此 skill？项目中需要 `cargo audit` 和 `cargo deny`？）
++     - 输入验证（如果项目不是 Rust 项目怎么办？）
++     - 条件分支（如果 `cargo audit` 发现 CRITICAL 漏洞，下一步是？）
++     - 输出汇总表（用户最终收到什么？）
++
++3. **步骤 5 使用虚构数据作为审计报告示例**：
++   - 表格中出现了 `CVE-2023-XXXX`、`src/config.rs | 15` 等虚构引用
++   - 按照 Superpowers 规范，示例应使用"清晰标记为占位符"的数据或从真实项目中提取
++   - 虚构示例可能导致 Claude 在输出中模仿这些占位符（生成假 CVE 编号）
++
++4. **Token 效率问题**：
++   - 当前 ~500 词，对于"仅在安全审计场景加载"的 skill 来说偏重
++   - 建议：将详细的检查项保留在项目中（如 `docs/security-checklist.md`），skill 中只保留触发条件 + 执行骨架
++
++### 2.3 评分：⚠️ 需改进
++
++---
++
++## 三、维度 2 分析 — 职责边界清晰度
++
++### 3.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| 有明确的职责边界声明 | ❌ | 完全缺失 |
++| 有禁止行为清单（🚫 不得...） | ❌ | 缺失 |
++| 有职责范围说明（✅ 负责... / ❌ 不负责...） | ❌ | 缺失 |
++| 有"合理化借口"反制表格 | ❌ | 缺失 |
++| 有红旗列表（Red Flags） | ❌ | 缺失 |
++
++### 3.2 具体问题
++
++1. **完全无职责边界 — 对安全审计 skill 尤其危险**：
++   - 安全审计涉及敏感操作（代码扫描、凭据检查），没有边界声明可能导致：
++     - Claude 在发现硬编码密钥后尝试"自动修复"（可能引入新的泄露）
++     - Claude 将扫描结果发送到外部服务进行"深度分析"
++     - Claude 在未授权的情况下修改 `audit.toml` 来"忽略"发现的漏洞
++     - Claude 尝试写提交或创建 PR 来"自动修复"发现的安全问题
++
++2. **缺少禁止行为清单** — 应明确：
++   - 🚫 不得自行修改代码修复发现的安全问题（仅提供修复建议）
++   - 🚫 不得将扫描结果（含文件路径和内容片段）发送到项目外部
++   - 🚫 不得修改 `audit.toml`、`deny.toml` 等合规配置文件
++   - 🚫 不得创建 commit、PR 或 Issue（除非用户明确要求）
++   - 🚫 不得在日志中输出发现硬编码密钥的实际值
++
++3. **缺少红旗信号** — 应标识：
++   - 用户要求"自动修复所有发现的安全问题"
++   - 用户要求"忽略某个 CVE"
++   - 扫描发现生产环境和真实凭据（需要立即升级处理）
++   - 用户要求将审计结果发送给第三方
++
++4. **缺少职责范围说明**：
++   - ✅ 负责：运行 `cargo audit`、`cargo deny check`、grep 扫描、读取代码检查输入验证模式、生成审计报告
++   - ❌ 不负责：修复代码、修改配置、提交更改、联系外部服务、自动化工作流
++
++### 3.3 评分：❌ 不合格
++
++**对比参考（gitflow-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确定义了职责范围、修复流程和安全约束。gitflow-security-check 作为涉及敏感数据扫描的 skill，职责边界声明比 autoreport-bug 更为重要，但目前完全缺失。
++
++---
++
++## 四、维度 3 分析 — 可测试性
++
++### 4.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| 定义了测试场景 | ❌ | 无测试场景定义 |
++| 有基线测试（无 skill 时的行为） | ❌ | 缺失 |
++| 有压力测试场景 | ❌ | 缺失 |
++| 有成功标准 | ❌ | 缺失 |
++| 可使用 writing-skills 方法论测试 | ❌ | 无测试钩子 |
++
++### 4.2 具体问题
++
++1. **零测试覆盖 — 无法验证 Claude 执行质量**：
++   - 如何判断 "Claude 正确识别了应触发安全审计的场景"？
++   - 如何判断 "Claude 在发现硬编码密钥后没有自动修复代码"？
++   - 如何判断 "Claude 正确汇总了多维度检查结果"？
++   - 如何判断 "Claude 没有在不相关请求中调用安全审计 skill"？
++
++2. **缺少基线对比**：
++   - 不使用 skill 时，Claude 的典型行为是：仅运行 `cargo audit`（遗漏密钥硬编码和输入验证检查）
++   - 这一差距正是 skill 存在的价值，但当前未明确记录
++
++3. **无压力测试场景**：大型项目扫描超时、`cargo audit` 数据库损坏、发现真实生产凭据的紧急响应
++
++4. **无成功标准**：
++   - 应定义：完整的审计报告应包含哪些章节？
++   - 应定义：每个严重级别问题的预期后续动作（CRITICAL → 立即报告用户；LOW → 记录在报告中）
++   - 应定义：扫描完成后的输出格式
++
++### 4.3 评分：❌ 不合格
++
++---
++
++## 五、维度 4 分析 — 与 Superpowers 最佳实践的差距
++
++### 5.1 检查清单
++
++| 检查项 | 状态 | 说明 |
++|--------|------|------|
++| 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程记录 |
++| description 只描述触发条件，不描述流程 | ❌ | description 列举了功能而非触发条件 |
++| 关键词覆盖（错误信息、症状、同义词、工具） | ⚠️ | 提到了 `cargo audit`、`cargo deny check`、`SafePath`、`secrecy` 等工具/类型，但未覆盖用户可能的表达方式 |
++| 跨引用其他 skills | ❌ | 无 See Also / 相关 Skills |
++| 必要时使用 flowchart | N/A | 6 个检查维度是并行/独立的，工作流是线性步骤，无需流程图 |
++
++### 5.2 具体问题
++
++1. **description 应为触发条件，当前是功能清单**：
++   - ❌ 当前：`安全审计工作流 — 检查密钥硬编码、依赖漏洞和输入验证，调用 cargo audit 执行依赖漏洞扫描`
++   - ✅ 应为：`Use when the user requests a security audit, dependency vulnerability scan, secret leak check, or input validation review.`
++   - 缺少关键词覆盖：用户可能说"安全检查"、"安全扫描"、"代码安全"、"依赖有没有漏洞"、"有没有硬编码密码"、"cargo audit"、"安全审计"、"安全审查"等
++
++2. **缺少跨引用**：
++   - 应引用 `gitflow-auth`（凭据安全检查）
++   - 应引用 `gitflow-precommit`（作为 pre-commit hook 的延伸）
++   - 应引用 `gitflow-quality`（安全是质量的一部分）
++   - 应引用 `superpowers:systematic-debugging`（安全漏洞也是一种"bug"）
++
++3. **未遵循 writing-skills 方法论**：
++   - 未进行 baseline test（先不用 skill 执行安全审计，记录 Claude 遗漏了哪些检查维度）
++   - 当前 skill 明显是"一次性编写的 checklist"，不是基于"差距分析 → 编写 → 验证 → 迭代"的 TDD 流程
++
++4. **内容组织偏向"知识文档"而非"执行指令"**：
++   - Superpowers skill 应告诉 Claude "做什么 + 怎么做 + 不做什么"
++   - 当前文档告诉读者（人）"有哪些安全问题 + 用什么命令检查"
++   - 缺少"执行 → 判断 → 下一步"的决策逻辑
++
++### 5.3 评分：⚠️ 需改进
++
++---
++
++## 六、改进建议
++
++### P0（必须修复 — 阻断性问题）
++
++| # | 改进项 | 维度 | 说明 |
++|---|--------|------|------|
++| P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式，仅包含触发关键词 |
++| P0-2 | 添加职责边界声明章节 | D2 | 安全审计 skill 涉及敏感数据扫描，必须有 🚫 禁止行为（不得自行修复代码、不得外传结果、不得修改合规配置） |
++| P0-3 | 添加红旗列表 | D2 | 标识敏感场景：发现真实生产凭据、用户要求"自动修复"、要求忽略 CVE |
++| P0-4 | 将虚构示例替换为占位符标注 | D1 | 步骤 5 的审计报告示例含虚构数据（CVE-2023-XXXX），应使用 `[CVE-IDENTIFIER]`、`[file:line]` 格式 |
++| P0-5 | 添加关键词覆盖 | D4 | 覆盖中文/英文触发词："安全审计"、"安全检查"、"依赖漏洞"、"硬编码密钥"、"security audit"、"vulnerability scan"、"secret leak" |
++
++### P1（建议修复 — 提升质量）
++
++| # | 改进项 | 维度 | 说明 |
++|---|--------|------|------|
++| P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
++| P1-2 | 添加前置条件检查 | D1 | 执行前验证：项目是否为 Rust 项目？是否安装了 `cargo audit` 和 `cargo deny`？是否在 git 仓库中？ |
++| P1-3 | 添加决策逻辑（条件分支） | D1, D4 | 发现 CRITICAL → 立即报告用户不得继续；发现硬编码真实凭据 → 升级处理；`cargo audit` 失败 → 提示更新数据库 |
++| P1-4 | 添加错误处理章节 | D1 | 覆盖：`rustsec-advisory-db` 更新失败、大型项目扫描超时、`cargo deny` 未安装 |
++| P1-5 | 添加跨引用 | D4 | 引用 gitflow-auth、gitflow-precommit、gitflow-quality、systematic-debugging |
++| P1-6 | 补充基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能只运行 `cargo audit`，遗漏 5/6 的检查维度） |
++
++### P2（可选改进 — 锦上添花）
++
++| # | 改进项 | 维度 | 说明 |
++|---|--------|------|------|
++| P2-1 | 将详细检查项移至项目文档 | D1 | 把 6 维度的详细 checklist 移到 `docs/security-checklist.md`，skill 仅保留执行骨架，降低 token 占用 |
++| P2-2 | 定义成功标准 | D3 | 完整的审计报告应包含：依赖漏洞表、密钥硬编码表、输入验证表、总结 |
++| P2-3 | 添加压力测试场景 | D3 | 大型项目（>10k 文件）扫描超时、`cargo audit` 数据库损坏恢复、发现生产凭据的紧急响应 |
++| P2-4 | 添加 TDD for skills 验证记录 | D3, D4 | 记录 baseline → 编写 skill → 验证迭代的过程 |
++| P2-5 | 提供英文版 description | D1 | description 用英文（Superpowers 主流语言），正文可用中文 |
++
++---
++
++## 七、验收标准
++
++- [ ] description 以 "Use when..." 开头，仅描述触发条件（中英文皆可，推荐英文）
++- [ ] 含职责边界声明章节（含 🚫 禁止行为、✅ 职责范围）
++- [ ] 含红旗列表（发现真实凭据、用户要求自动修复等）
++- [ ] 含关键词覆盖（中英触发词、错误信息、工具名）
++- [ ] 含跨引用（至少引用 2 个相关 skill）
++- [ ] 文档结构包含 When to Use / Core Pattern / Quick Reference
++- [ ] 示例中的虚构数据用占位符替代
++- [ ] 含前置条件检查和错误处理章节
++- [ ] Token 数 < 500 词（详细检查项可移至项目文档）
++- [ ] 不修改 cargo/deny.toml、不自行修复代码、不外传扫描结果
++
++---
++
++## 八、与同类 Skill 对比
++
++| 对比项 | gitflow-security-check | gitflow-autoreport-bug | gitflow-precommit |
++|--------|----------------------|----------------------|-------------------|
++| 职责边界 | ❌ 缺失 | ✅ 完整 | ⚠️ 部分 |
++| 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
++| 触发条件 | ❌ 功能描述 | ⚠️ 描述流程 | ⚠️ 命令列表 |
++| 跨引用 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
++| 检查项/命令质量 | ✅ 高（6 维度 checklist） | ⚠️ 中 | ⚠️ 中 |
++| 职责边界风险等级 | 🔴 高（涉及敏感数据） | 🟡 中（涉及 Issue 创建） | 🟢 低（本地建检查） |
++
++**关键发现：** gitflow-security-check 在检查项质量上是项目中最详细的（6 维度审计清单，含具体命令），但其职责边界风险也是最高的——它扫描的正是最敏感的数据（硬编码密钥、凭据泄露）。高内容质量 + 高边界风险 = 最需要优先补充职责边界声明。
++
++---
++
++## 九、总结
++
++gitflow-security-check 当前的定位是"安全审计 checklist 知识库"，它在**检查项的完整性**上表现优秀（6 维度、每种都有具体命令和关注点），但在 Superpowers 要求的**结构性规范**上差距明显。
++
++核心差距：
++1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"安全检查"？"依赖有漏洞吗"？）
++2. **缺乏职责边界** → Claude 发现真实硬编码密钥后应做什么/不做什么？（这是项目中职责边界风险最高的 skill）
++3. **缺乏决策逻辑** → 不同严重级别的发现后，Claude 应如何响应？
++4. **缺乏可测试性** → 如何验证 Claude 正确执行了全部 6 个维度的检查？
++
++重构方向：保持 6 维度 checklist 的质量优势作为项目文档（`docs/security-checklist.md`），将 skill 重构为"触发条件 + 执行骨架 + 职责边界 + 条件分支 + 输出格式"的精简可执行指令。

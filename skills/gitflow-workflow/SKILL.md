@@ -1,209 +1,121 @@
 ---
 name: gitflow-workflow
 description: |
-  Use when the user wants a full development cycle — from requirement clarification through code delivery — orchestrated by a four-phase gate-driven workflow.
-  当用户需要从需求澄清到代码交付的完整开发周期编排时使用。
+  Use when the user wants a four-phase gated pipeline (clarify → plan → execute → post-delivery).
+  当用户需要四阶段闸门驱动全流程开发时使用。
 ---
 
-# gitflow-workflow
+# gitflow-workflow — Gated Orchestrator
 
-Four-phase gate-driven lifecycle orchestrator. Coordinates only — never performs operations or development directly.
+编排层只指挥；平台走 `gitflow-cli`，循环走 Superpowers。
 
 ## When to Use
 
-| English | 中文 | Trigger Context |
-|---------|------|----------------|
-| develop feature | 开发功能 | high-level requirement needing breakdown |
-| fix bug | 修复 bug | structured fix requested |
-| analyze issue | 分析 issue | **Do NOT fire** — belongs to `/gitflow-issue-review` |
-
-## Trigger Keywords
-
-| English | 中文 |
-|---------|------|
-| develop feature | 开发功能 |
-| fix bug | 修复 bug |
-| workflow | 工作流 |
-| implementation plan | 实现计划 |
+| EN | ZH |
+|----|----|
+| full workflow | 全流程 |
+| clarify → plan → execute → deliver | 需求→计划→执行→交付 |
 
 ## Core Pattern
 
 ```bash
-# Preconditions
-git rev-parse --show-toplevel && gitflow-cli --version && gitflow-cli auth status
-
-# Phase 1 → Gate 1→2 → Phase 2 → Gate 2→3 → Phase 3 → Phase 4
+gitflow-cli auth status
+gitflow-cli issue list --state open --output json
 ```
 
 ## Quick Reference
 
-| Goal | Command |
-|------|---------|
-| List open issues | `gitflow-cli issue list --state open --output json` |
-| Verify issue | `gitflow-cli issue view <number>` |
-| Post audit log | `gitflow-cli issue comment <number> --body-file <file>` |
+| Phase | Sub-skill | Mode |
+|-------|-----------|------|
+| 1 | `brainstorming` | full ✅ / fast opt |
+| 1 | `gitflow-issue-create` | always |
+| 1 | `gitflow-issue-review` | full ✅ / fast opt |
+| 2 | `writing-plans` | full ✅ / fast opt |
+| 3 | `subagent-driven-development` | always |
+| 4 | `pipeline-analyzer → issue-triage → review` | always |
+
+Phase 3 内含 TDD / Review。见 workflow-phases-detail.md。
 
 ## Implementation
 
-### Mode Matrix
+### Preconditions
 
-| Skill | Full | Fast |
-|-------|------|------|
-| `superpowers:brainstorming` | ✅ | ⚠️ |
-| `/gitflow-issue-create` | ✅ | ✅ |
-| `/gitflow-issue-review` | ✅ | ⚠️ |
-| `superpowers:writing-plans` | ✅ | ⚠️ |
-| `superpowers:subagent-driven-development` | ✅ | ✅ |
-| `/gitflow-pipeline-analyzer` | ✅ | ✅ |
-| `/gitflow-issue-triage` | ✅ | ✅ |
-| `/gitflow-review` | ✅ | ✅ |
+`command -v gitflow-cli` · `auth status` ok · `git rev-parse` · issues open。
 
-✅ mandatory · ⚠️ optional with justification
+### Steps
 
-### Phase 1: Requirement
+1. **Phase 1** — brainstorming → issue-create → issue-review；审计回贴。
+2. **Phase 2** — writing-plans + 质量关卡；worktree。
+3. **Phase 3** — subagent + TDD + review；合 PR；`Closes #N`。
+4. **Phase 4** — analyzer → triage → review。
 
-1. `gitflow-cli issue list --state open --output json` — user selects or defines.
-2. Full → `superpowers:brainstorming`; Fast → root-cause analysis.
-3. `/gitflow-issue-create` — **artifact: Issue URL.**
-4. Full → `/gitflow-issue-review`; Fast → fix doc.
-5. Post audit log to Issue (see `docs/templates/workflow-plan.md`).
-
-**Gate 1→2:** Issue URL + analysis comment required. Verify via `gitflow-cli issue view <number>`. Missing → block and stop.
-
-### Phase 2: Plan
-
-1. `superpowers:writing-plans` using `docs/templates/workflow-plan.md`.
-2. Plan **must** include Task N+1 (quality gate) and Task N+3 (closure).
-
-**Gate 2→3:** Plan doc + quality gate task required. Missing → block.
-
-### Phase 3: Execute
-
-`superpowers:subagent-driven-development` with the plan. Per task: TDD → review → commit. No skips.
-
-### Phase 4: Post-delivery
-
-`/gitflow-pipeline-analyzer` → `/gitflow-issue-triage` → `/gitflow-review`.
-
-### Rollback
-
-Any phase may roll back. Post reason to Issue (see template).
+进阶前必验合规清单。
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| Auth not authenticated | Prompt `gitflow-cli auth login`, stop |
-| `issue create` API failure | Retry once; block at gate |
-| subagent failure | Block, report, do not improvise |
-| Gate evidence missing | Output block message, stop |
-
-## Flowchart
-
-```mermaid
-flowchart TD
-    Start([Invoke]) --> Pre[Preconditions]
-    Pre --> Mode{Mode?}
-    Mode -->|full| P1F[Phase 1: brainstorming + issue-create + issue-review]
-    Mode -->|fast| P1Q[Phase 1: issue-create + analysis]
-    P1F --> G1{Gate 1→2?}
-    P1Q --> G1
-    G1 -->|fail| Block1[Block + report]
-    G1 -->|pass| P2[Phase 2: writing-plans]
-    P2 --> G2{Gate 2→3?}
-    G2 -->|fail| Block2[Block + retry P2]
-    G2 -->|pass| P3[Phase 3: subagent-dev]
-    P3 --> P4[Phase 4: analyze + triage + review]
-    P4 --> Done([Complete])
-    P3 -->|rollback| P2
-    P4 -->|rollback| P3
-    Block1 --> End1([Stop])
-    Block2 --> End2([Stop])
-```
+| 闸门证据缺失 | 🔒 再进；补齐 |
+| worktree 泄露 | `worktree remove` + `branch -d` |
+| 合 PR 后 issue 未关 | `issue close --yes` |
+| auth 过期 | 重登 resume |
+| 回滚 | Issue 留档 |
 
 ## Responsibility
 
-### ✅ In Scope
+In: 编排四阶段闸门 · 合规校验 · 路由到子 skill。
+Out: 直接 git/gh · TDD · review。
+Block: 跳 sub-skill · 跳 TDD/Review/Phase 4 · 合步骤 · 内联 · 空证据。
 
-- Gate enforcement
-- Mode selection
-- Audit logging
-
-### ❌ Out of Scope
-
-- Code → `superpowers:subagent-driven-development`
-- Platform ops → `gitflow-cli`
-- Requirement analysis → `/gitflow-issue-review`
-- Plan content → `superpowers:writing-plans`
-
-### 🚫 Do Not
-
-- ❌ Skip skills in full mode
-- ❌ Skip TDD or review in fast mode
-- ❌ Skip Phase 4 or fabricate URLs
-
-## Rationalization Excuses
+## Rationalization
 
 | Excuse | Reality |
 |--------|---------|
-| "Simple task, skip brainstorming" | Full mode mandates all steps |
-| "TDD too slow for this fix" | Fast mode skips brainstorming, never TDD |
-| "Tech Lead said skip Phase 2" | Authority does not override gates |
-| "API down, faking Issue URL" | Tool failure blocks the gate; never fabricate |
+| 跳脑暴 | full 必须 |
+| 无需计划文档 | 闸门不可省 |
+| 一步跑完四阶段 | 须逐个调用 |
+| PR 合完就结束 | Phase 4 强制 |
 
 ## Red Flags
 
-- 🚩 "Skip brainstorming" — refuse in full mode; offer fast
-- 🚩 "Start coding, document later" — Gate 1→2 blocks without Issue URL
-- 🚩 Authority demands skipping gates — offer fast mode
-- 🚩 Tool failure → improvise — follow Error Handling, block at gate
-
-## Test Scenarios
-
-### Scenario 1: Happy Path — Full Mode
-
-- **Given** Authenticated git repo, no existing Issue
-- **When** `/gitflow-workflow` with "add shell completion"
-- **Then** All 4 phases run; Issue URL and Task N+1/N+3 present; gates pass
-
-### Scenario 2: Negative — Issue Analysis Only
-
-- **Given** "Analyze Issue #42"
-- **When** Request targets analysis, not a full cycle
-- **Then** Do NOT load this skill; redirect to `/gitflow-issue-review`
-
-### Scenario 3: Boundary — Skip Phase 2
-
-- **Given** User says "skip plan, just code"
-- **When** User pushes past Phase 2
-- **Then** Gate 2→3 blocks Phase 3; offer fast mode
-
-### Scenario 4: Error — API Failure
-
-- **Given** `gitflow-cli issue create` returns 500
-- **When** Phase 1 attempts creation
-- **Then** Retry once; block at gate; report; no fabricated URL
-
-## Success Criteria
-
-- [ ] All 4 phases executed
-- [ ] Every gate passes with evidence
-- [ ] No out-of-scope action
-- [ ] All artifacts recorded
+🚩 直接写代码 — Phase 1 先 · 🚩 TDD 慢 — 强制 · 🚩 跳过评审 — 拒绝 · 🚩 合调用 — 保持原子
 
 ## Common Mistakes
 
-- ❌ **Skipping brainstorming in full mode** — Use fast mode for shortcuts
-- ❌ **Continuing past a failed gate** — Report and stop
+❌ 跳过闸门证据 — 必输出合规 · ❌ 内联 sub skill — 只路由 · ❌ worktree 未清
+
+## Trigger Keywords
+
+| EN | ZH |
+|----|----|
+| full workflow end-to-end | 全流程开发 |
+| four-phase gated pipeline | 四阶段闸门 |
+| clarify plan execute deliver | 需求→计划→执行→交付 |
+
+## Test Scenarios
+
+### 1: Happy
+"build auth refresh" → 闸门 → brainstorm → issue-create → review → plans → subagent (+TDD+review) → PR → Phase 4。
+
+### 2: Negative
+"just write the code" → redirect Phase 1。
+
+### 3: Boundary
+"quick fix" → fast 可跳 brainstorm/plans；仍须 issue-create、subagent、Phase 4。
+
+### 4: Error
+Phase 3 auth 报错 → `auth login` → resume。
+
+## Success Criteria
+
+- [ ] 四阶段 + 闸门证据
+- [ ] 必选 sub-skills 全调用
+- [ ] 编排层未内联 sub skill
+- [ ] worktree 已清
+- [ ] 回滚 (如有) 留档
 
 ## See Also
 
-- `/gitflow-issue-create` — creates Issues during Phase 1
-- `/gitflow-issue-review` — analyzes requirements during Phase 1
-- `/gitflow-pipeline-analyzer` — analyzes CI/CD during Phase 4
-- `/gitflow-issue-triage` — classifies issues during Phase 4
-- `/gitflow-review` — reviews changes during Phase 4
-- `superpowers:brainstorming` — explores requirements in Phase 1
-- `superpowers:writing-plans` — generates plans in Phase 2
-- `superpowers:subagent-driven-development` — executes plans in Phase 3
-- `docs/templates/workflow-plan.md` — plan template
+`/gitflow-issue-create` · `/gitflow-issue-review` — Phase 1
+`/gitflow-review` · `/gitflow-pipeline-analyzer` · `/gitflow-issue-triage` — Phase 4
+`/gitflow-repo` · `/gitflow-autoreport-bug` · `/gitflow-pr-apply-feedback`

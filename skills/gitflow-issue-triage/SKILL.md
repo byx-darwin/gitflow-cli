@@ -1,160 +1,160 @@
 ---
 name: gitflow-issue-triage
 description: |
-  Use when the user asks to triage, categorize, or prioritize open issues, or requests a backlog health report.
-  当用户对 open issues 进行分类、分流、优先级评估，或要求待办全景报告时使用。
+  Use when the user wants to classify all open Issues by type and priority, then apply triage:done tags.
+  当用户希望对所有 open Issue 按类型/优先级分类并打上 triage:done 标签时使用。
 ---
 
 # gitflow-issue-triage
 
-Classifies open issues by type/priority, applies triage labels, emits a report. Does not close, merge, or edit issue content.
-
-## Overview
-
-Triage loop: fetch open issues → classify by type → evaluate priority → apply labels → emit report. Idempotent — re-runs skip issues already bearing `triage:done`.
+Batch classification of all open Issues — assigns one `type:*` label and one `priority:*` label per Issue, then marks `triage:done`. Outputs a priority-ranked report. Idempotent — skip already-triaged Issues.
 
 ## When to Use
 
-| English | 中文 | Fire? |
-|---------|------|-------|
-| triage / categorize backlog | 分类 / 整理待办 | ✅ |
-| prioritize / backlog health | 优先级排序 / 待办全景 | ✅ |
-| label issues | 打标签 / issue 报告 | ✅ |
-| close all low-priority | 关闭低优先级 | ❌ → `gitflow-issue` |
+| English | 中文 | Context |
+|---------|------|---------|
+| triage all issues | 对全部分类 | backlog grooming |
+| classify issues | 分类 Issue | sprint planning |
+| new issues since ... | 对近期新增分类 | `--since` flag |
+| analyze an issue's requirement | 分析需求质量 | **NOT** → `/gitflow-issue-review` |
+| label statistics | 标签统计 | **NOT** → `/gitflow-label-stats` |
 
 ## Core Pattern
 
 ```bash
-gitflow-cli auth status                # 1. preconditions
-gitflow-cli issue list --state open    # 2. fetch
-gitflow-cli issue label <n> --add "type:<t>" --add "priority:<p>" --add "triage:done"  # 3. per-issue
-gitflow-cli issue list --label "triage:done" --state open  # 4. verify
+gitflow-cli issue list --state open [--since <date>]
+gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| List open | `gitflow-cli issue list --state open` |
-| Add type / priority | `gitflow-cli issue label <n> --add "type:<t>" --add "priority:<p>"` |
-| Mark triaged | `gitflow-cli issue label <n> --add "triage:done"` |
+| List open | `gitflow-cli issue list --state open [--since <date>]` |
+| Add label | `gitflow-cli issue label <n> --label "<l>"` |
+| Filter by label | `gitflow-cli issue list --label "<l>" --state open` |
+
+**Type labels:** `type:bug` · `type:feature` · `type:enhancement` · `type:docs` · `type:question`
+**Priority labels:** `priority:urgent` · `priority:high` · `priority:medium` · `priority:low`
 
 ## Implementation
 
 ### Preconditions
 
-`command -v gitflow-cli` / `gitflow-cli auth status` / `git rev-parse --is-inside-work-tree`.
+- `gitflow-cli` authenticated
+- Sufficient scope to label Issues
+- Single type label per Issue; single priority label per Issue
 
-### Step 1: Fetch
+### Step 1: Fetch all open Issues — `issue list --state open [--since <date>]`. Skip those already with `triage:done` (idempotent).
 
-`gitflow-cli issue list --state open` — empty → "No open issues", stop.
+### Step 2: Classify each Issue by title + description body
 
-### Step 2: Classify (per issue missing `triage:done`)
+| Type | Heuristic |
+|------|-----------|
+| `type:bug` | reports crash / error / regression |
+| `type:feature` | new capability / module |
+| `type:enhancement` | UX / perf improvement |
+| `type:docs` | missing / stale doc |
+| `type:question` | question / discussion |
 
-Assign one type + one priority:
+Keep existing type label if already correct. Mark `type:unknown` only when ambiguous.
 
-| Type | Signal | Priority | Signal |
-|------|--------|----------|--------|
-| bug | crash / error | urgent | outage / security |
-| feature | new capability | high | core bug / milestone |
-| enhancement | UX/perf | medium | standard |
-| docs / question / unknown | unclear | low | nice-to-have |
+### Step 3: Apply priority by impact
 
-Existing type label → keep. Ambiguous → unknown + medium.
+| Priority | Heuristic |
+|----------|-----------|
+| `priority:urgent` | production outage / security / blocked |
+| `priority:high` | core feature defect / milestone-bound |
+| `priority:medium` | general feature / UX |
+| `priority:low` | nice-to-have / doc tweak |
 
-### Step 3: Label (Idempotent)
+Reference: core user path · affected user count · workaround · milestone proximity · security relevance.
 
-`--add` only; never `--remove`. triage:done issues skipped; re-runs process only new issues.
+### Step 4: Apply labels
 
-### Step 4: Report
+```bash
+gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
+```
 
-Totals, type %, priority %, detail table, action items. Use triage:done URLs as evidence.
+### Step 5: Output report — priority-ranked (🔴 urgent → 🟢 low) with count + percentage tables.
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| Auth non-zero | Stop. Direct user to auth login. |
-| Rate-limit | Wait 60s, retry once; else report partial. |
-| Label fails for one issue | Log, continue. |
-| Empty list | "No open issues to triage", stop. |
+| Auth | Stop. `auth login`. |
+| Label API failure | Skip Issue, continue. |
+| Ambiguous type | Mark `type:unknown`; note in report. |
+| Duplicate skip | Idempotent; safe. |
 
 ## Responsibility
 
 ### ✅ In Scope
 
-- Fetch, classify, label, skip triaged, report
+- Fetch open Issues
+- Assign one type + one priority
+- Mark `triage:done`
+- Output ranked report
 
 ### ❌ Out of Scope
 
-- Close/edit → `gitflow-issue`; assign → `gitflow-issue-create`; bulk ops → manual
+- Requirement analysis → `/gitflow-issue-review`
+- Label statistics → `/gitflow-label-stats`
+- Editing Issue body → `/gitflow-issue`
 
 ### 🚫 Do Not
 
-- ❌ Overwrite existing labels
-- ❌ Triage closed issues
-- ❌ Close, merge, or modify issues
-- ❌ Assign without instruction
-- ❌ Invent priority; uncertain → medium + unknown
+- ❌ Assign multiple type labels
+- ❌ Speculate beyond available info
+- ❌ Mark duplicate Issues as triaged — mark `duplicate` instead
+- ❌ Take >2 min per Issue; triage fast
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "I'll close low-priority issues to clean up" | Out of scope. Triage only labels. |
-| "The existing type label looks wrong, I'll fix it" | Do not overwrite; flag in report. |
-| "Skip auth — we just did it" | Invocations independent. Preconditions always run. |
+| "{rd", "just guess one" | Use `type:unknown`; don't fabricate. |
+| "Skip labels — just report" | Label application is the deliverable. |
+| "All issues are urgent" | Apply threshold; ≤10% should be urgent. |
 
 ## Red Flags
 
-- 🚩 "Skip the auth check" — Refuse.
-- 🚩 "Close the low-priority ones" — Refuse; redirect to `gitflow-issue`.
-- 🚩 "Remove type:unknown labels" — Refuse.
-- 🚩 Tool fails, Claude improvises — Follow Error Handling.
+- 🚩 "Skip triage:done" — Always mark on completion.
+- 🚩 "Just label everything urgent" — Apply priority thresholds.
+- 🚩 "Infer details not in description" — Don't speculate. Use `type:unknown` or `priority:medium`.
 
 ## Test Scenarios
 
-### Scenario 1: Happy Path
+### 1: Happy Path
+- **Given** 8 open Issues — **When** "triage all" — **Then** each Issue gets type+priority+`triage:done`; report with % tables returned.
 
-- **Given** 5 open issues, none triaged, auth valid
-- **When** user says "triage open issues"
-- **Then** each issue gets type, priority, triage:done; report lists all 5.
+### 2: Negative
+- **Given** "analyze issue #42 depth" — **Then** NOT loaded. → `/gitflow-issue-review`.
 
-### Scenario 2: Negative — "close all low-priority issues"
+### 3: Boundary
+- **Given** "triage and also close duplicates" — **Then** triage only; label `duplicates` but do not close.
 
-- **Then** Not loaded. Redirect to `gitflow-issue`.
+### 4: Error
+- **Given** Issue not found — **Then** skip.
 
-### Scenario 3: Boundary — Issue has existing `type:enhancement`, user says "overwrite it"
-
-- **Then** Refuses. Keeps label, --add only, flags in report.
-
-### Scenario 4: Error — `issue label` returns 500 for #2 of 4
-
-- **Then** Logs failure, continues, notes in report.
+### 5: Idempotency
+- **Given** second run — **Then** `triage:done` Issues skipped.
 
 ## Success Criteria
 
-- [ ] Each untriaged issue gets one type + one priority
-- [ ] No labels removed or overwritten
-- [ ] Report matches issue list counts
+- [ ] Every open Issue has type + priority
+- [ ] All tagged `triage:done`
+- [ ] Report with counts + percentages
+- [ ] Duplicates marked, not triaged
 
 ## Common Mistakes
 
-- ❌ **Overwriting existing type labels** — Keep; never `--remove`.
-- ❌ **Triaging closed issues** — `--state open` mandatory; wider scope misleads.
-
-## Trigger Keywords
-
-| English | 中文 |
-|---------|------|
-| triage / issue triage | 分类 / 分流 issues |
-| prioritize backlog | 优先级排序 / 待办排序 |
-| backlog health report | 待办全景 / issue 报告 |
-| label issues / categorize | 标记分类 / 整理 issues |
+- ❌ **Multiple type labels** — one per Issue.
+- ❌ **All marked urgent** — apply thresholds strictly.
 
 ## See Also
 
-- `gitflow-issue` — Issue CRUD (close, reopen, edit, comment)
-- `gitflow-issue-create` — creates issues interactively from templates
-- `gitflow-issue-review` — Structured issue review
-- `gitflow-label-milestone` — Label and milestone management
+- `gitflow-issue-review` — analyze requirement depth
+- `gitflow-label-stats` — label distribution statistics
+- `gitflow-issue` — Issue CRUD reference
+- `gitflow-label-milestone` — label CRUD

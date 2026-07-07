@@ -166,9 +166,7 @@ Output PR URL.
 
 ## See Also
 
+- `gitflow-pr-create` — create a PR
 - `gitflow-pr-inline-review` — line-level inline comments
 - `gitflow-pr-apply-feedback` — applies feedback as code changes
-- `gitflow-pr` — PR lifecycle: merge/close/ready
-- `gitflow-review` — approve/request-changes/comment wrapper
-- `docs/references/pr-review-checklist.md` — full 6-dim checklist
-- `docs/superpowers/templates/skill-conventions.md` — conventions
+- `gitflow-pr` — PR lifecycle

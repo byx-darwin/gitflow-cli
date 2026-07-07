@@ -1,0 +1,535 @@
+# Review package: cf6a67f..HEAD
+
+## Commits
+d036afa refactor: replace Phase 3+4 with Phase 3 执行 calling subagent-driven-development
+
+## Files changed
+ skills/gitflow-workflow/SKILL.md | 316 ++++-----------------------------------
+ 1 file changed, 31 insertions(+), 285 deletions(-)
+
+## Diff
+diff --git a/skills/gitflow-workflow/SKILL.md b/skills/gitflow-workflow/SKILL.md
+index 1dbef78..c415837 100644
+--- a/skills/gitflow-workflow/SKILL.md
++++ b/skills/gitflow-workflow/SKILL.md
+@@ -1,18 +1,18 @@
+ ---
+ name: gitflow-workflow
+-description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期
++description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的三阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期
+ ---
+
+ # gitflow-workflow 全流程编排
+
+-顶层指挥中心，按照四阶段闸门驱动完整的开发生命周期。编排层只做指挥，不直接执行操作 —— 所有平台交互通过 `gitflow` CLI 完成，所有本地开发循环通过 Superpowers 完成。
++顶层指挥中心，按照三阶段闸门驱动完整的开发生命周期。编排层只做指挥，不直接执行操作 —— 所有平台交互通过 `gitflow` CLI 完成，所有本地开发循环通过 Superpowers 完成。
+
+ ## 两种工作模式
+
+ ### 🐢 完整模式（默认）
+ 适用于**新功能开发**、**重大重构**、**架构变更**等需要充分探索需求的场景。
+
+ ```
+ /gitflow-workflow
+ 我想添加自动补全功能
+ ```
+@@ -35,30 +35,29 @@ description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交
+ | writing-plans | ✅ 必须 | ⚠️ 可选 | 修复方案简单时可跳过 |
+ | subagent-dev | ✅ 必须 | ⚠️ 可选 | 简单修复可直接开发 |
+ | **TDD** | ✅ 必须 | ✅ **必须** | 都需要回归测试 |
+ | code-review | ✅ 必须 | ✅ 必须 | 都需要审查 |
+ | quality | ✅ 必须 | ✅ 必须 | 都需要质量检查 |
+ | PR | ✅ 必须 | ✅ 必须 | 都需要 PR 流程 |
+
+ ## 阶段总览
+
+ ```
+-Phase 1: 需求澄清          Phase 2: 开发实现          🔒 Phase 3: 质量关卡         Phase 4: 交付
+-───────────────────────────────────────────────────────────────────────────────────────────────
+-Superpowers:               Superpowers:               gitflow-quality:           gitflow-pr-create
+-  brainstorming              writing-plans              build      ✅/❌           gitflow-pr-review
+-gitflow-issue-create         TDD (per task)             test       ✅/❌           Superpowers:
+-gitflow-issue-review         subagent-dev               coverage   ✅/❌             finishing-a-dev-branch
+-                             requesting-review          format     ✅/❌           gitflow-release-helper
+-                                                       static     ✅/❌
+-     ↓                             ↓                    ↓                               ↓
+-产出: Issue URL              产出: 全绿原子任务清单      产出: Quality Report       产出: Merged PR + Release
++Phase 1: 需求澄清          Phase 2: 开发实现          Phase 3: 执行
++────────────────────────────────────────────────────────────────────────
++Superpowers:               Superpowers:               Superpowers:
++  brainstorming              writing-plans              subagent-driven-development
++gitflow-issue-create         TDD (per task)
++gitflow-issue-review         subagent-dev
++                             requesting-review
++     ↓                             ↓                    ↓
++产出: Issue URL              产出: 全绿原子任务清单      产出: 已完成的代码实现
+       需求分析报告
+ ```
+
+ ## 🚨 强制执行规则
+
+ 以下规则不可跳过，任何一步不满足就不能进入下一步。
+
+ ### 完整模式 - 必须调用的 Skills 清单
+
+ **Phase 1 必须调用：**
+@@ -66,47 +65,37 @@ gitflow-issue-review         subagent-dev               coverage   ✅/❌
+ - ✅ `gitflow-issue-create` - 创建 Issue
+ - ✅ `gitflow-issue-review` - 需求分析
+
+ **Phase 2 必须调用：**
+ - ✅ `superpowers:writing-plans` - 制定实现计划
+ - ✅ `superpowers:subagent-driven-development` - 子代理驱动开发
+ - ✅ `superpowers:test-driven-development` - 每个任务 TDD 循环
+ - ✅ `superpowers:requesting-code-review` - 每个任务代码审查
+
+ **Phase 3 必须调用：**
+-- ✅ `gitflow-quality` - 质量检查
+-
+-**Phase 4 必须调用：**
+-- ✅ `gitflow-pr-create` - 创建 PR
+-- ✅ `gitflow-pr-review` - PR 审查
+-- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
++- ✅ `superpowers:subagent-driven-development` - 按计划执行代码实现和质量验证
+
+ ### 快速模式 - 必须调用的 Skills 清单
+
+ **Phase 1（简化）：**
+ - ⚠️ `superpowers:brainstorming` - **可选**（bug 描述即需求时可跳过）
+ - ✅ `gitflow-issue-create` - 创建 Issue（必须）
+ - ⚠️ `gitflow-issue-review` - **可选**（bug 原因明确时可跳过）
+
+ **Phase 2（简化）：**
+ - ⚠️ `superpowers:writing-plans` - **可选**（修复方案简单时可跳过）
+ - ⚠️ `superpowers:subagent-driven-development` - **可选**（简单修复可直接开发）
+ - ✅ `superpowers:test-driven-development` - **必须**（先写回归测试）
+ - ✅ `superpowers:requesting-code-review` - **必须**（代码审查）
+
+ **Phase 3（必须）：**
+-- ✅ `gitflow-quality` - 质量检查
+-
+-**Phase 4（必须）：**
+-- ✅ `gitflow-pr-create` - 创建 PR
+-- ✅ `gitflow-pr-review` - PR 审查
+-- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
++- ✅ `superpowers:subagent-driven-development` - 按计划执行代码实现和质量验证
+
+ ### 禁止行为
+
+ - ❌ **完整模式禁止跳过任何 Superpowers skill** - 即使任务"简单"也必须走完所有步骤
+ - ❌ **快速模式禁止跳过 TDD 和 Code Review** - 这是质量保证的底线
+ - ❌ **禁止合并步骤** - 每个 skill 必须独立调用
+ - ❌ **禁止自行实现流程** - 必须使用指定的 skills
+
+ ### 流程检查点
+
+@@ -402,47 +391,47 @@ cat > /tmp/phase-report.md << 'REPORT'
+ | 1 | <任务描述> | ✅ done | <commit hash> |
+ | 2 | <任务描述> | ✅ done | <commit hash> |
+ | ... | ... | ... | ... |
+
+ ### 变更统计
+ - 文件变更: <N> 个文件
+ - 新增行数: +<N>
+ - 删除行数: -<N>
+ - 测试用例: <N> 个
+
+-✅ 已通过阶段闸门，可进入 Phase 3: 质量关卡
++✅ 已通过阶段闸门，可进入 Phase 3: 执行
+ REPORT
+
+ gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+ rm -f /tmp/phase-report.md
+ ```
+
+ ---
+
+-### 🔒 闸门：开发 → 质量
++### 🔒 闸门：开发 → 执行
+
+ **必须出示的证据**：
+ 1. 全部原子任务状态为 `done`
+ 2. 每个任务有对应的提交记录
+
+ **校验方法**：
+ ```bash
+ # 检查工作区状态
+ git status
+ git log --oneline -10
+ ```
+
+ **违规处理**：
+ 如果有未完成的任务，输出阻断信息并停止：
+
+ ```
+-🔒 闸门未通过：不允许运行质量检查。所有原子任务必须标记为 done。
++🔒 闸门未通过：不允许进入执行阶段。所有原子任务必须标记为 done。
+
+ 以下原子任务未完成：
+ - [ ] Task 3: <任务描述> — 状态: in_progress
+ - [ ] Task 5: <任务描述> — 状态: pending
+ ```
+
+ ### Phase 2 合规检查
+
+ ```
+ Phase 2 合规检查:
+@@ -451,267 +440,36 @@ Phase 2 合规检查:
+   [ ] 步骤 3: subagent-dev — 每个任务有独立子代理执行记录
+   [ ] 步骤 4: requesting-review — 每个任务已完成代码审查
+   [ ] Issue 评论已发布: <comment_link>
+
+   缺失项: <list or "无">
+   是否允许进入下一阶段: [ ]
+ ```
+
+ ---
+
+-## Phase 3: 质量关卡
+-
+-**目标**：运行 5 项质量检查，确保代码达到交付标准。
+-
+-### 步骤 3.1：运行质量检查
+-
+-调用 `gitflow-quality` skill 运行完整质量检查：
+-
+-```
+-使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
+-```
+-
+-5 项检查：
+-
+-| # | 检查项 | 命令 | 通过标准 |
+-|---|--------|------|---------|
+-| 1 | build | `cargo build --workspace` | 退出码 0 |
+-| 2 | test | `cargo test --workspace` | 全部通过 |
+-| 3 | coverage | `cargo tarpaulin --workspace` | > 80% |
+-| 4 | format | `cargo +nightly fmt -- --check` | 退出码 0 |
+-| 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | 退出码 0 |
+-
+-### 步骤 3.2：处理检查结果
+-
+-**全部通过**：进入步骤 3.3。
+-
+-**有失败项**：返回 Phase 2 修复。
+-
+-```
+-⚠️ 质量关卡未通过，返回 Phase 2 修复
+-
+-失败项：
+-- [❌] static: clippy 发现 3 个警告
+-- [❌] format: 2 个文件格式不符
+-
+-修复建议：
+-1. 运行 `cargo +nightly fmt` 自动修复格式
+-2. 运行 `cargo clippy --fix` 自动修复 lint 问题
+-3. 手动修复无法自动修复的问题
+-4. 重新运行质量检查
+-```
+-
+-修复后返回步骤 3.1 重新检查。
+-
+-### 步骤 3.3：发布质量报告
+-
+-将质量检查结果评论到 Issue：
+-
+-```bash
+-# 写入临时文件
+-cat > /tmp/phase-report.md << 'REPORT'
+-## Phase 3: 质量关卡通过
+-
+-### 质量检查报告
+-
+-| # | 检查项 | 结果 | 详情 |
+-|---|--------|------|------|
+-| 1 | build | ✅ 通过 | 编译成功 |
+-| 2 | test | ✅ 通过 | <N> 个测试全部通过 |
+-| 3 | coverage | ✅ 通过 | <N>% (阈值: 80%) |
+-| 4 | format | ✅ 通过 | 格式规范 |
+-| 5 | static | ✅ 通过 | 无警告 |
+-
+-✅ 已通过阶段闸门，可进入 Phase 4: 交付
+-REPORT
+-
+-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+-rm -f /tmp/phase-report.md
+-```
+-
+----
+-
+-### 🔒 闸门：质量 → 交付
+-
+-**必须出示的证据**：
+-1. 5 项检查全部绿色（评论在 Issue 上）
+-
+-**校验方法**：
+-检查 Issue 评论中是否包含质量报告。
+-
+-**违规处理**：
+-如果质量报告中有任何失败项，输出阻断信息并停止：
+-
+-```
+-🔒 闸门未通过：不允许创建 PR。5 项质量检查必须全部绿色。
+-
+-质量检查未全部通过：
+-- [✅] build
+-- [❌] test — 2 个测试失败
+-- [✅] coverage
+-- [✅] format
+-- [✅] static
+-```
+-
+-### Phase 3 合规检查
+-
+-```
+-Phase 3 合规检查:
+-  [ ] 步骤 1: build ✅ — 编译通过
+-  [ ] 步骤 2: test ✅ — 全部测试通过
+-  [ ] 步骤 3: coverage ✅ — 覆盖率达标
+-  [ ] 步骤 4: format ✅ — 格式规范
+-  [ ] 步骤 5: static ✅ — 无警告
+-  [ ] 步骤 6: pre-commit ✅ — 全部 hook 通过 (或 N/A)
+-  [ ] Issue 评论已发布: <comment_link>
+-
+-  缺失项: <list or "无">
+-  是否允许进入下一阶段: [ ]
+-```
+-
+----
+-
+-## Phase 4: 交付
+-
+-**目标**：创建 PR、完成代码审查、合并并可选发布。
+-
+-### 步骤 4.1：创建 PR
+-
+-调用 `gitflow-pr-create` skill 创建 Pull Request：
+-
+-```
+-使用 gitflow-pr-create 技能，基于当前分支创建 PR。
+-```
+-
+-PR 要求：
+-- 标题遵循 conventional commits 格式
+-- 描述包含 `Closes #N` 自动关联 Issue
+-- 包含变更说明和验证步骤
+-
+-### 步骤 4.2：代码审查
+-
+-调用 `gitflow-pr-review` skill 进行 6 维度审查：
+-
+-```
+-使用 gitflow-pr-review 技能，对 PR 进行 6 维度代码审查。
+-```
+-
+-如果审查发现问题：
+-1. 记录问题到 PR 评论
+-2. 修复问题
+-3. 推送修复
+-4. 重新审查
+-
+-### 步骤 4.3：完成开发分支
+-
+-调用 Superpowers finishing-a-development-branch 决定分支处理方式：
+-
+-```
+-使用 superpowers:finishing-a-development-branch 技能，完成当前开发分支。
+-```
+-
+-选项：
+-- 合并到主分支（merge commit）
+-- 压缩合并（squash merge）
+-- 变基合并（rebase merge）
+-
+-### 步骤 4.4：发布（可选）
+-
+-如果需要发布新版本，调用 `gitflow-release-helper`：
+-
+-```
+-使用 gitflow-release-helper 技能，基于合并的变更创建 Release。
+-```
+-
+-发布步骤：
+-1. 生成 Release Notes（基于 conventional commits）
+-2. 确定版本号（semver）
+-3. 创建 Git tag
+-4. 创建 GitHub Release
+-
+-### 步骤 4.5：关闭 Issue
+-
+-PR 合并后，确认 Issue 自动关闭（通过 `Closes #N`）：
+-
+-```bash
+-# 确认 Issue 状态
+-gitflow-cli issue view <number>
+-```
+-
+-如果未自动关闭，手动关闭：
+-
+-```bash
+-gitflow-cli issue close <number>
+-```
++## Phase 3: 执行
+
+-### 步骤 4.5.5：更新 Issue 验收标准
++**目标**：按计划文档逐任务执行，完成代码实现和质量验证。
+
+-PR 合并后，更新 Issue 中的验收标准 checkbox，标记已完成的项目：
++### 步骤 3.1：执行计划
+
+-```bash
+-# 添加评论说明验收标准完成情况
+-gitflow-cli issue comment <number> --body "## ✅ 验收标准已完成
+-
+-根据 PR #<pr-number> 的实现，以下验收标准已全部满足：
+-
+-- [x] 标准 1：已完成
+-- [x] 标准 2：已完成
+-- [x] 标准 3：已完成
+-
+-### 验证结果
+-- 所有测试通过
+-- CI 检查通过
+-- 代码审查通过"
+-```
+-
+-**注意**：GitHub 不支持通过 API 直接更新 Issue body 中的 checkbox，因此通过评论方式记录验收标准的完成情况。
+-
+-### 步骤 4.6：发布最终审计日志
+-
+-```bash
+-# 写入临时文件
+-cat > /tmp/phase-report.md << 'REPORT'
+-## Phase 4: 交付完成
+-
+-### PR 信息
+-- PR URL: <url>
+-- PR 编号: #<number>
+-- 合并策略: <squash|merge|rebase>
+-
+-### Release（如适用）
+-- 版本号: v<X.Y.Z>
+-- Release URL: <url>
+-
+-### 完成时间
+-<timestamp>
+-
+-🎉 开发工作流全部完成！
+-REPORT
++调用 Superpowers subagent-driven-development 执行计划：
+
+-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+-rm -f /tmp/phase-report.md
+ ```
+-
+-### Phase 4 合规检查
+-
++使用 superpowers:subagent-driven-development 技能，执行完整计划文档。
+ ```
+-Phase 4 合规检查:
+-  [ ] 步骤 1: pr-create — PR URL 已获取
+-  [ ] 步骤 2: pr-review — 6 维度审查完成
+-  [ ] 步骤 3: finishing — 分支已合并
+-  [ ] 步骤 4: release-helper (可选) — Release 已创建
+-  [ ] 步骤 5: issue-close — Issue 已关闭
+-  [ ] Issue 最终审计日志已发布: <comment_link>
+
+-  缺失项: <list or "无">
+-  工作流是否全部完成: [ ]
+-```
++执行规则：
++- 按计划文档逐任务执行
++- 每个任务完成后标记 checkbox
++- 遇到阻塞时暂停，不跳过任务
+
+ ---
+
+ ## 使用示例
+
+ ### 场景 1：从零开始一个新功能
+
+ 用户说："我想给 gitflow-cli 添加命令行自动补全功能"
+
+ **执行流程**：
+@@ -719,75 +477,63 @@ Phase 4 合规检查:
+ 1. **Phase 1**：
+    - brainstorming：探索自动补全的需求边界（哪些 shell？哪些命令？）
+    - 创建 Issue：`feat(cli): add shell completion for bash/zsh/fish`
+    - 需求分析：确认技术方案（clap 的 completions 功能）
+
+ 2. **Phase 2**：
+    - 拆解任务：实现 completions 命令 → 添加 shell 检测 → 生成补全脚本 → 测试
+    - TDD 循环：每个任务先写测试再实现
+
+ 3. **Phase 3**：
+-   - 运行质量检查：build + test + coverage + format + static
+-   - 全部通过
+-
+-4. **Phase 4**：
+-   - 创建 PR：`feat(cli): add shell completion for bash/zsh/fish`
+-   - 审查通过
+-   - 合并到 main
+-   - 创建 Release v1.1.0
++   - 按计划文档逐任务执行
++   - 完成代码实现和质量验证
+
+ ### 场景 2：修复一个 Bug
+
+ 用户说："gitflow-cli issue create 在 GitLab 上报错 401"
+
+ **执行流程**：
+
+ 1. **Phase 1**：
+    - brainstorming：复现问题，确认是认证问题还是 API 问题
+    - 创建 Issue：`fix(gitlab): issue create returns 401 on valid token`
+    - 需求分析：确认是 GitLab API v4 的认证头格式问题
+
+ 2. **Phase 2**：
+    - 拆解任务：添加回归测试 → 修复认证头格式 → 验证修复
+    - TDD 循环：先写失败测试，再修复
+
+ 3. **Phase 3**：
+-   - 运行质量检查
+-   - 全部通过
+-
+-4. **Phase 4**：
+-   - 创建 PR：`fix(gitlab): use PRIVATE-TOKEN header for auth`
+-   - 审查通过
+-   - 合并到 main
++   - 按计划文档逐任务执行
++   - 完成代码实现和质量验证
+
+ ### 场景 3：已有关联 Issue 的增量开发
+
+ 用户说："Issue #42 已经分析好了，开始实现"
+
+ **执行流程**：
+
+ 1. **Phase 1**：
+    - 跳过 brainstorming（已有明确需求）
+    - 跳过创建 Issue（已存在 #42）
+    - 需求分析：读取 Issue #42 的现有描述和评论
+    - 如果分析不完整，补充需求分析报告
+
+-2. **Phase 2-4**：同场景 1
++2. **Phase 2-3**：同场景 1
+
+ ---
+
+ ## 阶段回退
+
+ 任何阶段都可以回退到前一个阶段：
+
+-- **Phase 4 → Phase 3**：PR 审查发现质量问题
+-- **Phase 3 → Phase 2**：质量检查失败
++- **Phase 3 → Phase 2**：执行过程中发现需求不明确或实现方案需要调整
+ - **Phase 2 → Phase 1**：实现过程中发现需求不明确
+
+ 回退时，在 Issue 上记录回退原因：
+
+ ```bash
+ gitflow-cli issue comment <number> --body "## 阶段回退
+
+ **从 Phase <X> 回退到 Phase <Y>**
+
+ ### 回退原因

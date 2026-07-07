@@ -153,8 +153,8 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 ## See Also
 
+- `gitflow-pr-create` — create a PR
 - `gitflow-pr-review` — overall review with decision
 - `gitflow-pr` — PR lifecycle operations
 - `gitflow-pr-apply-feedback` — applies feedback locally
 - `gitflow-review` — approve/request-changes/comment decisions
-- `docs/superpowers/templates/skill-conventions.md` — skill conventions

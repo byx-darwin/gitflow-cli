@@ -1,0 +1,143 @@
+# Review package: 3da4305..HEAD
+
+## Commits
+6ace057 docs: 更新 README.md 反映 gitflow-workflow 四阶段结构
+
+## Files changed
+ README.md | 47 ++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 30 insertions(+), 17 deletions(-)
+
+## Diff
+diff --git a/README.md b/README.md
+index 55f0f0b..3f4678d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,32 +1,32 @@
+ # gitflow-cli
+
+ 多平台 Git 锻造 CLI + Superpowers Skills 集合，覆盖从需求到交付的完整 AI 编程工程循环。
+
+ ## 架构
+
+ ```
+-需求阶段              开发阶段            🔒质量关卡        交付阶段
+-(远端)                (本地 Superpowers)   (gitflow-cli)         (远端)
+-    │                     │                  │                  │
+-    ├─ issue-create       ├─ writing-plans   ├─ build          ├─ pr-create
+-    ├─ issue-review       ├─ TDD             ├─ test           ├─ pr-review
+-    └─ issue-triage       ├─ subagent-dev    ├─ coverage       └─ release-helper
+-                          └─ code-review     ├─ fmt
+-                                             └─ clippy
+-            ↑                     ↑                  ↑                  ↑
+-            └─────────── gitflow-workflow（编排层）────────────────────┘
++Phase 1: 需求澄清         Phase 2: 计划制定          Phase 3: 执行              Phase 4: 交付后检查
++(远端 + Superpowers)      (Superpowers)              (Superpowers)               (gitflow-cli)
++    │                         │                        │                          │
++    ├─ brainstorming          ├─ writing-plans         ├─ TDD (内嵌)              ├─ pipeline-analyzer
++    ├─ issue-create           └─ 完整计划文档           ├─ subagent-dev            ├─ issue-triage
++    ├─ issue-review             (含质量关卡)            └─ quality (内嵌)          └─ review
++    └─ 需求分析报告                                      ↓
++                                                       PR → 合并 → 发布
++            ↑                         ↑                    ↑                          ↑
++            └─────────────── gitflow-workflow（编排层）──────────────────────────────┘
+ ```
+
+ - **Superpowers**：需求澄清 / 原子任务拆解 / TDD / 子代理隔离 / 任务审查 / 收尾
+ - **gitflow-cli skills**：Issue 管理 / PR 创建审查 / 跨平台命令 / 安全审计 / Release 发布
+-- **`gitflow-workflow`**：两者胶水层，知道每个阶段触发哪个 skill、何时交接
++- **`gitflow-workflow`**：四阶段编排层 — 需求澄清 → 计划制定 → 执行 → 交付后检查
+
+ ## 平台支持
+
+ ### Git 平台
+
+ `gitflow-cli` CLI 统一封装了三大 Git 平台的差异，通过 `--platform` 自动检测或手动指定：
+
+ | 平台 | CLI 依赖 | 特性 |
+ |------|---------|------|
+ | **GitHub** | `gh` (v2.0.0+) | Issue / PR / Release / Review / Pipeline / Repo（含 Enterprise） |
+@@ -54,22 +54,22 @@ Skills 可安装到任意支持的 AI Agent 平台，通过 `-g --agent` 指定
+ | **Copilot CLI** | `~/.copilot/skills/` | `gitflow-cli skills install -g --agent copilot` |
+
+ 默认 `-g` 不指定 agent 时自动检测当前环境已有的平台目录。
+
+ ## Skill 矩阵
+
+ ### 编排
+
+ | Skill | 做什么 |
+ |-------|--------|
+-| `gitflow-workflow` | 全流程编排：idea → 需求 → 开发 → 质量关卡 → PR → 合并 → 发布 |
+-| `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static |
++| `gitflow-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查。支持完整模式（默认）和快速模式（`--fast`） |
++| `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit，支持 Rust/Node.js/Python/Go/Java 自动检测 |
+
+ ### Issue 流水线
+
+ | Skill | 时机 | 做什么 |
+ |-------|------|--------|
+ | `gitflow-issue-create` | 提交前 | 引导填 issue → 模板填充 → 创建 |
+ | `gitflow-issue-review` | 开发前 | 需求分析 → 完整性检查 → 改进建议 → 回写评论 |
+ | `gitflow-issue-triage` | 提交后 | 分类 → 标签 → 优先级 → 分流 |
+
+ ### PR 流水线
+@@ -131,26 +131,39 @@ gitflow-cli skills list
+ gitflow-cli --version
+ # gitflow-cli 0.1.0
+ ```
+
+ ### Step 4：开始开发
+
+ ```
+ /开发工作流，我要做 X
+ ```
+
++## gitflow-workflow 工作模式
++
++**完整模式**（默认）：适用于新功能开发、重大重构
++```
++/gitflow-workflow
++```
++
++**快速模式**（`--fast`）：适用于 bug 修复、小优化
++```
++/gitflow-workflow --fast
++```
++
+ ## 典型工作流
+
+ ```
+-"I have an idea"         → brainstorming → issue-create → issue-review
+-"Let me implement"       → writing-plans → TDD → subagent-dev
+-"Code is ready, ship it" → pr-create → pr-review → merge → release-helper
++Phase 1 需求澄清    Phase 2 计划制定    Phase 3 执行              Phase 4 交付后检查
++brainstorming  →  writing-plans  →  TDD + subagent-dev  →  pipeline-analyzer
++issue-create       完整计划文档        quality (6 项检查)      issue-triage
++issue-review       (含质量关卡)        PR → 合并 → 发布        review
+ ```
+
+ ## CLI 命令一览
+
+ | 命令 | 用途 |
+ |------|------|
+ | `gitflow-cli issue {create,list,view,close,reopen,comment}` | Issue 管理 |
+ | `gitflow-cli pr {create,list,view,close,merge,checkout}` | PR 管理 |
+ | `gitflow-cli release {create,list,view,edit}` | 发布管理 |
+ | `gitflow-cli review {comment,approve,request-changes,submit}` | 代码审查 |
+@@ -163,15 +176,15 @@ gitflow-cli --version
+ | `gitflow-cli completions {bash,zsh,fish}` | Shell 补全 |
+
+ 支持 `--platform github|gitlab|gitcode` 和 `--output json|text`。
+
+ ## 设计原则
+
+ - **步骤化工作流**：每个 skill 有明确的步骤顺序，不跳步
+ - **先验证再行动**：PR 创建前检查分支和变更；Issue 创建前引导填写模板
+ - **生态互补**：本地开发循环 (Superpowers) + 远端协作 (gitflow-cli) 明确分工
+ - **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot
+-- **质量门闸门**：build → test → coverage → format → static 全部通过才能交付
++- **质量门闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付，支持多语言自动检测
+
+ ## 贡献
+
+ 详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
