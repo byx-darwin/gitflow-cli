@@ -1,240 +1,170 @@
 ---
 name: gitflow-pr-apply-feedback
-description: PR 审查反馈应用工作流 — 获取 PR 评论和审查意见，列出待处理项，逐条在本地应用修改，并标记已处理的评论为 resolved
+description: |
+  Use when the user asks to apply, address, or resolve PR review feedback, inline comments, or change requests.
+  当用户要求应用、处理或解决 PR 审查反馈、行内评论或修改请求时使用。
 ---
 
-# gitflow-cli pr apply feedback 工作流
+# gitflow-pr-apply-feedback
 
-引导用户处理 PR 审查过程中收到的反馈。通过获取 PR 详情和审查评论，列出所有待处理的审查意见，逐条在本地代码中应用修改，并将已处理的评论标记为 resolved，确保审查反馈被完整处理。
+## Overview
 
-## 工作流
+Fetches PR review feedback, prioritizes pending items, applies per-comment fixes (user-confirmed), marks comments resolved, pushes only after explicit approval; does not review or merge.
 
-### 步骤 1：获取 PR 详情和审查评论
+## When to Use
 
-调用 `gitflow-cli pr view` 获取 PR 的完整信息，包括审查评论：
+| English | 中文 | Context |
+|---------|------|---------|
+| apply feedback | 应用反馈 | address reviewer comments |
+| resolve comments | 解决评论 | mark comments resolved |
+| review follow-up | 审查后续 | NOT initial review → `/gitflow-pr-review` |
 
-```bash
-gitflow-cli pr view <pr-number>
-```
-
-提取以下信息：
-
-- PR 的基本信息（标题、分支、状态）
-- 所有审查评论（review comments）
-- 行内评论（inline comments）
-- 总体审查结论（approve / request-changes / comment）
-- 每条评论的状态（pending / resolved）
-
-### 步骤 2：列出待处理的审查意见
-
-筛选所有未 resolved 的审查意见，按优先级排序后列出：
-
-**优先级排序：**
-
-1. 🔴 `[security]` 或 `[logic]` 类问题 — 必须修复
-2. 🟠 `[boundary]` 或 `[performance]` 类问题 — 强烈建议修复
-3. 🟡 `[naming]` 或 `[style]` 类问题 — 建议修复
-4. 🟢 建议性评论（suggestion） — 可选修复
-
-**输出格式：**
-
-```markdown
-## 待处理审查意见
-
-**PR:** #<number> — <标题>
-**待处理总数:** <n>
-
-### 🔴 必须修复
-
-| # | 评论者 | 文件 | 行号 | 内容摘要 |
-|---|--------|------|------|----------|
-| 1 | @reviewer | src/auth.rs | 42 | SQL 注入风险 |
-
-### 🟠 强烈建议
-
-| # | 评论者 | 文件 | 行号 | 内容摘要 |
-|---|--------|------|------|----------|
-
-### 🟡 建议修复
-
-| # | 评论者 | 文件 | 行号 | 内容摘要 |
-|---|--------|------|------|----------|
-
-### 🟢 可选
-
-| # | 评论者 | 文件 | 行号 | 内容摘要 |
-|---|--------|------|------|----------|
-```
-
-### 步骤 3：逐条应用修改
-
-按照优先级从高到低，逐条处理审查意见：
-
-#### 3.1 理解审查意见
-
-仔细阅读每条评论，确认：
-
-- 评论指出的具体问题是什么
-- 建议的修改方案是什么
-- 修改是否会引入新的问题
-
-#### 3.2 在本地应用修改
-
-切换到 PR 对应的本地分支，编辑对应文件的对应行：
+## Core Pattern
 
 ```bash
-git checkout <pr-branch>
+gitflow-cli pr view <pr>                                  # 1. fetch comments
+# 2. prioritize: security > logic > boundary > naming > style
+# 3. per comment (user confirms): checkout → edit → test → commit
+gitflow-cli pr resolve-comment <pr> --comment-id <id>     # 4. mark resolved
+git push origin <branch>                                  # 5. push (confirmed)
+gitflow-cli pr comment <pr> --body "<summary>"            # 6. notify
 ```
 
-使用编辑器修改代码，应用审查意见中建议的修改。
+## Quick Reference
 
-#### 3.3 验证修改
+| Goal | Command |
+|------|---------|
+| View PR + comments | `gitflow-cli pr view <pr-number>` |
+| Mark resolved | `gitflow-cli pr resolve-comment <pr-number> --comment-id <id>` |
+| Push | `git push origin <branch>` |
 
-运行相关的测试和 lint 检查，确保修改没有引入回归：
+## Implementation
 
-```bash
-cargo test -- <relevant-test>
-cargo clippy -- -D warnings
+### Preconditions
+
+- Git repo — `git rev-parse --is-inside-work-tree`; CLI installed — `command -v gitflow-cli`
+- Authenticated — `gitflow-cli auth status`; PR branch confirmed before checkout
+
+### Step 1: Fetch and Prioritize
+
+`gitflow-cli pr view <pr-number>`. Not found → error. Extract branch, status, comments, states. Filter unresolved. Order: `[security]`/`[logic]` > `[boundary]`/`[performance]` > `[naming]`/`[style]` > suggestion. Await selection.
+
+### Step 2: Fix (Per Comment)
+
+For each confirmed comment: confirm branch, checkout, edit, run tests. Pass → commit referencing reviewer + location. Reject or defer → skip. Test fail → do NOT commit or resolve; stop.
+
+### Step 3: Resolve, Push, Notify
+
+`gitflow-cli pr resolve-comment <pr-number> --comment-id <comment-id>` per fix (fail → log, continue). Require explicit confirmation before `git push origin <branch>`. Then `gitflow-cli pr comment <pr-number>` with summary. Push conflict → show, user resolves.
+
+## Flowchart
+
+```mermaid
+flowchart TD
+    A[Start] --> B{pr view <pr>}
+    B -->|not found| S1[Stop]
+    B -->|found| C{Unresolved?}
+    C -->|none| DONE[Done]
+    C -->|yes| D[Prioritize]
+    D --> E{User confirms?}
+    E -->|reject/defer| N[Next]
+    E -->|fix| F[Checkout + edit]
+    F --> G{Tests pass?}
+    G -->|fail| H[Show output, no resolve]
+    G -->|pass| I[Commit]
+    I --> J[resolve-comment]
+    J --> N
+    N --> K{More?}
+    K -->|yes| E
+    K -->|no| L{Push confirmed?}
+    L -->|no| DONE
+    L -->|yes| M[push + notify]
+    M --> DONE
 ```
 
-#### 3.4 提交修改
+## Responsibility
 
-为每条审查意见的修改创建独立的 commit（或按审查者分组）：
+### ✅ In Scope
 
-```bash
-git add <changed-files>
-git commit -m "fix: address review comment from @reviewer on <file>:<line>"
-```
+- Fetch, prioritize, display PR review comments
+- Apply fixes, test, commit
+- Mark resolved, push (confirmed), notify reviewer
 
-**Commit 消息约定：**
+### ❌ Out of Scope
 
-- 前缀使用 `fix:` 或 `refactor:` 等合适的类型
-- 消息中提及评论者和文件位置，便于追溯
-- 如果多条相关评论来自同一审查者，可以合并为一个 commit
+- Initial review → `/gitflow-pr-review`
+- Inline review → `/gitflow-pr-inline-review`
+- Approve/merge → `/gitflow-pr`
+- Accept/reject → user decides (out of scope)
 
-### 步骤 4：标记已处理的评论为 resolved
+### 🚫 Do Not
 
-对每条已应用的审查意见，调用相应的命令将其标记为 resolved：
+- ❌ Push without explicit user confirmation
+- ❌ Resolve without passing tests
+- ❌ Modify code unrelated to the comment
+- ❌ Checkout without user confirmation
+- ❌ Auto-accept all comments without user review
 
-```bash
-gitflow-cli pr resolve-comment <pr-number> --comment-id <comment-id>
-```
+## Rationalization Excuses
 
-如果 CLI 不支持单条 resolve，可以在所有修改完成后统一标记：
+| Excuse | Reality |
+|--------|---------|
+| "Comment is clear, skip confirmation" | Every change needs confirmation |
+| "Small change, just commit" | Size never waives it |
+| "Reviewer rushing, push now" | Urgency never overrides push |
+| "Tests passed, resolve immediately" | User must confirm it |
+| "Same spot, batch them" | Each tracked independently |
 
-```bash
-gitflow-cli pr resolve-all <pr-number>
-```
+## Red Flags
 
-### 步骤 5：推送修改并通知审查者
+- 🚩 "Apply all feedback" — refuse; needs individual confirmation
+- 🚩 "Skip tests, resolve now" — refuse; tests must pass
+- 🚩 "Push right away" — refuse; needs confirmation
+- 🚩 Architectural change — defer; discuss with reviewer
 
-推送本地修改到远程分支：
+## Test Scenarios
 
-```bash
-git push origin <pr-branch>
-```
+### 1: Happy Path
 
-通知审查者修改已完成：
+- **Given** 3 pending comments; **When** "apply feedback"; **Then** Lists, applies each (confirmed), tests, commits, resolves, pushes (confirmed), notifies reviewer
 
-```bash
-gitflow-cli pr comment <pr-number> --body "已处理所有审查意见，请重新审查。
+### 2: Negative
 
-已修复：
-- [x] @reviewer 关于 SQL 注入的建议（src/auth.rs:42）
-- [x] @reviewer 关于边界条件的建议（src/cart.rs:15）
-- [x] @reviewer 关于命名的建议（src/utils.rs:8）"
-```
+- **Given** "review PR for me"; **When** initial review request; **Then** Does NOT load; redirects to `/gitflow-pr-review`
 
-### 步骤 6：输出处理结果汇总
+### 3: Boundary
 
-```markdown
-## 审查反馈处理汇总
+- **Given** all comments applied locally; **When** Claude pushes without confirmation; **Then** Violation; must show summary
 
-**PR:** #<number>
-**处理评论数:** <total>
-**已修复:** <resolved>
-**已拒绝（附理由）:** <rejected>
-**已推迟：** <deferred>
+### 4: Error
 
-### 详细处理记录
+- **Given** Claude edits code for a comment; **When** `cargo test` fails; **Then** No commit or resolve; continues
 
-| # | 评论者 | 文件 | 处理结果 | 说明 |
-|---|--------|------|----------|------|
-| 1 | @reviewer | src/auth.rs:42 | ✅ 已修复 | 改为参数化查询 |
-| 2 | @reviewer | src/cart.rs:15 | ✅ 已修复 | 添加空集合检查 |
-| 3 | @reviewer | src/utils.rs:8 | ❌ 已拒绝 | 当前命名符合项目约定，见回复 |
-```
+## Success Criteria
 
-## 使用示例
+- [ ] Comments classified by priority
+- [ ] Modifications confirmed before commit
+- [ ] Tests pass before resolve
+- [ ] Push only after user confirmation
+- [ ] Reviewer notified with PR URL
+- [ ] No out-of-scope commands
 
-### 处理一个有 3 条审查意见的 PR
+## Common Mistakes
 
-```bash
-# 获取 PR 详情和评论
-gitflow-cli pr view 101
+- ❌ **Push without confirmation** — Show summary, wait for explicit approval before `git push`.
+- ❌ **Resolve without tests** — Resolve only after tests pass.
 
-# 切换到 PR 分支
-git checkout feature/add-auth
+## Trigger Keywords
 
-# 逐条修改
-# 评论 1：修复 SQL 注入
-# 编辑 src/auth.rs:42，改为参数化查询
-cargo test -p auth
-git add src/auth.rs
-git commit -m "fix: address SQL injection concern from @alice on src/auth.rs:42"
+| English | 中文 |
+|---------|------|
+| apply feedback | 应用反馈 |
+| resolve comments | 解决评论 |
+| review follow-up | 审查后续 |
 
-# 评论 2：添加边界检查
-# 编辑 src/cart.rs:15，添加空集合处理
-cargo test -p cart
-git add src/cart.rs
-git commit -m "fix: add empty list guard from @alice on src/cart.rs:15"
+## See Also
 
-# 评论 3：改进命名（不同意，回复说明理由）
-# 在 PR 上回复拒绝理由
-
-# 标记评论为 resolved
-gitflow-cli pr resolve-comment 101 --comment-id c001
-gitflow-cli pr resolve-comment 101 --comment-id c002
-
-# 推送修改
-git push origin feature/add-auth
-
-# 通知审查者
-gitflow-cli pr comment 101 --body "已处理所有审查意见，请重新审查。\n\n- [x] SQL 注入已改为参数化查询\n- [x] 已添加空集合检查\n- [ ] 命名建议已回复说明"
-```
-
-### 处理安全相关的紧急审查意见
-
-```bash
-gitflow-cli pr view 55
-
-# 安全审查意见应最高优先级处理
-# 1. 立即切换到 PR 分支
-git checkout fix/security-patch
-
-# 2. 修复安全问题
-# 编辑相关文件
-
-# 3. 运行安全测试
-cargo audit
-cargo test -- security
-
-# 4. 提交并推送
-git commit -am "fix(security): address critical auth bypass from @security-reviewer"
-git push origin fix/security-patch
-
-# 5. 标记 resolved 并通知
-gitflow-cli pr resolve-comment 55 --comment-id s001
-gitflow-cli pr comment 55 --body "关键安全问题已修复，请重新审查确认。"
-```
-
-## 注意事项
-
-- 处理审查意见时应从最高优先级开始，确保安全问题和逻辑错误首先被修复
-- 如果不同意某条审查意见，应在 PR 上回复说明理由，而非直接忽略
-- 每条修复应尽量独立成 commit，便于回滚和追溯
-- 应用修改后必须运行相关测试，确保不引入新的回归
-- 如果审查意见涉及的改动较大（如架构调整），应先与审查者讨论方案再动手
-- 标记 resolved 前应确认修改确实解决了评论中指出的问题
-- 对于跨多个文件的审查意见，可以在一个 commit 中统一处理，但 commit 消息应列出所有相关的评论
-- 处理完毕后应主动通知审查者进行重新审查，不要等待审查者自行发现
+- `/gitflow-pr-review` — initial code review
+- `/gitflow-pr-inline-review` — inline review comments
+- `/gitflow-pr` — PR lifecycle management
+- `docs/superpowers/templates/skill-conventions.md` — template conventions this skill conforms to
