@@ -36,11 +36,9 @@ pub mod release;
 pub mod review;
 pub mod types;
 
-// Re-export output types at the crate root for convenience.
-pub use output::{CliError, CliOutput};
-
-// Re-export auth checker types at the crate root for convenience.
+// Re-export types at the crate root for convenience.
 pub use auth_checker::{AuthCheckResult, AuthChecker};
+pub use output::{CliError, CliOutput};
 
 /// Application error type.
 ///

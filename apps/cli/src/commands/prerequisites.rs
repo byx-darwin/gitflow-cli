@@ -119,9 +119,7 @@ pub enum PrerequisiteError {
         install_cmd: String,
     },
 
-    #[error(
-        "[[PLATFORM]] Not authenticated.\n\n🔍 Reason: {reason}\n\n🔧 Fix: {hint}"
-    )]
+    #[error("[[PLATFORM]] Not authenticated.\n\n🔍 Reason: {reason}\n\n🔧 Fix: {hint}")]
     NotAuthenticated {
         binary: String,
         platform: String,
