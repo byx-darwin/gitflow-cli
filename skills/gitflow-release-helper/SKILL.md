@@ -7,6 +7,8 @@ description: |
 
 # gitflow-release-helper
 
+## Overview
+
 Orchestrates release workflow: infers SemVer from conventional commits, generates release notes, calls `/gitflow-release` to create, emits URL. No CRUD on existing releases.
 
 ## When to Use
