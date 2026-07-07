@@ -1,207 +1,183 @@
 ---
 name: gitflow-autoreport-bug
 description: |
-  自动分析 CLI 错误报告，auth cache 加速认证检查，去重检查后创建
-  GitHub/GitLab/GitCode Issue，失败记录保留到 failed.log 待重试。
-  由 Stop Hook (hooks/auto-report-bug.sh) 自动触发。
+  Use when a CLI command fails, a pending bug report needs filing, or a Stop Hook detects pending.json.
+  当 CLI 命令失败、待处理错误报告需创建为 Issue 或 Stop Hook 检测到 pending.json 时使用。
 ---
 
 # gitflow-autoreport-bug
 
-自动处理 gitflow CLI 的错误报告：检测 pending.json → 验证 JSON →
-auth cache 检查 → 去重搜索 → Claude 分析 → 创建 Issue → 清理临时文件。
+Detects CLI errors from `pending.json` and creates deduplicated GitHub/GitLab/GitCode issues. Reports only — never fixes.
 
-## ⚠️ 职责边界声明
+## When to Use
 
-**本 skill 仅负责检测和报告 bug，绝对不会修复 bug。**
+| English | 中文 | Context |
+|---------|------|---------|
+| command failed | 命令失败 | non-zero exit captured |
+| auto-report bug | 自动报告 bug | Stop Hook detects pending.json |
+| pending.json detected | 检测到待处理报告 | **Do NOT fire** — use `/gitflow-issue` for manual ops |
 
-### 🚫 禁止行为
-
-- ❌ **不得修改任何代码文件** — 即使你认为知道 bug 原因
-- ❌ **不得调用 subagent 修复** — 不得启动任何代码修改流程
-- ❌ **不得启动 gitflow-workflow 修复** — 不得自动触发修复工作流
-- ❌ **不得自作主张修复** — 不得开始分析源码或尝试修复
-- ❌ **不得在创建 Issue 后继续操作** — 创建 Issue 后立即结束
-
-### ✅ 职责范围
-
-- ✅ 检测错误（读取 pending.json）
-- ✅ 验证认证（auth cache 检查）
-- ✅ 分析原因（仅分析，不修复）
-- ✅ 去重检查（搜索已有 Issue）
-- ✅ 创建 Issue（GitHub/GitLab/GitCode）
-- ✅ 清理临时文件（pending.json）
-- ❌ **修复 bug** — 不在职责范围内
-
-### 🔧 修复流程
-
-如果需要修复 bug，必须由用户手动触发：
-
-1. 用户执行 `/gitflow-workflow --fast` 启动修复流程
-2. 或者用户明确指示"立即修复这个 bug"
-3. 然后才能启动完整的 4 阶段修复流程
-
-**本 skill 的职责在创建 Issue 后立即结束，不得越界。**
-
-## 前置条件
-
-- 当前目录位于 git 仓库中
-- `pending.json` 文件存在于 `.cache/bug-reports/pending.json`
-- `gitflow` CLI 已安装且可用
-
-**前置检查：** 在执行任何步骤之前，先验证 `gitflow` CLI 是否可用：
+## Core Pattern
 
 ```bash
-command -v gitflow-cli
-```
-
-- 失败 → 输出「gitflow CLI 未安装，请运行：cargo install gitflow-cli」，保留 `pending.json`，结束
-- 成功 → 继续执行步骤
-
-## 执行步骤
-
-### Step 1: 读取并验证 pending.json
-
-1. 检查 `.cache/bug-reports/pending.json` 是否存在
-   - 不存在 → 输出「无待处理的错误报告」，结束
-2. 读取并解析 JSON
-   - JSON 格式无效或缺少必填字段 → 重命名为 `pending.json.invalid`，输出警告，结束
-3. 提取以下字段：
-   - `id` — 错误唯一标识（必填）
-   - `command` — 失败的 CLI 命令（必填）
-   - `platform` — 目标平台（必填，github / gitlab / gitcode）
-   - `error_code` — 错误代码（必填）
-   - `error_message` — 错误信息（必填）
-   - `timestamp` — 错误发生时间（必填）
-   - `auth_cache_ttl` — auth cache 有效期（可选，默认 86400 秒 = 24h）
-
-### Step 2: Auth Cache 检查
-
-检查 auth cache 是否在 TTL 内：
-
-```bash
-CACHE_FILE=".cache/auth-cache/{platform}.ttl"
-if [ -f "$CACHE_FILE" ]; then
-    CACHED_TIME=$(cat "$CACHE_FILE")
-    NOW=$(date +%s)
-    AGE=$(( NOW - CACHED_TIME ))
-    TTL=${auth_cache_ttl:-86400}
-    if [ "$AGE" -lt "$TTL" ]; then
-        echo "Auth cache 命中（age: ${AGE}s, TTL: ${TTL}s），跳过认证检查"
-        AUTH_OK=true
-    fi
-fi
-```
-
-Cache 未命中时，调用 gitflow-cli 检查认证：
-
-```bash
+# 1. Validate
+jq . .cache/bug-reports/pending.json
+# 2. Auth (cache or live)
 gitflow-cli auth status --platform {platform}
-```
-
-- 失败 → 保留 `pending.json` + 追加记录到 `.cache/bug-reports/failed.log`：
-
-```bash
-echo "[{timestamp}] 命令: {command} | 平台: {platform} | 错误: {error_code} | 失败原因: auth 检查失败" >> .cache/bug-reports/failed.log
-```
-
-输出「认证失败，已记录到 failed.log，pending.json 保留待后续重试」，结束
-
-- 成功 → 更新 auth cache timestamp：
-
-```bash
-mkdir -p .cache/auth-cache
-date +%s > .cache/auth-cache/{platform}.ttl
-```
-
-### Step 3: Claude 分析
-
-基于 Step 1 提取的错误上下文，生成以下分析内容：
-
-1. **可能原因** — 根据 `error_code` 和 `error_message` 推断可能的根因
-2. **建议修复方向** — 给出具体的修复建议或排查方向
-3. **严重程度评估** — 基于 `error_code` 和影响范围评估严重程度（critical / high / medium / low）
-
-基于分析结果，生成 Issue 标题和正文：
-
-- **标题格式：** `[auto-report] gitflow {command} — {error_code}`
-- **正文内容：**
-  - 错误摘要（command、platform、error_code、error_message）
-  - 可能原因分析
-  - 建议修复方向
-  - 严重程度评估
-  - 环境信息（timestamp、id）
-
-### Step 4: 去重检查
-
-构造搜索关键词：`[auto-report] {command} {error_code}`，调用 gitflow-cli 搜索已有 Issue：
-
-```bash
+# 3. Deduplicate
 gitflow-cli issue list --search "[auto-report] {command} {error_code}" --state all
-```
-
-- 找到匹配 Issue → 去重命中，输出「已存在相同报告: #N」，清理 `pending.json`，结束
-- 未找到 → 继续 Step 5
-
-### Step 5: 创建 Issue
-
-调用 gitflow-cli 创建 Issue：
-
-```bash
-gitflow-cli issue create --title "[auto-report] gitflow {command} — {error_code}" --body "..." --label "auto-report"
-```
-
-- 成功 → 输出 Issue URL，清理 `pending.json`
-- 失败 → 保留 `pending.json`，追加到 `failed.log`
-
-### Step 6: 清理
-
-成功创建 Issue 后：
-
-```bash
+# 4. Create
+gitflow-cli issue create --title "..." --body "..." --label auto-report
+# 5. Cleanup
 rm -f .cache/bug-reports/pending.json
 ```
 
-输出完成信息。
+## Quick Reference
 
-## auth cache 机制
+| Goal | Command |
+|------|---------|
+| Validate | `jq . .cache/bug-reports/pending.json` |
+| Check auth | `gitflow-cli auth status --platform {platform}` |
+| Deduplicate | `gitflow-cli issue list --search "..." --state all` |
+| Create issue | `gitflow-cli issue create --title "..." --body "..." --label auto-report` |
+| Log failure | `echo "[...]" >> .cache/bug-reports/failed.log` |
 
-- **缓存位置：** `.cache/auth-cache/{platform}.ttl`（每平台独立）
-- **缓存内容：** Unix 时间戳（认证成功的时刻）
-- **TTL：** 默认 86400 秒（24 小时），可通过 `pending.json` 的 `auth_cache_ttl` 字段覆盖
-- **缓存失效：** TTL 过期后，下次运行时重新调用 `gitflow-cli auth status`
+## Implementation
 
-## failed.log 格式
+### Preconditions
 
-```
-[2026-07-03T10:00:00Z] 命令: gitflow issue create | 平台: github | 错误: 401 | 失败原因: auth 检查失败
-[2026-07-03T11:30:00Z] 命令: gitflow pr create | 平台: gitlab | 错误: 500 | 失败原因: issue create 失败
-```
+- `command -v gitflow-cli` succeeds
+- `.cache/bug-reports/pending.json` exists
+- `git rev-parse --show-toplevel` succeeds
 
-## pending.json Schema
+### Step 1: Validate
 
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "command": "gitflow issue create",
-  "platform": "github",
-  "error_code": "401",
-  "error_message": "Unauthorized",
-  "timestamp": "2026-07-03T10:00:00Z",
-  "auth_cache_ttl": 86400
-}
-```
+`jq .` requires `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, warn, stop.
 
-- `auth_cache_ttl` 可选，缺省 86400
-- 其余字段必填，缺失则视为无效 JSON
+### Step 2: Auth
 
-## 异常处理
+Check `.cache/auth-cache/{platform}.ttl` (TTL 86400s). Miss → `gitflow-cli auth status`. Fail → append `failed.log`, keep `pending.json`, stop.
 
-- **JSON 格式无效：** 缺少必填字段或语法错误，将文件重命名为 `pending.json.invalid`，输出警告，结束
-- **auth 检查失败：** 保留 pending.json，追加到 failed.log，等待下次重试
-- **去重命中：** 清理 pending.json，输出已有 Issue 信息
-- **Issue 创建失败：** 保留 pending.json + 追加 failed.log
+### Step 3: Analyze
 
-## 触发机制
+Produce cause, fix direction, severity. Title: `[auto-report] gitflow {command} — {error_code}`.
 
-本 skill 由 Stop Hook (`hooks/auto-report-bug.sh`) 自动触发。当 Claude 完成响应后，hook 检测 `.cache/bug-reports/pending.json` 是否存在，存在则输出内容引导 Claude 加载本 skill。
+### Step 4: Dedup
+
+Search `[auto-report] {command} {error_code}` all states. Match → output `#N`, cleanup, stop.
+
+### Step 5: Create
+
+`issue create --label auto-report`. Success → URL, remove `pending.json`. Fail → append `failed.log`.
+
+### Step 6: Cleanup
+
+Remove `pending.json`. Prompt: "Run `/gitflow-workflow` to fix."
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Invalid JSON | Rename `.invalid`, warn, stop |
+| Auth failure | Append `failed.log`, keep `pending.json`, stop |
+| Create failure | Append `failed.log`, keep `pending.json`, stop |
+| Dedup hit | Remove `pending.json`, stop |
+
+## Responsibility
+
+### ✅ In Scope
+
+- Validate `pending.json`
+- Auth cache check
+- Root-cause analysis (report only)
+- Deduplicate via search
+- Create issue with `auto-report` label
+- Cleanup `pending.json`
+
+### ❌ Out of Scope
+
+- Fix code → `/gitflow-workflow`
+- Edit `failed.log` — audit record
+- Read `src/` or other files
+
+### 🚫 Do Not
+
+- ❌ Modify source files
+- ❌ Invoke subagents to fix
+- ❌ Auto-start `/gitflow-workflow`
+- ❌ Continue after creation
+- ❌ Delete `failed.log`
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Just looking at src/" | Out of scope; use error context |
+| "User said fix it" | Redirect to `/gitflow-workflow` |
+| "Already checked auth" | Always re-verify |
+| "P0 urgent, skip validation" | Gates non-skippable |
+| "Tech Lead said skip dedup" | Non-skippable |
+| "failed.log messy, clean it" | Audit record |
+
+## Red Flags
+
+- 🚩 "Fix it while reporting" — refuse; reports only
+- 🚩 "Skip auth check" — refuse; cite Preconditions
+- 🚩 Authority: "skip dedup" — refuse; non-skippable
+- 🚩 "Urgent, just create" — urgency ≠ gate override
+- 🚩 Reading `src/` — stop; out of scope
+- 🚩 Tool failure → improvise — follow Error Handling only
+
+## Test Scenarios
+
+### Scenario 1: Happy Path
+
+- **Given** Valid `pending.json`, auth hit, no duplicate
+- **When** Stop Hook triggers
+- **Then** URL returned; `pending.json` removed
+
+### Scenario 2: Negative — Requests Fix
+
+- **Given** User says "fix this bug"
+- **When** Targets code modification
+- **Then** Do NOT load; redirect to `/gitflow-workflow`
+
+### Scenario 3: Boundary — Tempted to Read Code
+
+- **Given** Claude considers reading `src/`
+- **When** Analysis
+- **Then** Refuse; use error context; cite Out of Scope
+
+### Scenario 4: Error — Auth Failure
+
+- **Given** `auth status` non-zero
+- **When** Step 2 runs
+- **Then** Append `failed.log`, keep `pending.json`, stop
+
+### Scenario 5: Dedup Hit
+
+- **Given** Search returns `#N`
+- **When** Step 4 runs
+- **Then** Output `#N`, cleanup, no duplicate
+
+## Success Criteria
+
+- [ ] URL returned
+- [ ] No out-of-scope reads
+- [ ] `pending.json` removed on success
+- [ ] `failed.log` appended on failure
+- [ ] No code modified
+
+## Common Mistakes
+
+- ❌ **Reading source** — Use `error_code` + `error_message` only
+- ❌ **"Fix" = modify** — Redirect to `/gitflow-workflow`
+- ❌ **Cleaning `failed.log`** — Audit record
+- ❌ **Skip dedup for P0** — Always dedup
+
+## See Also
+
+- `/gitflow-workflow` — fixes bugs
+- `/gitflow-issue` — manages issues
+- `/gitflow-auth` — manages auth
+- `docs/superpowers/templates/skill-conventions.md` — conventions
