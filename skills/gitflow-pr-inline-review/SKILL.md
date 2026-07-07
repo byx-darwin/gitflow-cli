@@ -33,8 +33,8 @@ gitflow-cli comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
 
 | Goal | Command |
 |------|---------|
-| Fetch PR | `gitflow-cli pr view <n>` + `gitflow-cli pr diff <n>` |
-| Publish inline comment | `gitflow-cli comment <sha> --body "<body>" --path <file> --line <n>` |
+| Fetch | `gitflow-cli pr view <n>` + `pr diff <n>` |
+| Publish | `gitflow-cli comment <sha> --body "<body>" --path <file> --line <n>` |
 
 **Dimensions:** `[logic]` `[security]` `[naming]` `[boundary]`
 
@@ -60,7 +60,7 @@ For each `+` line assess `[logic]` (conditionals, loops, await), `[security]` (i
 
 ### Step 3: Show Draft — Await Confirmation ⚠️
 
-Present draft. **STOP. Do NOT publish until user explicitly confirms.** Non-skippable — see Rationalization Excuses.
+Present draft. **STOP. Do NOT publish until user confirms.** Non-skippable.
 
 ### Step 4: Publish
 
@@ -74,10 +74,9 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 | Error | Recovery |
 |-------|----------|
-| `pr view` 404 / empty diff / not open | Stop |
-| `comment` API failure | Log, continue |
-| Auth failure | "Run `gitflow-cli auth login`", stop |
-| >15 findings | Stop. Discuss first |
+| 404 / empty diff / not open | Stop |
+| API failure | Log, continue |
+| >15 findings | Discuss first |
 
 ## Responsibility
 
@@ -91,19 +90,18 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 ### 🚫 Do Not
 
-- ❌ Publish without user approval
-- ❌ Guess line numbers — use only `+` from diff
-- ❌ Comment unchanged/deleted lines; ❌ Publish closed/merged PRs; ❌ Copy across PRs; ❌ Auto-publish
+- ❌ Publish without approval
+- ❌ Guess line numbers — use `+` only
+- ❌ Comment unchanged lines; ❌ Publish merged PRs; ❌ Cross-post
 
 ## 🔁 Delegation Rules
 
 | User Intent | Delegate To | Reason |
 |-------------|-------------|--------|
-| Inline line-level review | This skill | Per-line diff analysis + publish |
-| Overall review verdict | `/gitflow-pr-review` | 6-dimension checklist + decision |
-| Apply reviewer feedback | `/gitflow-pr-apply-feedback` | Code modification + resolve |
-| Create a PR | `/gitflow-pr-create` | Branch validation + title/desc collection |
-| PR lifecycle (merge/close) | `/gitflow-pr` | Lifecycle operation |
+| Inline review | This skill | Per-line diff + publish |
+| Overall verdict | `/gitflow-pr-review` | 6-dim checklist |
+| Apply feedback | `/gitflow-pr-apply-feedback` | Code changes |
+| PR lifecycle | `/gitflow-pr` | merge/close/etc |
 
 ## Rationalization Excuses
 
@@ -136,9 +134,9 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 ## Success Criteria
 
-- [ ] Comments published only after explicit user confirmation
-- [ ] All comments target verified `+` numbers
-- [ ] No unchanged/deleted/out-of-diff comments
+- [ ] Comments only after user confirmation
+- [ ] All target verified `+` lines
+- [ ] No out-of-diff comments
 
 ## Common Mistakes
 

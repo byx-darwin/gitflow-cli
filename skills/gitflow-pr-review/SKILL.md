@@ -7,7 +7,7 @@ description: |
 
 # gitflow-pr-review
 
-Performs a 6-dimension assessment of a PR diff and submits an overall verdict via `gitflow-cli review`. Line-level inline comments belong to `gitflow-pr-inline-review`.
+6-dimension PR diff assessment + overall verdict via `gitflow-cli review`. Line-level comments → `gitflow-pr-inline-review`.
 
 ## When to Use
 
@@ -16,25 +16,25 @@ Performs a 6-dimension assessment of a PR diff and submits an overall verdict vi
 | review PR | 审查 PR | overall verdict |
 | approve / LGTM | 审批 / 通过 | post-analysis |
 | request changes | 要求修改 | PR blocked |
-| inline comments / line review | 逐行评论 | → `gitflow-pr-inline-review` |
-| merge / close PR | 合并 / 关闭 PR | → `gitflow-pr` |
+| inline / line review | 逐行评论 | → `gitflow-pr-inline-review` |
+| merge / close | 合并/关闭 | → `gitflow-pr` |
 
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <n>          # 1. verify open
-gitflow-cli pr diff <n>          # 2. fetch diff
-# 3. assess 6 dimensions; 4. draft conclusion
-gitflow-cli review <verdict> <n> --body "<conclusion>"  # 5. submit
+gitflow-cli pr view <n>                          # 1. verify
+gitflow-cli pr diff <n>                          # 2. diff
+# 3. assess 6 dims; draft conclusion
+gitflow-cli review <verdict> <n> --body "<c>"     # 4. submit
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Approve | `gitflow-cli review approve <n> --body "<conclusion>"` |
-| Request changes | `gitflow-cli review request-changes <n> --body "<conclusion>"` |
-| Comment only | `gitflow-cli review comment <n> --body "<conclusion>"` |
+| Approve | `gitflow-cli review approve <n> --body "<c>"` |
+| Request changes | `gitflow-cli review request-changes <n> --body "<c>"` |
+| Comment | `gitflow-cli review comment <n> --body "<c>"` |
 
 Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../references/pr-review-checklist.md).
 
@@ -99,10 +99,9 @@ Output PR URL.
 
 | User Intent | Delegate To |
 |-------------|-------------|
-| Inline line-level review | `/gitflow-pr-inline-review` |
-| Apply reviewer feedback | `/gitflow-pr-apply-feedback` |
-| Merge / close / reopen PR | `/gitflow-pr` |
-| Submit review decision | `/gitflow-review` |
+| Inline review | `/gitflow-pr-inline-review` |
+| Apply feedback | `/gitflow-pr-apply-feedback` |
+| Merge / close | `/gitflow-pr` |
 
 ## Rationalization Excuses
 

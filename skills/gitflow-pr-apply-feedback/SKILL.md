@@ -45,13 +45,9 @@ gitflow-cli pr comment <pr> --body "<summary>"            # 6. notify
 - Git repo — `git rev-parse --is-inside-work-tree`; CLI installed — `command -v gitflow-cli`
 - Authenticated — `gitflow-cli auth status`; PR branch confirmed before checkout
 
-### Step 1: Fetch and Prioritize
+### Step 1: Fetch + Prioritize — `pr view`, filter unresolved, order security→logic→boundary→naming→style.
 
-`gitflow-cli pr view <pr-number>`. Not found → error. Extract branch, status, comments, states. Filter unresolved. Order: `[security]`/`[logic]` > `[boundary]`/`[performance]` > `[naming]`/`[style]` > suggestion. Await selection.
-
-### Step 2: Fix (Per Comment)
-
-For each confirmed comment: confirm branch, checkout, edit, run tests. Pass → commit referencing reviewer + location. Reject or defer → skip. Test fail → do NOT commit or resolve; stop.
+### Step 2: Fix Per Comment — checkout, edit, test, commit (referencing reviewer + location). Test fail → no commit.
 
 ### Step 3: Resolve, Push, Notify
 
@@ -99,38 +95,35 @@ flowchart TD
 
 ### 🚫 Do Not
 
-- ❌ Push without explicit user confirmation
+- ❌ Push without confirmation
 - ❌ Resolve without passing tests
-- ❌ Modify code unrelated to the comment
-- ❌ Checkout without user confirmation
-- ❌ Auto-accept all comments without user review
+- ❌ Modify unrelated code
+- ❌ Auto-accept all comments
 
 ## 🔁 Delegation Rules
 
 | User Intent | Delegate To | Reason |
 |-------------|-------------|--------|
-| Apply / resolve review feedback | This skill | Code modification + resolve |
-| Initial code review | `/gitflow-pr-review` | 6-dimension checklist + decision |
-| Inline line-level review | `/gitflow-pr-inline-review` | Per-line diff analysis |
-| Create a PR | `/gitflow-pr-create` | Branch validation |
-| Merge / close PR | `/gitflow-pr` | Lifecycle operation |
+| Apply feedback | This skill | Code changes + resolve |
+| Initial review | `/gitflow-pr-review` | 6-dim checklist |
+| Inline review | `/gitflow-pr-inline-review` | Per-line diff |
+| Merge / close | `/gitflow-pr` | Lifecycle |
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "Comment is clear, skip confirmation" | Every change needs confirmation |
-| "Small change, just commit" | Size never waives it |
-| "Reviewer rushing, push now" | Urgency never overrides push |
-| "Tests passed, resolve immediately" | User must confirm it |
-| "Same spot, batch them" | Each tracked independently |
+| "Comment is clear, skip" | Every change needs confirmation |
+| "Small change, just commit" | Size never waives confirmation |
+| "Reviewer rushing" | Urgency ≠ skip |
+| "Tests passed, resolve now" | User confirms |
 
 ## Red Flags
 
-- 🚩 "Apply all feedback" — Needs individual confirmation.
+- 🚩 "Apply all feedback" — Needs confirmation.
 - 🚩 "Skip tests, resolve" — Tests must pass.
 - 🚩 "Push right away" — Needs confirmation.
-- 🚩 Architectural change — Discuss with reviewer first.
+- 🚩 Architectural change — Discuss first.
 
 ## Test Scenarios
 
