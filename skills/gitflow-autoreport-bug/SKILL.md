@@ -179,5 +179,6 @@ Remove `pending.json`. Prompt: "Run `/gitflow-workflow` to fix."
 
 - `/gitflow-workflow` — fixes bugs
 - `/gitflow-issue` — manages issues
+- `/gitflow-issue-create` — creates issues interactively from templates
 - `/gitflow-auth` — manages auth
 - `docs/superpowers/templates/skill-conventions.md` — conventions

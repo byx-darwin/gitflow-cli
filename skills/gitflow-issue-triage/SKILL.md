@@ -155,5 +155,6 @@ Totals, type %, priority %, detail table, action items. Use triage:done URLs as 
 ## See Also
 
 - `gitflow-issue` — Issue CRUD (close, reopen, edit, comment)
+- `gitflow-issue-create` — creates issues interactively from templates
 - `gitflow-issue-review` — Structured issue review
 - `gitflow-label-milestone` — Label and milestone management

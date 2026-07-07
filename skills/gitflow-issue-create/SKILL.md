@@ -1,114 +1,175 @@
 ---
 name: gitflow-issue-create
-description: 引导用户完成 Issue 创建工作流 — 从模板填写到调用 gitflow-cli issue create 并输出 Issue URL
+description: |
+  Use when the user wants to create a new issue through gitflow-cli — collecting title, description, labels, and assignees interactively.
+  当用户希望通过 gitflow-cli 交互式地创建新 issue（收集标题、描述、标签、指派人）时使用。
 ---
 
-# gitflow-cli issue create 工作流
+# gitflow-issue-create
 
-引导用户通过结构化的交互流程创建高质量的 Issue，包括标题、描述、标签和里程碑的配置，并调用 `gitflow-cli issue create` 完成创建。
+Guides the user through structured issue creation — collects title (conventional-commit prefix), description (Markdown template), labels, and assignees, then invokes `gitflow-cli issue create` and returns the new issue URL. Does not edit, close, or triage existing issues.
 
-## 工作流
+## When to Use
 
-### 步骤 1：收集 Issue 标题
+| English | 中文 | Context |
+|---------|------|---------|
+| create an issue | 创建 issue | user wants a new issue |
+| file a bug / feature | 提交 bug / 功能需求 | new work item |
+| open an issue | 新建 issue | manual creation |
+| close / edit issue | 关闭 / 编辑 issue | **do NOT fire** → `/gitflow-issue` |
+| triage backlog | 分流待办 | **do NOT fire** → `/gitflow-issue-triage` |
 
-引导用户提供清晰、具体的 Issue 标题。标题应遵循 conventional commits 前缀约定：
-
-- `feat:` 新功能
-- `fix:` 缺陷修复
-- `docs:` 文档更新
-- `refactor:` 代码重构
-- `chore:` 维护性任务
-- `test:` 测试相关
-- `perf:` 性能优化
-
-示例：`feat(auth): add two-factor authentication support`
-
-### 步骤 2：收集 Issue 描述
-
-引导用户提供结构化的描述（Markdown 格式）。推荐模板：
-
-```markdown
-## 背景
-
-<!-- 说明问题或需求的上下文 -->
-
-## 目标
-
-<!-- 完成后应该达到什么效果 -->
-
-## 验收标准
-
-- [ ] 标准 1
-- [ ] 标准 2
-- [ ] 标准 3
-
-## 备注
-
-<!-- 补充信息、参考链接、设计图等 -->
-```
-
-### 步骤 3：配置标签（可选）
-
-询问用户是否需要附加标签。常见标签：
-
-| 标签 | 用途 |
-|------|------|
-| `bug` | 缺陷 |
-| `enhancement` | 功能增强 |
-| `documentation` | 文档 |
-| `high-priority` | 高优先级 |
-| `good-first-issue` | 适合新人 |
-
-可通过多次调用 `--label` 参数添加多个标签。
-
-### 步骤 4：配置指派人（可选）
-
-询问是否需要指定 Issue 指派人。需提供指派人的登录名。
-
-### 步骤 5：创建 Issue
-
-调用 `gitflow-cli issue create` 命令，传入收集到的参数：
+## Core Pattern
 
 ```bash
-gitflow-cli issue create --title "<标题>" --body "<描述>" --label <标签1> --label <标签2> --assignee <指派人>
+# 1. Preconditions
+command -v gitflow-cli && gitflow-cli auth status
+# 2. Collect title (conventional-commit prefix) + body (Markdown template)
+# 3. Collect labels / assignees (optional)
+# 4. Confirm command
+gitflow-cli issue create --title "<title>" --body "<body>" --label <l> --assignee <u>
+# 5. Output issue URL
 ```
 
-### 步骤 6：输出结果
+## Quick Reference
 
-解析命令输出，提取并展示 Issue URL，方便用户后续追踪。
+| Goal | Command |
+|------|---------|
+| Create | `gitflow-cli issue create --title "<t>" --body "<b>" --label <l> --assignee <u>` |
+| Add label | append `--label <name>` (repeatable) |
+| Add assignee | append `--assignee <login>` (repeatable) |
+| Minimal | `gitflow-cli issue create --title "<t>"` |
 
-## 使用示例
+## Implementation
 
-### 创建 bug 类 Issue
+### Preconditions
 
-```bash
-# 交互式引导后等价执行：
-gitflow-cli issue create \
-  --title "fix(auth): login redirect loops on expired token" \
-  --body "## 背景\nAuth middleware 在 token 过期时产生重定向循环\n\n## 目标\n过期后应跳转登录页而非循环\n\n## 验收标准\n- [ ] 过期 token 不产生循环\n- [ ] 正确跳转登录页" \
-  --label bug \
-  --label high-priority \
-  --assignee alice
-```
+- `command -v gitflow-cli` succeeds
+- `gitflow-cli auth status` succeeds — else run `/gitflow-auth`
 
-### 创建轻量功能 Issue
+### Step 1: Collect Title
 
-```bash
-gitflow-cli issue create \
-  --title "feat(cli): add --dry-run flag to pr create" \
-  --body "## 背景\n创建 PR 前需要预览参数\n\n## 目标\n添加 --dry-run 标志，只打印最终命令不执行" \
-  --label enhancement
-```
+Prompt for a conventional-commit title: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`, `perf:`. Reject vague titles; require scope for non-chore types.
 
-### 仅标题的最小创建
+### Step 2: Collect Description
 
-```bash
-gitflow-cli issue create --title "docs: update CLAUDE.md with new lint rules"
-```
+Prompt for Markdown body with sections: `## 背景`, `## 目标`, `## 验收标准` (checkbox `- [ ]`), `## 备注`. Confirm before proceeding.
 
-## 注意事项
+### Step 3: Collect Labels (Optional)
 
-- 标题必须遵循 conventional commits 格式，便于自动归类
-- 描述中的验收标准应使用 Markdown checkbox（`- [ ]`）格式
-- 如果用户未指定标签，不附加 `--label` 参数
-- 创建完成后应展示 Issue URL 供用户确认
+Ask whether to attach labels. Common: `bug`, `enhancement`, `documentation`, `high-priority`, `good-first-issue`. Skip if user declines.
+
+### Step 4: Collect Assignees (Optional)
+
+Ask for assignee login names. Skip if user declines.
+
+### Step 5: Confirm + Invoke
+
+Show the assembled command. On confirmation, run `gitflow-cli issue create`. Success → output issue URL. Failure → Error Handling.
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Auth failure | Stop. Direct to `/gitflow-auth`. |
+| Title rejected | Re-prompt; require conventional prefix. |
+| API 422 (validation) | Surface error; suggest field fix; stop. |
+| Network timeout | Surface error; no retry alone. |
+
+## Responsibility
+
+### ✅ In Scope
+
+- Collect title / body / labels / assignees interactively
+- Enforce conventional-commit title prefix
+- Confirm command before invoking
+- Invoke `gitflow-cli issue create`; return URL
+
+### ❌ Out of Scope
+
+- Edit / close / reopen → `/gitflow-issue`
+- Triage / prioritize → `/gitflow-issue-triage`
+- Auto-report from crash → `/gitflow-autoreport-bug`
+- Review existing issue → `/gitflow-issue-review`
+
+### 🚫 Do Not
+
+- ❌ Invoke without user confirmation
+- ❌ Skip conventional-commit prefix enforcement
+- ❌ Edit existing issues
+- ❌ Auto-add labels not requested by user
+- ❌ Retry on 5xx without surfacing to user
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Skip the prefix — user knows what they want" | Prefix enables auto-categorization; non-negotiable |
+| "Just create it, no need to confirm" | Mutation requires explicit confirmation |
+| "Add `bug` label — looks like a bug" | Labels are user-driven; never infer |
+| "Auth was fine earlier" | Preconditions run every invocation |
+
+## Red Flags
+
+- 🚩 "Skip the confirmation" — Refuse. Confirmation required.
+- 🚩 "Add a label while you're at it" — Refuse. Labels are user-driven.
+- 🚩 "Create and assign to me" without explicit ask — Refuse. Assign only if requested.
+- 🚩 CLI fails → improvise — Follow Error Handling only.
+
+## Test Scenarios
+
+### Scenario 1: Happy Path
+
+- **Given** Auth valid, user provides title `fix(auth): token refresh loop`, body with acceptance criteria, label `bug`
+- **When** "create an issue"
+- **Then** Command confirmed; `issue create` invoked; issue URL returned.
+
+### Scenario 2: Negative — "close issue #42"
+
+- **Given** User wants to close an existing issue
+- **When** "close issue #42"
+- **Then** Do NOT load. Redirect to `/gitflow-issue`.
+
+### Scenario 3: Boundary — "create issue and assign it to alice"
+
+- **Given** User did not explicitly request an assignee
+- **When** "create issue for the login bug"
+- **Then** Skill asks before assigning; refuses to infer assignee.
+
+### Scenario 4: Error — `issue create` returns 422
+
+- **Given** Title missing conventional prefix rejected by API
+- **When** `issue create` invoked
+- **Then** Error surfaced; suggest prefix fix; stop.
+
+## Success Criteria
+
+- [ ] Issue URL returned to user
+- [ ] Title has conventional-commit prefix
+- [ ] Command confirmed before invocation
+- [ ] No labels/assignees added without explicit user request
+- [ ] No out-of-scope mutation performed
+
+## Common Mistakes
+
+- ❌ **Skipping prefix enforcement** — Always require `type(scope):` prefix.
+- ❌ **Inferring labels** — Labels are user-driven; never auto-add.
+- ❌ **Invoking without confirmation** — Mutation requires explicit approval.
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| create an issue | 创建 issue |
+| file a bug | 提交 bug |
+| open an issue | 新建 issue |
+| new feature request | 新功能需求 |
+| report a problem | 报告问题 |
+
+## See Also
+
+- `/gitflow-issue` — close, reopen, edit, comment on issues
+- `/gitflow-issue-review` — analyze issue completeness
+- `/gitflow-issue-triage` — batch classify and prioritize
+- `/gitflow-autoreport-bug` — auto-report from crash artifacts
+- `docs/superpowers/templates/skill-conventions.md` — skill conventions
