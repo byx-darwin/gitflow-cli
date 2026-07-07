@@ -6,6 +6,21 @@ help: ## Show this help
 
 build: ## Compile the project
 	@cargo build
+	@echo "✓ Debug build complete: target/debug/gitflow-cli"
+
+build-release: ## Compile the project (release mode, optimized)
+	@cargo build --release
+	@echo "✓ Release build complete: target/release/gitflow-cli"
+
+local-install: ## Install gitflow-cli to ~/.cargo/bin (release build)
+	@echo "Installing gitflow-cli to ~/.cargo/bin..."
+	@cargo install --path . --force --locked
+	@echo "✓ Installed successfully"
+	@gitflow-cli --version
+
+local-rebuild: ## Clean, rebuild, and reinstall
+	@cargo clean
+	@$(MAKE) local-install
 
 check: ## Fast compile check (no codegen)
 	@cargo check --workspace --all-targets --all-features
@@ -155,7 +170,7 @@ package: ## Build and package current platform binary into dist/
 	fi
 	@echo "Packaged to dist/"
 
-.PHONY: help build check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
+.PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release \
