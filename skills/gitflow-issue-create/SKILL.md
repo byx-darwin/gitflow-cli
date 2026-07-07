@@ -1,114 +1,143 @@
 ---
 name: gitflow-issue-create
-description: 引导用户完成 Issue 创建工作流 — 从模板填写到调用 gitflow-cli issue create 并输出 Issue URL
+description: |
+  Use when the user wants to create a new Issue through gitflow-cli — interactive title, description, label collection.
+  当用户希望通过 gitflow-cli 创建 Issue（交互式标题、描述、标签收集）时使用。
 ---
 
-# gitflow-cli issue create 工作流
+# gitflow-issue-create
 
-引导用户通过结构化的交互流程创建高质量的 Issue，包括标题、描述、标签和里程碑的配置，并调用 `gitflow-cli issue create` 完成创建。
+Interactive workflow that collects title, description, optional labels/assignee, then invokes `gitflow-cli issue create` and returns the new Issue URL.
 
-## 工作流
+## When to Use
 
-### 步骤 1：收集 Issue 标题
+| English | 中文 | Context |
+|---------|------|---------|
+| create an issue | 创建 Issue | bug / feature report |
+| open an issue | 打开 Issue | new work item |
+| file a bug | 上报缺陷 | corresponds to `--label bug` |
+| new feature issue | 功能 Issue | corresponds to `feat:` prefix |
 
-引导用户提供清晰、具体的 Issue 标题。标题应遵循 conventional commits 前缀约定：
+## Core Pattern
 
-- `feat:` 新功能
-- `fix:` 缺陷修复
-- `docs:` 文档更新
-- `refactor:` 代码重构
-- `chore:` 维护性任务
-- `test:` 测试相关
-- `perf:` 性能优化
+```bash
+gitflow-cli auth status
+gitflow-cli issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...]
+```
 
-示例：`feat(auth): add two-factor authentication support`
+## Quick Reference
 
-### 步骤 2：收集 Issue 描述
+| Goal | Command |
+|------|---------|
+| Create | `gitflow-cli issue create --title "<title>" --body "<md>" [--label <l>] [--assignee <u>]` |
+| Add label | append `--label <label>` (repeatable) |
 
-引导用户提供结构化的描述（Markdown 格式）。推荐模板：
+**Title prefixes:** `feat:` `fix:` `docs:` `refactor:` `chore:` `test:` `perf:`
+
+## Implementation
+
+### Preconditions
+
+- `gitflow-cli` authenticated — `auth status`
+- Title non-empty; starts with conventional-commit prefix
+
+### Step 1: Title — conventional prefix + scope. Example: `fix(auth): login redirect loops on expired token`.
+
+### Step 2: Body — Markdown template.
 
 ```markdown
-## 背景
+## 背景 / Context
 
-<!-- 说明问题或需求的上下文 -->
+## 目标 / Goal
 
-## 目标
-
-<!-- 完成后应该达到什么效果 -->
-
-## 验收标准
-
-- [ ] 标准 1
-- [ ] 标准 2
-- [ ] 标准 3
-
-## 备注
-
-<!-- 补充信息、参考链接、设计图等 -->
+## 验收标准 / Acceptance Criteria
+- [ ] …
+- [ ] …
 ```
 
-### 步骤 3：配置标签（可选）
+### Step 3: Labels — optional. Common: `bug`, `enhancement`, `documentation`, `high-priority`, `good-first-issue`. Omit flag if none.
 
-询问用户是否需要附加标签。常见标签：
+### Step 4: Assignee — optional. Provide login. Skip if absent.
 
-| 标签 | 用途 |
-|------|------|
-| `bug` | 缺陷 |
-| `enhancement` | 功能增强 |
-| `documentation` | 文档 |
-| `high-priority` | 高优先级 |
-| `good-first-issue` | 适合新人 |
+### Step 5: Invoke. Confirm. `gitflow-cli issue create ...`. Parse output, extract + return Issue URL.
 
-可通过多次调用 `--label` 参数添加多个标签。
+### Error Handling
 
-### 步骤 4：配置指派人（可选）
+| Error | Recovery |
+|-------|----------|
+| Auth failure | Stop. `auth login`. |
+| Title empty / no prefix | Stop. Prompt again. |
+| API error (4xx) | Surface message; do not retry. |
+| Network timeout | Surface; do not retry. |
 
-询问是否需要指定 Issue 指派人。需提供指派人的登录名。
+## Responsibility
 
-### 步骤 5：创建 Issue
+### ✅ In Scope
 
-调用 `gitflow-cli issue create` 命令，传入收集到的参数：
+- Collect title / body / labels / assignee
+- Confirm then invoke CLI
+- Return Issue URL
 
-```bash
-gitflow-cli issue create --title "<标题>" --body "<描述>" --label <标签1> --label <标签2> --assignee <指派人>
-```
+### ❌ Out of Scope
 
-### 步骤 6：输出结果
+- Analysis → `/gitflow-issue-review`
+- Classification → `/gitflow-issue-triage`
+- Comments → `/gitflow-issue` (comment subcommand)
+- Bulk label ops → `/gitflow-label-stats` + `/gitflow-issue-triage`
 
-解析命令输出，提取并展示 Issue URL，方便用户后续追踪。
+### 🚫 Do Not
 
-## 使用示例
+- ❌ Create without title prefix verification
+- ❌ Skip confirmation before invoking CLI
+- ❌ Invent labels — only add if user specifies
+- ❌ Auto-assign without user input
 
-### 创建 bug 类 Issue
+## Rationalization Excuses
 
-```bash
-# 交互式引导后等价执行：
-gitflow-cli issue create \
-  --title "fix(auth): login redirect loops on expired token" \
-  --body "## 背景\nAuth middleware 在 token 过期时产生重定向循环\n\n## 目标\n过期后应跳转登录页而非循环\n\n## 验收标准\n- [ ] 过期 token 不产生循环\n- [ ] 正确跳转登录页" \
-  --label bug \
-  --label high-priority \
-  --assignee alice
-```
+| Excuse | Reality |
+|--------|---------|
+| "Prefix doesn't matter" | Prefix enables automated triage and routing. |
+| "Skip confirmation, trust me" | CLI call is a side effect — always confirm. |
+| "Invent a label for them" | Labels are user-defined; never infer. |
 
-### 创建轻量功能 Issue
+## Red Flags
 
-```bash
-gitflow-cli issue create \
-  --title "feat(cli): add --dry-run flag to pr create" \
-  --body "## 背景\n创建 PR 前需要预览参数\n\n## 目标\n添加 --dry-run 标志，只打印最终命令不执行" \
-  --label enhancement
-```
+- 🚩 "Just create it" — Collect all fields first, confirm, then invoke.
+- 🚩 "Any title is fine" — Enforce conventional prefix.
+- 🚩 "Auto-assign someone" — Only if user specifies.
 
-### 仅标题的最小创建
+## Test Scenarios
 
-```bash
-gitflow-cli issue create --title "docs: update CLAUDE.md with new lint rules"
-```
+### 1: Happy Path
+- **Given** "create a bug issue: `fix(auth): redirect loop`, body filled" — **When** user confirms — **Then** `issue create ... --label bug`, returns Issue URL.
 
-## 注意事项
+### 2: Negative
+- **Given** "review issue #42" — **Then** NOT loaded. → `/gitflow-issue-review`.
 
-- 标题必须遵循 conventional commits 格式，便于自动归类
-- 描述中的验收标准应使用 Markdown checkbox（`- [ ]`）格式
-- 如果用户未指定标签，不附加 `--label` 参数
-- 创建完成后应展示 Issue URL 供用户确认
+### 3: Boundary
+- **Given** "create issue and also triage all open issues" — **Then** create only; redirect triage → `/gitflow-issue-triage`.
+
+### 4: Error
+- **Given** "create issue" but `auth status` fails — **Then** stop, prompt `auth login`, do not call create.
+
+### 5: Boundary
+- **Given** title without conventional prefix — **Then** stop, prompt user to add prefix.
+
+## Success Criteria
+
+- [ ] Issue URL returned
+- [ ] Title has conventional prefix
+- [ ] CLI invoked only after confirmation
+- [ ] Out-of-scope requests redirected
+
+## Common Mistakes
+
+- ❌ **Creating without prefix** — Prompt user first.
+- ❌ **Adding inferred labels** — Only user-specified labels.
+
+## See Also
+
+- `/gitflow-issue` — Issue CRUD operations
+- `/gitflow-issue-review` — Issue requirement analysis
+- `/gitflow-issue-triage` — Issue classification
+- `docs/superpowers/templates/skill-conventions.md` — skill conventions

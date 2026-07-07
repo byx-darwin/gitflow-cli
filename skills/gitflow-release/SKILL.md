@@ -1,102 +1,138 @@
 ---
 name: gitflow-release
-description: gitflow-cli 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除
+description: |
+  Use when the user wants to manage Git releases through gitflow-cli — create, list, view, edit, upload/download assets, or delete.
+  当用户希望通过 gitflow-cli 管理版本发布（创建、列表、查看、编辑、上传/下载资源或删除）时使用。
 ---
 
-# gitflow-cli release
+# gitflow-release
 
-封装 `gitflow-cli release` 命令族，用于在 GitHub/GitLab/GitCode 等平台上管理版本发布（Release）。
+CRUD wrapper for `gitflow-cli release`. Manages GitHub/GitLab/GitCode releases — metadata only; tag must exist first. Delete is irreversible.
 
-## 命令概览
+## When to Use
 
-| 子命令 | 说明 |
-|--------|------|
-| `create` | 创建新 Release |
-| `list` | 列出仓库的 Release 列表 |
-| `view` | 查看指定 Release 的详情 |
-| `edit` | 编辑 Release 元数据 |
-| `upload` | 上传资源文件到 Release |
-| `download` | 下载 Release 的资源文件 |
-| `delete` | 删除指定 Release |
+| English | 中文 | Context |
+|---------|------|---------|
+| / create a release | 创建 Release | tag exists, needs publish |
+| list releases | 列出 Release | review published versions |
+| view / edit release | 查看/编辑 Release | metadata update |
+| upload / download asset | 上传/下载资源 | binaries, archives |
+| delete release | 删除 Release | rollback / mistake |
 
-## 参数说明
-
-### `gitflow-cli release create`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `--tag` | string | 是 | 关联的 Git tag 名 |
-| `--name` | string | 否 | Release 标题 |
-| `--body` | string | 否 | Release 正文（Markdown） |
-| `--draft` | flag | 否 | 以草稿方式创建 |
-| `--prerelease` | flag | 否 | 标记为预发布版本 |
-| `--target` | string | 否 | 目标 commitish（默认当前分支 HEAD） |
-
-### `gitflow-cli release list`
-
-无需额外参数。
-
-### `gitflow-cli release view`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-
-### `gitflow-cli release edit`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-| `--name` | string | 否 | 新标题 |
-| `--body` | string | 否 | 新正文（Markdown） |
-| `--draft` | flag | 否 | 切换为草稿状态 |
-| `--prerelease` | flag | 否 | 切换为预发布状态 |
-
-### `gitflow-cli release upload`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-| `--file` | string | 是 | 本地文件路径 |
-| `--asset-name` | string | 否 | 资源显示名（默认使用文件名） |
-
-### `gitflow-cli release download`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-| `--asset` | string | 是 | 资源文件名 |
-| `--dest` | string | 否 | 本地目标路径（默认当前目录） |
-
-### `gitflow-cli release delete`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-
-## 使用示例
-
-### 创建正式版本的 Release
+## Core Pattern
 
 ```bash
-gitflow-cli release create --tag v1.0.0 --name "Version 1.0.0" --body "## 新特性\n- 用户认证\n- Issue 管理"
+gitflow-cli auth status
+git tag -l <tag>
+gitflow-cli release <subcommand> ...
 ```
 
-### 创建预发布草稿版本
+## Quick Reference
 
-```bash
-gitflow-cli release create --tag v2.0.0-rc1 --name "v2.0 Release Candidate 1" --draft --prerelease --target main
-```
+| Goal | Command |
+|------|---------|
+| Create | `gitflow-cli release create --tag <tag> [--name <n>] [--body <b>] [--draft] [--prerelease] [--target <ref>]` |
+| List | `gitflow-cli release list` |
+| View | `gitflow-cli release view <tag>` |
+| Edit | `gitflow-cli release edit <tag> [--name <n>] [--body <b>] [--draft] [--prerelease]` |
+| Upload | `gitflow-cli release upload <tag> --file <path> [--asset-name <n>]` |
+| Download | `gitflow-cli release download <tag> --asset <name> [--dest <dir>]` |
+| Delete | `gitflow-cli release delete <tag>` |
 
-### 上传编译产物到 Release
+## Implementation
 
-```bash
-gitflow-cli release upload v1.0.0 --file ./dist/app-linux-amd64.tar.gz --asset-name "app-linux-amd64-v1.0.0.tar.gz"
-```
+### Preconditions
 
-### 下载 Release 资源并编辑元数据
+- Tag exists locally and on remote — `git tag -l <tag>`
+- `gitflow-cli` authenticated — `auth status`
+- For upload: local file exists
 
-```bash
-gitflow-cli release download v1.0.0 --asset "app-linux-amd64-v1.0.0.tar.gz" --dest ./downloads/
-gitflow-cli release edit v1.0.0 --body "## 更新\n修复了安装脚本问题"
-```
+### Flow by subcommand
+
+- **create** — confirm tag, draft/prerelease flags, then `release create`. Wait for success. Report Release ID + URL.
+- **list** — `release list`. Tabular output: tag, name, draft, prerelease, created.
+- **view** — `release view <tag>`. 404 → "Release `<tag>` not found.".
+- **edit** — `release edit <tag> ...`. Only non-empty flags required; confirms before publish.
+- **upload** — confirm file, optional rename, `release upload`. Reports asset URL.
+- **download** — confirm asset + dest, `release download <tag> --asset <n> [--dest <dir>]`.
+- **delete** — **Irreversible.** Confirm `<tag>` twice, then `delete`.
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Tag missing | Stop. `git tag` first. |
+| Unauthenticated | Stop. `auth login`. |
+| Not found (404) | Stop. Inform user. |
+| Upload failure | Surface error; do not retry. |
+| Delete already done | Stop. Confirm before invoking. |
+
+## Responsibility
+
+### ✅ In Scope
+
+- Execute CRUD against Release resource
+- Report new/modified/delivered URLs
+
+### ❌ Out of Scope
+
+- Creating the Git tag → `git tag`, `git push --tags`
+- Changelog generation → `/gitflow-release-helper`
+- Release orchestration → `/gitflow-release-helper`
+
+### 🚫 Do Not
+
+- ❌ Delete without double-confirm
+- ❌ Create release without first confirming tag exists
+- ❌ Upload non-existent file
+- ❌ Generate changelog text — leave to release-helper
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Tag probably exists" | Missing tag → CLI fails. Verify first. |
+| "Just delete it, easy restore" | Release deletion is **irreversible** on all platforms. |
+| "Skip the name" | Name defaults to tag; confirm if that's intended. |
+
+## Red Flags
+
+- 🚩 "Delete the release" — Double confirm tag before invoking.
+- 🚩 "Upload without checking file" — Verify path exists first.
+- 🚩 "Create release, tag doesn't matter" — Stop, tag is required.
+
+## Test Scenarios
+
+### 1: Happy Path
+- **Given** tag `v1.0.0` exists — **When** "create release v1.0.0" — **Then** invokes `release create --tag v1.0.0 ...`, returns Release URL.
+
+### 2: Negative
+- **Given** "delete tag v1.0.0" — **Then** NOT loaded. → git CLI. This skill is for releases, not tags.
+
+### 3: Boundary
+- **Given** "upload binary and also generate the changelog" — **Then** `upload` only; redirect changelog → `/gitflow-release-helper`.
+
+### 4: Error
+- **Given** "create release v3.0.0" but no such tag — **Then** stop, "Tag v3.0.0 missing. Run `git tag` first."
+
+### 5: Boundary
+- **Given** "delete release v1.0.0" — **Then** prompt for double-confirm. Do not invoke on first ask.
+
+## Success Criteria
+
+- [ ] Release URL returned on create
+- [ ] Tag existence verified before create
+- [ ] Delete required double-confirm
+- [ ] Out-of-scope intents redirected
+
+## Common Mistakes
+
+- ❌ **Creating release on missing tag** — verify tag first.
+- ❌ **Deleting without confirmation** — always double-confirm.
+
+## See Also
+
+- `gitflow-release-helper` — version decision, changelog, release orchestration
+- `gitflow-quality` — pre-release quality gate
+- `gitflow-pr` — PR lifecycle
+- `gitflow-label-milestone` — milestone association

@@ -1,183 +1,151 @@
 ---
 name: gitflow-security-check
-description: 安全审计工作流 — 检查密钥硬编码、依赖漏洞和输入验证，调用 cargo audit 执行依赖漏洞扫描
+description: |
+  Use when the user wants to audit the codebase for hardcoded secrets, dependency vulnerabilities, unsafe code, or license compliance.
+  当用户需要检查密钥硬编码、依赖漏洞、unsafe 代码、或许可证合规时使用。
 ---
 
-# gitflow security check 工作流
+# gitflow-security-check
 
-提供一套系统的安全审计 checklist，帮助识别项目中的安全漏洞，包括密钥硬编码、依赖漏洞、输入验证等问题。
+Security audit checklist: dependency vulnerabilities, hardcoded secrets, unsafe code, license compliance. **Detection only — never auto-fix.**
 
-## 审计清单
+## When to Use
 
-### 1. 密钥硬编码检查
+| English | 中文 | Context |
+|---------|------|---------|
+| security audit | 安全审计 | scan for vulnerabilities |
+| dependency vulns | 依赖漏洞 | cargo audit |
+| hardcoded secrets | 密钥硬编码 | grep patterns |
+| license compliance | 许可证合规 | cargo deny |
+| unsafe code check | unsafe 代码检查 | grep unsafe |
 
-扫描代码仓库中的敏感信息：
-
-- [ ] API Keys / Access Tokens（GitHub Token、AWS Key、数据库密码等）
-- [ ] 私钥文件（`.pem`、`.key` 等）
-- [ ] 数据库连接字符串包含明文密码
-- [ ] 加密密钥硬编码在源码中
-- [ ] `.env` 文件是否被 `.gitignore` 排除
-- [ ] 是否存在 `config/` 或 `secrets/` 目录被误提交
-
-扫描方法：
+## Core Pattern
 
 ```bash
-# 搜索常见密钥模式
-grep -rn "password\|secret\|api_key\|token\s*=\s*['\"]" --include="*.rs" --include="*.toml" --include="*.yaml" --include="*.yml" --include="*.json" src/
-# 检查是否有 .env 文件被跟踪
-git ls-files | grep -E "\.env|\.env\."
+cargo audit                                              # 1. dependency vulns
+cargo deny check                                         # 2. license compliance
+grep -rn "password\|secret\|api_key\|token\s*=" src/     # 3. hardcoded secrets
+grep -rn "unsafe" --include="*.rs" src/                  # 4. unsafe code
 ```
 
-### 2. 依赖漏洞扫描
+## Quick Reference
 
-检查项目依赖是否存在已知安全漏洞：
+| Goal | Command |
+|------|---------|
+| Dependency audit | `cargo audit` |
+| License check | `cargo deny check` |
+| Find secrets | `grep -rn "password\|secret\|api_key" src/` |
+| Find unsafe | `grep -rn "unsafe" --include="*.rs" src/` |
 
-```bash
-cargo audit
-```
+## Implementation
 
-重点关注：
-- CRITICAL 和 HIGH 级别的漏洞
-- 是否有可用的修复版本
-- 是否可通过 `cargo update -p <crate>` 升级修复
+### Preconditions
 
-### 3. 输入验证检查
+- `cargo-audit` installed
+- `cargo-deny` installed
+- Advisory DB up to date
 
-确认所有外部输入在进入系统边界时得到正确验证：
+### Step 1: Run Scans
 
-- [ ] HTTP 请求参数/Body 是否有长度限制和类型校验
-- [ ] CLI 参数是否有长度和字符白名单限制
-- [ ] 文件路径参数是否使用了 `SafePath` 类型验证
-- [ ] 数据库查询是否使用参数化 API（禁止字符串拼接）
-- [ ] URL 参数是否检查了 scheme 白名单和防止 SSRF
-- [ ] 正则表达式是否使用 `regex` 库而非不安全的动态编译
-- [ ] 数值计算是否使用 `checked_*`、`saturating_*` 等防溢出方法
+Execute the 4 scan commands from Core Pattern. Capture output.
 
-### 4. 错误处理与日志
+### Step 2: Triage Findings
 
-- [ ] 错误消息中是否泄露内部实现细节
-- [ ] 日志中是否包含敏感信息（密码、Token、用户数据）
-- [ ] 是否使用 `secrecy` 类型包装敏感字段
-- [ ] `Debug` 实现是否对敏感字段做了脱敏
+Classify by severity: `CRITICAL` > `HIGH` > `MEDIUM` > `LOW`.
 
-### 5. 认证与授权
+### Step 3: Report
 
-- [ ] 所有 API 端点是否进行了认证检查
-- [ ] 权限控制是否基于最小权限原则
-- [ ] Token 是否有过期时间和刷新机制
-- [ ] 是否存在越权访问路径（IDOR 漏洞）
+Produce a Security Audit Report with sections per scan type. Suggest fix commands (e.g., `cargo update -p <crate>`) — do NOT execute them.
 
-### 6. 依赖策略与供应链
+### Error Handling
 
-- [ ] 是否使用了 `cargo deny check` 验证许可证合规性
-- [ ] 新增依赖是否经过安全审查（维护状态、已知 CVE）
-- [ ] 是否避免使用 `unsafe` 代码（项目要求 `#![forbid(unsafe_code)]`）
-- [ ] 是否使用了过时的或有 CVE 记录的依赖版本
+| Error | Recovery |
+|-------|----------|
+| `cargo-audit` not installed | Suggest `cargo install cargo-audit`. Do not improvise. |
+| Advisory DB stale | `cargo audit` auto-updates. Persist otherwise. |
+| `cargo deny` unavailable | Skip license section. Note in report. |
+| No Rust src/ | Stop. Skill applicable to Rust only. |
 
-## 工作流
+## Responsibility
 
-### 步骤 1：执行依赖漏洞扫描
+### ✅ In Scope
 
-```bash
-cargo audit
-```
+- Run `cargo audit`, `cargo deny`, pattern greps
+- Produce Security Audit Report
+- Suggest fix commands (in report, not executed)
 
-记录输出中的漏洞数量、严重级别和受影响的 crate。
+### ❌ Out of Scope
 
-### 步骤 2：检查密钥硬编码
+- Auto-fixing vulnerabilities
+- Modifying `audit.toml` ignore list
+- Patching source code — `/gitflow-workflow`
+- Reporting vulns to Issue — `/gitflow-autoreport-bug`
 
-执行上述 grep 命令，检查是否存在硬编码的敏感信息。
+### 🚫 Do Not
 
-### 步骤 3：检查输入验证
+- ❌ Run `cargo update` or apply patches
+- ❌ Modify `.gitignore`, `audit.toml`, or source
+- ❌ Report vulns to Issue without user confirmation
+- ❌ Skip severity triage — CRITICAL must be called out
 
-抽查关键模块（认证、数据库访问、文件操作、CLI 参数处理），确认输入边界是否正确验证。
+## Rationalization Excuses
 
-### 步骤 4：检查错误处理和日志
+| Excuse | Reality |
+|--------|---------|
+| "Just patch it quickly" | Detection only; patching is out of scope. |
+| "The test-only secret is harmless" | Flag it; let the user decide. |
+| "Skip cargo deny if not installed" | Skip is OK — but note it in the report. |
 
-确认错误消息不含敏感信息，日志输出使用结构化字段而非字符串拼接。
+## Red Flags
 
-### 步骤 5：汇总审计结果
+- 🚩 "Fix all the vulns now" — Refuse. Detection only.
+- 🚩 "Add to audit.toml to silence" — Refuse. User decides.
+- 🚩 "Ignore CRITICAL because it's transitive" — Refuse. Triage honestly.
+- 🚩 "Report vulns to Issue automatically" — Refuse. Confirm with user first.
 
-生成审计报告，按严重级别分类：
+## Common Mistakes
 
-```markdown
-## 安全审计报告
+- ❌ **Running `cargo update -p <crate>` to "help"** — never auto-fix.
+- ❌ **Marking `MEDIUM` as "ok to skip"** — present findings neutrally.
 
-### 依赖漏洞
+## Trigger Keywords
 
-| 严重级别 | Crate | CVE | 修复版本 | 状态 |
-|---------|-------|-----|---------|------|
-| HIGH | openssl | CVE-2023-XXXX | 3.1.0 | ⚠️ 待修复 |
+| English | 中文 |
+|---------|------|
+| security audit | 安全审计 |
+| cargo audit | 依赖漏洞 |
+| hardcoded secrets | 密钥硬编码 |
+| unsafe code | unsafe 代码 |
+| license check | 许可证合规 |
 
-### 密钥硬编码
+## Test Scenarios
 
-| 文件 | 行号 | 问题 | 状态 |
-|------|------|------|------|
-| src/config.rs | 15 | 测试用 API Key 硬编码 | ✅ 已在测试环境白名单 |
+### 1: Happy Path
+- **Given** Rust workspace with `cargo-audit` + `cargo-deny` — **When** "run security audit"
+- **Then** 4 scans run → report produced → fix suggestions (not executed)
 
-### 输入验证
+### 2: Negative
+- **Given** "fix the unsafe code in src/foo.rs" — **When** user asks for fix
+- **Then** skill NOT loaded — redirect `/gitflow-workflow`
 
-| 模块 | 问题 | 状态 |
-|------|------|------|
-| auth | ✅ 所有输入使用 SafePath | ✅ 通过 |
+### 3: Boundary
+- **Given** CRITICAL vuln found — **When** "just patch it quickly"
+- **Then** refuse; cite Out of Scope
 
-### 总结
-<!-- 总体安全评估和修复建议 -->
-```
+### 4: Error
+- **Given** `cargo-audit` not installed — **When** skill runs
+- **Then** suggest install; do not improvise with raw `curl`/`wget`
 
-### 步骤 6：修复建议
+## Success Criteria
 
-对于发现的问题，提供具体的修复建议：
+- [ ] 4 scans attempted
+- [ ] Findings classified by severity
+- [ ] Fix commands suggested, not executed
+- [ ] No source/config modifications
 
-- 依赖漏洞：`cargo update -p <crate>` 升级至修复版本
-- 密钥硬编码：移至环境变量或密钥管理服务
-- 输入验证缺失：使用 `SafePath`、参数化查询、长度限制等
+## See Also
 
-## 使用示例
-
-### 快速安全检查
-
-```bash
-# 1. 依赖漏洞扫描
-cargo audit
-
-# 2. 许可证合规检查
-cargo deny check
-
-# 3. 搜索硬编码密钥
-grep -rn "api_key\s*=\s*['\"]" --include="*.rs" src/
-```
-
-### 完整安全审计
-
-```bash
-# 运行完整审计流程
-cargo audit
-cargo deny check
-cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic
-
-# 检查 unsafe 代码使用情况
-grep -rn "unsafe" --include="*.rs" src/
-```
-
-### 处理依赖漏洞
-
-```bash
-# 发现漏洞后，查看详细信息
-cargo audit
-
-# 升级到修复版本
-cargo update -p vulnerable-crate
-
-# 重新验证
-cargo audit
-```
-
-## 注意事项
-
-- `cargo audit` 依赖 `rustsec-advisory-db`，首次运行会自动下载，后续需定期更新
-- 定期运行安全审计（建议合并到 CI/CD pipeline）
-- 测试中的硬编码值应在 `#[cfg(test)]` 模块内，并使用 `#[allow(dead_code)]` 标注
-- 对于无法立即修复的漏洞，应在 `audit.toml` 中记录忽略原因和修复计划
-- 审计结果应记录在项目文档中，方便后续追踪
+- `/gitflow-quality` — 6-gate pre-delivery check
+- `/gitflow-precommit` — pre-commit security hook
+- `/gitflow-pipeline-analyzer` — CI/CD security gates
+- `/gitflow-autoreport-bug` — file vuln as Issue

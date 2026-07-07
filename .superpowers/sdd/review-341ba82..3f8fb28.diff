@@ -1,0 +1,130 @@
+# Review package: 341ba82..HEAD
+
+## Commits
+3f8fb28 feat: 添加 Phase 4 交付后检查到 gitflow-workflow SKILL.md
+
+## Files changed
+ skills/gitflow-workflow/SKILL.md | 56 +++++++++++++++++++++++++++++++++-------
+ 1 file changed, 46 insertions(+), 10 deletions(-)
+
+## Diff
+diff --git a/skills/gitflow-workflow/SKILL.md b/skills/gitflow-workflow/SKILL.md
+index 5f8846a..17e8a37 100644
+--- a/skills/gitflow-workflow/SKILL.md
++++ b/skills/gitflow-workflow/SKILL.md
+@@ -1,18 +1,18 @@
+ ---
+ name: gitflow-workflow
+-description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的三阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期
++description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期
+ ---
+
+ # gitflow-workflow 全流程编排
+
+-顶层指挥中心，按照三阶段闸门驱动完整的开发生命周期。编排层只做指挥，不直接执行操作 —— 所有平台交互通过 `gitflow` CLI 完成，所有本地开发循环通过 Superpowers 完成。
++顶层指挥中心，按照四阶段闸门驱动完整的开发生命周期。编排层只做指挥，不直接执行操作 —— 所有平台交互通过 `gitflow` CLI 完成，所有本地开发循环通过 Superpowers 完成。
+
+ ## 两种工作模式
+
+ ### 🐢 完整模式（默认）
+ 适用于**新功能开发**、**重大重构**、**架构变更**等需要充分探索需求的场景。
+
+ ```
+ /gitflow-workflow
+ 我想添加自动补全功能
+ ```
+@@ -35,29 +35,30 @@ description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交
+ | writing-plans | ✅ 必须 | ⚠️ 可选 | 修复方案简单时可跳过 |
+ | subagent-dev | ✅ 必须 | ⚠️ 可选 | 简单修复可直接开发 |
+ | **TDD** | ✅ 计划内嵌 | ✅ 计划内嵌 | TDD 循环已嵌入计划模板，由 subagent 执行 |
+ | code-review | ✅ 计划内嵌 | ✅ 计划内嵌 | 代码审查已嵌入计划模板，由 subagent 执行 |
+ | quality | ✅ 计划内嵌 | ✅ 计划内嵌 | 质量关卡已嵌入计划模板，由 subagent 执行 |
+ | PR | ✅ 必须 | ✅ 必须 | 都需要 PR 流程 |
+
+ ## 阶段总览
+
+ ```
+-Phase 1: 需求澄清          Phase 2: 计划制定          Phase 3: 执行
+-────────────────────────────────────────────────────────────────────────
+-Superpowers:               Superpowers:               Superpowers:
+-  brainstorming              writing-plans              subagent-driven-development
+-gitflow-issue-create
++Phase 1: 需求澄清          Phase 2: 计划制定          Phase 3: 执行                Phase 4: 交付后检查
++────────────────────────────────────────────────────────────────────────────────────────────────────────
++Superpowers:               Superpowers:               Superpowers:               gitflow-pipeline-analyzer
++  brainstorming              writing-plans              subagent-driven-development  gitflow-issue-triage
++gitflow-issue-create                                                                 gitflow-review
+ gitflow-issue-review
+-     ↓                             ↓                    ↓
+-产出: Issue URL              产出: 完整计划文档          产出: 已完成的代码实现
+-      需求分析报告                   (含质量关卡)
++     ↓                             ↓                    ↓                             ↓
++产出: Issue URL              产出: 完整计划文档          产出: 已完成的代码实现        产出: 流水线分析报告
++      需求分析报告                   (含质量关卡)                                       Issue 分类报告
++                                                                                         代码审查报告
+ ```
+
+ ## 🚨 强制执行规则
+
+ 以下规则不可跳过，任何一步不满足就不能进入下一步。
+
+ ### 完整模式 - 必须调用的 Skills 清单
+
+ **Phase 1 必须调用：**
+ - ✅ `superpowers:brainstorming` - 即使需求明确也要走流程
+@@ -381,20 +382,55 @@ Phase 2 合规检查:
+ 使用 superpowers:subagent-driven-development 技能，执行完整计划文档。
+ ```
+
+ 执行规则：
+ - 按计划文档逐任务执行
+ - 每个任务完成后标记 checkbox
+ - 遇到阻塞时暂停，不跳过任务
+
+ ---
+
++## Phase 4: 交付后检查
++
++**目标**：交付完成后，进行后续分析和审查。
++
++### 步骤 4.1：流水线分析
++
++调用 `gitflow-pipeline-analyzer` 分析 CI/CD 流水线健康状况。
++
++```
++使用 gitflow-pipeline-analyzer 技能，分析当前仓库的 CI/CD 流水线健康状况。
++```
++
++### 步骤 4.2：Issue 分类
++
++调用 `gitflow-issue-triage` 对相关 issues 进行分类和优先级排序。
++
++```
++使用 gitflow-issue-triage 技能，对当前仓库的 open issues 进行分类和优先级排序。
++```
++
++### 步骤 4.3：代码审查
++
++调用 `gitflow-review` 对整体变更进行代码审查。
++
++```
++使用 gitflow-review 技能，对本次交付的整体变更进行代码审查。
++```
++
++### Phase 4 产出
++- 流水线分析报告
++- Issue 分类报告
++- 代码审查报告
++
++---
++
+ ## 使用示例
+
+ ### 场景 1：从零开始一个新功能
+
+ 用户说："我想给 gitflow-cli 添加命令行自动补全功能"
+
+ **执行流程**：
+
+ 1. **Phase 1**：
+    - brainstorming：探索自动补全的需求边界（哪些 shell？哪些命令？）

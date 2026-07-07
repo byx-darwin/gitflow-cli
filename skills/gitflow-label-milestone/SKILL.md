@@ -1,119 +1,112 @@
 ---
 name: gitflow-label-milestone
-description: gitflow-cli 的 Label 和 Milestone 操作命令封装，支持仓库标签和里程碑的增删改查
+description: >
+  Use when the user manages repository labels or milestones via gitflow-cli —
+  create/list/edit/delete labels, create/list/edit/close/reopen milestones.
+  当用户通过 gitflow-cli 管理仓库 label 或 milestone 时使用。
 ---
 
-# gitflow-cli label / milestone
+# gitflow-label-milestone — Label & Milestone CRUD
 
-封装 `gitflow-cli label` 和 `gitflow-cli milestone` 命令族，用于管理仓库的标签（Label）和里程碑（Milestone）资源。
+封装 `gitflow-cli label` 与 `milestone` 两个命令族的 CRUD 操作。
+详细参数: docs/references/gitflow-label-milestone-params.md
 
-## Label 命令概览
+## Overview / 概述
 
-| 子命令 | 说明 |
-|--------|------|
-| `create` | 创建新标签 |
-| `list` | 列出仓库所有标签 |
-| `edit` | 编辑已有标签 |
-| `delete` | 删除指定标签 |
+Labels (4 ops) + Milestones (5 ops) 的统一 CRUD 路由器。
 
-## Label 参数说明
+## 触发关键词 / Trigger Keywords
 
-### `gitflow-cli label create`
+CN 创建标签 标签颜色 编辑里程碑 关闭里程碑 版本规划 删除标签
+EN manage labels milestone CRUD label color due date close reopen
+CLI `gitflow-cli label|milestone <subcommand>`
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `--name` | string | 是 | 标签名 |
-| `--color` | string | 是 | 标签颜色（十六进制，如 `d73a4a`） |
-| `--description` | string | 否 | 标签描述 |
+## 命令矩阵 / CRUD Matrix
 
-### `gitflow-cli label list`
-
-无需额外参数。
-
-### `gitflow-cli label edit`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<name>` | string | 是 | 要编辑的标签名 |
-| `--name` | string | 否 | 新标签名 |
-| `--color` | string | 否 | 新颜色 |
-| `--description` | string | 否 | 新描述 |
-
-### `gitflow-cli label delete`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<name>` | string | 是 | 要删除的标签名 |
-
-## Milestone 命令概览
-
-| 子命令 | 说明 |
-|--------|------|
-| `create` | 创建新里程碑 |
-| `list` | 列出仓库里程碑 |
-| `edit` | 编辑已有里程碑 |
-| `close` | 关闭指定里程碑 |
-| `reopen` | 重新打开已关闭的里程碑 |
-
-## Milestone 参数说明
-
-### `gitflow-cli milestone create`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `--title` | string | 是 | 里程碑标题 |
-| `--description` | string | 否 | 里程碑描述（Markdown） |
-| `--due-on` | string | 否 | 截止日期（ISO 8601 格式） |
-
-### `gitflow-cli milestone list`
-
-无需额外参数。
-
-### `gitflow-cli milestone edit`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | 里程碑编号 |
-| `--title` | string | 否 | 新标题 |
-| `--description` | string | 否 | 新描述 |
-| `--due-on` | string | 否 | 新截止日期 |
-
-### `gitflow-cli milestone close`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | 里程碑编号 |
-
-### `gitflow-cli milestone reopen`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | 里程碑编号 |
-
-## 使用示例
-
-### 创建项目标签
-
-```bash
-gitflow-cli label create --name bug --color d73a4a --description "Something isn't working"
-gitflow-cli label create --name enhancement --color a2eeef --description "New feature or request"
+```mermaid
+flowchart TD
+  U[用户资源管理] --> RES{资源类型?}
+  RES -->|Label| L_OP[操作判断]
+  RES -->|Milestone| M_OP[操作判断]
+  L_OP --> L_C[create]
+  L_OP --> L_L[list]
+  L_OP --> L_E[edit]
+  L_OP --> L_D[delete]
+  M_OP --> M_C[create]
+  M_OP --> M_L[list]
+  M_OP --> M_E[edit]
+  M_OP --> M_CL[close]
+  M_OP --> M_RO[reopen]
 ```
 
-### 编辑已有标签的颜色和描述
+## 快速参考 / Quick Reference
 
-```bash
-gitflow-cli label edit bug --color ff0000 --description "Confirmed defect"
-```
+| Command | Key Flags |
+|---------|-----------|
+| `label create` | `--name` `--color` [`--description`] |
+| `label edit <name>` | [`--name`] [`--color`] [`--description`] |
+| `label delete <name>` | — |
+| `label list` | — |
+| `milestone create` | `--title` [`--description`] [`--due-on`] |
+| `milestone edit <n>` | [`--title`] [`--description`] [`--due-on`] |
+| `milestone close/reopen <n>` | — |
+| `milestone list` | — |
 
-### 创建版本里程碑
+参数类型见外部文档。
 
-```bash
-gitflow-cli milestone create --title "v1.0 Release" --description "First stable release" --due-on 2026-06-01T00:00:00Z
-```
+## 核心模式 / Pattern Triplets
 
-### 关闭里程碑并查看列表
+| 用户输入 | 处理 |
+|---------|------|
+| "创建 bug 标签" | `label create --name bug --color d73a4a` |
+| "新建 v1.0 里程碑" | `milestone create --title "v1.0" --due-on 2026-06-01T00:00:00Z` |
+| "关闭里程碑 #1" | `milestone close 1` |
 
-```bash
-gitflow-cli milestone close 1
-gitflow-cli milestone list
-```
+## ✅ 职责 / 🚫 禁止
+
+✅ CRUD 命令路由与参数速查
+🔴 禁止自动为 issue 加 label / 批量删除 / 绕过确认 delete
+
+## 红旗与防御 / Red Flags + Defense
+
+- "把所有 bug issue 关了" → 非本 skill 职责
+- "截止日期用过去时间" → 拒绝，要求未来时间
+
+## 常见错误 / Common Mistakes
+
+| 错误 | 修正 |
+|------|------|
+| 颜色未带 `#` | 期望不带 `#` 的 6 位 hex |
+| 日期格式非 ISO 8601 | 提示修正 |
+
+## 合理化反驳 / Rationalization
+
+"顺手给 issue 加几个 label" → 不属于 CRUD，分类决策应交给分类 skill
+
+## 错误处理 / Error Handling
+
+| 错误 | 处理 |
+|------|------|
+| 颜色非法 hex | 提示必须 6 位 0-9 a-f |
+| 删除被引用的 label | 警告后需显式 `--force` 否则拒绝 |
+| `due-on` 非 ISO 8601 | 拒绝并示例格式 |
+
+## 场景测试 / Test Scenarios
+
+- **Happy**: "创建 bug 标签" → `label create --name bug --color d73a4a` → 详情
+- **Negative**: "把所有 issue 标上 bug" → 拒绝；建议先用分类 skill
+- **Boundary**: "删除 label bug" 但 bug 被 3 个 issue 引用 → 警告关联
+- **Error**: "编辑不存在的 label xxx" → 404 → 提示确认
+
+## 成功标准 / Success Criteria
+
+- CRUD 命令路由正确
+- 颜色/due-on 格式校验在命令失败前提示
+- 破坏性操作需确认
+
+## See Also
+
+- gitflow-issue — 为 issue 分配 label 和 milestone
+- gitflow-issue-triage — 分类时依赖 label
+- gitflow-release — 发布时关联 milestone
+- gitflow-weekly-report — 统计 milestone 进度

@@ -1,0 +1,45 @@
+# Review package: 6ace057..HEAD
+
+## Commits
+80d90ff fix: 补充 TDD/code-review 不可跳过规则，统一阶段 1 命名为需求澄清
+6efa953 docs: 更新 CLAUDE.md gitflow-workflow 约束为四阶段流程
+
+## Files changed
+ CLAUDE.md | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index efbbefe..8b95a17 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -9,23 +9,26 @@ This repository is a reusable Rust 2024 workspace template. These rules are mand
+ - Do not replace template variables with concrete project names during maintenance.
+ - Use `CLAUDE.md` as the single project-level agent instruction file.
+ - Use Ruflo for agent workflow/orchestration. Do not maintain project-local `.claude/skills` unless explicitly requested.
+ - Keep Ruflo or Claude-flow runtime state out of git; persist reusable guidance in `CLAUDE.md`, `docs/`, or `specs/`.
+ - Do not commit, push, merge, release, deploy, install dependencies, or change ticket state without explicit user permission.
+ - Never run `cargo clean`; ask first if it is truly required.
+ - Never write `TODO`, `todo!()`, temporary stubs, or incomplete code. If blocked, stop, reassess, and implement the complete solution.
+ - Remove dead code instead of suppressing it. Do not add deprecation layers unless explicitly requested.
+ - Never expose secrets in commands, logs, URLs, comments, errors, or tool arguments.
+ - **禁止修改以下配置文件（除非用户明确要求）：`deny.toml` 中的 `allow`/`deny`/`wildcards` 等策略配置、`.pre-commit-config.yaml` 中的 hook 类型和阶段配置、`rust-toolchain.toml` 中的工具链版本。这些配置影响 CI/CD 流程，变更需用户确认。**
+-- **严格执行 gitflow-workflow 流程**：当使用 `/gitflow-workflow` 时，必须按照四阶段完整流程执行，不得跳过任何 Superpowers skills。支持两种模式：
+-  - **完整模式**（默认）：适用于新功能开发，必须走完所有步骤
+-  - **快速模式**（`--fast`）：适用于 bug 修复，可跳过 brainstorming/issue-review/writing-plans/subagent-dev，但 TDD 和 code-review 不可跳过
++- **严格执行 gitflow-workflow 流程**：当使用 `/gitflow-workflow` 时，必须按照四阶段完整流程执行：
++  - **阶段 1：需求澄清**（从 open issues 读取，支持完整模式和快速模式）
++  - **阶段 2：计划制定**（生成完整计划闭环）
++  - **阶段 3：执行**（调用 subagent-driven-development）
++  - **阶段 4：交付后检查**（流水线分析、Issue 分类、代码审查）
++  - **不可跳过**: TDD 循环和代码审查在所有模式下均为必须步骤
+
+ ### Completion Discipline
+
+ - **Do Not Stop Early**: If the user's requested outcome is not fully complete, do not stop at a draft, partial pass, or "good enough" result. Continue reviewing and improving until the request is genuinely handled or a concrete blocker requires user input.
+ - **Polish Bar**: Before declaring work complete, ask whether the result is fully polished, concrete, correct, complete, and elegant. If there is doubt, review the work again and update it.
+ - **Honest Status**: Do not claim a task is finished when it is only a first pass, scaffold, or partial draft. State the remaining gaps and keep working unless the user explicitly asks to pause.
+
+ ### Code Quality
+
+ ## Working Process

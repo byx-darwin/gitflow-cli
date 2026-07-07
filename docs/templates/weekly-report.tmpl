@@ -1,0 +1,74 @@
+# Weekly Report Output Template
+
+> **Companion:** `skills/gitflow-weekly-report/SKILL.md`
+> **Version:** 1.0.0
+
+Use this template when rendering the weekly report. Fill placeholders with data from
+`gitlog` only. Never fabricate dates, hashes, or counts.
+
+---
+
+```markdown
+# 研发本周工作复盘（<起始日期> ~ <截止日期>）
+
+---
+
+## 本周完成事项
+
+### 一、<项目名>（N 个提交）
+
+**<分类标签>：**
+- <一句话概括同类提交>。（状态）`<commit-hash>`
+
+**<分类标签>：**
+- <一句话概括>。`<commit-hash>`
+
+### 二、<项目名>（N 个提交）
+
+...
+
+---
+
+## 本周关键数据
+
+- **总提交数**：X 个（项目A N 个，项目B M 个，…）
+  - 注：数值必须等于 `git log --format="%h" | wc -l` 的结果
+- **分布**：<feats:N, fixes:N, refactor:N, docs:N, ci:N, other:N>
+- **分支情况**：<各项目当前分支>
+
+---
+
+## 未完成事项（仅基于 commit message 显式标记）
+
+- **<事项>**：<描述>。原因：<来自 commit message 或 git log>。下步：<处理方案>
+
+（如无显式 WIP/TODO 标记则写"暂无未完成事项"）
+
+---
+
+## 需要协调的问题
+
+- <问题描述>。如无则注明"无"
+
+---
+
+## 下周工作建议（仅基于 commit message 中的方向线索）
+
+- **<事项>**：<建议原因，引用 commit message>。预期结果：<预期结果>
+
+---
+
+> 备注：<标注超截止时间但包含的提交；如无则省略本行>
+```
+
+## Rendering Rules
+
+- 列表/段落 only — 禁止使用表格（C-R1）
+- 提交 hash 用反引号包裹（C-R2）
+- 同方向合并为一个要点，不逐条列出（C-R3）
+- 提交数必须与 `git log | wc -l` 一致，不可估算（C-R4）
+- "未完成事项"必须有 commit message 中的显式标记（WIP/TODO/进行中/未收尾）才可写入（C-R5）
+- 用例：`feat: add login WIP` → 可写为"登录功能开发（未完成）"
+- 反例：某项目本周仅 2 个提交 → 不可推断"收尾中"
+- 全文使用中文输出（C-R6）
+- 禁止任何绩效评价语言（C-R7）：不得出现"偏少/高产/效率高/偷懒"等对个人产出的判断

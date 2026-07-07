@@ -1,0 +1,293 @@
+# Review package: 80d90ff..HEAD
+
+## Commits
+8fdbacb fix: extract shared test helper and suppress clippy warnings in test-only code
+0b6b5b8 test: add SKILL.md structure verification tests for all 4 workflow phases
+
+## Files changed
+ apps/cli/tests/common/mod.rs                  | 19 ++++++
+ apps/cli/tests/workflow_phase1_test.rs        | 77 +++++++++++++++++++++++
+ apps/cli/tests/workflow_phase2_test.rs        | 69 ++++++++++++++++++++
+ apps/cli/tests/workflow_phase3_phase4_test.rs | 90 +++++++++++++++++++++++++++
+ 4 files changed, 255 insertions(+)
+
+## Diff
+diff --git a/apps/cli/tests/common/mod.rs b/apps/cli/tests/common/mod.rs
+new file mode 100644
+index 0000000..b89e076
+--- /dev/null
++++ b/apps/cli/tests/common/mod.rs
+@@ -0,0 +1,19 @@
++//! Shared test helpers for workflow SKILL.md structure verification tests.
++
++use std::fs;
++
++/// Load SKILL.md content. `CARGO_MANIFEST_DIR` points to `apps/cli` when running
++/// under `cargo test -p gitflow-cli`, so we navigate two levels up to the workspace root.
++///
++/// Synchronous I/O is acceptable here because this is test-only code that runs once
++/// per test suite and does not benefit from async overhead.
++#[allow(
++    clippy::disallowed_methods,
++    clippy::panic,
++    reason = "Synchronous fs::read_to_string and panic are acceptable in test-only helpers"
++)]
++pub fn load_skill_md() -> String {
++    let manifest_dir = env!("CARGO_MANIFEST_DIR");
++    let path = format!("{manifest_dir}/../../skills/gitflow-workflow/SKILL.md");
++    fs::read_to_string(&path).unwrap_or_else(|e| panic!("Failed to read SKILL.md at {path}: {e}"))
++}
+diff --git a/apps/cli/tests/workflow_phase1_test.rs b/apps/cli/tests/workflow_phase1_test.rs
+new file mode 100644
+index 0000000..61cee76
+--- /dev/null
++++ b/apps/cli/tests/workflow_phase1_test.rs
+@@ -0,0 +1,77 @@
++//! Structure verification tests for Phase 1 (needs clarification) of the gitflow-workflow SKILL.md.
++
++mod common;
++
++#[test]
++fn test_should_contain_phase1_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 1: 需求澄清"),
++        "SKILL.md must contain 'Phase 1: 需求澄清' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_read_open_issues_step() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("读取 Open Issues"),
++        "SKILL.md must contain '读取 Open Issues' step description"
++    );
++}
++
++#[test]
++fn test_should_contain_full_and_fast_mode_in_phase1() {
++    let content = common::load_skill_md();
++    // Phase 1 must reference both working modes
++    assert!(
++        content.contains("完整模式"),
++        "SKILL.md must contain '完整模式' (full mode) reference"
++    );
++    assert!(
++        content.contains("快速模式"),
++        "SKILL.md must contain '快速模式' (fast mode) reference"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_list_commands() {
++    let content = common::load_skill_md();
++    // Phase 1 must show gitflow-cli issue list commands
++    assert!(
++        content.contains("gitflow-cli issue list"),
++        "SKILL.md must contain 'gitflow-cli issue list' command"
++    );
++    // Full mode lists all open issues
++    assert!(
++        content.contains("gitflow-cli issue list --state open"),
++        "SKILL.md must contain open state filter for issue list"
++    );
++}
++
++#[test]
++fn test_should_contain_brainstorming_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("superpowers:brainstorming"),
++        "SKILL.md must reference 'superpowers:brainstorming' skill in Phase 1"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_create_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-issue-create"),
++        "SKILL.md must reference 'gitflow-issue-create' skill"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_review_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-issue-review"),
++        "SKILL.md must reference 'gitflow-issue-review' skill"
++    );
++}
+diff --git a/apps/cli/tests/workflow_phase2_test.rs b/apps/cli/tests/workflow_phase2_test.rs
+new file mode 100644
+index 0000000..e3f3d19
+--- /dev/null
++++ b/apps/cli/tests/workflow_phase2_test.rs
+@@ -0,0 +1,69 @@
++//! Structure verification tests for Phase 2 (plan creation) of the gitflow-workflow SKILL.md.
++
++mod common;
++
++#[test]
++fn test_should_contain_phase2_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 2: 计划制定"),
++        "SKILL.md must contain 'Phase 2: 计划制定' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_create_full_plan_step() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("制定完整计划"),
++        "SKILL.md must contain '制定完整计划' step description"
++    );
++}
++
++#[test]
++fn test_should_contain_gitflow_quality_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-quality"),
++        "SKILL.md must reference 'gitflow-quality' skill for quality gate"
++    );
++}
++
++#[test]
++fn test_should_contain_all_six_quality_checks() {
++    let content = common::load_skill_md();
++    // The 6 quality checks that must be present
++    let checks = [
++        ("Build", "Build 检查"),
++        ("Test", "Test 检查"),
++        ("Coverage", "Coverage 检查"),
++        ("Format", "Format 检查"),
++        ("Static", "Static 检查"),
++        ("Pre-commit", "Pre-commit 检查"),
++    ];
++
++    for (name, pattern) in &checks {
++        assert!(
++            content.contains(pattern),
++            "SKILL.md must contain quality check '{name}' (expected '{pattern}')"
++        );
++    }
++}
++
++#[test]
++fn test_should_contain_writing_plans_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("superpowers:writing-plans"),
++        "SKILL.md must reference 'superpowers:writing-plans' skill in Phase 2"
++    );
++}
++
++#[test]
++fn test_should_contain_quality_report_all_passed() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("ALL CHECKS PASSED"),
++        "SKILL.md must contain quality report pass condition 'ALL CHECKS PASSED'"
++    );
++}
+diff --git a/apps/cli/tests/workflow_phase3_phase4_test.rs b/apps/cli/tests/workflow_phase3_phase4_test.rs
+new file mode 100644
+index 0000000..c87ad35
+--- /dev/null
++++ b/apps/cli/tests/workflow_phase3_phase4_test.rs
+@@ -0,0 +1,90 @@
++//! Structure verification tests for Phase 3 (execution) and Phase 4 (post-delivery)
++//! of the gitflow-workflow SKILL.md.
++
++mod common;
++
++// ── Phase 3: Execution ──────────────────────────────────────────────────────
++
++#[test]
++fn test_should_contain_phase3_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 3: 执行"),
++        "SKILL.md must contain 'Phase 3: 执行' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_subagent_driven_development() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("subagent-driven-development"),
++        "SKILL.md must reference 'subagent-driven-development' skill in Phase 3"
++    );
++}
++
++#[test]
++fn test_should_contain_tdd_in_execution() {
++    let content = common::load_skill_md();
++    // TDD must be embedded in the execution phase
++    assert!(
++        content.contains("TDD"),
++        "SKILL.md must reference TDD in the execution workflow"
++    );
++}
++
++// ── Phase 4: Post-delivery checks ───────────────────────────────────────────
++
++#[test]
++fn test_should_contain_phase4_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 4: 交付后检查"),
++        "SKILL.md must contain 'Phase 4: 交付后检查' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_pipeline_analyzer_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-pipeline-analyzer"),
++        "SKILL.md must reference 'gitflow-pipeline-analyzer' skill in Phase 4"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_triage_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-issue-triage"),
++        "SKILL.md must reference 'gitflow-issue-triage' skill in Phase 4"
++    );
++}
++
++#[test]
++fn test_should_contain_gitflow_review_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-review"),
++        "SKILL.md must reference 'gitflow-review' skill in Phase 4"
++    );
++}
++
++#[test]
++fn test_should_contain_all_phase4_outputs() {
++    let content = common::load_skill_md();
++    // Phase 4 must produce three reports
++    assert!(
++        content.contains("流水线分析报告"),
++        "SKILL.md must list '流水线分析报告' as Phase 4 output"
++    );
++    assert!(
++        content.contains("Issue 分类报告"),
++        "SKILL.md must list 'Issue 分类报告' as Phase 4 output"
++    );
++    assert!(
++        content.contains("代码审查报告"),
++        "SKILL.md must list '代码审查报告' as Phase 4 output"
++    );
++}

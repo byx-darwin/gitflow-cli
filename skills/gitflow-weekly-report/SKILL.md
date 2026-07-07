@@ -1,180 +1,122 @@
 ---
 name: gitflow-weekly-report
 description: |
-  生成研发周报，扫描多个 Git 仓库的提交记录，按照统一模板输出本周工作复盘（纯文本、无表格）。
-  支持指定截止时间和项目列表，自动合并跨天提交。跨项目工具，推荐用户级安装。
-
-  TRIGGER when: 用户要生成周报、查看本周提交汇总、统计多项目工作量、
-  或说 "weekly report"、"周报"、"本周工作总结"、"上周做了什么"、
-  "生成研发周报"、"多项目周报"。
+  Use when the user wants a weekly/biweekly dev-report summarizing commits across one or more repos.
+  当用户需要按类型汇总一个或多个仓库的提交、生成研发周报时使用。
 ---
 
-# 研发周报生成
+# gitflow-weekly-report — Read-Only Aggregator
 
-> **安装建议：** 推荐使用用户级安装，跨项目可用：
-> ```bash
-> gitflow-cli skills install -g gitflow-weekly-report
-> ```
+只读扫描 Git 日志 → 按项目 + 类型归并 → 纯文本周报。模板: [`docs/templates/weekly-report-template.md`](docs/templates/weekly-report-template.md) · 质量阈值: [`docs/references/gitflow-quality-params.md`](docs/references/gitflow-quality-params.md)
 
-扫描一个或多个 Git 仓库，汇总指定时间段内的提交记录，按项目分组生成结构化的研发周报。输出采用纯文本格式，不使用表格。
+## When to Use
 
-## 输入说明
+| EN | ZH |
+|----|----|
+| weekly report 周报 | 研发总结 |
+| multi-repo 多项目 | 跨仓汇总 |
+| rate my output | 拒绝 |
 
-用户应提供：
-- **截止时间**：周报统计截止时间，格式如 "6月5日 18:00" 或 "2026-06-05T18:00"。未指定时默认本周五 18:00。
-- **项目路径**：一个或多个项目的本地路径。未指定时默认当前项目。
-- **是否包含周日**：是否将截止时间之后（含周日）的提交也纳入统计。默认否。
-
-## 工作流程
-
-### 第一步：确定时间范围
-
-1. 根据用户提供的截止时间，解析出 `--since` 和 `--until` 参数。
-2. 如果用户要求包含周日，将 `--until` 延长到下周一 00:00。
-3. `--since` 默认为截止时间所在周的周一（ISO week），或用户指定的开始日期。
-
-### 第二步：扫描各项目 Git 日志
-
-对每个项目执行：
+## Core Pattern
 
 ```bash
-# 获取带日期的提交日志
-git log --format="%h %ai %s" --since="<start>" --until="<end>"
-
-# 统计提交数
-git log --format="%h" --since="<start>" --until="<end>" | wc -l
-
-# 可选：变更统计
-git diff --stat --since="<start>" --until="<end>" | tail -1
+git log --format="%h %ai %s" --since="<s>" --until="<u>"
+grep -E '^(feat|fix|refactor|docs|chore|ci|test):'
 ```
 
-注意事项：
-- 年份务必匹配实际提交年份（不要用 2025 去查 2026 的数据）。
-- 如果项目有多个分支，默认使用当前分支（通常 master/main）。
-- 仅统计已提交的内容，不含未暂存的工作区修改。
+## Quick Reference
 
-### 第三步：分类汇总
+| Goal | Tool |
+|------|------|
+| 日志 | `git log --format="%h %ai %s" --since <s> --until <u>` |
+| 计数 | `git log --format="%h" --since <s> --until <u> \| wc -l` |
+| 变更 | `git diff --stat --since <s> --until <u> \| tail -1` |
+| 分类 | grep conventional prefix |
 
-按以下维度对提交进行分类：
-- **功能开发**：`feat:` 前缀或新增功能相关的提交
-- **Bug 修复**：`fix:` 前缀或修复相关提交
-- **重构**：`refactor:` 前缀
-- **文档**：`docs:` 前缀
-- **CI/质量**：`chore:`、`ci:`、`test:` 前缀及 clippy/fmt/test 相关
-- **其他**：无法归类的提交
+## Implementation
 
-分类时尽量合并同类项，用一句话概括一组相关提交的完成内容。不需要逐条列出每个提交，而是在某个功能方向下用一句话总结。
+### Preconditions
 
-### 第四步：生成报告
+路径有效 (非法跳过) · 窗口由截止日推算 · 年份与提交年份一致。
 
-按以下模板输出（纯文本，**不使用表格**）：
+### Steps
 
-```
-# 研发本周工作复盘（<日期范围>）
+1. **窗口** — 截止日算 `--since`/`--until`
+2. **扫描** — `git log` hash + date + subject
+3. **分类归并** — `feat`/`fix`/`refactor`/`docs`/`chore|ci|test` 并为一句
+4. **渲染** — weekly-report-template.md；hash 反引号；中文
 
----
+### Error Handling
 
-## 本周完成事项
+| Error | Recovery |
+|-------|----------|
+| 路径非法 | 跳过 |
+| 无提交 | 写"暂无提交" |
+| 跨年 | 完整 ISO |
+| 单提交 | 仍完整模板 |
+| 请求评分 | 拒绝 |
 
-### 一、<项目名>（N 个提交）
+## Responsibility
 
-**<分类标签>：**
-- <一句话描述完成内容>。（状态）`<commit-hash>`
+### ✅ In Scope
 
-### 二、<项目名>（N 个提交）
+跨 N 仓只读 · 前缀分类 · 模板 + 真实计数。
 
-...
+### ❌ Out of Scope
 
----
+改任何仓 · 评分 · 表格。
 
-## 本周关键数据
+### 🚫 Do Not
 
-- **总提交数**：X 个（项目A N 个，项目B M 个，...）
-- **分布**：<主要工作量分布描述>
-- **分支情况**：<各项目所在分支>
+❌ 杜撰提交 · ❌ 评绩效 · ❌ 省略章节。
 
----
+## Rationalization
 
-## 未完成事项及原因
+| Excuse | Reality |
+|--------|---------|
+| 估算就够 | 必精确 wc -l |
+| 加绩效评分 | 超出范围 |
+| 内容少省略 | 必完整模板 |
 
-- **<事项名>**：<描述>。原因：<原因>。下步：<处理方案>
+## Red Flags
 
----
+🚩 "给我打分" — 拒绝 · 🚩 "评生产力" — 超出 · 🚩 "凑整" — 精确
 
-## 需要协调的问题
+## Common Mistakes
 
-- <问题描述>。（如无则写"无"并注明原因）
+❌ 无提交杜撰 · ❌ 复用旧年日期 · ❌ 省略片段
 
----
+## Trigger Keywords
 
-## 下周工作建议
+| EN | ZH |
+|----|----|
+| weekly report recap | 周报 本周总结 |
+| multi-repo summary | 多项目汇总 |
 
-- **<建议事项>**：<建议原因>，预期结果：<预期结果>。
+## Test Scenarios
 
----
+### 1: Happy
+三仓有提交 → 分类归并；完整纯文本。
 
-> 备注：<如有超过截止时间的提交，在此说明>
-```
+### 2: Negative
+"rate my output" → 拒绝评分。
 
-### 报告规范
+### 3: Boundary
+无提交 → 写"暂无提交"；计数 0。
 
-1. **禁止使用表格**。所有信息用列表和段落呈现。
-2. 提交 hash 用反引号包裹，如 `0f5ec81`。
-3. 提交分类不求逐条详尽，同方向合并为一个要点，一句话概括。
-4. 关键数据中提交数要真实准确，不可估算。
-5. "未完成事项"要结合上下文推断——如果某个项目提交明显偏少或明显有未收尾的工作，应在此处体现。
-6. 用中文撰写。
+### 4: Error
+`/nope` + 一合法 → 跳过；不全盘中止。
 
-## 常见场景
+## Success Criteria
 
-### 多项目周报
+- [ ] 计数全由 `git log`
+- [ ] 纯文本完整
+- [ ] 无绩效评判
+- [ ] 非法路径跳过
 
-用户提供多个项目路径，如：
-```
-../token-fleet-switch ../tokenless ../agent-proxy-rust 这三个项目 上周总结
-```
+## See Also
 
-解析逻辑：
-- "上周" = 上周一到周五（或周六）
-- 三个路径均需扫描
-- 报告按项目分组
-
-### 指定截止时间
-
-```
-6月5日 18:00 截止
-```
-
-解析逻辑：
-- 截止 = 当前年份的 6月5日 18:00
-- 起始 = 6月2日（周一）
-
-### 包含周日
-
-```
-周日也合并
-```
-
-解析逻辑：
-- 将截止时间延长到周日结束
-- 同步更新报告日期标题
-
-## 边界情况处理
-
-- **项目路径不存在**：跳过并提示用户。
-- **时间范围内无提交**：在报告中注明 "本周暂无提交"。
-- **单项目单提交**：仍需完整模板，不可省略章节。
-- **跨年**：提交日期可能跨年，`--since`/`--until` 需使用完整日期格式。
-
-## 注意事项
-
-1. 安全：所有 `git log` 和 Bash 命令均为只读操作，不修改仓库。
-2. 隐私：不暴露文件路径中的用户名或敏感信息。
-3. 准确性：提交数、日期等数据必须从 git 实际获取，不可编造。
-4. **跨项目设计**：本 skill 推荐安装到用户级目录（`gitflow-cli skills install -g gitflow-weekly-report`），这样无论从哪个项目目录调用都能正常扫描。
-
----
-
-**Version**: 2.0.0
-**Last Updated**: 2026-07-03
-**Source**: Migrated from ncgo-code-skills/weekly-report (adapted for gitflow-cli)
+`/gitflow-workflow` — Phase 4 触发
+`/gitflow-pipeline-analyzer` — CI 健康
+`/gitflow-commit` — 单提交
+`/gitflow-label-milestone` — 里程碑

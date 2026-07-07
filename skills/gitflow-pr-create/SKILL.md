@@ -1,157 +1,174 @@
 ---
 name: gitflow-pr-create
-description: 引导用户完成 Pull Request 创建工作流 — 检查分支、变更和 base 状态，填写标题描述后调用 gitflow-cli pr create
+description: |
+  Use when the user wants to open a Pull Request through gitflow-cli — feature, fix, or draft PR.
+  当用户希望通过 gitflow-cli 创建 Pull Request（功能、修复或草稿 PR）时使用。
 ---
 
-# gitflow-cli pr create 工作流
+# gitflow-pr-create
 
-引导用户通过结构化的流程创建高质量的 Pull Request，包括分支状态检查、变更审查、标题和描述编写，最终调用 `gitflow-cli pr create` 完成创建。
+Validates branch state, collects title/description, invokes `gitflow-cli pr create`, returns the new PR URL. Does not review, approve, merge, or close PRs.
 
-## 工作流
+## When to Use
 
-### 步骤 1：检查当前分支
+| English | 中文 | Context |
+|---------|------|---------|
+| create a PR | 创建 PR | feature/fix branch ready |
+| submit for review | 提交供审查 | pushed, awaiting reviewer |
+| draft PR | 草稿 PR | work-in-progress |
+| merge request | 合并请求 | GitLab terminology |
 
-确认当前所在分支及其跟踪关系：
+## Core Pattern
 
 ```bash
+command -v gitflow-cli && gitflow-cli auth status
+git rev-parse --is-inside-work-tree
 git branch --show-current
-git rev-parse --abbrev-ref --symbolic-full-name @{u}
-```
-
-- 确保当前不在 `main` 或其他保护分支上
-- 确认分支已推送到远程（否则 PR 无法创建）
-
-### 步骤 2：检查变更范围
-
-查看当前分支相对于 base branch 的变更：
-
-```bash
-git diff --stat main...HEAD
-git log --oneline main...HEAD
-```
-
-- 确认提交信息遵循 conventional commits 格式
-- 如果有不符合的提交，建议用户使用 `git commit --amend` 或 `git rebase -i` 修正
-
-### 步骤 3：检查 base branch 是否最新
-
-确保 base branch（通常是 `main`）在本地是最新的：
-
-```bash
-git fetch origin main
+git rev-parse --abbrev-ref @{u}
 git merge-base --is-ancestor origin/main HEAD
+gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
 ```
 
-- 如果不是最新（merge-base 检查失败），建议用户先执行 `git rebase origin/main` 或 `git merge origin/main`
-- 避免创建基于过时 base 的 PR，减少合并冲突
+## Quick Reference
 
-### 步骤 4：收集 PR 标题
+| Goal | Command |
+|------|---------|
+| Create | `gitflow-cli pr create -t "<t>" -b "<b>" -H <head> -B <base> [--draft]` |
+| Push upstream | `git push -u origin <branch>` |
+| Rebase | `git rebase origin/<base>` |
 
-引导用户提供清晰、具体的 PR 标题，遵循 conventional commits 格式：
+## Implementation
 
-| 前缀 | 用途 |
-|------|------|
-| `feat:` | 新功能 |
-| `fix:` | 缺陷修复 |
-| `docs:` | 文档更新 |
-| `refactor:` | 代码重构 |
-| `chore:` | 维护性任务 |
-| `test:` | 测试相关 |
-| `perf:` | 性能优化 |
+### Preconditions
 
-示例：`feat(cli): add two-factor authentication support`
+- Git repo — `git rev-parse --is-inside-work-tree`
+- CLI + auth — `command -v gitflow-cli` + `gitflow-cli auth status`
 
-### 步骤 5：收集 PR 描述
+### Step 1: Branch — not protected, has upstream. Else stop.
 
-引导用户提供结构化的 PR 描述（Markdown 格式）。推荐模板：
+### Step 2: Changes + Base — diff warns non-conformant commits; stale base → rebase, stop.
 
-```markdown
-## 变更说明
+### Step 3: Collect title (conventional prefix) + body (Markdown template). Confirm command.
 
-<!-- 简要说明本次变更的核心内容 -->
+### Step 4: Invoke `gitflow-cli pr create`. Success → URL. Failure → Error Handling.
 
-## 相关 Issue
+### Error Handling
 
-Closes #N  <!-- 关联的 Issue 编号，多个用逗号分隔 -->
+| Error | Recovery |
+|-------|----------|
+| Protected branch | Refuse. Stop. |
+| No upstream | `git push -u`. Stop. |
+| Base outdated | Rebase. Stop. |
+| Auth failure | `auth login`. Stop. |
+| Network timeout | Surface. No retry alone. |
 
-## 验证步骤
+## Flowchart
 
-<!-- 审查者如何验证本次变更有效 -->
-
-## 截图 / 示例输出
-
-<!-- 如有 UI 变更或命令行输出，提供截图 -->
-
-## Checklist
-
-- [ ] 代码遵循项目规范
-- [ ] 已添加/更新测试
-- [ ] 文档已更新
-- [ ] 无敏感信息泄露
+```mermaid
+flowchart TD
+    A[Start] --> B{git repo?}
+    B -->|no| S1[Stop]
+    B -->|yes| C{protected?}
+    C -->|yes| S2[Refuse]
+    C -->|no| D{upstream?}
+    D -->|no| S3[push -u]
+    D -->|yes| E{base current?}
+    E -->|no| S4[rebase]
+    E -->|yes| F[collect]
+    F --> G{confirm?}
+    G -->|no| S5[Stop]
+    G -->|yes| H[pr create]
+    H --> I{success?}
+    I -->|no| J[Error Handling]
+    I -->|yes| K[URL]
 ```
 
-### 步骤 6：确定目标分支
+## Responsibility
 
-确认 `--head`（来源分支）和 `--base`（目标分支）：
+### ✅ In Scope
 
-- `--head`：当前分支名
-- `--base`：通常为目标保护分支（如 `main`），需与用户确认
+- Validate branch
+- Review scope + base freshness
+- Collect conventional-commit title + body
+- Confirm `--head` / `--base` / `--draft`
+- Invoke CLI, return URL
 
-### 步骤 7：创建 PR
+### ❌ Out of Scope
 
-调用 `gitflow-cli pr create` 命令：
+- Reviewing → `/gitflow-pr-review`
+- Feedback → `/gitflow-pr-apply-feedback`
+- Merge / close → `/gitflow-pr`
+- CI/CD → `/gitflow-pipeline-analyzer`
 
-```bash
-gitflow-cli pr create --title "<标题>" --body "<描述>" --head <来源分支> --base <目标分支>
-```
+### 🚫 Do Not
 
-如果需要以草稿方式创建（后续再标记为 ready），添加 `--draft` 标志。
+- ❌ Create from protected branch
+- ❌ Create without upstream — push first
+- ❌ Merge after creation
+- ❌ Add reviewers without approval
+- ❌ Force-push without confirmation in one invocation
 
-### 步骤 8：输出结果
+## 🔁 Delegation Rules
 
-解析命令输出，提取并展示 PR URL。建议用户：
+| User Intent | Delegate To | Reason |
+|-------------|-------------|--------|
+| Create a PR | This skill | Branch validation + title/desc |
+| Review / inline / apply feedback | review sibling skills | Per their scope |
+| Merge / close / reopen | `/gitflow-pr` | Lifecycle operation |
+| Check CI | `/gitflow-pipeline-analyzer` | Pipeline health |
 
-- 草稿 PR：审查自身变更后可调用 `gitflow-cli pr ready <number>` 标记为就绪
-- 正式 PR：通知相关审查者进行审查
+## Rationalization Excuses
 
-## 使用示例
+| Excuse | Reality |
+|--------|---------|
+| "Skip base freshness" | Stale base produces hidden merge conflicts |
+| "Just run it, skip approval" | Command must be confirmed first |
+| "PR looks good, merge it" | Out-of-scope; redirect to `/gitflow-pr` |
 
-### 创建功能分支 PR
+## Red Flags
 
-```bash
-# 检查分支状态后执行：
-gitflow-cli pr create \
-  --title "feat(cli): add two-factor authentication support" \
-  --body "## 变更说明\n实现 TOTP 双因素认证流程\n\n## 相关 Issue\nCloses #42\n\n## 验证步骤\n1. 运行 \`make test\`\n2. 使用 auth skill 执行登录，验证 TOTP 码校验" \
-  --head feature/two-factor-auth \
-  --base main
-```
+- 🚩 "Skip the base check" — Stop.
+- 🚩 "Create from main" — Protected. Stop.
+- 🚩 "Merge after creating" — → `/gitflow-pr`.
+- 🚩 CLI fails → improvise — Follow Error Handling.
 
-### 以草稿方式创建 PR
+## Test Scenarios
 
-```bash
-# 变更尚未完成，先创建草稿 PR 进行早期审查
-gitflow-cli pr create \
-  --title "WIP: feat(cache): implement LRU cache with TTL" \
-  --body "## 变更说明\n草稿：LRU 缓存实现，性能测试待补充\n\n## 相关 Issue\nRelated #55" \
-  --head feature/lru-cache \
-  --base main \
-  --draft
-```
+### Scenario 1: Happy Path — `feature/ssh-auth`, upstream OK. "create a PR" → validates, invokes CLI, returns URL.
 
-### 修复类 PR
+### Scenario 2: Negative — "review PR #42" → NOT loaded. → `/gitflow-pr-review`.
 
-```bash
-gitflow-cli pr create \
-  --title "fix(auth): handle expired token redirect loop" \
-  --body "## 变更说明\n修复 token 过期时的重定向循环问题\n\n## 相关 Issue\nCloses #73\n\n## Checklist\n- [x] 已添加回归测试\n- [x] 无敏感信息泄露" \
-  --head fix/redirect-loop \
-  --base main
-```
+### Scenario 3: Boundary — PR created, "merge it" → Refuses. → `/gitflow-pr`.
 
-## 注意事项
+### Scenario 4: Error — Base outdated → rebase advised, stops. No `pr create`.
 
-- 必须确认 base branch 是最新的，避免合并冲突
-- 标题应精确描述变更内容，方便审查者快速理解
-- PR 描述中的 Checklist 应在创建前逐项确认
-- 如果变更较大，建议先用 `--draft` 创建，完成后再标记为 ready
+### Scenario 5: Error — No upstream → `git push -u`, stops. No `pr create`.
+
+## Success Criteria
+
+- [ ] PR URL returned
+- [ ] Branch validated (not protected, has upstream)
+- [ ] Base freshness confirmed
+- [ ] User confirmed command
+
+## Common Mistakes
+
+- ❌ **PR from protected branch** — Validate current branch.
+- ❌ **Skipping base check** — Always verify merge-base.
+- ❌ **Missing conventional prefix** — Prompt user.
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| create a PR | 创建 PR |
+| submit for review | 提交供审查 |
+| draft PR | 草稿 PR |
+| merge request | 合并请求 |
+
+## See Also
+
+- `gitflow-pr` — close, approve, merge PR lifecycle
+- `gitflow-pr-review` — initial code review
+- `gitflow-pr-inline-review` — inline review comments
+- `gitflow-pr-apply-feedback` — apply reviewer feedback

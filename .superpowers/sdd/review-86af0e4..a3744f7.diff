@@ -1,0 +1,2317 @@
+# Review package: 86af0e4..HEAD
+
+## Commits
+a3744f7 test: add workflow modes structure verification tests
+8fdbacb fix: extract shared test helper and suppress clippy warnings in test-only code
+0b6b5b8 test: add SKILL.md structure verification tests for all 4 workflow phases
+80d90ff fix: 补充 TDD/code-review 不可跳过规则，统一阶段 1 命名为需求澄清
+6efa953 docs: 更新 CLAUDE.md gitflow-workflow 约束为四阶段流程
+6ace057 docs: 更新 README.md 反映 gitflow-workflow 四阶段结构
+3da4305 fix: update SKILL.md to reflect four-stage structure
+3f8fb28 feat: 添加 Phase 4 交付后检查到 gitflow-workflow SKILL.md
+341ba82 fix: remove redundant Phase 2 execution steps, update mode comparison table
+d036afa refactor: replace Phase 3+4 with Phase 3 执行 calling subagent-driven-development
+cf6a67f feat: Phase 2 计划模板改用 gitflow-quality skill 替代硬编码 cargo 命令
+652ab76 refactor(workflow): 更新 Phase 1 步骤 1.1 格式，匹配计划规范
+3e58f86 chore: backup SKILL.md before refactoring
+
+## Files changed
+ CLAUDE.md                                     |   9 +-
+ README.md                                     |  47 +-
+ apps/cli/tests/common/mod.rs                  |  19 +
+ apps/cli/tests/workflow_modes_test.rs         | 244 ++++++++
+ apps/cli/tests/workflow_phase1_test.rs        |  77 +++
+ apps/cli/tests/workflow_phase2_test.rs        |  69 +++
+ apps/cli/tests/workflow_phase3_phase4_test.rs |  90 +++
+ skills/gitflow-workflow/SKILL.md              | 463 ++++-----------
+ skills/gitflow-workflow/SKILL.md.bak          | 812 ++++++++++++++++++++++++++
+ 9 files changed, 1450 insertions(+), 380 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index efbbefe..8b95a17 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -9,23 +9,26 @@ This repository is a reusable Rust 2024 workspace template. These rules are mand
+ - Do not replace template variables with concrete project names during maintenance.
+ - Use `CLAUDE.md` as the single project-level agent instruction file.
+ - Use Ruflo for agent workflow/orchestration. Do not maintain project-local `.claude/skills` unless explicitly requested.
+ - Keep Ruflo or Claude-flow runtime state out of git; persist reusable guidance in `CLAUDE.md`, `docs/`, or `specs/`.
+ - Do not commit, push, merge, release, deploy, install dependencies, or change ticket state without explicit user permission.
+ - Never run `cargo clean`; ask first if it is truly required.
+ - Never write `TODO`, `todo!()`, temporary stubs, or incomplete code. If blocked, stop, reassess, and implement the complete solution.
+ - Remove dead code instead of suppressing it. Do not add deprecation layers unless explicitly requested.
+ - Never expose secrets in commands, logs, URLs, comments, errors, or tool arguments.
+ - **禁止修改以下配置文件（除非用户明确要求）：`deny.toml` 中的 `allow`/`deny`/`wildcards` 等策略配置、`.pre-commit-config.yaml` 中的 hook 类型和阶段配置、`rust-toolchain.toml` 中的工具链版本。这些配置影响 CI/CD 流程，变更需用户确认。**
+-- **严格执行 gitflow-workflow 流程**：当使用 `/gitflow-workflow` 时，必须按照四阶段完整流程执行，不得跳过任何 Superpowers skills。支持两种模式：
+-  - **完整模式**（默认）：适用于新功能开发，必须走完所有步骤
+-  - **快速模式**（`--fast`）：适用于 bug 修复，可跳过 brainstorming/issue-review/writing-plans/subagent-dev，但 TDD 和 code-review 不可跳过
++- **严格执行 gitflow-workflow 流程**：当使用 `/gitflow-workflow` 时，必须按照四阶段完整流程执行：
++  - **阶段 1：需求澄清**（从 open issues 读取，支持完整模式和快速模式）
++  - **阶段 2：计划制定**（生成完整计划闭环）
++  - **阶段 3：执行**（调用 subagent-driven-development）
++  - **阶段 4：交付后检查**（流水线分析、Issue 分类、代码审查）
++  - **不可跳过**: TDD 循环和代码审查在所有模式下均为必须步骤
+
+ ### Completion Discipline
+
+ - **Do Not Stop Early**: If the user's requested outcome is not fully complete, do not stop at a draft, partial pass, or "good enough" result. Continue reviewing and improving until the request is genuinely handled or a concrete blocker requires user input.
+ - **Polish Bar**: Before declaring work complete, ask whether the result is fully polished, concrete, correct, complete, and elegant. If there is doubt, review the work again and update it.
+ - **Honest Status**: Do not claim a task is finished when it is only a first pass, scaffold, or partial draft. State the remaining gaps and keep working unless the user explicitly asks to pause.
+
+ ### Code Quality
+
+ ## Working Process
+diff --git a/README.md b/README.md
+index 55f0f0b..3f4678d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,32 +1,32 @@
+ # gitflow-cli
+
+ 多平台 Git 锻造 CLI + Superpowers Skills 集合，覆盖从需求到交付的完整 AI 编程工程循环。
+
+ ## 架构
+
+ ```
+-需求阶段              开发阶段            🔒质量关卡        交付阶段
+-(远端)                (本地 Superpowers)   (gitflow-cli)         (远端)
+-    │                     │                  │                  │
+-    ├─ issue-create       ├─ writing-plans   ├─ build          ├─ pr-create
+-    ├─ issue-review       ├─ TDD             ├─ test           ├─ pr-review
+-    └─ issue-triage       ├─ subagent-dev    ├─ coverage       └─ release-helper
+-                          └─ code-review     ├─ fmt
+-                                             └─ clippy
+-            ↑                     ↑                  ↑                  ↑
+-            └─────────── gitflow-workflow（编排层）────────────────────┘
++Phase 1: 需求澄清         Phase 2: 计划制定          Phase 3: 执行              Phase 4: 交付后检查
++(远端 + Superpowers)      (Superpowers)              (Superpowers)               (gitflow-cli)
++    │                         │                        │                          │
++    ├─ brainstorming          ├─ writing-plans         ├─ TDD (内嵌)              ├─ pipeline-analyzer
++    ├─ issue-create           └─ 完整计划文档           ├─ subagent-dev            ├─ issue-triage
++    ├─ issue-review             (含质量关卡)            └─ quality (内嵌)          └─ review
++    └─ 需求分析报告                                      ↓
++                                                       PR → 合并 → 发布
++            ↑                         ↑                    ↑                          ↑
++            └─────────────── gitflow-workflow（编排层）──────────────────────────────┘
+ ```
+
+ - **Superpowers**：需求澄清 / 原子任务拆解 / TDD / 子代理隔离 / 任务审查 / 收尾
+ - **gitflow-cli skills**：Issue 管理 / PR 创建审查 / 跨平台命令 / 安全审计 / Release 发布
+-- **`gitflow-workflow`**：两者胶水层，知道每个阶段触发哪个 skill、何时交接
++- **`gitflow-workflow`**：四阶段编排层 — 需求澄清 → 计划制定 → 执行 → 交付后检查
+
+ ## 平台支持
+
+ ### Git 平台
+
+ `gitflow-cli` CLI 统一封装了三大 Git 平台的差异，通过 `--platform` 自动检测或手动指定：
+
+ | 平台 | CLI 依赖 | 特性 |
+ |------|---------|------|
+ | **GitHub** | `gh` (v2.0.0+) | Issue / PR / Release / Review / Pipeline / Repo（含 Enterprise） |
+@@ -54,22 +54,22 @@ Skills 可安装到任意支持的 AI Agent 平台，通过 `-g --agent` 指定
+ | **Copilot CLI** | `~/.copilot/skills/` | `gitflow-cli skills install -g --agent copilot` |
+
+ 默认 `-g` 不指定 agent 时自动检测当前环境已有的平台目录。
+
+ ## Skill 矩阵
+
+ ### 编排
+
+ | Skill | 做什么 |
+ |-------|--------|
+-| `gitflow-workflow` | 全流程编排：idea → 需求 → 开发 → 质量关卡 → PR → 合并 → 发布 |
+-| `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static |
++| `gitflow-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查。支持完整模式（默认）和快速模式（`--fast`） |
++| `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit，支持 Rust/Node.js/Python/Go/Java 自动检测 |
+
+ ### Issue 流水线
+
+ | Skill | 时机 | 做什么 |
+ |-------|------|--------|
+ | `gitflow-issue-create` | 提交前 | 引导填 issue → 模板填充 → 创建 |
+ | `gitflow-issue-review` | 开发前 | 需求分析 → 完整性检查 → 改进建议 → 回写评论 |
+ | `gitflow-issue-triage` | 提交后 | 分类 → 标签 → 优先级 → 分流 |
+
+ ### PR 流水线
+@@ -131,26 +131,39 @@ gitflow-cli skills list
+ gitflow-cli --version
+ # gitflow-cli 0.1.0
+ ```
+
+ ### Step 4：开始开发
+
+ ```
+ /开发工作流，我要做 X
+ ```
+
++## gitflow-workflow 工作模式
++
++**完整模式**（默认）：适用于新功能开发、重大重构
++```
++/gitflow-workflow
++```
++
++**快速模式**（`--fast`）：适用于 bug 修复、小优化
++```
++/gitflow-workflow --fast
++```
++
+ ## 典型工作流
+
+ ```
+-"I have an idea"         → brainstorming → issue-create → issue-review
+-"Let me implement"       → writing-plans → TDD → subagent-dev
+-"Code is ready, ship it" → pr-create → pr-review → merge → release-helper
++Phase 1 需求澄清    Phase 2 计划制定    Phase 3 执行              Phase 4 交付后检查
++brainstorming  →  writing-plans  →  TDD + subagent-dev  →  pipeline-analyzer
++issue-create       完整计划文档        quality (6 项检查)      issue-triage
++issue-review       (含质量关卡)        PR → 合并 → 发布        review
+ ```
+
+ ## CLI 命令一览
+
+ | 命令 | 用途 |
+ |------|------|
+ | `gitflow-cli issue {create,list,view,close,reopen,comment}` | Issue 管理 |
+ | `gitflow-cli pr {create,list,view,close,merge,checkout}` | PR 管理 |
+ | `gitflow-cli release {create,list,view,edit}` | 发布管理 |
+ | `gitflow-cli review {comment,approve,request-changes,submit}` | 代码审查 |
+@@ -163,15 +176,15 @@ gitflow-cli --version
+ | `gitflow-cli completions {bash,zsh,fish}` | Shell 补全 |
+
+ 支持 `--platform github|gitlab|gitcode` 和 `--output json|text`。
+
+ ## 设计原则
+
+ - **步骤化工作流**：每个 skill 有明确的步骤顺序，不跳步
+ - **先验证再行动**：PR 创建前检查分支和变更；Issue 创建前引导填写模板
+ - **生态互补**：本地开发循环 (Superpowers) + 远端协作 (gitflow-cli) 明确分工
+ - **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot
+-- **质量门闸门**：build → test → coverage → format → static 全部通过才能交付
++- **质量门闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付，支持多语言自动检测
+
+ ## 贡献
+
+ 详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+diff --git a/apps/cli/tests/common/mod.rs b/apps/cli/tests/common/mod.rs
+new file mode 100644
+index 0000000..b89e076
+--- /dev/null
++++ b/apps/cli/tests/common/mod.rs
+@@ -0,0 +1,19 @@
++//! Shared test helpers for workflow SKILL.md structure verification tests.
++
++use std::fs;
++
++/// Load SKILL.md content. `CARGO_MANIFEST_DIR` points to `apps/cli` when running
++/// under `cargo test -p gitflow-cli`, so we navigate two levels up to the workspace root.
++///
++/// Synchronous I/O is acceptable here because this is test-only code that runs once
++/// per test suite and does not benefit from async overhead.
++#[allow(
++    clippy::disallowed_methods,
++    clippy::panic,
++    reason = "Synchronous fs::read_to_string and panic are acceptable in test-only helpers"
++)]
++pub fn load_skill_md() -> String {
++    let manifest_dir = env!("CARGO_MANIFEST_DIR");
++    let path = format!("{manifest_dir}/../../skills/gitflow-workflow/SKILL.md");
++    fs::read_to_string(&path).unwrap_or_else(|e| panic!("Failed to read SKILL.md at {path}: {e}"))
++}
+diff --git a/apps/cli/tests/workflow_modes_test.rs b/apps/cli/tests/workflow_modes_test.rs
+new file mode 100644
+index 0000000..e14034b
+--- /dev/null
++++ b/apps/cli/tests/workflow_modes_test.rs
+@@ -0,0 +1,244 @@
++//! Integration tests verifying the two workflow modes (complete and fast)
++//! described in the gitflow-workflow SKILL.md.
++
++mod common;
++
++/// Helper: load SKILL.md content once per test via the shared utility.
++fn skill_md() -> String {
++    common::load_skill_md()
++}
++
++// ---------------------------------------------------------------------------
++// Complete Mode Tests
++// ---------------------------------------------------------------------------
++
++#[test]
++fn test_should_contain_complete_mode_section() {
++    let md = skill_md();
++    assert!(
++        md.contains("完整模式"),
++        "SKILL.md must contain a '完整模式' (complete mode) section"
++    );
++}
++
++#[test]
++fn test_should_contain_complete_mode_brainstorming() {
++    let md = skill_md();
++    // Complete mode Phase 1 requires brainstorming
++    assert!(
++        md.contains("superpowers:brainstorming"),
++        "Complete mode must reference superpowers:brainstorming"
++    );
++}
++
++#[test]
++fn test_should_contain_complete_mode_writing_plans() {
++    let md = skill_md();
++    // Complete mode Phase 2 requires writing-plans
++    assert!(
++        md.contains("superpowers:writing-plans"),
++        "Complete mode must reference superpowers:writing-plans"
++    );
++}
++
++#[test]
++fn test_should_contain_complete_mode_subagent_driven_development() {
++    let md = skill_md();
++    // Complete mode Phase 3 requires subagent-driven-development
++    assert!(
++        md.contains("superpowers:subagent-driven-development"),
++        "Complete mode must reference superpowers:subagent-driven-development"
++    );
++}
++
++#[test]
++fn test_should_reference_all_four_phases_in_complete_mode() {
++    let md = skill_md();
++    // The phase overview section lists all four phases
++    for phase in 1..=4 {
++        assert!(
++            md.contains(&format!("Phase {phase}")),
++            "SKILL.md must reference Phase {phase}"
++        );
++    }
++}
++
++#[test]
++fn test_should_contain_issue_create_in_complete_mode() {
++    let md = skill_md();
++    assert!(
++        md.contains("gitflow-issue-create"),
++        "Complete mode must include gitflow-issue-create"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_review_in_complete_mode() {
++    let md = skill_md();
++    assert!(
++        md.contains("gitflow-issue-review"),
++        "Complete mode must include gitflow-issue-review"
++    );
++}
++
++// ---------------------------------------------------------------------------
++// Fast Mode Tests
++// ---------------------------------------------------------------------------
++
++#[test]
++fn test_should_contain_fast_mode_section() {
++    let md = skill_md();
++    assert!(
++        md.contains("快速模式"),
++        "SKILL.md must contain a '快速模式' (fast mode) section"
++    );
++}
++
++#[test]
++#[allow(clippy::panic, reason = "Test-only panic for missing SKILL.md section")]
++fn test_should_mark_brainstorming_optional_in_fast_mode() {
++    let md = skill_md();
++    // In fast mode, brainstorming is marked as optional
++    // Look for the fast mode brainstorming line with the optional marker
++    let Some(fast_phase1) = md.split("快速模式 - 必须调用的 Skills 清单").nth(1) else {
++        panic!(
++            "Fast mode skills section '快速模式 - 必须调用的 Skills 清单' must exist in SKILL.md"
++        );
++    };
++    let fast_until_phase2 = fast_phase1.split("Phase 2").next().unwrap_or(fast_phase1);
++    assert!(
++        fast_until_phase2.contains("可选"),
++        "Fast mode Phase 1 must mark brainstorming as optional (可选)"
++    );
++}
++
++#[test]
++#[allow(clippy::panic, reason = "Test-only panic for missing SKILL.md section")]
++fn test_should_mark_writing_plans_optional_in_fast_mode() {
++    let md = skill_md();
++    // In fast mode, writing-plans is optional
++    let Some(fast_section) = md.split("快速模式 - 必须调用的 Skills 清单").nth(1) else {
++        panic!(
++            "Fast mode skills section '快速模式 - 必须调用的 Skills 清单' must exist in SKILL.md"
++        );
++    };
++    let phase2_area = fast_section.split("Phase 2").nth(1).unwrap_or("");
++    assert!(
++        phase2_area.contains("可选"),
++        "Fast mode Phase 2 must mark writing-plans as optional (可选)"
++    );
++}
++
++#[test]
++#[allow(clippy::panic, reason = "Test-only panic for missing SKILL.md section")]
++fn test_should_include_phase4_in_fast_mode() {
++    let md = skill_md();
++    // Phase 4 is mandatory for both modes
++    let Some(fast_section) = md.split("快速模式 - 必须调用的 Skills 清单").nth(1) else {
++        panic!(
++            "Fast mode skills section '快速模式 - 必须调用的 Skills 清单' must exist in SKILL.md"
++        );
++    };
++    assert!(
++        fast_section.contains("Phase 4"),
++        "Fast mode must include Phase 4 (mandatory for both modes)"
++    );
++}
++
++#[test]
++#[allow(clippy::panic, reason = "Test-only panic for missing SKILL.md section")]
++fn test_should_include_mandatory_phase4_skills_in_fast_mode() {
++    let md = skill_md();
++    let Some(fast_section) = md.split("快速模式 - 必须调用的 Skills 清单").nth(1) else {
++        panic!(
++            "Fast mode skills section '快速模式 - 必须调用的 Skills 清单' must exist in SKILL.md"
++        );
++    };
++    let phase4_area = fast_section.split("Phase 4").nth(1).unwrap_or("");
++    assert!(
++        phase4_area.contains("gitflow-pipeline-analyzer"),
++        "Fast mode Phase 4 must include gitflow-pipeline-analyzer"
++    );
++    assert!(
++        phase4_area.contains("gitflow-issue-triage"),
++        "Fast mode Phase 4 must include gitflow-issue-triage"
++    );
++    assert!(
++        phase4_area.contains("gitflow-review"),
++        "Fast mode Phase 4 must include gitflow-review"
++    );
++}
++
++// ---------------------------------------------------------------------------
++// Cross-Mode Consistency Tests
++// ---------------------------------------------------------------------------
++
++#[test]
++fn test_should_contain_mode_comparison_table() {
++    let md = skill_md();
++    assert!(
++        md.contains("模式对比"),
++        "SKILL.md must contain a '模式对比' (mode comparison) section"
++    );
++    // The table must include both mode names
++    assert!(
++        md.contains("完整模式") && md.contains("快速模式"),
++        "Mode comparison table must reference both complete and fast modes"
++    );
++}
++
++#[test]
++fn test_should_contain_enforcement_rules_section() {
++    let md = skill_md();
++    assert!(
++        md.contains("强制执行规则"),
++        "SKILL.md must contain a '强制执行规则' (enforcement rules) section"
++    );
++}
++
++#[test]
++fn test_should_reference_four_phases_not_three() {
++    let md = skill_md();
++    assert!(
++        md.contains("四阶段"),
++        "SKILL.md must reference '四阶段' (four phases), not '三阶段'"
++    );
++    assert!(
++        !md.contains("三阶段"),
++        "SKILL.md must NOT reference '三阶段' (three phases) — it is a four-phase workflow"
++    );
++}
++
++#[test]
++fn test_should_contain_forbidden_behaviors_section() {
++    let md = skill_md();
++    assert!(
++        md.contains("禁止行为"),
++        "SKILL.md must contain a '禁止行为' (forbidden behaviors) section"
++    );
++}
++
++#[test]
++fn test_should_forbid_skipping_phase4_in_any_mode() {
++    let md = skill_md();
++    // The forbidden behaviors section should explicitly forbid skipping Phase 4
++    let forbidden_section = md.split("禁止行为").nth(1).unwrap_or("");
++    assert!(
++        forbidden_section.contains("Phase 4"),
++        "Forbidden behaviors must explicitly forbid skipping Phase 4"
++    );
++}
++
++#[test]
++fn test_should_forbid_skipping_tdd_and_code_review_in_fast_mode() {
++    let md = skill_md();
++    // The forbidden behaviors section should forbid skipping TDD and code review in fast mode
++    assert!(
++        md.contains("快速模式禁止跳过 TDD"),
++        "Forbidden behaviors must state that fast mode cannot skip TDD"
++    );
++    assert!(
++        md.contains("快速模式禁止跳过") && md.contains("Code Review"),
++        "Forbidden behaviors must state that fast mode cannot skip Code Review"
++    );
++}
+diff --git a/apps/cli/tests/workflow_phase1_test.rs b/apps/cli/tests/workflow_phase1_test.rs
+new file mode 100644
+index 0000000..61cee76
+--- /dev/null
++++ b/apps/cli/tests/workflow_phase1_test.rs
+@@ -0,0 +1,77 @@
++//! Structure verification tests for Phase 1 (needs clarification) of the gitflow-workflow SKILL.md.
++
++mod common;
++
++#[test]
++fn test_should_contain_phase1_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 1: 需求澄清"),
++        "SKILL.md must contain 'Phase 1: 需求澄清' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_read_open_issues_step() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("读取 Open Issues"),
++        "SKILL.md must contain '读取 Open Issues' step description"
++    );
++}
++
++#[test]
++fn test_should_contain_full_and_fast_mode_in_phase1() {
++    let content = common::load_skill_md();
++    // Phase 1 must reference both working modes
++    assert!(
++        content.contains("完整模式"),
++        "SKILL.md must contain '完整模式' (full mode) reference"
++    );
++    assert!(
++        content.contains("快速模式"),
++        "SKILL.md must contain '快速模式' (fast mode) reference"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_list_commands() {
++    let content = common::load_skill_md();
++    // Phase 1 must show gitflow-cli issue list commands
++    assert!(
++        content.contains("gitflow-cli issue list"),
++        "SKILL.md must contain 'gitflow-cli issue list' command"
++    );
++    // Full mode lists all open issues
++    assert!(
++        content.contains("gitflow-cli issue list --state open"),
++        "SKILL.md must contain open state filter for issue list"
++    );
++}
++
++#[test]
++fn test_should_contain_brainstorming_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("superpowers:brainstorming"),
++        "SKILL.md must reference 'superpowers:brainstorming' skill in Phase 1"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_create_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-issue-create"),
++        "SKILL.md must reference 'gitflow-issue-create' skill"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_review_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-issue-review"),
++        "SKILL.md must reference 'gitflow-issue-review' skill"
++    );
++}
+diff --git a/apps/cli/tests/workflow_phase2_test.rs b/apps/cli/tests/workflow_phase2_test.rs
+new file mode 100644
+index 0000000..e3f3d19
+--- /dev/null
++++ b/apps/cli/tests/workflow_phase2_test.rs
+@@ -0,0 +1,69 @@
++//! Structure verification tests for Phase 2 (plan creation) of the gitflow-workflow SKILL.md.
++
++mod common;
++
++#[test]
++fn test_should_contain_phase2_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 2: 计划制定"),
++        "SKILL.md must contain 'Phase 2: 计划制定' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_create_full_plan_step() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("制定完整计划"),
++        "SKILL.md must contain '制定完整计划' step description"
++    );
++}
++
++#[test]
++fn test_should_contain_gitflow_quality_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-quality"),
++        "SKILL.md must reference 'gitflow-quality' skill for quality gate"
++    );
++}
++
++#[test]
++fn test_should_contain_all_six_quality_checks() {
++    let content = common::load_skill_md();
++    // The 6 quality checks that must be present
++    let checks = [
++        ("Build", "Build 检查"),
++        ("Test", "Test 检查"),
++        ("Coverage", "Coverage 检查"),
++        ("Format", "Format 检查"),
++        ("Static", "Static 检查"),
++        ("Pre-commit", "Pre-commit 检查"),
++    ];
++
++    for (name, pattern) in &checks {
++        assert!(
++            content.contains(pattern),
++            "SKILL.md must contain quality check '{name}' (expected '{pattern}')"
++        );
++    }
++}
++
++#[test]
++fn test_should_contain_writing_plans_skill_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("superpowers:writing-plans"),
++        "SKILL.md must reference 'superpowers:writing-plans' skill in Phase 2"
++    );
++}
++
++#[test]
++fn test_should_contain_quality_report_all_passed() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("ALL CHECKS PASSED"),
++        "SKILL.md must contain quality report pass condition 'ALL CHECKS PASSED'"
++    );
++}
+diff --git a/apps/cli/tests/workflow_phase3_phase4_test.rs b/apps/cli/tests/workflow_phase3_phase4_test.rs
+new file mode 100644
+index 0000000..c87ad35
+--- /dev/null
++++ b/apps/cli/tests/workflow_phase3_phase4_test.rs
+@@ -0,0 +1,90 @@
++//! Structure verification tests for Phase 3 (execution) and Phase 4 (post-delivery)
++//! of the gitflow-workflow SKILL.md.
++
++mod common;
++
++// ── Phase 3: Execution ──────────────────────────────────────────────────────
++
++#[test]
++fn test_should_contain_phase3_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 3: 执行"),
++        "SKILL.md must contain 'Phase 3: 执行' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_subagent_driven_development() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("subagent-driven-development"),
++        "SKILL.md must reference 'subagent-driven-development' skill in Phase 3"
++    );
++}
++
++#[test]
++fn test_should_contain_tdd_in_execution() {
++    let content = common::load_skill_md();
++    // TDD must be embedded in the execution phase
++    assert!(
++        content.contains("TDD"),
++        "SKILL.md must reference TDD in the execution workflow"
++    );
++}
++
++// ── Phase 4: Post-delivery checks ───────────────────────────────────────────
++
++#[test]
++fn test_should_contain_phase4_heading() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("Phase 4: 交付后检查"),
++        "SKILL.md must contain 'Phase 4: 交付后检查' heading"
++    );
++}
++
++#[test]
++fn test_should_contain_pipeline_analyzer_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-pipeline-analyzer"),
++        "SKILL.md must reference 'gitflow-pipeline-analyzer' skill in Phase 4"
++    );
++}
++
++#[test]
++fn test_should_contain_issue_triage_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-issue-triage"),
++        "SKILL.md must reference 'gitflow-issue-triage' skill in Phase 4"
++    );
++}
++
++#[test]
++fn test_should_contain_gitflow_review_reference() {
++    let content = common::load_skill_md();
++    assert!(
++        content.contains("gitflow-review"),
++        "SKILL.md must reference 'gitflow-review' skill in Phase 4"
++    );
++}
++
++#[test]
++fn test_should_contain_all_phase4_outputs() {
++    let content = common::load_skill_md();
++    // Phase 4 must produce three reports
++    assert!(
++        content.contains("流水线分析报告"),
++        "SKILL.md must list '流水线分析报告' as Phase 4 output"
++    );
++    assert!(
++        content.contains("Issue 分类报告"),
++        "SKILL.md must list 'Issue 分类报告' as Phase 4 output"
++    );
++    assert!(
++        content.contains("代码审查报告"),
++        "SKILL.md must list '代码审查报告' as Phase 4 output"
++    );
++}
+diff --git a/skills/gitflow-workflow/SKILL.md b/skills/gitflow-workflow/SKILL.md
+index 4aa0062..e040923 100644
+--- a/skills/gitflow-workflow/SKILL.md
++++ b/skills/gitflow-workflow/SKILL.md
+@@ -27,91 +27,88 @@ description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交
+
+ ## 模式对比
+
+ | 阶段 | 完整模式 | 快速模式 | 说明 |
+ |------|---------|---------|------|
+ | brainstorming | ✅ 必须 | ⚠️ 可选 | bug 描述即需求时可跳过 |
+ | issue-create | ✅ 必须 | ✅ 必须 | 都需要 Issue 追踪 |
+ | issue-review | ✅ 必须 | ⚠️ 可选 | bug 原因明确时可跳过 |
+ | writing-plans | ✅ 必须 | ⚠️ 可选 | 修复方案简单时可跳过 |
+ | subagent-dev | ✅ 必须 | ⚠️ 可选 | 简单修复可直接开发 |
+-| **TDD** | ✅ 必须 | ✅ **必须** | 都需要回归测试 |
+-| code-review | ✅ 必须 | ✅ 必须 | 都需要审查 |
+-| quality | ✅ 必须 | ✅ 必须 | 都需要质量检查 |
++| **TDD** | ✅ 计划内嵌 | ✅ 计划内嵌 | TDD 循环已嵌入计划模板，由 subagent 执行 |
++| code-review | ✅ 计划内嵌 | ✅ 计划内嵌 | 代码审查已嵌入计划模板，由 subagent 执行 |
++| quality | ✅ 计划内嵌 | ✅ 计划内嵌 | 质量关卡已嵌入计划模板，由 subagent 执行 |
+ | PR | ✅ 必须 | ✅ 必须 | 都需要 PR 流程 |
++| pipeline-analyzer | ✅ 必须 | ✅ 必须 | CI/CD 流水线健康分析 |
++| issue-triage | ✅ 必须 | ✅ 必须 | Issue 分类和优先级排序 |
++| review | ✅ 必须 | ✅ 必须 | 整体变更代码审查 |
+
+ ## 阶段总览
+
+ ```
+-Phase 1: 需求澄清          Phase 2: 开发实现          🔒 Phase 3: 质量关卡         Phase 4: 交付
+-───────────────────────────────────────────────────────────────────────────────────────────────
+-Superpowers:               Superpowers:               gitflow-quality:           gitflow-pr-create
+-  brainstorming              writing-plans              build      ✅/❌           gitflow-pr-review
+-gitflow-issue-create         TDD (per task)             test       ✅/❌           Superpowers:
+-gitflow-issue-review         subagent-dev               coverage   ✅/❌             finishing-a-dev-branch
+-                             requesting-review          format     ✅/❌           gitflow-release-helper
+-                                                       static     ✅/❌
+-     ↓                             ↓                    ↓                               ↓
+-产出: Issue URL              产出: 全绿原子任务清单      产出: Quality Report       产出: Merged PR + Release
+-      需求分析报告
++Phase 1: 需求澄清          Phase 2: 计划制定          Phase 3: 执行                Phase 4: 交付后检查
++────────────────────────────────────────────────────────────────────────────────────────────────────────
++Superpowers:               Superpowers:               Superpowers:               gitflow-pipeline-analyzer
++  brainstorming              writing-plans              subagent-driven-development  gitflow-issue-triage
++gitflow-issue-create                                                                 gitflow-review
++gitflow-issue-review
++     ↓                             ↓                    ↓                             ↓
++产出: Issue URL              产出: 完整计划文档          产出: 已完成的代码实现        产出: 流水线分析报告
++      需求分析报告                   (含质量关卡)                                       Issue 分类报告
++                                                                                         代码审查报告
+ ```
+
+ ## 🚨 强制执行规则
+
+ 以下规则不可跳过，任何一步不满足就不能进入下一步。
+
+ ### 完整模式 - 必须调用的 Skills 清单
+
+ **Phase 1 必须调用：**
+ - ✅ `superpowers:brainstorming` - 即使需求明确也要走流程
+ - ✅ `gitflow-issue-create` - 创建 Issue
+ - ✅ `gitflow-issue-review` - 需求分析
+
+ **Phase 2 必须调用：**
+ - ✅ `superpowers:writing-plans` - 制定实现计划
+-- ✅ `superpowers:subagent-driven-development` - 子代理驱动开发
+-- ✅ `superpowers:test-driven-development` - 每个任务 TDD 循环
+-- ✅ `superpowers:requesting-code-review` - 每个任务代码审查
+
+ **Phase 3 必须调用：**
+-- ✅ `gitflow-quality` - 质量检查
++- ✅ `superpowers:subagent-driven-development` - 按计划执行代码实现和质量验证
+
+ **Phase 4 必须调用：**
+-- ✅ `gitflow-pr-create` - 创建 PR
+-- ✅ `gitflow-pr-review` - PR 审查
+-- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
++- ✅ `gitflow-pipeline-analyzer` - CI/CD 流水线健康分析
++- ✅ `gitflow-issue-triage` - Issue 分类和优先级排序
++- ✅ `gitflow-review` - 整体变更代码审查
+
+ ### 快速模式 - 必须调用的 Skills 清单
+
+ **Phase 1（简化）：**
+ - ⚠️ `superpowers:brainstorming` - **可选**（bug 描述即需求时可跳过）
+ - ✅ `gitflow-issue-create` - 创建 Issue（必须）
+ - ⚠️ `gitflow-issue-review` - **可选**（bug 原因明确时可跳过）
+
+ **Phase 2（简化）：**
+ - ⚠️ `superpowers:writing-plans` - **可选**（修复方案简单时可跳过）
+-- ⚠️ `superpowers:subagent-driven-development` - **可选**（简单修复可直接开发）
+-- ✅ `superpowers:test-driven-development` - **必须**（先写回归测试）
+-- ✅ `superpowers:requesting-code-review` - **必须**（代码审查）
+
+ **Phase 3（必须）：**
+-- ✅ `gitflow-quality` - 质量检查
++- ✅ `superpowers:subagent-driven-development` - 按计划执行代码实现和质量验证
+
+ **Phase 4（必须）：**
+-- ✅ `gitflow-pr-create` - 创建 PR
+-- ✅ `gitflow-pr-review` - PR 审查
+-- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
++- ✅ `gitflow-pipeline-analyzer` - CI/CD 流水线健康分析
++- ✅ `gitflow-issue-triage` - Issue 分类和优先级排序
++- ✅ `gitflow-review` - 整体变更代码审查
+
+ ### 禁止行为
+
+ - ❌ **完整模式禁止跳过任何 Superpowers skill** - 即使任务"简单"也必须走完所有步骤
+ - ❌ **快速模式禁止跳过 TDD 和 Code Review** - 这是质量保证的底线
++- ❌ **两种模式禁止跳过 Phase 4** - 交付后检查是完整流程的必要环节
+ - ❌ **禁止合并步骤** - 每个 skill 必须独立调用
+ - ❌ **禁止自行实现流程** - 必须使用指定的 skills
+
+ ### 流程检查点
+
+ 每个阶段结束时，必须输出检查清单：
+
+ ```
+ Phase X 检查点:
+ - [ ] skill-1 已调用
+@@ -141,39 +138,30 @@ gitflow-cli auth status
+
+ ---
+
+ ## Phase 1: 需求澄清
+
+ **目标**：从 open issues 读取需求，或手动描述需求，转化为结构化的 Issue。
+
+ ### 步骤 1.1：读取 Open Issues
+
+ **完整模式**：读取所有 open issues
+-
+ ```bash
+-# 获取所有 open issues
+ gitflow-cli issue list --state open --limit 100 --output json
+ ```
+-
+-按类型分组显示：
+-- feature/enhancement 类 issues
+-- bug 类 issues
+-- question/discussion 类 issues
++按类型分组显示：feature/enhancement、bug、question/discussion
+
+ **快速模式**：只读取 bug 类型 issues
+-
+ ```bash
+-# 获取 bug 类型的 open issues
+ gitflow-cli issue list --state open --label bug --limit 50 --output json
+ ```
+-
+-按优先级排序显示。
++按优先级排序显示
+
+ 用户选择要处理的 issues，进入下一步。
+
+ ### 步骤 1.2：需求讨论
+
+ 对选中的 issues 逐个讨论：
+
+ **完整模式**：
+ - 调用 `superpowers:brainstorming` 探索需求边界
+ - 产出：设计文档
+@@ -240,30 +228,30 @@ cat > /tmp/phase-report.md << 'REPORT'
+ ## Phase 1: 需求澄清完成
+
+ ### 需求文档
+ - 设计文档/修复方案：<路径或链接>
+ - 验收标准：<N> 项
+
+ ### 产出物
+ - Issue URL: <url>
+ - 需求文档：已生成
+
+-✅ 已通过阶段闸门，可进入 Phase 2: 开发实现
++✅ 已通过阶段闸门，可进入 Phase 2: 计划制定
+ REPORT
+
+ gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+ rm -f /tmp/phase-report.md
+ ```
+
+ ---
+
+-### 🔒 闸门：需求 → 开发
++### 🔒 闸门：需求 → 计划
+
+ **必须出示的证据**：
+ 1. Issue URL（可访问的链接）
+ 2. 需求分析报告（评论在 Issue 上）
+
+ **校验方法**：
+ ```bash
+ # 确认 Issue 存在且可访问
+ gitflow-cli issue view <number>
+ ```
+@@ -287,23 +275,23 @@ Phase 1 合规检查:
+   [ ] 步骤 2: issue-create — Issue URL 已获取
+   [ ] 步骤 3: issue-review — 需求分析报告已完成
+   [ ] Issue 评论已发布: <comment_link>
+
+   缺失项: <list or "无">
+   是否允许进入下一阶段: [ ]
+ ```
+
+ ---
+
+-## Phase 2: 开发实现
++## Phase 2: 计划制定
+
+-**目标**：制定完整计划文档，通过子代理驱动完成全部开发。
++**目标**：制定完整计划文档，包含所有开发任务和质量关卡。
+
+ ### 步骤 2.1：制定完整计划
+
+ 调用 Superpowers writing-plans 制定计划，**计划文档必须包含完整闭环**：
+
+ ```
+ 使用 superpowers:writing-plans 技能，基于 Issue #N 的需求文档，制定完整实现计划。
+ ```
+
+ **计划文档结构**：
+@@ -316,402 +304,156 @@ Phase 1 合规检查:
+ ### Task 1-3: Issue 管理
+ - [ ] Task 1: 创建 Issue
+ - [ ] Task 2: 同步状态为 in-progress
+ - [ ] Task 3: 更新 Issue 描述（如需要）
+
+ ### Task 4-N: 开发任务（每个任务包含）
+ - [ ] TDD 循环
+   - [ ] 写失败测试（RED）
+   - [ ] 写最小实现（GREEN）
+   - [ ] 重构优化（REFACTOR）
+-  - [ ] 验证：cargo test
++  - [ ] 验证：运行测试确认通过
+ - [ ] 代码审查
+   - [ ] 调用 superpowers:requesting-code-review
+   - [ ] 审查并修复问题
+ - [ ] 提交
+   - [ ] git add -A
+   - [ ] git commit -m "feat: ... (#N)"
+
+-### Task N+1: 质量关卡
+-- [ ] Build 检查：cargo build --workspace
+-- [ ] Test 检查：cargo test --workspace
+-- [ ] Coverage 检查：cargo tarpaulin --workspace（> 80%）
+-- [ ] Format 检查：cargo +nightly fmt --check
+-- [ ] Static 检查：cargo clippy --workspace --all-targets -- -D warnings
++### Task N+1: 质量关卡（完整计划闭环）
++- [ ] 调用 gitflow-quality 技能，运行 6 项质量检查
++  ```
++  使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
++  ```
++  检查项（语言自动检测，非 Rust 项目自动适配）：
++  - Build 检查
++  - Test 检查
++  - Coverage 检查（默认 > 80%）
++  - Format 检查
++  - Static 检查
++  - Pre-commit 检查（如配置了 `.pre-commit-config.yaml`）
++- [ ] 确认 Quality Report 结果为 `ALL CHECKS PASSED`
++- [ ] 如有失败项，按报告修复建议修复后重新运行
+
+ ### Task N+2: 交付
+ - [ ] 创建 PR：gitflow-cli pr create
+ - [ ] PR 审查：gitflow-cli pr-review
+ - [ ] 合并 PR：gitflow-cli pr merge
+
+ ### Task N+3: 收尾
+ - [ ] 同步 Issue 状态为 done
+ - [ ] 关闭 Issue
+ - [ ] 验证：所有验收标准已满足
+ ```
+
+-### 步骤 2.2：执行计划
+-
+-调用 Superpowers subagent-driven-development 执行计划：
+-
+-```
+-使用 superpowers:subagent-driven-development 技能，执行完整计划文档。
+-```
+-
+-执行规则：
+-- 按计划文档逐任务执行
+-- 每个任务完成后标记 checkbox
+-- 遇到阻塞时暂停，不跳过任务
+-- 所有任务完成后进入 Phase 3
+-
+-### 步骤 2.3：TDD 循环（每个原子任务）
+-
+-对每个原子任务执行标准 TDD 循环：
+-
+-```
+-使用 superpowers:test-driven-development 技能，完成当前原子任务。
+-```
+-
+-循环步骤：
+-1. **RED**：编写失败测试，描述期望行为
+-2. **GREEN**：编写最小代码使测试通过
+-3. **REFACTOR**：清理代码，保持测试绿色
+-4. 验证：`make test` 确认通过
+-
+-### 步骤 2.4：代码审查（每个原子任务）
+-
+-每个原子任务完成后，执行代码审查：
+-
+-```
+-使用 superpowers:requesting-code-review 技能，审查当前任务的变更。
+-```
+-
+-审查维度参考 `gitflow-pr-review` 的 6 维度清单。
+-
+-### 步骤 2.5：发布任务清单
+-
+-所有原子任务完成后，将任务清单评论到 Issue：
+-
+-```bash
+-# 写入临时文件
+-cat > /tmp/phase-report.md << 'REPORT'
+-## Phase 2: 开发实现完成
+-
+-### 原子任务清单
+-
+-| # | 任务 | 状态 | 提交 |
+-|---|------|------|------|
+-| 1 | <任务描述> | ✅ done | <commit hash> |
+-| 2 | <任务描述> | ✅ done | <commit hash> |
+-| ... | ... | ... | ... |
+-
+-### 变更统计
+-- 文件变更: <N> 个文件
+-- 新增行数: +<N>
+-- 删除行数: -<N>
+-- 测试用例: <N> 个
+-
+-✅ 已通过阶段闸门，可进入 Phase 3: 质量关卡
+-REPORT
+-
+-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+-rm -f /tmp/phase-report.md
+-```
+-
+ ---
+
+-### 🔒 闸门：开发 → 质量
++### 🔒 闸门：计划 → 执行
+
+ **必须出示的证据**：
+-1. 全部原子任务状态为 `done`
+-2. 每个任务有对应的提交记录
++1. 完整计划文档已生成
++2. 计划包含质量关卡任务（Task N+1）
+
+ **校验方法**：
+ ```bash
+-# 检查工作区状态
+-git status
+-git log --oneline -10
++# 确认计划文档存在
++ls -la plan.md
+ ```
+
+ **违规处理**：
+-如果有未完成的任务，输出阻断信息并停止：
++如果计划文档不完整，输出阻断信息并停止：
+
+ ```
+-🔒 闸门未通过：不允许运行质量检查。所有原子任务必须标记为 done。
++🔒 闸门未通过：不允许进入执行阶段。必须先完成完整计划文档。
+
+-以下原子任务未完成：
+-- [ ] Task 3: <任务描述> — 状态: in_progress
+-- [ ] Task 5: <任务描述> — 状态: pending
++缺少以下证据：
++- [ ] 计划文档：未生成
++- [ ] 质量关卡任务：未包含在计划中
+ ```
+
+ ### Phase 2 合规检查
+
+ ```
+ Phase 2 合规检查:
+-  [ ] 步骤 1: writing-plans — 原子任务清单已生成
+-  [ ] 步骤 2: TDD 循环 — 所有任务完成 RED→GREEN→REFACTOR
+-  [ ] 步骤 3: subagent-dev — 每个任务有独立子代理执行记录
+-  [ ] 步骤 4: requesting-review — 每个任务已完成代码审查
+-  [ ] Issue 评论已发布: <comment_link>
++  [ ] 步骤 1: writing-plans — 完整计划文档已生成
++  [ ] 计划包含质量关卡任务（Task N+1）
++  [ ] 计划文档结构完整（任务清单、TDD、审查、提交）
+
+   缺失项: <list or "无">
+   是否允许进入下一阶段: [ ]
+ ```
+
+ ---
+
+-## Phase 3: 质量关卡
+-
+-**目标**：运行 5 项质量检查，确保代码达到交付标准。
+-
+-### 步骤 3.1：运行质量检查
+-
+-调用 `gitflow-quality` skill 运行完整质量检查：
+-
+-```
+-使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
+-```
+-
+-5 项检查：
+-
+-| # | 检查项 | 命令 | 通过标准 |
+-|---|--------|------|---------|
+-| 1 | build | `cargo build --workspace` | 退出码 0 |
+-| 2 | test | `cargo test --workspace` | 全部通过 |
+-| 3 | coverage | `cargo tarpaulin --workspace` | > 80% |
+-| 4 | format | `cargo +nightly fmt -- --check` | 退出码 0 |
+-| 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | 退出码 0 |
+-
+-### 步骤 3.2：处理检查结果
+-
+-**全部通过**：进入步骤 3.3。
+-
+-**有失败项**：返回 Phase 2 修复。
+-
+-```
+-⚠️ 质量关卡未通过，返回 Phase 2 修复
+-
+-失败项：
+-- [❌] static: clippy 发现 3 个警告
+-- [❌] format: 2 个文件格式不符
+-
+-修复建议：
+-1. 运行 `cargo +nightly fmt` 自动修复格式
+-2. 运行 `cargo clippy --fix` 自动修复 lint 问题
+-3. 手动修复无法自动修复的问题
+-4. 重新运行质量检查
+-```
+-
+-修复后返回步骤 3.1 重新检查。
+-
+-### 步骤 3.3：发布质量报告
+-
+-将质量检查结果评论到 Issue：
+-
+-```bash
+-# 写入临时文件
+-cat > /tmp/phase-report.md << 'REPORT'
+-## Phase 3: 质量关卡通过
+-
+-### 质量检查报告
+-
+-| # | 检查项 | 结果 | 详情 |
+-|---|--------|------|------|
+-| 1 | build | ✅ 通过 | 编译成功 |
+-| 2 | test | ✅ 通过 | <N> 个测试全部通过 |
+-| 3 | coverage | ✅ 通过 | <N>% (阈值: 80%) |
+-| 4 | format | ✅ 通过 | 格式规范 |
+-| 5 | static | ✅ 通过 | 无警告 |
+-
+-✅ 已通过阶段闸门，可进入 Phase 4: 交付
+-REPORT
+-
+-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+-rm -f /tmp/phase-report.md
+-```
+-
+----
+-
+-### 🔒 闸门：质量 → 交付
++## Phase 3: 执行
+
+-**必须出示的证据**：
+-1. 5 项检查全部绿色（评论在 Issue 上）
++**目标**：按计划文档逐任务执行，完成代码实现和质量验证。
+
+-**校验方法**：
+-检查 Issue 评论中是否包含质量报告。
+-
+-**违规处理**：
+-如果质量报告中有任何失败项，输出阻断信息并停止：
++### 步骤 3.1：执行计划
+
+-```
+-🔒 闸门未通过：不允许创建 PR。5 项质量检查必须全部绿色。
++调用 Superpowers subagent-driven-development 执行计划：
+
+-质量检查未全部通过：
+-- [✅] build
+-- [❌] test — 2 个测试失败
+-- [✅] coverage
+-- [✅] format
+-- [✅] static
+ ```
+-
+-### Phase 3 合规检查
+-
++使用 superpowers:subagent-driven-development 技能，执行完整计划文档。
+ ```
+-Phase 3 合规检查:
+-  [ ] 步骤 1: build ✅ — 编译通过
+-  [ ] 步骤 2: test ✅ — 全部测试通过
+-  [ ] 步骤 3: coverage ✅ — 覆盖率达标
+-  [ ] 步骤 4: format ✅ — 格式规范
+-  [ ] 步骤 5: static ✅ — 无警告
+-  [ ] 步骤 6: pre-commit ✅ — 全部 hook 通过 (或 N/A)
+-  [ ] Issue 评论已发布: <comment_link>
+
+-  缺失项: <list or "无">
+-  是否允许进入下一阶段: [ ]
+-```
++执行规则：
++- 按计划文档逐任务执行
++- 每个任务完成后标记 checkbox
++- 遇到阻塞时暂停，不跳过任务
+
+ ---
+
+-## Phase 4: 交付
++## Phase 4: 交付后检查
+
+-**目标**：创建 PR、完成代码审查、合并并可选发布。
++**目标**：交付完成后，进行后续分析和审查。
+
+-### 步骤 4.1：创建 PR
++### 步骤 4.1：流水线分析
+
+-调用 `gitflow-pr-create` skill 创建 Pull Request：
++调用 `gitflow-pipeline-analyzer` 分析 CI/CD 流水线健康状况。
+
+ ```
+-使用 gitflow-pr-create 技能，基于当前分支创建 PR。
++使用 gitflow-pipeline-analyzer 技能，分析当前仓库的 CI/CD 流水线健康状况。
+ ```
+
+-PR 要求：
+-- 标题遵循 conventional commits 格式
+-- 描述包含 `Closes #N` 自动关联 Issue
+-- 包含变更说明和验证步骤
++### 步骤 4.2：Issue 分类
+
+-### 步骤 4.2：代码审查
+-
+-调用 `gitflow-pr-review` skill 进行 6 维度审查：
+-
+-```
+-使用 gitflow-pr-review 技能，对 PR 进行 6 维度代码审查。
+-```
+-
+-如果审查发现问题：
+-1. 记录问题到 PR 评论
+-2. 修复问题
+-3. 推送修复
+-4. 重新审查
+-
+-### 步骤 4.3：完成开发分支
+-
+-调用 Superpowers finishing-a-development-branch 决定分支处理方式：
++调用 `gitflow-issue-triage` 对相关 issues 进行分类和优先级排序。
+
+ ```
+-使用 superpowers:finishing-a-development-branch 技能，完成当前开发分支。
++使用 gitflow-issue-triage 技能，对当前仓库的 open issues 进行分类和优先级排序。
+ ```
+
+-选项：
+-- 合并到主分支（merge commit）
+-- 压缩合并（squash merge）
+-- 变基合并（rebase merge）
+-
+-### 步骤 4.4：发布（可选）
++### 步骤 4.3：代码审查
+
+-如果需要发布新版本，调用 `gitflow-release-helper`：
++调用 `gitflow-review` 对整体变更进行代码审查。
+
+ ```
+-使用 gitflow-release-helper 技能，基于合并的变更创建 Release。
++使用 gitflow-review 技能，对本次交付的整体变更进行代码审查。
+ ```
+
+-发布步骤：
+-1. 生成 Release Notes（基于 conventional commits）
+-2. 确定版本号（semver）
+-3. 创建 Git tag
+-4. 创建 GitHub Release
+-
+-### 步骤 4.5：关闭 Issue
+-
+-PR 合并后，确认 Issue 自动关闭（通过 `Closes #N`）：
+-
+-```bash
+-# 确认 Issue 状态
+-gitflow-cli issue view <number>
+-```
+-
+-如果未自动关闭，手动关闭：
+-
+-```bash
+-gitflow-cli issue close <number>
+-```
+-
+-### 步骤 4.5.5：更新 Issue 验收标准
+-
+-PR 合并后，更新 Issue 中的验收标准 checkbox，标记已完成的项目：
+-
+-```bash
+-# 添加评论说明验收标准完成情况
+-gitflow-cli issue comment <number> --body "## ✅ 验收标准已完成
+-
+-根据 PR #<pr-number> 的实现，以下验收标准已全部满足：
+-
+-- [x] 标准 1：已完成
+-- [x] 标准 2：已完成
+-- [x] 标准 3：已完成
+-
+-### 验证结果
+-- 所有测试通过
+-- CI 检查通过
+-- 代码审查通过"
+-```
+-
+-**注意**：GitHub 不支持通过 API 直接更新 Issue body 中的 checkbox，因此通过评论方式记录验收标准的完成情况。
+-
+-### 步骤 4.6：发布最终审计日志
+-
+-```bash
+-# 写入临时文件
+-cat > /tmp/phase-report.md << 'REPORT'
+-## Phase 4: 交付完成
+-
+-### PR 信息
+-- PR URL: <url>
+-- PR 编号: #<number>
+-- 合并策略: <squash|merge|rebase>
+-
+-### Release（如适用）
+-- 版本号: v<X.Y.Z>
+-- Release URL: <url>
+-
+-### 完成时间
+-<timestamp>
+-
+-🎉 开发工作流全部完成！
+-REPORT
+-
+-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+-rm -f /tmp/phase-report.md
+-```
++### Phase 4 产出
++- 流水线分析报告
++- Issue 分类报告
++- 代码审查报告
+
+ ### Phase 4 合规检查
+
+ ```
+ Phase 4 合规检查:
+-  [ ] 步骤 1: pr-create — PR URL 已获取
+-  [ ] 步骤 2: pr-review — 6 维度审查完成
+-  [ ] 步骤 3: finishing — 分支已合并
+-  [ ] 步骤 4: release-helper (可选) — Release 已创建
+-  [ ] 步骤 5: issue-close — Issue 已关闭
+-  [ ] Issue 最终审计日志已发布: <comment_link>
++  [ ] 步骤 1: pipeline-analyzer — 流水线分析已运行
++  [ ] 步骤 2: issue-triage — Issue 分类已完成
++  [ ] 步骤 3: review — 代码审查已完成
++  [ ] 所有产出物已记录
+
+   缺失项: <list or "无">
+-  工作流是否全部完成: [ ]
++  是否允许进入下一阶段: [N/A - 流程结束]
+ ```
+
+ ---
+
+ ## 使用示例
+
+ ### 场景 1：从零开始一个新功能
+
+ 用户说："我想给 gitflow-cli 添加命令行自动补全功能"
+
+@@ -720,75 +462,76 @@ Phase 4 合规检查:
+ 1. **Phase 1**：
+    - brainstorming：探索自动补全的需求边界（哪些 shell？哪些命令？）
+    - 创建 Issue：`feat(cli): add shell completion for bash/zsh/fish`
+    - 需求分析：确认技术方案（clap 的 completions 功能）
+
+ 2. **Phase 2**：
+    - 拆解任务：实现 completions 命令 → 添加 shell 检测 → 生成补全脚本 → 测试
+    - TDD 循环：每个任务先写测试再实现
+
+ 3. **Phase 3**：
+-   - 运行质量检查：build + test + coverage + format + static
+-   - 全部通过
++   - 按计划文档逐任务执行
++   - 完成代码实现和质量验证
+
+ 4. **Phase 4**：
+-   - 创建 PR：`feat(cli): add shell completion for bash/zsh/fish`
+-   - 审查通过
+-   - 合并到 main
+-   - 创建 Release v1.1.0
++   - 流水线分析：检查 CI/CD 配置和健康状况
++   - Issue 分类：对相关 issues 进行优先级排序
++   - 代码审查：对整体变更进行最终审查
+
+ ### 场景 2：修复一个 Bug
+
+ 用户说："gitflow-cli issue create 在 GitLab 上报错 401"
+
+ **执行流程**：
+
+ 1. **Phase 1**：
+    - brainstorming：复现问题，确认是认证问题还是 API 问题
+    - 创建 Issue：`fix(gitlab): issue create returns 401 on valid token`
+    - 需求分析：确认是 GitLab API v4 的认证头格式问题
+
+ 2. **Phase 2**：
+    - 拆解任务：添加回归测试 → 修复认证头格式 → 验证修复
+    - TDD 循环：先写失败测试，再修复
+
+ 3. **Phase 3**：
+-   - 运行质量检查
+-   - 全部通过
++   - 按计划文档逐任务执行
++   - 完成代码实现和质量验证
+
+ 4. **Phase 4**：
+-   - 创建 PR：`fix(gitlab): use PRIVATE-TOKEN header for auth`
+-   - 审查通过
+-   - 合并到 main
++   - 流水线分析：检查 CI/CD 配置和健康状况
++   - Issue 分类：对相关 issues 进行优先级排序
++   - 代码审查：对整体变更进行最终审查
+
+ ### 场景 3：已有关联 Issue 的增量开发
+
+ 用户说："Issue #42 已经分析好了，开始实现"
+
+ **执行流程**：
+
+ 1. **Phase 1**：
+    - 跳过 brainstorming（已有明确需求）
+    - 跳过创建 Issue（已存在 #42）
+    - 需求分析：读取 Issue #42 的现有描述和评论
+    - 如果分析不完整，补充需求分析报告
+
+-2. **Phase 2-4**：同场景 1
++2. **Phase 2-3**：同场景 1
++
++3. **Phase 4**：同场景 1
+
+ ---
+
+ ## 阶段回退
+
+ 任何阶段都可以回退到前一个阶段：
+
+-- **Phase 4 → Phase 3**：PR 审查发现质量问题
+-- **Phase 3 → Phase 2**：质量检查失败
++- **Phase 4 → Phase 3**：代码审查发现关键问题需返回执行阶段修复
++- **Phase 3 → Phase 2**：执行过程中发现需求不明确或实现方案需要调整
+ - **Phase 2 → Phase 1**：实现过程中发现需求不明确
+
+ 回退时，在 Issue 上记录回退原因：
+
+ ```bash
+ gitflow-cli issue comment <number> --body "## 阶段回退
+
+ **从 Phase <X> 回退到 Phase <Y>**
+
+ ### 回退原因
+diff --git a/skills/gitflow-workflow/SKILL.md.bak b/skills/gitflow-workflow/SKILL.md.bak
+new file mode 100644
+index 0000000..4aa0062
+--- /dev/null
++++ b/skills/gitflow-workflow/SKILL.md.bak
+@@ -0,0 +1,812 @@
++---
++name: gitflow-workflow
++description: gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期
++---
++
++# gitflow-workflow 全流程编排
++
++顶层指挥中心，按照四阶段闸门驱动完整的开发生命周期。编排层只做指挥，不直接执行操作 —— 所有平台交互通过 `gitflow` CLI 完成，所有本地开发循环通过 Superpowers 完成。
++
++## 两种工作模式
++
++### 🐢 完整模式（默认）
++适用于**新功能开发**、**重大重构**、**架构变更**等需要充分探索需求的场景。
++
++```
++/gitflow-workflow
++我想添加自动补全功能
++```
++
++### 🐇 快速模式
++适用于 **Bug 修复**、**小优化**、**文档更新**等需求明确的场景。
++
++```
++/gitflow-workflow --fast
++修复 auth status 无法显示登录状态的问题
++```
++
++## 模式对比
++
++| 阶段 | 完整模式 | 快速模式 | 说明 |
++|------|---------|---------|------|
++| brainstorming | ✅ 必须 | ⚠️ 可选 | bug 描述即需求时可跳过 |
++| issue-create | ✅ 必须 | ✅ 必须 | 都需要 Issue 追踪 |
++| issue-review | ✅ 必须 | ⚠️ 可选 | bug 原因明确时可跳过 |
++| writing-plans | ✅ 必须 | ⚠️ 可选 | 修复方案简单时可跳过 |
++| subagent-dev | ✅ 必须 | ⚠️ 可选 | 简单修复可直接开发 |
++| **TDD** | ✅ 必须 | ✅ **必须** | 都需要回归测试 |
++| code-review | ✅ 必须 | ✅ 必须 | 都需要审查 |
++| quality | ✅ 必须 | ✅ 必须 | 都需要质量检查 |
++| PR | ✅ 必须 | ✅ 必须 | 都需要 PR 流程 |
++
++## 阶段总览
++
++```
++Phase 1: 需求澄清          Phase 2: 开发实现          🔒 Phase 3: 质量关卡         Phase 4: 交付
++───────────────────────────────────────────────────────────────────────────────────────────────
++Superpowers:               Superpowers:               gitflow-quality:           gitflow-pr-create
++  brainstorming              writing-plans              build      ✅/❌           gitflow-pr-review
++gitflow-issue-create         TDD (per task)             test       ✅/❌           Superpowers:
++gitflow-issue-review         subagent-dev               coverage   ✅/❌             finishing-a-dev-branch
++                             requesting-review          format     ✅/❌           gitflow-release-helper
++                                                       static     ✅/❌
++     ↓                             ↓                    ↓                               ↓
++产出: Issue URL              产出: 全绿原子任务清单      产出: Quality Report       产出: Merged PR + Release
++      需求分析报告
++```
++
++## 🚨 强制执行规则
++
++以下规则不可跳过，任何一步不满足就不能进入下一步。
++
++### 完整模式 - 必须调用的 Skills 清单
++
++**Phase 1 必须调用：**
++- ✅ `superpowers:brainstorming` - 即使需求明确也要走流程
++- ✅ `gitflow-issue-create` - 创建 Issue
++- ✅ `gitflow-issue-review` - 需求分析
++
++**Phase 2 必须调用：**
++- ✅ `superpowers:writing-plans` - 制定实现计划
++- ✅ `superpowers:subagent-driven-development` - 子代理驱动开发
++- ✅ `superpowers:test-driven-development` - 每个任务 TDD 循环
++- ✅ `superpowers:requesting-code-review` - 每个任务代码审查
++
++**Phase 3 必须调用：**
++- ✅ `gitflow-quality` - 质量检查
++
++**Phase 4 必须调用：**
++- ✅ `gitflow-pr-create` - 创建 PR
++- ✅ `gitflow-pr-review` - PR 审查
++- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
++
++### 快速模式 - 必须调用的 Skills 清单
++
++**Phase 1（简化）：**
++- ⚠️ `superpowers:brainstorming` - **可选**（bug 描述即需求时可跳过）
++- ✅ `gitflow-issue-create` - 创建 Issue（必须）
++- ⚠️ `gitflow-issue-review` - **可选**（bug 原因明确时可跳过）
++
++**Phase 2（简化）：**
++- ⚠️ `superpowers:writing-plans` - **可选**（修复方案简单时可跳过）
++- ⚠️ `superpowers:subagent-driven-development` - **可选**（简单修复可直接开发）
++- ✅ `superpowers:test-driven-development` - **必须**（先写回归测试）
++- ✅ `superpowers:requesting-code-review` - **必须**（代码审查）
++
++**Phase 3（必须）：**
++- ✅ `gitflow-quality` - 质量检查
++
++**Phase 4（必须）：**
++- ✅ `gitflow-pr-create` - 创建 PR
++- ✅ `gitflow-pr-review` - PR 审查
++- ✅ `superpowers:finishing-a-development-branch` - 完成开发分支
++
++### 禁止行为
++
++- ❌ **完整模式禁止跳过任何 Superpowers skill** - 即使任务"简单"也必须走完所有步骤
++- ❌ **快速模式禁止跳过 TDD 和 Code Review** - 这是质量保证的底线
++- ❌ **禁止合并步骤** - 每个 skill 必须独立调用
++- ❌ **禁止自行实现流程** - 必须使用指定的 skills
++
++### 流程检查点
++
++每个阶段结束时，必须输出检查清单：
++
++```
++Phase X 检查点:
++- [ ] skill-1 已调用
++- [ ] skill-2 已调用
++- [ ] skill-3 已调用
++- [ ] 产出物已记录
++
++是否允许进入下一阶段: [ ]
++```
++
++## 启动条件
++
++在启动工作流之前，确认以下前置条件：
++
++```bash
++# 1. 确认在 git 仓库中
++git rev-parse --show-toplevel
++
++# 2. 确认 gitflow-cli 可用
++gitflow-cli --version
++
++# 3. 确认认证状态
++gitflow-cli auth status
++```
++
++如果认证失败，先执行 `gitflow-cli auth login`。
++
++---
++
++## Phase 1: 需求澄清
++
++**目标**：从 open issues 读取需求，或手动描述需求，转化为结构化的 Issue。
++
++### 步骤 1.1：读取 Open Issues
++
++**完整模式**：读取所有 open issues
++
++```bash
++# 获取所有 open issues
++gitflow-cli issue list --state open --limit 100 --output json
++```
++
++按类型分组显示：
++- feature/enhancement 类 issues
++- bug 类 issues
++- question/discussion 类 issues
++
++**快速模式**：只读取 bug 类型 issues
++
++```bash
++# 获取 bug 类型的 open issues
++gitflow-cli issue list --state open --label bug --limit 50 --output json
++```
++
++按优先级排序显示。
++
++用户选择要处理的 issues，进入下一步。
++
++### 步骤 1.2：需求讨论
++
++对选中的 issues 逐个讨论：
++
++**完整模式**：
++- 调用 `superpowers:brainstorming` 探索需求边界
++- 产出：设计文档
++
++**快速模式**：
++- 直接分析 bug 原因
++- 产出：修复方案（可选设计文档）
++
++### 步骤 1.3：创建 Issue
++
++调用 `gitflow-issue-create` skill 创建 Issue：
++
++```
++使用 gitflow-issue-create 技能，根据讨论产出创建 Issue。
++```
++
++关键产出：
++- Issue URL
++- Issue 编号
++
++### 步骤 1.4：生成需求文档
++
++**完整模式**：调用 `gitflow-issue-review` 进行需求分析，生成需求文档
++
++```
++使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
++```
++
++产出：需求分析报告（Markdown 格式）
++- 需求完整性分析
++- 技术可行性评估
++- 验收标准确认
++- 风险识别
++
++**快速模式**：生成简要修复方案文档
++
++```markdown
++## Bug 修复方案
++
++### 问题描述
++<从 issue 读取的问题描述>
++
++### 根因分析
++<分析 bug 的根本原因>
++
++### 修复方案
++<具体的修复步骤>
++
++### 测试计划
++<回归测试方案>
++
++### 验收标准
++- [ ] 标准 1
++- [ ] 标准 2
++```
++
++### 步骤 1.5：发布审计日志
++
++将 Phase 1 产出物评论到 Issue：
++
++```bash
++# 写入临时文件
++cat > /tmp/phase-report.md << 'REPORT'
++## Phase 1: 需求澄清完成
++
++### 需求文档
++- 设计文档/修复方案：<路径或链接>
++- 验收标准：<N> 项
++
++### 产出物
++- Issue URL: <url>
++- 需求文档：已生成
++
++✅ 已通过阶段闸门，可进入 Phase 2: 开发实现
++REPORT
++
++gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
++rm -f /tmp/phase-report.md
++```
++
++---
++
++### 🔒 闸门：需求 → 开发
++
++**必须出示的证据**：
++1. Issue URL（可访问的链接）
++2. 需求分析报告（评论在 Issue 上）
++
++**校验方法**：
++```bash
++# 确认 Issue 存在且可访问
++gitflow-cli issue view <number>
++```
++
++**违规处理**：
++如果缺少任一证据，输出阻断信息并停止：
++
++```
++🔒 闸门未通过：不允许开始开发。必须先完成需求澄清阶段。
++
++缺少以下证据：
++- [ ] Issue URL：未创建或未记录
++- [ ] 需求分析报告：未发布到 Issue 评论
++```
++
++### Phase 1 合规检查
++
++```
++Phase 1 合规检查:
++  [ ] 步骤 1: brainstorming — 明确的功能描述、验收标准、边界条件
++  [ ] 步骤 2: issue-create — Issue URL 已获取
++  [ ] 步骤 3: issue-review — 需求分析报告已完成
++  [ ] Issue 评论已发布: <comment_link>
++
++  缺失项: <list or "无">
++  是否允许进入下一阶段: [ ]
++```
++
++---
++
++## Phase 2: 开发实现
++
++**目标**：制定完整计划文档，通过子代理驱动完成全部开发。
++
++### 步骤 2.1：制定完整计划
++
++调用 Superpowers writing-plans 制定计划，**计划文档必须包含完整闭环**：
++
++```
++使用 superpowers:writing-plans 技能，基于 Issue #N 的需求文档，制定完整实现计划。
++```
++
++**计划文档结构**：
++
++```markdown
++# [Feature Name] Implementation Plan
++
++## 任务清单
++
++### Task 1-3: Issue 管理
++- [ ] Task 1: 创建 Issue
++- [ ] Task 2: 同步状态为 in-progress
++- [ ] Task 3: 更新 Issue 描述（如需要）
++
++### Task 4-N: 开发任务（每个任务包含）
++- [ ] TDD 循环
++  - [ ] 写失败测试（RED）
++  - [ ] 写最小实现（GREEN）
++  - [ ] 重构优化（REFACTOR）
++  - [ ] 验证：cargo test
++- [ ] 代码审查
++  - [ ] 调用 superpowers:requesting-code-review
++  - [ ] 审查并修复问题
++- [ ] 提交
++  - [ ] git add -A
++  - [ ] git commit -m "feat: ... (#N)"
++
++### Task N+1: 质量关卡
++- [ ] Build 检查：cargo build --workspace
++- [ ] Test 检查：cargo test --workspace
++- [ ] Coverage 检查：cargo tarpaulin --workspace（> 80%）
++- [ ] Format 检查：cargo +nightly fmt --check
++- [ ] Static 检查：cargo clippy --workspace --all-targets -- -D warnings
++
++### Task N+2: 交付
++- [ ] 创建 PR：gitflow-cli pr create
++- [ ] PR 审查：gitflow-cli pr-review
++- [ ] 合并 PR：gitflow-cli pr merge
++
++### Task N+3: 收尾
++- [ ] 同步 Issue 状态为 done
++- [ ] 关闭 Issue
++- [ ] 验证：所有验收标准已满足
++```
++
++### 步骤 2.2：执行计划
++
++调用 Superpowers subagent-driven-development 执行计划：
++
++```
++使用 superpowers:subagent-driven-development 技能，执行完整计划文档。
++```
++
++执行规则：
++- 按计划文档逐任务执行
++- 每个任务完成后标记 checkbox
++- 遇到阻塞时暂停，不跳过任务
++- 所有任务完成后进入 Phase 3
++
++### 步骤 2.3：TDD 循环（每个原子任务）
++
++对每个原子任务执行标准 TDD 循环：
++
++```
++使用 superpowers:test-driven-development 技能，完成当前原子任务。
++```
++
++循环步骤：
++1. **RED**：编写失败测试，描述期望行为
++2. **GREEN**：编写最小代码使测试通过
++3. **REFACTOR**：清理代码，保持测试绿色
++4. 验证：`make test` 确认通过
++
++### 步骤 2.4：代码审查（每个原子任务）
++
++每个原子任务完成后，执行代码审查：
++
++```
++使用 superpowers:requesting-code-review 技能，审查当前任务的变更。
++```
++
++审查维度参考 `gitflow-pr-review` 的 6 维度清单。
++
++### 步骤 2.5：发布任务清单
++
++所有原子任务完成后，将任务清单评论到 Issue：
++
++```bash
++# 写入临时文件
++cat > /tmp/phase-report.md << 'REPORT'
++## Phase 2: 开发实现完成
++
++### 原子任务清单
++
++| # | 任务 | 状态 | 提交 |
++|---|------|------|------|
++| 1 | <任务描述> | ✅ done | <commit hash> |
++| 2 | <任务描述> | ✅ done | <commit hash> |
++| ... | ... | ... | ... |
++
++### 变更统计
++- 文件变更: <N> 个文件
++- 新增行数: +<N>
++- 删除行数: -<N>
++- 测试用例: <N> 个
++
++✅ 已通过阶段闸门，可进入 Phase 3: 质量关卡
++REPORT
++
++gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
++rm -f /tmp/phase-report.md
++```
++
++---
++
++### 🔒 闸门：开发 → 质量
++
++**必须出示的证据**：
++1. 全部原子任务状态为 `done`
++2. 每个任务有对应的提交记录
++
++**校验方法**：
++```bash
++# 检查工作区状态
++git status
++git log --oneline -10
++```
++
++**违规处理**：
++如果有未完成的任务，输出阻断信息并停止：
++
++```
++🔒 闸门未通过：不允许运行质量检查。所有原子任务必须标记为 done。
++
++以下原子任务未完成：
++- [ ] Task 3: <任务描述> — 状态: in_progress
++- [ ] Task 5: <任务描述> — 状态: pending
++```
++
++### Phase 2 合规检查
++
++```
++Phase 2 合规检查:
++  [ ] 步骤 1: writing-plans — 原子任务清单已生成
++  [ ] 步骤 2: TDD 循环 — 所有任务完成 RED→GREEN→REFACTOR
++  [ ] 步骤 3: subagent-dev — 每个任务有独立子代理执行记录
++  [ ] 步骤 4: requesting-review — 每个任务已完成代码审查
++  [ ] Issue 评论已发布: <comment_link>
++
++  缺失项: <list or "无">
++  是否允许进入下一阶段: [ ]
++```
++
++---
++
++## Phase 3: 质量关卡
++
++**目标**：运行 5 项质量检查，确保代码达到交付标准。
++
++### 步骤 3.1：运行质量检查
++
++调用 `gitflow-quality` skill 运行完整质量检查：
++
++```
++使用 gitflow-quality 技能，对当前分支运行 5 项质量检查。
++```
++
++5 项检查：
++
++| # | 检查项 | 命令 | 通过标准 |
++|---|--------|------|---------|
++| 1 | build | `cargo build --workspace` | 退出码 0 |
++| 2 | test | `cargo test --workspace` | 全部通过 |
++| 3 | coverage | `cargo tarpaulin --workspace` | > 80% |
++| 4 | format | `cargo +nightly fmt -- --check` | 退出码 0 |
++| 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | 退出码 0 |
++
++### 步骤 3.2：处理检查结果
++
++**全部通过**：进入步骤 3.3。
++
++**有失败项**：返回 Phase 2 修复。
++
++```
++⚠️ 质量关卡未通过，返回 Phase 2 修复
++
++失败项：
++- [❌] static: clippy 发现 3 个警告
++- [❌] format: 2 个文件格式不符
++
++修复建议：
++1. 运行 `cargo +nightly fmt` 自动修复格式
++2. 运行 `cargo clippy --fix` 自动修复 lint 问题
++3. 手动修复无法自动修复的问题
++4. 重新运行质量检查
++```
++
++修复后返回步骤 3.1 重新检查。
++
++### 步骤 3.3：发布质量报告
++
++将质量检查结果评论到 Issue：
++
++```bash
++# 写入临时文件
++cat > /tmp/phase-report.md << 'REPORT'
++## Phase 3: 质量关卡通过
++
++### 质量检查报告
++
++| # | 检查项 | 结果 | 详情 |
++|---|--------|------|------|
++| 1 | build | ✅ 通过 | 编译成功 |
++| 2 | test | ✅ 通过 | <N> 个测试全部通过 |
++| 3 | coverage | ✅ 通过 | <N>% (阈值: 80%) |
++| 4 | format | ✅ 通过 | 格式规范 |
++| 5 | static | ✅ 通过 | 无警告 |
++
++✅ 已通过阶段闸门，可进入 Phase 4: 交付
++REPORT
++
++gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
++rm -f /tmp/phase-report.md
++```
++
++---
++
++### 🔒 闸门：质量 → 交付
++
++**必须出示的证据**：
++1. 5 项检查全部绿色（评论在 Issue 上）
++
++**校验方法**：
++检查 Issue 评论中是否包含质量报告。
++
++**违规处理**：
++如果质量报告中有任何失败项，输出阻断信息并停止：
++
++```
++🔒 闸门未通过：不允许创建 PR。5 项质量检查必须全部绿色。
++
++质量检查未全部通过：
++- [✅] build
++- [❌] test — 2 个测试失败
++- [✅] coverage
++- [✅] format
++- [✅] static
++```
++
++### Phase 3 合规检查
++
++```
++Phase 3 合规检查:
++  [ ] 步骤 1: build ✅ — 编译通过
++  [ ] 步骤 2: test ✅ — 全部测试通过
++  [ ] 步骤 3: coverage ✅ — 覆盖率达标
++  [ ] 步骤 4: format ✅ — 格式规范
++  [ ] 步骤 5: static ✅ — 无警告
++  [ ] 步骤 6: pre-commit ✅ — 全部 hook 通过 (或 N/A)
++  [ ] Issue 评论已发布: <comment_link>
++
++  缺失项: <list or "无">
++  是否允许进入下一阶段: [ ]
++```
++
++---
++
++## Phase 4: 交付
++
++**目标**：创建 PR、完成代码审查、合并并可选发布。
++
++### 步骤 4.1：创建 PR
++
++调用 `gitflow-pr-create` skill 创建 Pull Request：
++
++```
++使用 gitflow-pr-create 技能，基于当前分支创建 PR。
++```
++
++PR 要求：
++- 标题遵循 conventional commits 格式
++- 描述包含 `Closes #N` 自动关联 Issue
++- 包含变更说明和验证步骤
++
++### 步骤 4.2：代码审查
++
++调用 `gitflow-pr-review` skill 进行 6 维度审查：
++
++```
++使用 gitflow-pr-review 技能，对 PR 进行 6 维度代码审查。
++```
++
++如果审查发现问题：
++1. 记录问题到 PR 评论
++2. 修复问题
++3. 推送修复
++4. 重新审查
++
++### 步骤 4.3：完成开发分支
++
++调用 Superpowers finishing-a-development-branch 决定分支处理方式：
++
++```
++使用 superpowers:finishing-a-development-branch 技能，完成当前开发分支。
++```
++
++选项：
++- 合并到主分支（merge commit）
++- 压缩合并（squash merge）
++- 变基合并（rebase merge）
++
++### 步骤 4.4：发布（可选）
++
++如果需要发布新版本，调用 `gitflow-release-helper`：
++
++```
++使用 gitflow-release-helper 技能，基于合并的变更创建 Release。
++```
++
++发布步骤：
++1. 生成 Release Notes（基于 conventional commits）
++2. 确定版本号（semver）
++3. 创建 Git tag
++4. 创建 GitHub Release
++
++### 步骤 4.5：关闭 Issue
++
++PR 合并后，确认 Issue 自动关闭（通过 `Closes #N`）：
++
++```bash
++# 确认 Issue 状态
++gitflow-cli issue view <number>
++```
++
++如果未自动关闭，手动关闭：
++
++```bash
++gitflow-cli issue close <number>
++```
++
++### 步骤 4.5.5：更新 Issue 验收标准
++
++PR 合并后，更新 Issue 中的验收标准 checkbox，标记已完成的项目：
++
++```bash
++# 添加评论说明验收标准完成情况
++gitflow-cli issue comment <number> --body "## ✅ 验收标准已完成
++
++根据 PR #<pr-number> 的实现，以下验收标准已全部满足：
++
++- [x] 标准 1：已完成
++- [x] 标准 2：已完成
++- [x] 标准 3：已完成
++
++### 验证结果
++- 所有测试通过
++- CI 检查通过
++- 代码审查通过"
++```
++
++**注意**：GitHub 不支持通过 API 直接更新 Issue body 中的 checkbox，因此通过评论方式记录验收标准的完成情况。
++
++### 步骤 4.6：发布最终审计日志
++
++```bash
++# 写入临时文件
++cat > /tmp/phase-report.md << 'REPORT'
++## Phase 4: 交付完成
++
++### PR 信息
++- PR URL: <url>
++- PR 编号: #<number>
++- 合并策略: <squash|merge|rebase>
++
++### Release（如适用）
++- 版本号: v<X.Y.Z>
++- Release URL: <url>
++
++### 完成时间
++<timestamp>
++
++🎉 开发工作流全部完成！
++REPORT
++
++gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
++rm -f /tmp/phase-report.md
++```
++
++### Phase 4 合规检查
++
++```
++Phase 4 合规检查:
++  [ ] 步骤 1: pr-create — PR URL 已获取
++  [ ] 步骤 2: pr-review — 6 维度审查完成
++  [ ] 步骤 3: finishing — 分支已合并
++  [ ] 步骤 4: release-helper (可选) — Release 已创建
++  [ ] 步骤 5: issue-close — Issue 已关闭
++  [ ] Issue 最终审计日志已发布: <comment_link>
++
++  缺失项: <list or "无">
++  工作流是否全部完成: [ ]
++```
++
++---
++
++## 使用示例
++
++### 场景 1：从零开始一个新功能
++
++用户说："我想给 gitflow-cli 添加命令行自动补全功能"
++
++**执行流程**：
++
++1. **Phase 1**：
++   - brainstorming：探索自动补全的需求边界（哪些 shell？哪些命令？）
++   - 创建 Issue：`feat(cli): add shell completion for bash/zsh/fish`
++   - 需求分析：确认技术方案（clap 的 completions 功能）
++
++2. **Phase 2**：
++   - 拆解任务：实现 completions 命令 → 添加 shell 检测 → 生成补全脚本 → 测试
++   - TDD 循环：每个任务先写测试再实现
++
++3. **Phase 3**：
++   - 运行质量检查：build + test + coverage + format + static
++   - 全部通过
++
++4. **Phase 4**：
++   - 创建 PR：`feat(cli): add shell completion for bash/zsh/fish`
++   - 审查通过
++   - 合并到 main
++   - 创建 Release v1.1.0
++
++### 场景 2：修复一个 Bug
++
++用户说："gitflow-cli issue create 在 GitLab 上报错 401"
++
++**执行流程**：
++
++1. **Phase 1**：
++   - brainstorming：复现问题，确认是认证问题还是 API 问题
++   - 创建 Issue：`fix(gitlab): issue create returns 401 on valid token`
++   - 需求分析：确认是 GitLab API v4 的认证头格式问题
++
++2. **Phase 2**：
++   - 拆解任务：添加回归测试 → 修复认证头格式 → 验证修复
++   - TDD 循环：先写失败测试，再修复
++
++3. **Phase 3**：
++   - 运行质量检查
++   - 全部通过
++
++4. **Phase 4**：
++   - 创建 PR：`fix(gitlab): use PRIVATE-TOKEN header for auth`
++   - 审查通过
++   - 合并到 main
++
++### 场景 3：已有关联 Issue 的增量开发
++
++用户说："Issue #42 已经分析好了，开始实现"
++
++**执行流程**：
++
++1. **Phase 1**：
++   - 跳过 brainstorming（已有明确需求）
++   - 跳过创建 Issue（已存在 #42）
++   - 需求分析：读取 Issue #42 的现有描述和评论
++   - 如果分析不完整，补充需求分析报告
++
++2. **Phase 2-4**：同场景 1
++
++---
++
++## 阶段回退
++
++任何阶段都可以回退到前一个阶段：
++
++- **Phase 4 → Phase 3**：PR 审查发现质量问题
++- **Phase 3 → Phase 2**：质量检查失败
++- **Phase 2 → Phase 1**：实现过程中发现需求不明确
++
++回退时，在 Issue 上记录回退原因：
++
++```bash
++gitflow-cli issue comment <number> --body "## 阶段回退
++
++**从 Phase <X> 回退到 Phase <Y>**
++
++### 回退原因
++<原因描述>
++
++### 需要处理的事项
++- [ ] <待办事项 1>
++- [ ] <待办事项 2>"
++```
++
++---
++
++## 注意事项
++
++- **编排层不执行操作**：所有平台交互通过 `gitflow` CLI，所有开发循环通过 Superpowers
++- **闸门不可跳过**：必须出示完整证据才能进入下一阶段
++- **审计日志必须发布**：每个阶段的产出物必须评论到 Issue
++- **回退是正常流程**：发现问题时回退是质量保证的一部分
++- **可选步骤需确认**：如 Release 步骤，需与用户确认是否执行
++- **--body-file 强制**：长内容（>100 字节）必须通过 `--body-file` 传入，不使用 `--body` 直接传
++- **合规检查不可跳过**：每个阶段结束必须输出合规清单，逐项打勾后才能进入下一阶段

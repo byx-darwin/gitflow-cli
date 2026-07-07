@@ -1,340 +1,162 @@
 ---
 name: gitflow-regression
-description: 冒烟测试工作流 — 运行 scripts/smoke-test.sh 执行端到端冒烟测试，解析测试结果，失败时自动调用 gitflow-autoreport-bug 上报
+description: |
+  Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results for regressions, or wants automatic bug reporting for smoke-test failures.
+  当用户运行冒烟/回归测试、解析测试结果或需要自动上报失败时使用。
 ---
 
 # gitflow-regression
 
-运行项目中的冒烟测试脚本 `scripts/smoke-test.sh`，对 gitflow CLI 进行端到端验证。解析脚本输出，判断测试通过或失败状态，并在失败时自动调用 `gitflow-autoreport-bug` 工作流上报缺陷，确保回归问题被及时发现和跟踪。
+Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to `/gitflow-autoreport-bug`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
 
-## 前置条件
+## When to Use
 
-- 当前目录位于 git 仓库根目录
-- `scripts/smoke-test.sh` 脚本存在且具有执行权限
-- `gitflow` CLI 已构建或安装
+| English | 中文 | Context |
+|---------|------|---------|
+| smoke test | 冒烟测试 | quick CLI check |
+| regression test | 回归测试 | post-change verification |
+| pre-release check | 发版前检查 | before release |
+| run smoke | 跑一下冒烟 | casual trigger |
 
-**前置检查：**
-
-```bash
-# 确认在 git 仓库中
-git rev-parse --show-toplevel
-
-# 确认冒烟测试脚本存在
-test -f scripts/smoke-test.sh && echo "✅ smoke-test.sh 存在" || echo "❌ smoke-test.sh 不存在"
-
-# 确认脚本可执行
-test -x scripts/smoke-test.sh && echo "✅ 脚本可执行" || chmod +x scripts/smoke-test.sh
-
-# 确认 gitflow CLI 可用
-if [[ -f "./target/release/gitflow-cli" ]]; then
-    echo "使用本地 release 构建"
-elif [[ -f "./target/debug/gitflow-cli" ]]; then
-    echo "使用本地 debug 构建"
-elif command -v gitflow-cli &>/dev/null; then
-    echo "使用全局安装版本"
-else
-    echo "❌ gitflow-cli 未找到，请先构建：cargo build"
-    exit 1
-fi
-```
-
-## 工作流
-
-### 步骤 1：确定测试参数
-
-根据需求确定冒烟测试的参数：
+## Core Pattern
 
 ```bash
-# 目标平台（默认 github）
-PLATFORM="github"
-
-# 测试模式
-MODE="read-only"  # 或 "write"
-
-# 详细输出
-VERBOSE=0  # 或 1
+test -f scripts/smoke-test.sh
+bash scripts/smoke-test.sh --platform github 2>&1
+# parse EXIT + PASS/FAIL/SKIP
+# FAIL>0 → classify → /gitflow-autoreport-bug
 ```
 
-**平台选项：**
+## Quick Reference
 
-| 平台 | 参数 | 说明 |
-|------|------|------|
-| GitHub | `--platform github` | 默认平台 |
-| GitLab | `--platform gitlab` | GitLab 平台 |
-| GitCode | `--platform gitcode` | GitCode 平台 |
+| Goal | Command |
+|------|---------|
+| Read-only | `bash scripts/smoke-test.sh --platform github` |
+| Verbose | `bash scripts/smoke-test.sh --platform github --verbose` |
+| Write mode | `bash scripts/smoke-test.sh --platform github --write` |
 
-**测试模式：**
+Platforms: github, gitlab, gitcode. Default mode: read-only; `--write` requires explicit user confirmation.
 
-| 模式 | 参数 | 说明 |
-|------|------|------|
-| 只读 | `--read-only` | 默认模式，仅测试读取类命令 |
-| 写入 | `--write` | 测试写入类命令（创建、修改等） |
+## Flowchart
 
-### 步骤 2：运行冒烟测试
-
-调用冒烟测试脚本：
-
-```bash
-# 运行只读模式的冒烟测试（默认）
-bash scripts/smoke-test.sh --platform "$PLATFORM"
-
-# 带详细输出
-bash scripts/smoke-test.sh --platform "$PLATFORM" --verbose
-
-# 运行写入模式的冒烟测试
-bash scripts/smoke-test.sh --platform "$PLATFORM" --write
-
-# 指定版本
-bash scripts/smoke-test.sh --version
+```mermaid
+flowchart TD
+    START[Run smoke test] --> MODE{Mode?}
+    MODE -->|read-only default| EXEC[bash smoke-test.sh]
+    MODE -->|user passes --write| CONF{confirm write?}
+    CONF -->|yes| WRITE[execute write]
+    CONF -->|no| STOP[abort]
+    EXEC --> RESULT{Exit code?}
+    RESULT -->|0 pass| DONE[all good]
+    RESULT -->|non-zero| CLASS{classify failure}
+    CLASS --> REPAIR[report to autoreport-bug]
+    WRITE --> EXEC
 ```
 
-脚本会自动执行以下检查：
+## Implementation
 
-1. **帮助命令测试**：验证所有顶层资源和子命令的 `--help` 输出
-2. **API 读取测试**（只读模式）：
-   - `issue list --limit 3`
-   - `pr list --limit 3`
-   - `label list`
-   - `milestone list`
-   - `pipeline status`
-   - 等等
-3. **API 写入测试**（写入模式）：
-   - `issue create --help`
-   - `auth login --help`
-   - 等等
+### Preconditions
 
-### 步骤 3：解析测试结果
+- In git repo — `git rev-parse --show-toplevel`
+- `scripts/smoke-test.sh` executable
+- `gitflow-cli` on PATH — `command -v gitflow-cli`
+- Auth valid — `gitflow-cli auth status` (auth-fail → `gitflow auth login`, stop)
 
-冒烟测试脚本的输出包含 PASS/FAIL/SKIP 计数：
+### Steps
 
-```bash
-# 运行脚本并捕获退出码和输出
-OUTPUT=$(bash scripts/smoke-test.sh --platform "$PLATFORM" 2>&1)
-EXIT_CODE=$?
+1. **Parameters** — platform default `github`; `--write` only on explicit user request.
+2. **Run** — `bash scripts/smoke-test.sh --platform <p> [--write] [--verbose]`; capture output + exit code.
+3. **Parse** — extract `PASS_COUNT`, `FAIL_COUNT`, `SKIP_COUNT`. Exit 0 → report, done. Else Step 4.
+4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no autoreport. Real bug → write `.cache/bug-reports/pending.json`, invoke `/gitflow-autoreport-bug`.
+5. **Report** — render markdown summary table + per-failure detail + reported Issue URLs.
 
-echo "$OUTPUT"
-```
+### Error Handling
 
-**解析输出中的关键信息：**
+| Error | Recovery |
+|-------|----------|
+| script missing | `chmod +x` or stop |
+| auth/network fail | Stop. Advise `gitflow auth login` |
+| flaky | Re-run once; flag if persists |
+| >5 failures | Single collective Issue |
 
-```bash
-# 提取统计数据
-PASS_COUNT=$(echo "$OUTPUT" | grep -oP '\d+(?=\s+passed)' || echo "0")
-FAIL_COUNT=$(echo "$OUTPUT" | grep -oP '\d+(?=\s+failed)' || echo "0")
-SKIP_COUNT=$(echo "$OUTPUT" | grep -oP '\d+(?=\s+skipped)' || echo "0")
+## Responsibility
 
-# 或者直接看脚本末尾的汇总
-# PASS: X | FAIL: Y | SKIP: Z
-```
+### ✅ In Scope
 
-**结果判断：**
+- Run script, parse output, classify, delegate to autoreport, render report
 
-| 退出码 | 含义 | 后续操作 |
-|--------|------|----------|
-| 0 | 所有测试通过 | 记录结果，完成 |
-| 1 | 存在失败测试 | 进入步骤 4 上报 |
+### ❌ Out of Scope
 
-### 步骤 4：处理失败结果
+- Fixing bugs — autoreport-bug reports only
+- Editing `scripts/smoke-test.sh`
+- Closing reported Issues
 
-当冒烟测试存在失败项时，收集失败信息并上报：
+### 🚫 Do Not
 
-**4.1 提取失败详情**
+- ❌ Run `--write` without explicit confirmation
+- ❌ Report transient auth/network failures
+- ❌ Invoke autoreport-bug from CI pipelines
+- ❌ Duplicate-report known flaky failures
 
-```bash
-# 从输出中提取所有 [FAIL] 行
-FAIL_DETAILS=$(echo "$OUTPUT" | grep '\[FAIL\]')
+## 🔁 Delegation
 
-echo "失败的测试项："
-echo "$FAIL_DETAILS"
-```
+| Intent | Delegate To |
+|--------|-------------|
+| Run smoke test | This skill |
+| File bug | `/gitflow-autoreport-bug` |
+| Fix root cause | `/gitflow-workflow` |
+| Pre-release gate | `/gitflow-release` |
 
-**4.2 分析失败原因**
+## Rationalization
 
-对每个失败项进行分类：
+| Excuse | Reality |
+|--------|---------|
+| "Just a smoke test" | Write mode still mutates remotes |
+| "Auth later" | Auth-less runs yield false failures |
 
-| 失败类型 | 判断依据 | 严重程度 |
-|----------|----------|----------|
-| 命令未找到 | `command not found` | 🔴 关键 |
-| 认证失败 | `auth`、`401`、`403` | 🔴 关键 |
-| API 错误 | `4xx`、`5xx` 状态码 | 🟠 高 |
-| 超时 | `timeout`、`timed out` | 🟠 高 |
-| 输出不符 | `expected`、`mismatch` | 🟡 中 |
-| 跳过异常 | 非预期的 SKIP | 🟡 中 |
+## Red Flags
 
-**4.3 调用 gitflow-autoreport-bug 上报**
+- 🚩 "Run write mode" — Confirm non-production env
+- 🚩 "Ignore auth" — Refuse. Auth-fix first
+- 🚩 "Report every failure" — Suppress transient
+- 🚩 CI + autoreport — Refuse; CI uses exit code only
 
-为每个失败项创建错误报告，写入 `pending.json`：
+## Trigger Keywords
 
-```bash
-# 创建错误报告目录
-mkdir -p .cache/bug-reports
+| English | 中文 |
+|---------|------|
+| smoke test, regression test | 冒烟测试、回归测试 |
+| pre-release check, verify CLI | 发版前检查、验证 CLI |
 
-# 为每个失败项生成 pending.json
-for FAIL_LINE in $FAIL_DETAILS; do
-    # 提取失败信息
-    COMMAND=$(echo "$FAIL_LINE" | extract_command)
-    ERROR_MSG=$(echo "$FAIL_LINE" | extract_message)
+## Test Scenarios
 
-    cat > .cache/bug-reports/pending.json << EOF
-{
-    "error_id": "smoke-$(date +%s)-$(echo $COMMAND | md5sum | head -c 8)",
-    "command": "$COMMAND",
-    "platform": "$PLATFORM",
-    "error_code": "SMOKE_TEST_FAILED",
-    "error_message": "$ERROR_MSG",
-    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-EOF
-done
-```
+### 1: Happy Path — git repo, script present, auth valid, "run smoke test" → read-only, EXIT=0, summary report, done.
 
-然后调用 `gitflow-autoreport-bug` 工作流处理上报：
+### 2: Negative — "fix login bug" → NOT loaded. → `/gitflow-workflow`.
 
-```
-使用 gitflow-autoreport-bug 技能处理 pending.json 中的错误报告
-```
+### 3: Boundary — 3 auth-related failures → classified transient, autoreport NOT called, user advised `auth login`.
 
-### 步骤 5：生成测试报告
+### 4: Error — `--write` in production → Refuses. Confirm scope first.
 
-汇总测试结果，生成报告：
+### 5: Error — script missing → Stop.
 
-**全部通过时：**
+## Success Criteria
 
-```markdown
-## 冒烟测试报告
+- [ ] Read-only unless user opts into write
+- [ ] PASS/FAIL/SKIP parsed and reported
+- [ ] Transient failures filtered
+- [ ] Real bugs delegated to autoreport
+- [ ] Markdown report rendered
 
-**平台:** <platform>
-**模式:** <read-only | write>
-**时间:** <timestamp>
+## Common Mistakes
 
-### 结果摘要
+- ❌ **Defaulting to write mode** — read-only is default
+- ❌ **Reporting auth failures** — `auth status` first
+- ❌ **Ignoring non-zero exit** — always triggers Step 4
 
-| 指标 | 数值 |
-|------|------|
-| ✅ 通过 | <pass-count> |
-| ❌ 失败 | <fail-count> |
-| ⏭️ 跳过 | <skip-count> |
+## See Also
 
-### 结论
-
-**✅ 冒烟测试全部通过** — CLI 功能正常，无回归问题
-```
-
-**存在失败时：**
-
-```markdown
-## 冒烟测试报告
-
-**平台:** <platform>
-**模式:** <read-only | write>
-**时间:** <timestamp>
-
-### 结果摘要
-
-| 指标 | 数值 |
-|------|------|
-| ✅ 通过 | <pass-count> |
-| ❌ 失败 | <fail-count> |
-| ⏭️ 跳过 | <skip-count> |
-
-### 失败详情
-
-| # | 命令 | 错误信息 | 严重程度 |
-|---|------|----------|----------|
-| 1 | <command> | <error-msg> | 🔴/🟠/🟡 |
-
-### 结论
-
-**❌ 冒烟测试存在失败** — 已创建 <n> 个 Issue 上报
-
-### 已上报 Issue
-
-- [<error-id>] <command> — <url>
-```
-
-## 使用示例
-
-### 运行基本冒烟测试（GitHub 平台）
-
-```bash
-# 运行只读冒烟测试
-bash scripts/smoke-test.sh --platform github
-
-# 预期输出类似：
-# [INFO] 冒烟测试开始 — 平台: github, 模式: read-only
-# [PASS] gitflow-cli issue --help
-# [PASS] gitflow-cli pr --help
-# [PASS] gitflow-cli release --help
-# [PASS] gitflow-cli issue list --limit 3
-# [PASS] gitflow-cli pr list --limit 3
-# [PASS] gitflow-cli label list
-# ...
-# [INFO] 测试完成
-# PASS: 25 | FAIL: 0 | SKIP: 2
-```
-
-### 运行 GitLab 平台的冒烟测试
-
-```bash
-bash scripts/smoke-test.sh --platform gitlab --verbose
-```
-
-### 运行带写入操作的冒烟测试
-
-```bash
-# 注意：写入模式会实际创建资源，谨慎使用
-bash scripts/smoke-test.sh --platform github --write
-```
-
-### 集成到 CI 流程
-
-```bash
-# 在 CI 中运行冒烟测试
-bash scripts/smoke-test.sh --platform github 2>&1 | tee smoke-test-output.log
-
-# 检查退出码
-if [ $? -ne 0 ]; then
-    echo "❌ 冒烟测试失败，停止流水线"
-    exit 1
-fi
-```
-
-### 失败后自动上报
-
-```bash
-# 运行冒烟测试
-bash scripts/smoke-test.sh --platform github > /tmp/smoke-output.txt 2>&1
-EXIT_CODE=$?
-
-if [ $EXIT_CODE -ne 0 ]; then
-    echo "冒烟测试失败，生成错误报告..."
-
-    # 解析失败信息并写入 pending.json
-    mkdir -p .cache/bug-reports
-    cat > .cache/bug-reports/pending.json << EOF
-{
-    "error_id": "smoke-$(date +%s)",
-    "command": "smoke-test",
-    "platform": "github",
-    "error_code": "SMOKE_TEST_FAILED",
-    "error_message": "冒烟测试存在失败项，详见输出日志",
-    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-EOF
-
-    # 调用 autoreport-bug 工作流
-    echo "使用 gitflow-autoreport-bug 技能处理 pending.json"
-fi
-```
-
-## 注意事项
-
-- 冒烟测试脚本（`scripts/smoke-test.sh`）优先使用本地构建版本（`target/release/gitflow-cli` 或 `target/debug/gitflow-cli`），其次是全局安装的 `gitflow-cli`
-- 只读模式（`--read-only`）是安全的默认模式，不会修改远程数据
-- 写入模式（`--write`）会实际创建资源，应谨慎使用，避免在测试环境产生垃圾数据
-- 冒烟测试的退出码为 0 表示全部通过，非 0 表示存在失败
-- 上报 Issue 前应先确认失败不是由认证问题或网络问题导致的临时性错误
-- 如果多次运行都出现相同的失败，可能是 CLI 的实际 bug，应优先排查
-- 对于间歇性失败的测试，可以标记为 flaky 并单独跟踪，不应每次都创建新 Issue
-- 冒烟测试应定期运行（如每次 release 前、每日 CI），确保 CLI 功能持续正常
-- 失败上报后应跟踪 Issue 状态，确保问题被修复后关闭
+- `gitflow-autoreport-bug` — bug reporting
+- `gitflow-release` — pre-release gate
+- `gitflow-quality` — quality checks
+- `gitflow-pipeline-analyzer` — CI inspection

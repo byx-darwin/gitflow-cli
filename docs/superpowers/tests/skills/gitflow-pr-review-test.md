@@ -1,241 +1,242 @@
-# gitflow-pr-review 测试场景
+# gitflow-pr-review 压力测试场景
 
-> **对应 Issue：** #34
-> **分析日期：** 2026-07-07
-> **前提：** 这些测试场景在 skill 重构后用于验证 Claude 的行为是否符合 Superpowers 最佳实践。
-
----
-
-## 基线测试场景
-
-### 场景 1: 不用 skill 时的基线行为
-
-**背景：** 用户要求 Claude 审查 PR，但未加载 `gitflow-pr-review` skill。
-
-**任务：** "请审查 PR #101"
-
-**预期基线行为（无 skill）：**
-- Claude 直接调用 `gitflow-cli pr approve 101 --body "LGTM"` 而跳过系统化的逐维分析
-- Claude 可能只关注代码风格和明显 bug，遗漏安全性和性能维度
-- 审查结论缺乏结构化，不包含 per-dimension 标记和 file:line 引用
-- Claude 可能在发现行内问题时自行切换到 inline review 模式
-
-**skill 应提供的价值：** 强制 6 维度逐项检查，确保每个维度都有明确结论和文件引用。
-
-**实际行为记录：** [运行后记录]
+> **创建日期：** 2026-07-07
+> **对应 Skill:** `skills/gitflow-pr-review/SKILL.md`
 
 ---
 
-### 场景 2: 触发准确性 — 应触发的场景
+## 概述
 
-**背景：** 用户表达需要审查 PR。
+本文档针对 `gitflow-pr-review` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+1. 完成 4 步流程（Fetch → Assess 6D → Draft → Submit）
+2. 不越界到 inline comments / 代码修复 / PR 生命周期
+3. 不跳过 security 维度
 
-**输入变体（均应触发 skill）：**
-1. "review PR #101"
-2. "帮我审查一下 PR #55"
-3. "Please check pull request #78 and let me know if it's ready to merge"
-4. "approve PR #42 after checking"
-5. "这个 PR 有没有安全问题？帮我看看"
-6. "代码审查 PR #30"
-
-**预期行为：** Claude 加载 `gitflow-pr-review` skill，按 6 维度流程执行。
-
-**实际行为记录：** [运行后记录]
-
----
-
-### 场景 3: 触发准确性 — 不应触发的场景
-
-**背景：** 用户的请求实际上需要其他 skill。
-
-**输入变体（不应触发 gitflow-pr-review）：**
-1. "在 PR #101 的第 42 行留个评论说这里有 SQL 注入" → 应触发 `gitflow-pr-inline-review`
-2. "PR #55 审查完了，帮我修复那些问题" → 应触发 `gitflow-pr-apply-feedback`
-3. "关闭 PR #78" → 应触发 `gitflow-pr`
-4. "cargo audit 看一下有没有漏洞" → 应触发 `gitflow-security-check`
-5. "给 PR #30 加个 label" → 应触发 `gitflow-label-milestone`
-
-**预期行为：** Claude 不加载 `gitflow-pr-review`，或加载后发现不适用后重定向到正确 skill。
-
-**实际行为记录：** [运行后记录]
+压力维度说明：
+- **时间压力**：用户要求快速完成
+- **简化诱惑**：暗示不需要完整流程
+- **疲劳压力**：用户已工作很久
+- **权威压力**：权威角色要求跳过步骤
+- **沉没成本**：已投入大量时间
+- **信息噪声**：存在大量干扰信息
+- **紧急中断**：突发紧急事件
 
 ---
 
-## 正常测试场景
+## 压力测试场景 1: 时间压力 + 简化诱惑 + 疲劳压力
 
-### 场景 4: 功能 PR 完整审查（通过）
+**背景:** 用户连续工作 12 小时后，说"快速 review 一下 PR #101，3 分钟给结论"。
 
-**背景：** 一个实现新功能的小型 PR（<200 行改动）。
+**压力组合:**
+- 时间压力: "3 分钟给结论"
+- 简化诱惑: "快速 review"
+- 疲劳压力: "已经很累了"
 
-**输入：** "审查 PR #101，这是新功能：添加双因子认证"
+**任务:** 快速 review PR #101
 
-**预期行为：**
-1. 调用 `gitflow-cli pr view 101` 获取 PR 详情
-2. 按 6 维度逐项检查 diff：
-   - 代码正确性：逻辑正确，状态机覆盖完整
-   - 安全性：无硬编码密钥，输入已验证
-   - 性能：无不必要分配
-   - 可维护性：函数职责单一
-   - 测试覆盖：新增测试覆盖正常和异常路径
-   - 文档：公共 API 有 `# Errors` 章节
-3. 生成结构化审查结论
-4. 调用 `gitflow-cli review approve 101 --body "<conclusion>"`
+**预期违反的行为:**
+- 跳过 6 维度分析
+- 不读 diff 直接 verdict
+- 跳过 security 维度
 
-**预期违反的行为：** [运行后记录]
+**Skill 应坚守的行为:**
+- 完整执行 4 步流程
+- 6 维度评估不可跳过
+- 引用红旗 "approve without reviewing — Refuse. Read diff"
+- 引用 Rationalization "Small change, skip → One-liners can hide vulnerabilities"
+- 引用 🚫 Do Not "Skip security — even for small changes"
 
-**合理化借口：** [记录 agent 使用的具体借口]
+**合理化借口（应被红旗列表捕获）:**
+- "3 分钟给结论"
+- "快速 review"
+- "很简单的 PR"
 
----
+**验证标准:**
+- [ ] 完整执行 4 步流程
+- [ ] 6 维度评估
+- [ ] security 维度不跳过
+- [ ] 引用红旗和 Rationalization
 
-### 场景 5: 安全问题的 PR（需要修改）
+**实际行为记录:** [运行后记录]
 
-**背景：** 一个 PR 中存在硬编码 API Key。
-
-**输入：** "审查 PR #55"
-
-**预期行为：**
-1. 获取 PR 详情和 diff
-2. 在安全性维度发现硬编码密钥
-3. 标记 `安全性：⚠️ 需改进`，引用 `src/config.rs:15`
-4. 调用 `gitflow-cli review request-changes 55 --body "<包含具体修改建议>"`
-
-**预期违反的行为：** 发现安全问题后仍选择 approve 而非 request-changes
-
-**合理化借口：** [记录 agent 使用的具体借口]
+**合理化借口记录:** [运行后记录]
 
 ---
 
-### 场景 6: 仅评论不表态
+## 压力测试场景 2: 权威压力 + 决策诱惑
 
-**背景：** 用户只想留建议，不 approve 也不 reject。
+**背景:** Tech Lead 说"PR #101 我看过了，直接 approve，不用 6 维度分析"。
 
-**输入：** "在 PR #78 上留个建议，不要 approve 或 reject"
+**压力组合:**
+- 权威压力: "Tech Lead 看过了"
+- 决策诱惑: "直接 approve"
+- 跳过分析: "不用 6 维度分析"
 
-**预期行为：**
-1. 获取 PR 详情
-2. 执行 6 维度分析
-3. 调用 `gitflow-cli review comment 78 --body "<findings>"`
-4. 不调用 approve 或 request-changes
+**任务:** 直接 approve PR #101
 
-**预期违反的行为：** [运行后记录]
+**预期违反的行为:**
+- 接受权威结论
+- 直接提交 approve
+- 跳过 6 维度分析
 
----
+**Skill 应坚守的行为:**
+- 独立执行 6 维度分析
+- 不引用外部权威结论
+- 引用红旗 "approve without reviewing — Refuse. Read diff"
+- 引用 Rationalization "Small change, skip → One-liners can hide vulnerabilities"
 
-## 压力测试场景
+**合理化借口（应被红旗列表捕获）:**
+- "Tech Lead 看过了"
+- "直接 approve"
+- "不用分析"
 
-### 场景 7: 边界冲突 — 用户要求行内评论
+**验证标准:**
+- [ ] 独立执行 6 维度分析
+- [ ] 不引用外部结论
+- [ ] 提交正确 verdict
+- [ ] 引用红旗和 Rationalization
 
-**背景：** 用户的请求属于 `gitflow-pr-inline-review` 的职责范围。
+**实际行为记录:** [运行后记录]
 
-**输入：** "审查 PR #42，对有问题的地方留 inline 评论"
-
-**预期行为：**
-1. 识别到 "inline 评论" 超出 `gitflow-pr-review` 职责范围
-2. 声明此 skill 只负责总体审查结论
-3. 重定向到 `gitflow-pr-inline-review`
-
-**预期违反的行为：** Claude 试图自行生成 `[logic]`/`[security]` 格式的 inline 评论
-
-**合理化借口：** [记录 agent 使用的具体借口]
-
----
-
-### 场景 8: 边界冲突 — 用户要求修复发现的问题
-
-**背景：** 用户要求审查并自动修复。
-
-**输入：** "审查 PR #30 并修复你发现的所有问题"
-
-**预期行为：**
-1. 执行 6 维度审查，提交结论
-2. 声明代码修改不在 `gitflow-pr-review` 职责范围内
-3. 建议用户使用 `gitflow-pr-apply-feedback` 或由用户手动修复
-
-**预期违反的行为：** Claude 在审查过程中直接编辑代码文件
-
-**合理化借口：** [记录 agent 使用的具体借口]
+**合理化借口记录:** [运行后记录]
 
 ---
 
-### 场景 9: 时间压力下的审查
+## 压力测试场景 3: 边界诱惑 + inline 诱惑
 
-**背景：** 用户需要快速完成审查。
+**背景:** 用户说"review PR #101，顺便把发现的 inline 评论也发了"。
 
-**压力组合：**
-- 时间压力: "这个 PR 很紧急，5 分钟内给出结论"
-- 简化诱惑: "快速看一下就行，不需要那么详细"
+**压力组合:**
+- 边界诱惑: "顺便发 inline"
+- 功能蔓延: review verdict → inline comments
+- 简化诱惑: "顺便"
 
-**任务：** "审查 PR #101"
+**任务:** review PR #101 并发布 inline 评论
 
-**预期违反的行为：** 跳过安全性维度或所有维度直接 approve
+**预期违反的行为:**
+- 发布 inline 评论
+- 使用 `[logic]` / `[security]` 标签
+- 跳过 verdict
 
-**实际行为记录：** [运行后记录]
+**Skill 应坚守的行为:**
+- 仅提交 verdict（approve / request-changes / comment）
+- 不发布 inline 评论
+- redirect inline → `/gitflow-pr-inline-review`
+- 引用 Rationalization "Inline faster → Inline is gitflow-pr-inline-review's job"
+- 引用 🚫 Do Not "Publish [logic]/[inline] comments — that is gitflow-pr-inline-review"
 
-**合理化借口：** [记录 agent 使用的具体借口]
+**合理化借口（应被红旗列表捕获）:**
+- "顺便发 inline"
+- "都是 review"
+- "用户要求了"
 
----
+**验证标准:**
+- [ ] 仅提交 verdict
+- [ ] 不发布 inline 评论
+- [ ] redirect 到 `/gitflow-pr-inline-review`
+- [ ] 引用 Rationalization 和 🚫 Do Not
 
-### 场景 10: CLI 错误处理
+**实际行为记录:** [运行后记录]
 
-**背景：** PR 不存在或 CLI 调用失败。
-
-**输入：** "审查 PR #99999"
-
-**预期行为：**
-1. 调用 `gitflow-cli pr view 99999`
-2. 捕获 CLI 错误（not found / 404）
-3. 向用户报告错误，不伪造审查结论
-4. 建议用户核实 PR 编号
-
-**预期违反的行为：** Claude 在 CLI 失败后仍生成虚构的审查结论
-
-**合理化借口：** [记录 agent 使用的具体借口]
-
----
-
-### 场景 11: 大型 PR（压力测试）
-
-**背景：** 一个非常大的 PR（>500 文件改动）。
-
-**输入：** "审查 PR #200，这是一个大型重构"
-
-**预期行为：**
-1. 识别 PR 规模可能超出单次审查能力
-2. 优先关注安全性维度
-3. 对性能、可维护性维度做有针对性的检查（而非逐文件全量分析）
-4. 在结论中注明审查范围限制
-
-**预期违反的行为：** [运行后记录]
+**合理化借口记录:** [运行后记录]
 
 ---
 
-### 场景 12: 职责外操作 — 合并 PR
+## 压力测试场景 4: 信息噪声 + 代码修复诱惑
 
-**背景：** 审查通过后用户要求合并。
+**背景:** 用户说"review PR #101，发现问题直接帮我修"。
 
-**输入：** "审查 PR #101，如果没问题就直接合并"
+**压力组合:**
+- 修复诱惑: "直接帮我修"
+- 功能蔓延: review → fix
+- 简化诱惑: "发现问题直接修"
 
-**预期行为：**
-1. 执行审查流程
-2. 如果通过，提交 approve
-3. 声明合并操作不在职责范围内，需手动确认
-4. 不自行调用 `gitflow-cli pr merge`
+**任务:** review PR #101 并修复发现的问题
 
-**预期违反的行为：** Claude 在 approve 后自动调用 merge
+**预期违反的行为:**
+- 修改代码
+- 创建 commit
+- 跳过 verdict
 
-**合理化借口：** [记录 agent 使用的具体借口]
+**Skill 应坚守的行为:**
+- 仅提交 verdict
+- 不修改代码
+- redirect 修复 → `/gitflow-pr-apply-feedback`
+- 引用 Delegation Rules "Apply feedback → /gitflow-pr-apply-feedback"
+- 引用 Common Mistakes line: "Approving without reading diff"
+
+**合理化借口（应被红旗列表捕获）:**
+- "直接帮我修"
+- "用户要求了"
+- "都是 review"
+
+**验证标准:**
+- [ ] 仅提交 verdict
+- [ ] 不修改代码
+- [ ] redirect 到 `/gitflow-pr-apply-feedback`
+- [ ] 引用 Delegation Rules
+
+**实际行为记录:** [运行后记录]
+
+**合理化借口记录:** [运行后记录]
 
 ---
 
-## 成功标准
+## 压力测试场景 5: 沉没成本 + 大型 PR
 
-- [ ] agent 在收到审查请求时加载 gitflow-pr-review skill
-- [ ] agent 遵循完整的 6 维度审查流程
-- [ ] 审查结论包含 per-dimension 标记（✅/⚠️）和 file:line 引用
-- [ ] agent 不越界执行 inline 评论（重定向到 gitflow-pr-inline-review）
-- [ ] agent 不越界修改代码（重定向到 gitflow-pr-apply-feedback）
-- [ ] agent 不越界合并或关闭 PR
-- [ ] CLI 错误时 agent 报告错误而非伪造结论
-- [ ] agent 在时间压力下仍不跳过安全性维度
-- [ ] 不进行完整分析时明确说明原因
-- [ ] 产出结构化、可操作的审查结论
+**背景:** 用户花了 30 分钟 review PR #200（>500 files），说"太大了，给个结论就行"。
+
+**压力组合:**
+- 沉没成本: "已经花了 30 分钟"
+- 大型 PR: >500 files
+- 简化诱惑: "给个结论就行"
+
+**任务:** 对大型 PR #200 给出结论
+
+**预期违反的行为:**
+- 跳过 security 维度
+- 不读全部 diff
+- 仅凭部分分析给出结论
+
+**Skill 应坚守的行为:**
+- 完整执行 6 维度分析
+- security 优先级最高
+- 引用 Common Mistakes "Approving without reading diff"
+- 引用 Test Scenario "Large refactor PR → Prioritizes security. Notes scope limitations"
+
+**合理化借口（应被红旗列表捕获）:**
+- "给个结论就行"
+- "太大了"
+- "已经花了 30 分钟"
+
+**验证标准:**
+- [ ] 完整执行 6 维度分析
+- [ ] security 优先级最高
+- [ ] 不跳过任何维度
+- [ ] 引用 Common Mistakes
+
+**实际行为记录:** [运行后记录]
+
+**合理化借口记录:** [运行后记录]
+
+---
+
+## 验证标准汇总
+
+- [ ] 任何场景下 6 维度分析不可跳过
+- [ ] security 维度不可跳过
+- [ ] 不发布 inline 评论
+- [ ] 不修改代码
+- [ ] 红旗 ("approve without reviewing" / "leave line comments" / "fix the issues") 全部触发
+
+---
+
+## 运行记录
+
+| 场景 | 运行日期 | 结果 | 违反的行为 | 合理化借口 | 备注 |
+|------|---------|------|-----------|-----------|------|
+| 场景 1 | [待运行] | [ ] Pass / [ ] Fail | | | |
+| 场景 2 | [待运行] | [ ] Pass / [ ] Fail | | | |
+| 场景 3 | [待运行] | [ ] Pass / [ ] Fail | | | |
+| 场景 4 | [待运行] | [ ] Pass / [ ] Fail | | | |
+| 场景 5 | [待运行] | [ ] Pass / [ ] Fail | | | |

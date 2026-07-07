@@ -1,135 +1,107 @@
 ---
 name: gitflow-pr
-description: gitflow-cli 的 Pull Request 操作命令封装，支持创建、列表、查看、关闭、合并、检出、状态切换和分支同步
+description: >
+  Use when the user manages PRs via gitflow-cli: create/list/view/close/merge/
+  checkout/comment/sync/ready/wip/reopen or toggles draft/ready state.
+  当用户通过 gitflow-cli 创建、查看、合并、关闭、评论、检出、同步、
+  标记PR时使用。
+Full params: docs/references/gitflow-pr-params.md
 ---
 
-# gitflow-cli pr
+# gitflow-pr — PR Command Router
 
-封装 `gitflow-cli pr` 命令族，用于在 GitHub/GitLab/GitCode 等平台上管理 Pull Request。
+Top-level entry for `gitflow-cli pr` (11 subcommands). Simple CRUD; complex workflows delegate.
 
-## 命令概览
+## When to Use
 
-| 子命令 | 说明 |
-|--------|------|
-| `create` | 创建新 Pull Request |
-| `list` | 列出仓库的 PR 列表 |
-| `view` | 查看指定 PR 的详情 |
-| `close` | 关闭指定 PR |
-| `reopen` | 重新打开已关闭的 PR |
-| `comment` | 在 PR 上添加评论 |
-| `merge` | 合并指定 PR |
-| `checkout` | 在本地检出 PR 分支 |
-| `ready` | 将草稿 PR 标记为可审查 |
-| `wip` | 将 PR 标记为草稿状态 |
-| `sync` | 同步 PR 分支（将 base 合入 head） |
+| EN | ZH |
+|----|----|
+| create PR | 创建PR |
+| list / view / close / merge | 列出/查看/关闭/合并 |
+| checkout / comment / sync | 检出/评论/同步 |
+| ready / wip / draft | 标记就绪/草稿 |
+| PR review | 委派 review skill |
 
-## 参数说明
+## Flowchart
 
-### `gitflow-cli pr create`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `--title` | string | 是 | PR 标题 |
-| `--body` | string | 否 | PR 正文（Markdown） |
-| `--head` | string | 是 | 来源分支名 |
-| `--base` | string | 是 | 目标分支名 |
-| `--draft` | flag | 否 | 以草稿方式创建 |
-| `--repo` | string | 否 | 目标仓库（`owner/name` 格式） |
-
-### `gitflow-cli pr list`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `--state` | string | 否 | 按状态过滤：`open`、`closed`、`merged`、`all` |
-| `--limit` | int | 否 | 返回数量上限，默认 30 |
-
-### `gitflow-cli pr view`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-### `gitflow-cli pr close`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-### `gitflow-cli pr reopen`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-### `gitflow-cli pr comment`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-| `--body` | string | 是 | 评论内容（Markdown） |
-
-### `gitflow-cli pr merge`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-| `--strategy` | string | 否 | 合并策略：`merge`、`squash`、`rebase` |
-
-### `gitflow-cli pr checkout`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-### `gitflow-cli pr ready`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-### `gitflow-cli pr wip`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-### `gitflow-cli pr sync`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<number>` | int | 是 | PR 编号 |
-
-## 使用示例
-
-### 创建功能分支的 PR
-
-```bash
-gitflow-cli pr create --title "Add user authentication" --body "Implements login/logout per spec #42" --head feature/auth --base main
+```mermaid
+flowchart TD
+  U[PR request] --> CMD{Subcommand?}
+  CMD -->|create| CR[→ gitflow-pr-create]
+  CMD -->|inline review| IR[→ gitflow-pr-inline-review]
+  CMD -->|full review| FR[→ gitflow-pr-review]
+  CMD -->|apply feedback| AF[→ gitflow-pr-apply-feedback]
+  CMD -->|simple CRUD| RUN[view list merge close comment sync ready wip]
 ```
 
-### 以草稿方式创建跨仓库 PR
+## Quick Reference
 
-```bash
-gitflow-cli pr create --title "WIP: experimental cache" --head feature/cache --base main --draft --repo org/shared-lib
-```
+| Goal | Command |
+|------|---------|
+| List/View | `gitflow-cli pr list` / `pr view <n>` |
+| CRUD local | `pr close/reopen/comment <n>` |
+| Merge | `pr merge <n> --strategy <s>` (confirm first) |
+| Sync | `pr sync <n>` |
 
-### 查看 PR 并使用 squash 策略合并
+## Responsibility
 
-```bash
-gitflow-cli pr view 101
-gitflow-cli pr merge 101 --strategy squash
-```
+**In:** route sub-commands · execute simple CRUD · delegate complex workflows.
+**Out:** skip merge confirmation · merge on CI-only basis.
 
-### 检出 PR 分支并在审查后标记为就绪
+### 🚫 Do Not
 
-```bash
-gitflow-cli pr checkout 55
-# 本地审查完成后...
-gitflow-cli pr ready 55
-```
+- ❌ Merge without explicit user confirm
+- ❌ Merge when CI fails
 
-### 同步过时的 PR 分支
+## Rationalization Excuses
 
-```bash
-gitflow-cli pr sync 55
-```
+| Excuse | Reality |
+|--------|---------|
+| "CI passed — just merge" | PR review must precede merge; CI is necessary not sufficient. |
+| "Rebase faster" | Rewriting shared history requires explicit consent. |
+
+## Red Flags
+
+- 🚩 "Skip strategy confirm" — refuse; merge strategy must be explicit
+- 🚩 "Merge now, review later" — refuse; review precedes approval
+- 🚩 "Force push after rebase" — refuse; confirm non-shared state
+
+## Common Mistakes
+
+- ❌ **Creating PR outside `gitflow-pr-create`** — always delegate creation.
+- ❌ **Approving inline comments as PR approval** — different skills.
+
+## Trigger Keywords
+
+| EN | ZH |
+|----|----|
+| create PR, list PR, view PR | 创建PR, 列出PR, 查看PR |
+| close PR, merge PR, comment PR | 关闭PR, 合并PR, 评论PR |
+| sync PR, ready, wip | 同步PR, 标记就绪, 草稿 |
+
+## Test Scenarios
+
+### 1: Happy
+- **Given** "squash merge #101" · **When** "confirm strategy" · **Then** `pr merge 101 --strategy squash` → output SHA
+
+### 2: Negative
+- **Given** "review PR #55" · **Then** NOT loaded → `/gitflow-pr-review`
+
+### 3: Boundary
+- **Given** CI passes · **When** "merge now" · **Then** Refuse — review required
+
+### 4: Error
+- **Given** 404 on close · **Then** "PR not found" ; stop
+
+## Success Criteria
+
+- [ ] Sub-command correctly routed
+- [ ] Destructive ops require confirm
+- [ ] No out-of-scope commands executed
+
+## See Also
+
+- `/gitflow-pr-create` — PR creation workflow
+- `/gitflow-pr-review` — full review
+- `/gitflow-pr-inline-review` — line-level review
+- `/gitflow-pr-apply-feedback` — post-review code changes

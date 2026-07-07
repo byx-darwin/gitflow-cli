@@ -1,309 +1,158 @@
 ---
 name: gitflow-repo
-description: 仓库操作核心命令工作流 — 封装 gitflow-cli repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口
+description: |
+  Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gitflow-cli.
+  当用户需要通过 gitflow-cli 列出、克隆、创建、同步或查看仓库时使用。
 ---
 
 # gitflow-repo
 
-封装 `gitflow-cli repo` 系列命令，提供仓库级别的常用操作入口。涵盖仓库克隆、列表查看、创建、统计数据获取、上游同步和详情查看，帮助开发者高效管理多个仓库。
+## Overview
 
-## 工作流
+封装 `gitflow-cli repo` 的只读与写操作。涵盖 `clone/list/stats/view`（只读）和 `create/sync`（写操作需确认）。
 
-### 步骤 1：确认操作类型
+## When to Use
 
-根据用户需求，确定要执行的仓库操作：
+| Trigger | 中文 | Redirect |
+|---------|------|----------|
+| clone / 拉代码 | clone, 拉代码 | — |
+| list / my repos | 列出仓库, repo list | — |
+| 仓库统计 | 统计, stars, forks | — |
+| 仓库信息 | 仓库详情, 查看 | — |
+| create / new repo | 创建仓库, 新建 | — |
+| sync fork / 同步 fork | 同步 fork, upstream | — |
+| PR workflow | — | → `gitflow-pr` |
 
-| 操作 | 命令 | 用途 |
-|------|------|------|
-| 克隆仓库 | `gitflow-cli repo clone` | 克隆远程仓库到本地 |
-| 列出仓库 | `gitflow-cli repo list` | 列出用户或组织下的仓库 |
-| 创建仓库 | `gitflow-cli repo create` | 在远程平台创建新仓库 |
-| 仓库统计 | `gitflow-cli repo stats` | 查看仓库统计数据 |
-| 同步上游 | `gitflow-cli repo sync` | 同步上游仓库的最新变更 |
-| 查看详情 | `gitflow-cli repo view` | 查看仓库详细信息 |
-
-### 步骤 2：执行对应操作
-
-#### 2.1 克隆仓库
-
-克隆远程仓库到本地：
+## Core Pattern
 
 ```bash
-# 克隆仓库（标准格式）
-gitflow-cli repo clone <owner>/<repo>
-
-# 克隆到指定目录
-gitflow-cli repo clone <owner>/<repo> --dir <target-dir>
-
-# 克隆指定分支
-gitflow-cli repo clone <owner>/<repo> --branch <branch>
-```
-
-克隆后自动执行初始化操作：
-
-```bash
-cd <repo-dir>
-
-# 检查远程配置
-git remote -v
-
-# 如果是 fork，添加上游远程
-git remote add upstream https://github.com/<original-owner>/<repo>.git 2>/dev/null || true
-
-# 拉取所有分支
-git fetch --all
-```
-
-#### 2.2 列出仓库
-
-列出用户或组织下的仓库列表：
-
-```bash
-# 列出当前用户的仓库
-gitflow-cli repo list
-
-# 列出指定组织的仓库
-gitflow-cli repo list --org <organization>
-
-# 按条件过滤
-gitflow-cli repo list --visibility public
-gitflow-cli repo list --language rust
-```
-
-输出格式：
-
-```markdown
-| # | 仓库 | 可见性 | 语言 | 描述 | 更新时间 |
-|---|------|--------|------|------|----------|
-| 1 | org/repo-a | public | Rust | 描述 A | 2026-07-01 |
-| 2 | org/repo-b | private | Rust | 描述 B | 2026-06-28 |
-```
-
-#### 2.3 创建仓库
-
-在远程平台创建新仓库：
-
-```bash
-# 创建公开仓库
-gitflow-cli repo create --name <repo-name> --visibility public
-
-# 创建私有仓库
-gitflow-cli repo create --name <repo-name> --visibility private
-
-# 创建并初始化
-gitflow-cli repo create --name <repo-name> --visibility public --init
-```
-
-创建后的初始化流程：
-
-```bash
-# 如果是 --init 创建，克隆到本地
-gitflow-cli repo clone <owner>/<repo-name>
-cd <repo-name>
-
-# 初始化 Git 仓库
-git init -b main
-
-# 配置基础文件
-# - README.md
-# - LICENSE
-# - .gitignore
-# - CLAUDE.md
-
-# 首次提交
-git add .
-git commit -m "chore: initial project setup"
-git remote add origin <repo-url>
-git push -u origin main
-```
-
-#### 2.4 查看仓库统计
-
-调用 `gh repo view --json` 获取仓库统计数据：
-
-```bash
-# 获取仓库统计数据
+# read-only
+gitflow-cli repo clone <owner>/<repo> [--dir <d>] [--branch <b>]
+gitflow-cli repo list [--org <org>] [--visibility public|private] [--language <l>]
 gitflow-cli repo stats
+gitflow-cli repo view [<owner>/<repo>]
 
-# 等价于调用 gh CLI：
-gh repo view --json \
-  name,description,stargazerCount,forkCount,watchers,\
-  createdAt,updatedAt,pushedAt,\
-  primaryLanguage,languages,\
-  defaultBranchRef,isEmpty,isArchived,isFork,\
-  issues,pullRequests,\
-  licenseInfo,repositoryTopics
-```
-
-输出格式：
-
-```markdown
-## 仓库统计 — <owner>/<repo>
-
-### 基本信息
-
-| 属性 | 值 |
-|------|------|
-| 名称 | <repo> |
-| 描述 | <description> |
-| 主语言 | <language> |
-| 默认分支 | <default-branch> |
-| 许可证 | <license> |
-| 创建时间 | <created-at> |
-| 最后更新 | <updated-at> |
-| 最后推送 | <pushed-at> |
-
-### 数据统计
-
-| 指标 | 数值 |
-|------|------|
-| ⭐ Stars | <stargazer-count> |
-| 🍴 Forks | <fork-count> |
-| 👀 Watchers | <watcher-count> |
-| 📋 Open Issues | <open-issues> |
-| 🔀 Open PRs | <open-prs> |
-
-### 语言分布
-
-| 语言 | 占比 |
-|------|------|
-| <language-1> | <percentage-1>% |
-| <language-2> | <percentage-2>% |
-
-### 主题标签
-
-<topic-1> <topic-2> <topic-3>
-```
-
-#### 2.5 同步上游变更
-
-同步上游仓库的最新变更（适用于 fork 仓库）：
-
-```bash
-# 同步上游仓库
-gitflow-cli repo sync
-
-# 底层执行以下命令序列：
-git fetch upstream
-git merge upstream/main
-# 或对于不同的默认分支：
-# git merge upstream/<default-branch>
-```
-
-同步流程：
-
-```bash
-# 1. 确认 upstream 远程存在
-git remote -v | grep upstream
-
-# 如果不存在，需要先添加 upstream
-git remote add upstream <upstream-url>
-
-# 2. 获取上游变更
-git fetch upstream
-
-# 3. 合并上游变更到当前分支
-git merge upstream/main
-
-# 4. 如果有冲突，解决后提交
-# git add <resolved-files>
-# git commit -m "chore: sync with upstream/main"
-
-# 5. 推送同步结果到 origin
-git push origin <current-branch>
-```
-
-#### 2.6 查看仓库详情
-
-查看仓库的完整信息：
-
-```bash
-# 查看当前仓库详情
-gitflow-cli repo view
-
-# 查看指定仓库详情
-gitflow-cli repo view <owner>/<repo>
-```
-
-输出格式：
-
-```markdown
-## <owner>/<repo>
-
-<description>
-
-**URL:** <repo-url>
-**可见性:** public / private
-**主语言:** <language>
-**默认分支:** <default-branch>
-**许可证:** <license>
-
-### 快速统计
-
-⭐ <stars> | 🍴 <forks> | 👀 <watchers>
-
-### 最近活动
-
-- 最后推送: <pushed-at>
-- Open Issues: <open-issues>
-- Open PRs: <open-prs>
-```
-
-## 使用示例
-
-### 克隆并设置上游仓库
-
-```bash
-# 克隆一个 fork 仓库
-gitflow-cli repo clone myuser/gitflow-cli
-
-# 查看远程配置
-git remote -v
-
-# 添加上游仓库
-git remote add upstream https://github.com/original-org/gitflow-cli.git
-
-# 后续通过 sync 保持同步
+# write
+gitflow-cli repo create --name <n> --visibility public|private [--init]
 gitflow-cli repo sync
 ```
 
-### 查看组织下所有 Rust 仓库
+## Quick Reference
+
+| Goal | Command | Note |
+|------|---------|------|
+| Clone | `gitflow-cli repo clone <owner>/<repo>` | `--dir`, `--branch` |
+| List | `gitflow-cli repo list` | `--org`, `--visibility`, `--language` |
+| Stats | `gitflow-cli repo stats` | requires `gh` |
+| View | `gitflow-cli repo view [<owner>/<repo>]` | current dir if empty |
+| Create | `gitflow-cli repo create --name <n> --visibility <v> [--init]` | **write** |
+| Sync | `gitflow-cli repo sync` | requires `upstream` |
+
+## Preconditions
 
 ```bash
-gitflow-cli repo list --org my-org --language rust
+command -v gitflow-cli                        # CLI installed
+gitflow-cli auth status --platform github     # Authenticated
+test -d .git && git rev-parse --show-toplevel # Inside repo (sync/view/stats)
 ```
 
-### 创建新仓库并初始化
+## Responsibility
 
-```bash
-# 创建仓库
-gitflow-cli repo create --name my-new-project --visibility public --init
+**In:** select sub-command · run read-only ops · prepare write ops with confirmation.
 
-# 克隆到本地
-gitflow-cli repo clone myuser/my-new-project
-cd my-new-project
+**Out:** push without confirmation · create repo without visibility prompt · add upstream silently.
 
-# 开始开发
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Add upstream for them" | User supplies upstream URL — never guess |
+| "Push after sync" | Push always requires confirmation |
+| "Visibility default OK" | Explicitly ask public/private |
+| "Clone then explain" | Explain first, then execute |
+
+## Red Flags
+
+- 🚩 User asks to "delete a repo" — unsupported; suggest `gh repo delete`
+- 🚩 "Force push after sync" — show diff, require explicit confirmation
+- 🚩 "Clone all repos from org" — use `--limit`; confirm before bulk ops
+- 🚩 `repo create` non-interactively — must confirm name + visibility
+
+## Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `gh` missing for `stats` | Omit stats, warn user to install GitHub CLI |
+| Unauthenticated | Prompt `gitflow-cli auth login` |
+| Not in git repo (sync/view) | Switch to repo dir or clone first |
+| `upstream` remote missing (sync) | Prompt user for upstream URL before fetch |
+| Clone — repo not found | Report exit code, suggest typo check |
+| Create — name taken | Suggest alternative name |
+| Sync — merge conflict | Stop, show files, ask user to resolve |
+
+## Flowchart
+
+```mermaid
+flowchart TD
+  A[Start] --> B{Sub-command?}
+  B -->|clone| C[Confirm dir/branch] --> END
+  B -->|list| D[Build filters] --> END
+  B -->|view| F[View current or specified] --> END
+  B -->|stats| E{gh installed?}
+  E -->|yes| F2[Run stats] --> END
+  E -->|no| W[Warn: install gh] --> END
+  B -->|create| G[Confirm name + visibility] --> END
+  B -->|sync| H{upstream exists?}
+  H -->|yes| SF[git fetch upstream]
+  H -->|no| UP[Ask upstream URL] --> SF
+  SF --> MG[merge upstream/main]
+  MG -->|conflict| CF[Stop, show conflicts] --> END
+  MG -->|ok| PUSH{Push confirmed?}
+  PUSH -->|yes| PS[git push origin] --> END
+  PUSH -->|no| END
+  END[End]
 ```
 
-### 查看仓库统计并分析健康度
+## Test Scenarios
 
-```bash
-gitflow-cli repo stats
+### 1: Happy Path
+- **Given** `gh` installed · **When** "stats for this repo" · **Then** Run `repo stats`, output Markdown table
 
-# 基于统计结果分析：
-# - Star 增长趋势 → 项目受欢迎程度
-# - Issue / PR 积压量 → 维护活跃度
-# - 最后推送时间 → 项目是否还在维护
-```
+### 2: Negative
+- **Given** "create a PR" · **When** asked to load `gitflow-repo` · **Then** NOT loaded — `gitflow-pr` handles PRs
 
-## 注意事项
+### 3: Boundary
+- **Given** sync with merge conflict · **When** `git merge` fails · **Then** Stop, show conflicts, do NOT push
 
-- `gitflow-cli repo stats` 依赖 `gh repo view --json`，需要确保 `gh` CLI 已安装并认证
-- `gitflow-cli repo sync` 前应先确认 `upstream` 远程已配置，否则会报错
-- 同步操作可能在本地产生合并冲突，需要先解决冲突再推送
-- 创建仓库时应根据实际需要选择 `public` 或 `private` 可见性
-- 列出仓库时可以使用过滤条件缩小范围，避免返回过多结果
-- 如果 `gitflow-cli repo` 命令尚未实现，可通过直接使用 `gh` CLI 和 `git` 命令完成等效操作
-- 仓库统计信息应定期查看，帮助了解项目健康状况和维护需求
-- 克隆仓库后建议立即配置 Git hooks 和开发环境（参考 `gitflow-repo-onboarding` 工作流）
+### 4: Error
+- **Given** `gh` missing · **When** "stats" · **Then** Omit stats, warn
+
+## Success Criteria
+
+- [ ] Correct sub-command per trigger
+- [ ] Read-only ops execute without confirmation
+- [ ] Write ops require confirmation
+- [ ] Stats degrade if `gh` missing
+- [ ] Stop on sync conflict
+
+## Common Mistakes
+
+- ❌ **Pushing after sync without explicit confirmation** — push requires user OK.
+- ❌ **Auto-adding upstream remote** — always ask user for upstream URL.
+
+## See Also
+
+- `gitflow-repo-onboarding` — onboarding after clone
+- `gitflow-auth` — auth before clone/create
+- `gitflow-workflow` — workflow may start with `repo clone`
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| clone, pull, fetch | 克隆, 拉代码 |
+| list repos, my repos | 列出仓库, 我的仓库 |
+| repo stats, stars, forks | 仓库统计, 数据 |
+| repo info, view repo | 仓库详情, 查看仓库 |
+| create repo, new repo | 创建仓库, 新建 |
+| sync fork, merge upstream | 同步 fork, 上游同步 |

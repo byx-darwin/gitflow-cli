@@ -1,206 +1,160 @@
 ---
 name: gitflow-issue-triage
-description: Issue 分类分流工作流 — 获取所有 open issues，按类型和优先级分类，标记 triage 标签并输出分类报告
+description: |
+  Use when the user wants to classify all open Issues by type and priority, then apply triage:done tags.
+  当用户希望对所有 open Issue 按类型/优先级分类并打上 triage:done 标签时使用。
 ---
 
-# gitflow-cli issue triage 工作流
+# gitflow-issue-triage
 
-引导用户对项目的所有 open issues 进行结构化分类和优先级评估，帮助团队快速了解待办事项的全貌，合理分配资源。分类完成后为每个 Issue 添加 `triage:done` 标签，并输出汇总报告。
+Batch classification of all open Issues — assigns one `type:*` label and one `priority:*` label per Issue, then marks `triage:done`. Outputs a priority-ranked report. Idempotent — skip already-triaged Issues.
 
-## 工作流
+## When to Use
 
-### 步骤 1：获取所有 Open Issues
+| English | 中文 | Context |
+|---------|------|---------|
+| triage all issues | 对全部分类 | backlog grooming |
+| classify issues | 分类 Issue | sprint planning |
+| new issues since ... | 对近期新增分类 | `--since` flag |
+| analyze an issue's requirement | 分析需求质量 | **NOT** → `/gitflow-issue-review` |
+| label statistics | 标签统计 | **NOT** → `/gitflow-label-stats` |
 
-调用 `gitflow-cli issue list` 获取当前所有 open 状态的 issues：
-
-```bash
-gitflow-cli issue list --state open
-```
-
-记录以下信息：
-
-- Issue 编号
-- 标题
-- 描述（前几行）
-- 现有标签
-- 创建时间
-- 指派人（如有）
-
-### 步骤 2：按类型分类
-
-根据每个 Issue 的标题和描述，将其归入以下类型之一：
-
-| 类型 | 标签 | 判断依据 |
-|------|------|----------|
-| 缺陷 | `type:bug` | 报告了错误行为、崩溃、异常 |
-| 功能 | `type:feature` | 请求新功能或新模块 |
-| 增强 | `type:enhancement` | 改进现有功能的体验或性能 |
-| 文档 | `type:docs` | 文档缺失、错误、需要更新 |
-| 问题 | `type:question` | 提问、讨论、需要澄清 |
-
-**分类原则：**
-
-- 如果 Issue 已有类型标签且合理，保留现有标签
-- 如果无法明确分类，标记为 `type:unknown` 并在报告中说明
-- 一个 Issue 只应有一个主类型标签
-
-### 步骤 3：按优先级评估
-
-根据以下标准评估每个 Issue 的优先级：
-
-| 优先级 | 标签 | 判断标准 |
-|--------|------|----------|
-| 紧急 | `priority:urgent` | 影响生产环境、安全漏洞、阻塞其他工作 |
-| 高 | `priority:high` | 核心功能缺陷、重要用户需求、近期 milestone 必须完成 |
-| 中 | `priority:medium` | 一般功能需求、体验改进、非阻塞性问题 |
-| 低 | `priority:low` | 锦上添花、文档小修正、未来考虑的功能 |
-
-**评估参考因素：**
-
-- 是否影响核心用户路径
-- 涉及用户数量范围
-- 是否有 workaround
-- 是否关联即将发布的 milestone
-- 是否为安全相关问题
-
-### 步骤 4：标记已分类的 Issues
-
-对每个已完成分类的 Issue，调用 `gitflow-cli issue label` 添加 `triage:done` 标签：
+## Core Pattern
 
 ```bash
-gitflow-cli issue label <issue-number> --label "triage:done"
+gitflow-cli issue list --state open [--since <date>]
+gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
-同时添加对应的类型和优先级标签：
+## Quick Reference
+
+| Goal | Command |
+|------|---------|
+| List open | `gitflow-cli issue list --state open [--since <date>]` |
+| Add label | `gitflow-cli issue label <n> --label "<l>"` |
+| Filter by label | `gitflow-cli issue list --label "<l>" --state open` |
+
+**Type labels:** `type:bug` · `type:feature` · `type:enhancement` · `type:docs` · `type:question`
+**Priority labels:** `priority:urgent` · `priority:high` · `priority:medium` · `priority:low`
+
+## Implementation
+
+### Preconditions
+
+- `gitflow-cli` authenticated
+- Sufficient scope to label Issues
+- Single type label per Issue; single priority label per Issue
+
+### Step 1: Fetch all open Issues — `issue list --state open [--since <date>]`. Skip those already with `triage:done` (idempotent).
+
+### Step 2: Classify each Issue by title + description body
+
+| Type | Heuristic |
+|------|-----------|
+| `type:bug` | reports crash / error / regression |
+| `type:feature` | new capability / module |
+| `type:enhancement` | UX / perf improvement |
+| `type:docs` | missing / stale doc |
+| `type:question` | question / discussion |
+
+Keep existing type label if already correct. Mark `type:unknown` only when ambiguous.
+
+### Step 3: Apply priority by impact
+
+| Priority | Heuristic |
+|----------|-----------|
+| `priority:urgent` | production outage / security / blocked |
+| `priority:high` | core feature defect / milestone-bound |
+| `priority:medium` | general feature / UX |
+| `priority:low` | nice-to-have / doc tweak |
+
+Reference: core user path · affected user count · workaround · milestone proximity · security relevance.
+
+### Step 4: Apply labels
 
 ```bash
-gitflow-cli issue label <issue-number> --label "type:bug" --label "priority:high"
+gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
-### 步骤 5：输出分类报告
+### Step 5: Output report — priority-ranked (🔴 urgent → 🟢 low) with count + percentage tables.
 
-汇总所有分类结果，生成分类报告。格式：
+### Error Handling
 
-```markdown
-## Issue 分类报告
+| Error | Recovery |
+|-------|----------|
+| Auth | Stop. `auth login`. |
+| Label API failure | Skip Issue, continue. |
+| Ambiguous type | Mark `type:unknown`; note in report. |
+| Duplicate skip | Idempotent; safe. |
 
-**分析时间:** <timestamp>
-**Open Issues 总数:** <total>
+## Responsibility
 
-### 按类型统计
+### ✅ In Scope
 
-| 类型 | 数量 | 占比 |
-|------|------|------|
-| 缺陷 (bug) | <n> | <p>% |
-| 功能 (feature) | <n> | <p>% |
-| 增强 (enhancement) | <n> | <p>% |
-| 文档 (docs) | <n> | <p>% |
-| 问题 (question) | <n> | <p>% |
+- Fetch open Issues
+- Assign one type + one priority
+- Mark `triage:done`
+- Output ranked report
 
-### 按优先级统计
+### ❌ Out of Scope
 
-| 优先级 | 数量 | 占比 |
-|--------|------|------|
-| 紧急 (urgent) | <n> | <p>% |
-| 高 (high) | <n> | <p>% |
-| 中 (medium) | <n> | <p>% |
-| 低 (low) | <n> | <p>% |
+- Requirement analysis → `/gitflow-issue-review`
+- Label statistics → `/gitflow-label-stats`
+- Editing Issue body → `/gitflow-issue`
 
-### 详细分类清单
+### 🚫 Do Not
 
-#### 🔴 紧急 (Urgent)
+- ❌ Assign multiple type labels
+- ❌ Speculate beyond available info
+- ❌ Mark duplicate Issues as triaged — mark `duplicate` instead
+- ❌ Take >2 min per Issue; triage fast
 
-| # | 标题 | 类型 | 建议 |
-|---|------|------|------|
-| <n> | <标题> | <类型> | 简要处理建议 |
+## Rationalization Excuses
 
-#### 🟠 高 (High)
+| Excuse | Reality |
+|--------|---------|
+| "{rd", "just guess one" | Use `type:unknown`; don't fabricate. |
+| "Skip labels — just report" | Label application is the deliverable. |
+| "All issues are urgent" | Apply threshold; ≤10% should be urgent. |
 
-| # | 标题 | 类型 | 建议 |
-|---|------|------|------|
-| <n> | <标题> | <类型> | 简要处理建议 |
+## Red Flags
 
-#### 🟡 中 (Medium)
+- 🚩 "Skip triage:done" — Always mark on completion.
+- 🚩 "Just label everything urgent" — Apply priority thresholds.
+- 🚩 "Infer details not in description" — Don't speculate. Use `type:unknown` or `priority:medium`.
 
-| # | 标题 | 类型 | 建议 |
-|---|------|------|------|
-| <n> | <标题> | <类型> | 简要处理建议 |
+## Test Scenarios
 
-#### 🟢 低 (Low)
+### 1: Happy Path
+- **Given** 8 open Issues — **When** "triage all" — **Then** each Issue gets type+priority+`triage:done`; report with % tables returned.
 
-| # | 标题 | 类型 | 建议 |
-|---|------|------|------|
-| <n> | <标题> | <类型> | 简要处理建议 |
+### 2: Negative
+- **Given** "analyze issue #42 depth" — **Then** NOT loaded. → `/gitflow-issue-review`.
 
-### 行动建议
+### 3: Boundary
+- **Given** "triage and also close duplicates" — **Then** triage only; label `duplicates` but do not close.
 
-<!-- 基于分类结果给出团队行动建议，如：
-- 建议立即处理紧急 issues
-- 建议将高优先级 issues 纳入当前 sprint
-- 建议关闭重复或过时的 issues
--->
-```
+### 4: Error
+- **Given** Issue not found — **Then** skip.
 
-## 使用示例
+### 5: Idempotency
+- **Given** second run — **Then** `triage:done` Issues skipped.
 
-### 对一个项目的 open issues 进行全部分类
+## Success Criteria
 
-```bash
-# 获取所有 open issues
-gitflow-cli issue list --state open
+- [ ] Every open Issue has type + priority
+- [ ] All tagged `triage:done`
+- [ ] Report with counts + percentages
+- [ ] Duplicates marked, not triaged
 
-# 假设返回 8 个 issues，逐一分析后打标签
-gitflow-cli issue label 10 --label "type:bug" --label "priority:urgent" --label "triage:done"
-gitflow-cli issue label 11 --label "type:feature" --label "priority:high" --label "triage:done"
-gitflow-cli issue label 12 --label "type:enhancement" --label "priority:medium" --label "triage:done"
-gitflow-cli issue label 13 --label "type:docs" --label "priority:low" --label "triage:done"
-gitflow-cli issue label 14 --label "type:bug" --label "priority:high" --label "triage:done"
-gitflow-cli issue label 15 --label "type:question" --label "priority:low" --label "triage:done"
-gitflow-cli issue label 16 --label "type:feature" --label "priority:medium" --label "triage:done"
-gitflow-cli issue label 17 --label "type:bug" --label "priority:medium" --label "triage:done"
+## Common Mistakes
 
-# 输出分类报告到终端或文件
-cat > /tmp/triage-report.md << 'EOF'
-## Issue 分类报告
+- ❌ **Multiple type labels** — one per Issue.
+- ❌ **All marked urgent** — apply thresholds strictly.
 
-**分析时间:** 2026-07-02
-**Open Issues 总数:** 8
+## See Also
 
-### 按类型统计
-
-| 类型 | 数量 | 占比 |
-|------|------|------|
-| 缺陷 (bug) | 3 | 37.5% |
-| 功能 (feature) | 2 | 25.0% |
-| 增强 (enhancement) | 1 | 12.5% |
-| 文档 (docs) | 1 | 12.5% |
-| 问题 (question) | 1 | 12.5% |
-
-### 行动建议
-
-- #10 (urgent bug) 建议立即修复，影响生产环境登录流程
-- #11 (high feature) 建议纳入当前 sprint，与 roadmap 一致
-- #14 (high bug) 建议在发布前修复
-EOF
-```
-
-### 仅分类最近一周新增的 issues
-
-```bash
-# 先筛选最近创建的 issues
-gitflow-cli issue list --state open --since 2026-06-25
-
-# 对筛选出的 issues 执行分类流程
-gitflow-cli issue label 20 --label "type:bug" --label "priority:high" --label "triage:done"
-gitflow-cli issue label 21 --label "type:feature" --label "priority:medium" --label "triage:done"
-```
-
-## 注意事项
-
-- 分类时应基于 Issue 的标题和描述做出判断，不要过度推测未说明的需求
-- 优先级评估应参考项目的整体 roadmap 和当前 sprint 目标
-- 如果 Issue 描述不足以判断类型或优先级，可以先标记为 `type:unknown` 或 `priority:medium`，并在报告中建议作者补充信息
-- 分类结果不是最终结论，团队成员可以后续调整标签
-- 避免在单个 Issue 上花费过多时间分析，保持 triage 效率
-- 对于重复的 Issues，建议先标记为 `duplicate` 而非分类，并关联原始 Issue
-- 分类报告建议保存在 `docs/` 或项目 wiki 中，方便团队回顾
+- `gitflow-issue-review` — analyze requirement depth
+- `gitflow-label-stats` — label distribution statistics
+- `gitflow-issue` — Issue CRUD reference
+- `gitflow-label-milestone` — label CRUD

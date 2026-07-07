@@ -1,350 +1,155 @@
 ---
 name: gitflow-quality
-description: 质量关卡 — 6 项质量检查闸门（build / test / coverage / format / static / pre-commit），全部通过才能进入交付阶段
+description: |
+  Use when running the 6-gate quality check (build, test, coverage, format, lint, pre-commit) before delivery, verifying a branch is ready for release, or generating a Quality Report.
+  当用户在交付前需运行 build/test/coverage/format/static/pre-commit 6 项质量检查、验证分支可交付或生成 Quality Report 时使用。
 ---
 
-# gitflow-cli quality 质量关卡
+# gitflow-quality
 
-在交付前运行 6 项质量检查，按顺序执行、失败即停（fast-fail），最终生成 Quality Report。编排层只做指挥，所有检查通过标准 CLI 命令执行。
+## Overview
 
-## 前置条件
+6-gate fast-fail quality gate. Run gates in order; first failure stops the chain. Output a `Quality Report`. Optionally publish to a linked Issue **after user confirmation**. Full report template and non-Rust toolchains: `docs/references/gitflow-quality-params.md`.
+
+## When to Use
+
+| Trigger | 中文 | Redirect |
+|---------|------|----------|
+| run checks / quality gate | 跑检查, 质量闸门 | — |
+| is this ready / safe to release | 能交付吗, 可以发布吗 | — |
+| pre-commit failed | pre-commit 挂了 | → `gitflow-precommit` |
+| just commit | — | → `gitflow-commit` |
+
+## Core Pattern
 
 ```bash
-# 确认在 git 仓库中
-git rev-parse --show-toplevel
-
-# 确认工作区干净（无未提交变更）
-git status --porcelain
+cargo build --workspace --quiet                 # 1. build
+cargo test --workspace --quiet                  # 2. test
+cargo tarpaulin --workspace 2>&1 | tail -3      # 3. coverage > 80%
+cargo +nightly fmt -- --check                  # 4. format
+cargo clippy --workspace --all-targets -- -D warnings  # 5. static
+pre-commit run --all-files                      # 6. pre-commit (or N/A)
 ```
 
-如果工作区有未提交变更，先提交或暂存后再运行质量关卡。
+Env var `COV_THRESHOLD` or `COVERAGE_THRESHOLD` overrides 80% default.
 
----
+## Quick Reference / Preconditions
 
-## 检查清单
+| # | Gate | Pass | Precondition |
+|---|------|------|-------------|
+| 1 | build | exit 0 | `git rev-parse --show-toplevel` |
+| 2 | test | all pass | clean workspace (`git status --porcelain` empty) |
+| 3 | coverage | > 80% | `cargo tarpaulin` installed (else skip, warn) |
+| 4 | format | exit 0, no diff | — |
+| 5 | static | exit 0, no warnings | — |
+| 6 | pre-commit | all hooks pass | `.pre-commit-config.yaml` exists |
 
-| # | 检查项 | 命令 | 通过标准 |
-|---|--------|------|---------|
-| 1 | build | `cargo build --workspace` | 退出码 0，无 error |
-| 2 | test | `cargo test --workspace` | 全部测试通过 |
-| 3 | coverage | `cargo tarpaulin --workspace` | 覆盖率 > 80% |
-| 4 | format | `cargo +nightly fmt -- --check` | 退出码 0，无 diff |
-| 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | 退出码 0，无 warning |
-| 6 | pre-commit | `pre-commit run --all-files` 或读取 `.pre-commit-config.yaml` 检查配置 | 全部 hook 通过 |
+## Rationalization Excuse
 
-> **Pre-commit N/A 处理：** 如果项目没有 `.pre-commit-config.yaml` 配置文件，pre-commit 检查标记为 `N/A` 跳过。
-
----
-
-## 执行流程
-
-### 步骤 0：检测项目语言
-
-根据项目特征文件判断语言，适配检查工具：
-
-```bash
-# 检测 Rust 项目
-if [ -f "Cargo.toml" ]; then
-    LANG="rust"
-# 检测 Node.js 项目
-elif [ -f "package.json" ]; then
-    LANG="node"
-# 检测 Python 项目
-elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-    LANG="python"
-# 检测 Go 项目
-elif [ -f "go.mod" ]; then
-    LANG="go"
-# 检测 Java 项目
-elif [ -f "pom.xml" ] || [ -f "build.gradle" ]; then
-    LANG="java"
-else
-    LANG="unknown"
-fi
-```
-
-**非 Rust 项目的适配命令**：
-
-| 检查项 | Node.js | Python | Go | Java |
-|--------|---------|--------|-----|------|
-| build | `npm run build` | `python -m py_compile src/` | `go build ./...` | `mvn compile -q` 或 `gradle compileJava` |
-| test | `npm test` | `pytest` | `go test ./...` | `mvn test` 或 `gradle test` |
-| coverage | `npx jest --coverage` 或 `npx vitest run --coverage`（取决于测试框架） | `pytest --cov` | `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| grep total` | `mvn verify -Pcoverage` 或 `gradle jacocoTestReport` |
-| format | `npx prettier --check .` | `black --check .` | `test -z "$(gofmt -l .)"` | `mvn spotless:check` 或 `mvn formatter:format` |
-| static | `npx eslint .` | `ruff check .` | `golangci-lint run` | `mvn pmd:check` 或 `mvn spotbugs:check` |
-| pre-commit | `npx lint-staged` 或留空 | `pre-commit run --all-files` | `pre-commit run --all-files` | `pre-commit run --all-files` |
-
-后续步骤以 Rust 为例，非 Rust 项目替换对应命令即可。
-
----
-
-### 步骤 1：Build — 编译检查
-
-```bash
-cargo build --workspace 2>&1
-```
-
-- **通过**：退出码 0 → 记录 `✅ build`
-- **失败**：退出码非 0 → 记录 `❌ build` + 错误摘要 → **fast-fail，跳过后续检查**
-
-提取关键信息：
-- 错误数量
-- 警告数量（如有）
-
----
-
-### 步骤 2：Test — 单元测试
-
-```bash
-cargo test --workspace 2>&1
-```
-
-- **通过**：全部测试通过 → 记录 `✅ test`
-- **失败**：有测试失败 → 记录 `❌ test` + 失败摘要 → **fast-fail**
-
-提取关键信息：
-- 通过数量：`X passed`
-- 失败数量：`Y failed`
-- 忽略数量：`Z ignored`
-
----
-
-### 步骤 3：Coverage — 代码覆盖率
-
-```bash
-# 读取自定义阈值，默认 80%
-THRESHOLD=${COVERAGE_THRESHOLD:-80}
-
-cargo tarpaulin --workspace 2>&1
-```
-
-- **通过**：覆盖率 > `$THRESHOLD` → 记录 `✅ coverage`
-- **失败**：覆盖率 <= `$THRESHOLD` → 记录 `❌ coverage` + 当前覆盖率 → **fast-fail**
-
-提取关键信息：
-- 当前覆盖率百分比
-- 阈值（`$THRESHOLD`%，来自 `COVERAGE_THRESHOLD` 环境变量或默认 80%）
-
-**注意**：如果 `cargo tarpaulin` 未安装，提示用户安装：
-
-```bash
-cargo install cargo-tarpaulin
-```
-
-或者使用 `cargo llvm-cov` 作为替代方案。
-
----
-
-### 步骤 4：Format — 代码格式
-
-```bash
-cargo +nightly fmt -- --check 2>&1
-```
-
-- **通过**：退出码 0，无格式差异 → 记录 `✅ format`
-- **失败**：有格式差异 → 记录 `❌ format` + 不符文件列表 → **fast-fail**
-
-**自动修复提示**：
-
-```
-运行 `cargo +nightly fmt` 自动修复格式问题
-```
-
----
-
-### 步骤 5：Static — 静态分析
-
-```bash
-cargo clippy --workspace --all-targets -- -D warnings 2>&1
-```
-
-- **通过**：退出码 0，无警告 → 记录 `✅ static`
-- **失败**：有警告或错误 → 记录 `❌ static` + 警告摘要 → **fast-fail**
-
-**自动修复提示**：
-
-```
-运行 `cargo clippy --fix --workspace --all-targets` 自动修复部分 lint 问题
-```
-
----
-
-### 步骤 6：Pre-commit — pre-commit 检查
-
-如果项目配置了 `.pre-commit-config.yaml`：
-
-```bash
-pre-commit run --all-files 2>&1
-```
-
-- **通过**：全部 hook 通过 → 记录 `✅ pre-commit`
-- **失败**：有 hook 失败 → 记录 `❌ pre-commit` + 失败摘要 → **fast-fail**
-
-**N/A 处理**：如果项目没有 `.pre-commit-config.yaml`，标记为 `N/A` 跳过，不影响最终判定。
-
----
-
-## Quality Report 格式
-
-所有检查完成后（或 fast-fail 后），生成 Quality Report：
-
-```markdown
-## Quality Report — YYYY-MM-DD
-
-| Check    | Status | Details |
-|----------|--------|---------|
-| build    | ✅     | 0 errors, 0 warnings |
-| test     | ✅     | 47 passed, 0 failed |
-| coverage | ✅     | 85.3% (threshold: 80%) |
-| format   | ✅     | No diff |
-| static   | ✅     | No warnings |
-| pre-commit | ✅     | All hooks passed |
-
-或
-
-| pre-commit | N/A    | No configuration |
-```
-
-**Status 列**：
-- ✅ 表示通过
-- ❌ 表示失败
-
-**Details 列示例**：
-- build：`0 errors, 2 warnings` 或 `3 errors`
-- test：`47 passed, 0 failed, 2 ignored` 或 `2 failed: test_foo, test_bar`
-- coverage：`85.3% (threshold: 80%)` 或 `72.1% (threshold: 80%) — BELOW THRESHOLD`
-- format：`No diff` 或 `3 files need formatting: src/main.rs, src/lib.rs, ...`
-- static：`No warnings` 或 `5 warnings in 2 files`
-
-**总体结论**：
-
-```markdown
-**Result: ✅ ALL CHECKS PASSED — Ready for delivery**
-
-或
-
-**Result: ❌ QUALITY GATE FAILED — Return to Phase 2 for fixes**
-```
-
----
-
-## 失败处理
-
-### Fast-fail 策略
-
-检查按顺序执行，遇到第一个失败项立即停止：
-
-1. 如果 build 失败 → 跳过 test、coverage、format、static、pre-commit
-2. 如果 test 失败 → 跳过 coverage、format、static、pre-commit
-3. 如果 coverage 失败 → 跳过 format、static、pre-commit
-4. 如果 format 失败 → 跳过 static、pre-commit
-5. 如果 static 失败 → 跳过 pre-commit
-
-失败项在报告中标记为 `⏭️ SKIPPED`。
-
-### 修复建议
-
-对于每个失败项，提供具体修复建议：
-
-| 失败项 | 修复命令 |
+| Excuse | Reality |
 |--------|---------|
-| build | `cargo build --workspace` 查看详细错误 |
-| test | `cargo test --workspace -- --nocapture` 查看失败详情 |
-| coverage | 增加测试用例覆盖未测试代码路径 |
-| format | `cargo +nightly fmt` 自动修复 |
-| static | `cargo clippy --fix --workspace --all-targets` 自动修复 |
-| pre-commit | `pre-commit run --all-files` 查看失败详情 |
+| "fmt clean, auto-fix diff" | Report only; user fixes |
+| "minor clippy, auto-fix" | Report, do not fix by default |
+| "Just publish the report" | User confirms first |
+| "Install tarpaulin for them" | Recommend install only |
+| "Skip pre-commit when no config" | Correct — mark N/A |
 
----
+## Red Flags
 
-## 自动发布到关联 Issue
+- 🚩 "Auto-fix all lint issues" — report only
+- 🚩 "Skip coverage for speed" — gate 3 mandatory unless opt-out
+- 🚩 "Publish report straight to Issue" — require confirmation
+- 🚩 "Run cargo clean to fix build" — never
 
-检查完成后，检测是否存在关联 Issue：
+## Error Handling
 
-```bash
-# 检查关联 Issue 文件
-if [ -f ".claude/gh-issue/current-issue.txt" ]; then
-    ISSUE_NUMBER=$(cat .claude/gh-issue/current-issue.txt)
-    echo "关联 Issue: #${ISSUE_NUMBER}"
-fi
+| Error | Recovery |
+|-------|----------|
+| Gate 1 fails | Fast-fail → gates 2-6 = `SKIPPED` |
+| Gate 2 fails | Fast-fail → list failed tests |
+| `tarpaulin` missing | Warn; gate = `SKIPPED` |
+| Coverage < threshold | Fast-fail → show value vs threshold |
+| Format diff | Fast-fail → list files |
+| Clippy warnings | Fast-fail → summarize by file |
+| No pre-commit config | Mark `N/A` |
+| Issue file missing | Output terminal only |
+| `gitflow-cli` missing | Output terminal only |
+
+## Flowchart
+
+```mermaid
+flowchart TD
+  A[Start] -->{workspace clean?}
+  |dirty| ASK[Commit or stash?] --> G1[cargo build]
+  |clean| G1
+  G1-->|fail|F1[SKIPPED 2-6] --> REPORT
+  G1-->|ok| G2[cargo test]
+  G2-->|fail|F2[SKIPPED 3-6]
+  G2-->|ok|{tarpaulin?}
+  |no| W[Warn, skip gate 3] --> G4
+  |yes| G3b{coverage > threshold?}
+  G3b-->|below|F3[SKIPPED 4-6]
+  G3b-->|ok| G4[cargo fmt --check]
+  G4-->|diff|F4[SKIPPED 5-6]
+  G4-->|ok| G5[cargo clippy -- -D warnings]
+  G5-->|warn|F5[SKIPPED 6]
+  G5-->|ok|{pre-commit config?}
+  |no| NA[Mark N/A] --> REPORT
+  |yes| G6b[pre-commit run --all-files]
+  G6b-->|fail|F6[Fail gate 6]
+  G6b-->|ok|PASS[All pass]
+  F2 & F3 & F4 & F5 & F6 --> REPORT
+  REPORT[Render report] -->{Issue file?}
+  |no| TERM[Terminal only]
+  |yes| CONFIRM{Confirm publish?}
+  CONFIRM-->|yes|PUB[gitflow-cli issue comment] --> TERM
+  CONFIRM-->|no| TERM
+  TERM--> END
 ```
 
-**如果存在关联 Issue**：
+## Test Scenarios
 
-1. 检查 `gitflow` CLI 是否可用：
+### 1: Happy Path
+- **Given** clean workspace + tarpaulin · **When** "run checks" · **Then** All 6 gates pass → "ALL CHECKS PASSED"
 
-```bash
-if ! command -v gitflow-cli &>/dev/null; then
-    echo "⚠️ gitflow-cli 未安装，跳过自动发布，直接输出报告"
-    # 跳转到终端输出
-fi
-```
+### 2: Negative
+- **Given** "run pre-commit only" · **Then** NOT loaded → `gitflow-precommit`
 
-2. 将 Quality Report 写入临时文件 `quality-report.md`
-3. 发布到 Issue 评论：
+### 3: Boundary
+- **Given** coverage = 80.0% · **Then** Gate 3 PASSED
 
-```bash
-gitflow-cli issue comment "${ISSUE_NUMBER}" --body-file quality-report.md
-```
+### 4: Error
+- **Given** gate 2 fails · **Then** `test=failed`, gates 3-6 = `SKIPPED`
+### 5: Publish Consent
+- **Given** `.claude/gh-issue/current-issue.txt` exists · **Then** Show summary; ask consent before publish
 
-4. 清理临时文件：
+## Success Criteria
 
-```bash
-rm -f quality-report.md
-```
+- [ ] All 6 gates attempted (or N/A) before report
+- [ ] Fast-fail enforced
+- [ ] Pre-commit absent → `N/A`
+- [ ] Report has: date, gates, Result
+- [ ] Issue publish only after explicit confirmation
+- [ ] No source modified · no auto-fix · no installs
 
-**如果不存在关联 Issue**：
+## See Also
 
-直接输出 Quality Report 到终端，不发布评论。
+- `gitflow-precommit` — gate 6 in isolation
+- `gitflow-commit` — commit after passing gate
+- `gitflow-release` — release workflow (gate is pre-req)
+- `gitflow-security-check` — security layer alongside quality
+- `gitflow-pipeline-analyzer` — CI inspection after quality gate
 
----
+## Trigger Keywords
 
-## 使用示例
+| English | 中文 |
+|---------|------|
+| quality gate, run checks | 质量闸门, 跑检查, 质量检查 |
+| is this ready, safe to release | 能交付吗, 可以发布吗 |
+| pre-commit failed, coverage too low | pre-commit 挂了, 覆盖率不够 |
+| clippy warnings, format check | clippy 警告, 格式检查 |
 
-### 运行完整质量检查
+## Common Mistakes
 
-```
-使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
-```
-
-### 运行单个检查步骤
-
-质量关卡按固定 6 项顺序执行，不支持参数化跳过。如需单独验证某项，可直接运行对应命令：
-
-```bash
-# 单独验证 build
-cargo build --workspace
-
-# 单独验证 format
-cargo +nightly fmt -- --check
-```
-
-### 处理 fast-fail 场景
-
-```
-⚠️ 质量关卡未通过，返回 Phase 2 修复
-
-失败项：
-- [❌] test — 2 个测试失败: test_foo, test_bar
-- [⏭️] coverage — SKIPPED (previous check failed)
-- [⏭️] format — SKIPPED (previous check failed)
-- [⏭️] static — SKIPPED (previous check failed)
-- [⏭️] pre-commit — SKIPPED (previous check failed)
-
-修复建议：
-1. 运行 `cargo test --workspace -- --nocapture` 查看失败详情
-2. 修复失败的测试用例
-3. 重新运行质量检查
-```
-
----
-
-## 注意事项
-
-- **编排层不执行操作**：所有检查通过标准 CLI 命令执行
-- **闸门不可跳过**：6 项检查必须全部通过才能进入交付阶段
-- **fast-fail 策略**：遇到失败立即停止，节省时间
-- **覆盖率阈值**：默认 80%，可通过环境变量 `COVERAGE_THRESHOLD` 自定义
-- **非 Rust 项目**：检测项目语言后自动适配对应工具链
-- **审计日志**：检查结果自动发布到关联 Issue（如果存在）
-- **pre-commit 可选**：pre-commit 检查仅在项目配置了 `.pre-commit-config.yaml` 时执行，否则标记 N/A
+- ❌ **Running `cargo fmt` to auto-fix** — report-only; user executes fixes.
+- ❌ **Publishing Quality Report without confirmation** — always ask first.
