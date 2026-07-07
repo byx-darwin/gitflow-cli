@@ -111,6 +111,71 @@ impl From<UserApi> for UserSummary {
     }
 }
 
+/// gitcode CLI `issue comment --json` 的响应类型。
+///
+/// GitCode API 返回格式与 GitHub/GitLab 不同：
+/// - `id` 为 JSON 字符串（如 `"178838115"`）
+/// - `author` 为纯字符串（用户名），不是对象
+/// - `created_at` 格式为 `"2026-07-07 10:40:20"`，不是 RFC3339
+#[derive(Debug, Clone, Deserialize)]
+struct CommentApiResponse {
+    id: String,
+    body: String,
+    author: String,
+    created_at: String,
+}
+
+impl From<CommentApiResponse> for CommentData {
+    fn from(api: CommentApiResponse) -> Self {
+        Self {
+            id: api.id.parse().unwrap_or(0),
+            body: api.body,
+            author: UserSummary {
+                login: api.author,
+                id: String::new(),
+            },
+            created_at: chrono::NaiveDateTime::parse_from_str(&api.created_at, "%Y-%m-%d %H:%M:%S")
+                .ok()
+                .map(|ndt| ndt.and_utc())
+                .unwrap_or_else(Utc::now),
+        }
+    }
+}
+
+/// gitcode CLI `issue close/reopen --json` 的响应类型。
+///
+/// GitCode close/reopen 返回的字段比 list/view 少很多，
+/// `number` 为 integer，没有 `title`/`body`/`labels` 等字段。
+#[derive(Debug, Clone, Deserialize)]
+struct CloseApiResponse {
+    number: u64,
+    state: String,
+    url: String,
+}
+
+impl From<CloseApiResponse> for IssueData {
+    fn from(api: CloseApiResponse) -> Self {
+        Self {
+            number: api.number,
+            title: String::new(),
+            body: None,
+            state: match api.state.as_str() {
+                "closed" => State::Closed,
+                _ => State::Open,
+            },
+            labels: Vec::new(),
+            author: UserSummary {
+                login: "unknown".into(),
+                id: String::new(),
+            },
+            assignees: Vec::new(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            url: api.url,
+        }
+    }
+}
+
 /// GitCode Issue 提供者，通过 `gitcode`/`gitcode` CLI 操作。
 #[derive(Debug, Clone)]
 pub struct GitCodeIssueProvider {
@@ -229,6 +294,7 @@ impl IssueProvider for GitCodeIssueProvider {
             .arg(number.to_string())
             .arg("-R")
             .arg(&self.repo)
+            .arg("--yes")
             .arg("--json")
             .output()
             .await
@@ -239,8 +305,8 @@ impl IssueProvider for GitCodeIssueProvider {
                 parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
-        serde_json::from_slice::<IssueApiResponse>(&output.stdout)
-            .map(|api: IssueApiResponse| IssueData::from(api))
+        serde_json::from_slice::<CloseApiResponse>(&output.stdout)
+            .map(|api: CloseApiResponse| IssueData::from(api))
             .map_err(CoreError::Serialization)
     }
 
@@ -251,6 +317,7 @@ impl IssueProvider for GitCodeIssueProvider {
             .arg(number.to_string())
             .arg("-R")
             .arg(&self.repo)
+            .arg("--yes")
             .arg("--json")
             .output()
             .await
@@ -261,8 +328,8 @@ impl IssueProvider for GitCodeIssueProvider {
                 parse_gitcode_error(&output.stderr).to_string(),
             ));
         }
-        serde_json::from_slice::<IssueApiResponse>(&output.stdout)
-            .map(|api: IssueApiResponse| IssueData::from(api))
+        serde_json::from_slice::<CloseApiResponse>(&output.stdout)
+            .map(|api: CloseApiResponse| IssueData::from(api))
             .map_err(CoreError::Serialization)
     }
 
@@ -294,10 +361,10 @@ impl IssueProvider for GitCodeIssueProvider {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let comment: CommentData =
+        let api: CommentApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(comment)
+        Ok(CommentData::from(api))
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -476,17 +543,18 @@ mod tests {
     #[test]
     fn test_should_deserialize_comment_data_from_gc_comment_output() {
         let gc_json = br#"{
-            "id": 1001,
+            "id": "1001",
             "body": "Thanks for reporting, looking into it.",
-            "author": {"login": "maintainer", "id": "42"},
-            "createdAt": "2026-06-15T14:00:00Z"
+            "author": "maintainer",
+            "created_at": "2026-06-15 14:00:00"
         }"#;
 
-        let comment: CommentData = serde_json::from_slice(gc_json).expect("valid CommentData");
+        let api: CommentApiResponse =
+            serde_json::from_slice(gc_json).expect("valid CommentApiResponse");
+        let comment = CommentData::from(api);
         assert_eq!(comment.id, 1001);
         assert_eq!(comment.body, "Thanks for reporting, looking into it.");
         assert_eq!(comment.author.login, "maintainer");
-        assert_eq!(comment.author.id, "42");
     }
 
     #[test]
