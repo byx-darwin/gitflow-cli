@@ -294,6 +294,31 @@ Phase 1 合规检查:
 使用 superpowers:writing-plans 技能，基于 Issue #N 的需求文档，制定完整实现计划。
 ```
 
+### 步骤 2.2：创建 worktree 和分支
+
+为了隔离开发环境，需要在独立的 worktree 中执行任务：
+
+```bash
+# 确定 worktree 路径和工作分支名
+WORKTREE_DIR="../gitflow-cli-<issue-number>"
+BRANCH_NAME="fix/issue-<issue-number>"  # 或 feat/issue-<number>
+
+# 创建 worktree 和分支
+git worktree add "$WORKTREE_DIR" -b "$BRANCH_NAME"
+
+# 切换到 worktree 目录
+cd "$WORKTREE_DIR"
+
+# 验证当前分支
+git branch --show-current
+# 输出应为: fix/issue-<issue-number>
+```
+
+**注意：**
+- 如果在 worktree 中工作，后续所有操作都在该 worktree 目录中进行
+- 原始仓库目录保持不变，可以继续在 main 分支工作
+- 多个任务可以使用不同的 worktree 并行执行
+
 **计划文档结构**：
 
 ```markdown
@@ -336,13 +361,44 @@ Phase 1 合规检查:
 
 ### Task N+2: 交付
 - [ ] 创建 PR：gitflow-cli pr create
+  - PR 描述必须包含 "## Issues Fixed" 章节，列出所有要关闭的 Issue
+  - 使用 `Closes #N` 或 `Fixes #N` 格式
+  - 示例：
+    ```markdown
+    ## Issues Fixed
+    - Closes #11
+    - Closes #12
+    ```
 - [ ] PR 审查：gitflow-cli pr-review
 - [ ] 合并 PR：gitflow-cli pr merge
 
 ### Task N+3: 收尾
 - [ ] 同步 Issue 状态为 done
 - [ ] 关闭 Issue
+- [ ] **验证所有关联 Issue 已关闭**（重要！）
+  ```bash
+  # 检查 PR 描述中 "Closes #N" 对应的所有 Issue 是否已关闭
+  # 如果 GitHub auto-close 未生效，手动关闭
+  gitflow-cli issue view <number>
+  # 如果仍然 OPEN
+  gitflow-cli issue close <number> --yes
+  ```
 - [ ] 验证：所有验收标准已满足
+- [ ] **清理 worktree 和分支**
+  ```bash
+  # 切回主仓库目录
+  cd <original-repo-path>
+
+  # 拉取最新 main
+  git checkout main
+  git pull origin main
+
+  # 删除 worktree
+  git worktree remove ../gitflow-cli-<issue-number>
+
+  # 删除本地分支
+  git branch -d fix/issue-<number>
+  ```
 ```
 
 ---
@@ -377,6 +433,10 @@ Phase 2 合规检查:
   [ ] 步骤 1: writing-plans — 完整计划文档已生成
   [ ] 计划包含质量关卡任务（Task N+1）
   [ ] 计划文档结构完整（任务清单、TDD、审查、提交）
+  [ ] 步骤 2: worktree 和分支已创建
+  [ ] Task N+2 包含 PR 描述中 "Closes #N" 格式
+  [ ] Task N+3 包含 Issue 关闭验证步骤
+  [ ] Task N+3 包含 worktree 和分支清理步骤
 
   缺失项: <list or "无">
   是否允许进入下一阶段: [ ]
@@ -387,6 +447,8 @@ Phase 2 合规检查:
 ## Phase 3: 执行
 
 **目标**：按计划文档逐任务执行，完成代码实现和质量验证。
+
+**重要：** 此阶段在 worktree 目录中进行（参见步骤 2.2）
 
 ### 步骤 3.1：执行计划
 
@@ -400,6 +462,7 @@ Phase 2 合规检查:
 - 按计划文档逐任务执行
 - 每个任务完成后标记 checkbox
 - 遇到阻塞时暂停，不跳过任务
+- 所有操作在 worktree 目录中进行
 
 ---
 
@@ -553,3 +616,6 @@ gitflow-cli issue comment <number> --body "## 阶段回退
 - **可选步骤需确认**：如 Release 步骤，需与用户确认是否执行
 - **--body-file 强制**：长内容（>100 字节）必须通过 `--body-file` 传入，不使用 `--body` 直接传
 - **合规检查不可跳过**：每个阶段结束必须输出合规清单，逐项打勾后才能进入下一阶段
+- **worktree 隔离开发**：Phase 3 执行必须在 worktree 中进行，避免污染主仓库
+- **Issue 关闭验证**：PR 合并后必须验证所有 "Closes #N" 对应的 Issue 已关闭，如 GitHub auto-close 未生效则手动关闭
+- **worktree 清理**：任务完成后必须清理 worktree 和本地分支，保持仓库整洁
