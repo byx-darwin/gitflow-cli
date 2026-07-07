@@ -121,6 +121,17 @@ flowchart TD
 - ❌ Force-push or rebase without user confirmation
 - ❌ Create PRs across multiple repos in one invocation
 
+## 🔁 Delegation Rules
+
+| User Intent | Delegate To | Reason |
+|-------------|-------------|--------|
+| Create a PR | This skill | Branch validation + title/desc collection |
+| Review created PR | `/gitflow-pr-review` | Needs 6-dimension checklist |
+| Inline review on PR | `/gitflow-pr-inline-review` | Per-line diff analysis |
+| Apply reviewer feedback | `/gitflow-pr-apply-feedback` | Code modification + resolve |
+| Merge / close / reopen PR | `/gitflow-pr` | Lifecycle operation |
+| Check CI before merge | `/gitflow-pipeline-analyzer` | Pipeline health assessment |
+
 ## Rationalization Excuses
 
 | Excuse | Reality |
@@ -133,28 +144,28 @@ flowchart TD
 
 - 🚩 "Skip the base check" — Refuse. Stop.
 - 🚩 "Create from main" — Refuse. Protected. Stop.
-- 🚩 "Merge after creating" — Refuse. Redirect to `/gitflow-pr`.
-- 🚩 CLI fails, Claude improvises — Follow Error Handling exactly. No improvisation.
+- 🚩 "Merge after creating" — → `/gitflow-pr`.
+- 🚩 CLI fails, Claude improvises — Follow Error Handling.
 
 ## Test Scenarios
 
 ### Scenario 1: Happy Path
 
-- **Given** on `feature/ssh-auth`, upstream, base current, auth OK
+- **Given** `feature/ssh-auth`, upstream, base current, auth OK
 - **When** "create a PR"
 - **Then** Validates, confirms, invokes CLI, returns URL
 
 ### Scenario 2: Negative — Review Request
 
 - **Given** "review PR #42"
-- **When** user requests review
-- **Then** Does NOT load. Redirects to `/gitflow-pr-review`.
+- **When** review intent
+- **Then** NOT loaded. → `/gitflow-pr-review`.
 
-### Scenario 3: Boundary — Merge After Creation
+### Scenario 3: Boundary — Merge After
 
 - **Given** PR created, "merge it"
-- **When** merge pushes past out-of-scope
-- **Then** Refuses. Redirects to `/gitflow-pr`. No merge.
+- **When** merge past out-of-scope
+- **Then** Refuses. → `/gitflow-pr`. No merge.
 
 ### Scenario 4: Error — Base Outdated
 

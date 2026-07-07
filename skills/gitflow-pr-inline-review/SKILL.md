@@ -95,6 +95,16 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 - ❌ Guess line numbers — use only `+` from diff
 - ❌ Comment unchanged/deleted lines; ❌ Publish closed/merged PRs; ❌ Copy across PRs; ❌ Auto-publish
 
+## 🔁 Delegation Rules
+
+| User Intent | Delegate To | Reason |
+|-------------|-------------|--------|
+| Inline line-level review | This skill | Per-line diff analysis + publish |
+| Overall review verdict | `/gitflow-pr-review` | 6-dimension checklist + decision |
+| Apply reviewer feedback | `/gitflow-pr-apply-feedback` | Code modification + resolve |
+| Create a PR | `/gitflow-pr-create` | Branch validation + title/desc collection |
+| PR lifecycle (merge/close) | `/gitflow-pr` | Lifecycle operation |
+
 ## Rationalization Excuses
 
 | Excuse | Reality |
@@ -113,16 +123,16 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 ## Test Scenarios
 
 ### 1: Happy Path
-- **Given** PR #101 open 3 files — **When** "Review PR #101 inline" — **Then** fetches, drafts, shows draft, awaits, publishes, returns summary with URLs
+- **Given** PR #101 open 3 files — **When** "Review inline" — **Then** fetches, drafts, shows draft, awaits, publishes
 
 ### 2: Negative
-- **Given** PR #101 open — **When** "Approve PR #101" — **Then** Does NOT load. Redirects to `gitflow-review`.
+- **Given** PR #101 — **When** "Approve PR" — **Then** NOT loaded. → `gitflow-review`.
 
 ### 3: Boundary
-- **Given** 5 drafted comments — **When** "Publish now" without seeing draft — **Then** Refuses — shows draft first.
+- **Given** 5 drafts — **When** "Publish now" without draft — **Then** Refuses — shows draft first.
 
 ### 4: Error
-- **Given** PR #101 merged — **When** "Review PR #101" — **Then** "PR is merged — refusing." Stops.
+- **Given** PR merged — **When** "Review" — **Then** "PR merged — refusing." Stops.
 
 ## Success Criteria
 

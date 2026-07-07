@@ -16,7 +16,6 @@ Performs a 6-dimension assessment of a PR diff and submits an overall verdict vi
 | review PR | 审查 PR | overall verdict |
 | approve / LGTM | 审批 / 通过 | post-analysis |
 | request changes | 要求修改 | PR blocked |
-| code review verdict | 代码审查结论 | assessment |
 | inline comments / line review | 逐行评论 | → `gitflow-pr-inline-review` |
 | merge / close PR | 合并 / 关闭 PR | → `gitflow-pr` |
 
@@ -37,14 +36,13 @@ gitflow-cli review <verdict> <n> --body "<conclusion>"  # 5. submit
 | Request changes | `gitflow-cli review request-changes <n> --body "<conclusion>"` |
 | Comment only | `gitflow-cli review comment <n> --body "<conclusion>"` |
 
-Dimensions: `correctness`, `security`, `performance`, `maintainability`, `test-coverage`, `documentation`. Full items: [checklist](../references/pr-review-checklist.md).
+Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../references/pr-review-checklist.md).
 
 ## Implementation
 
 ### Preconditions
 
-- `open` PR — `gitflow-cli pr view <n>` non-404
-- Authenticated — `gitflow-cli auth status`
+- Open PR — `gitflow-cli pr view <n>`
 
 ### Step 1: Fetch
 
@@ -52,7 +50,7 @@ Dimensions: `correctness`, `security`, `performance`, `maintainability`, `test-c
 
 ### Step 2: Assess 6 Dimensions
 
-For each dimension (`correctness`, `security`, `performance`, `maintainability`, `test-coverage`, `documentation`): ✅ or ⚠️ with `path:line`. See [checklist](../references/pr-review-checklist.md).
+For each dimension (correctness, security, performance, maintainability, test-coverage, docs): ✅ or ⚠️ with `path:line`. See [checklist](../references/pr-review-checklist.md).
 
 ### Step 3: Draft Conclusion
 
@@ -68,13 +66,10 @@ Output PR URL.
 
 ### Error Handling
 
-| Error | Recovery |
-|-------|----------|
-| `pr view` 404 / not open | Stop. Check PR number. |
-| Empty diff | Stop. PR may be merged. |
-| Auth failure | "Run `gitflow-cli auth login`", stop. |
-| `review` API failure | Surface error, stop. |
-| Unclear verdict | Ask before submit. |
+- `pr view` 404 → stop. Check PR number.
+- Empty diff → stop. PR may be merged.
+- Auth failure → run `gitflow-cli auth login`.
+- `review` fails → surface error, stop.
 
 ## Responsibility
 
@@ -98,48 +93,62 @@ Output PR URL.
 - ❌ Publish `[logic]`/`[security]` inline comments — that is `gitflow-pr-inline-review`
 - ❌ Edit source or run `cargo fix` from findings
 - ❌ Merge / close after approve
-- ❌ Skip security dimension — even for small changes
+- ❌ Skip security — even for small changes
+
+## 🔁 Delegation
+
+| User Intent | Delegate To |
+|-------------|-------------|
+| Inline line-level review | `/gitflow-pr-inline-review` |
+| Apply reviewer feedback | `/gitflow-pr-apply-feedback` |
+| Merge / close / reopen PR | `/gitflow-pr` |
+| Submit review decision | `/gitflow-review` |
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "Small change, skip analysis" | One-liners can hide vulnerabilities. |
-| "Inline comments faster" | Inline feedback is `gitflow-pr-inline-review`'s job. |
-| "Author needs verdict quickly" | Verdict requires full diff review. |
+| "Small change, skip" | One-liners can hide vulnerabilities. |
+| "Inline faster" | Inline is `gitflow-pr-inline-review`'s job. |
 
 ## Red Flags
 
-- 🚩 "approve without reviewing" — Refuse. Read diff first.
-- 🚩 "leave line comments too" — Refuse. → `gitflow-pr-inline-review`.
-- 🚩 "fix the issues you find" — Refuse. → `gitflow-pr-apply-feedback`.
+- 🚩 "approve without reviewing" — Refuse. Read diff.
+- 🚩 "leave line comments" — → `gitflow-pr-inline-review`.
+- 🚩 "fix the issues" — → `gitflow-pr-apply-feedback`.
 
 ## Test Scenarios
 
-### Scenario 1: Happy Path
+### 1: Happy Path
 
-- **Given** PR #101 open, authenticated
-- **When** "review PR #101"
-- **Then** Fetches diff, calls `review approve 101`, outputs PR URL
+- **Given** PR #101 open
+- **When** "review #101"
+- **Then** Fetches diff, approves #101, outputs URL
 
-### Scenario 2: Negative — Inline Comments
+### 2: Negative — Inline Comments
 
-- **Given** User wants line-level feedback
-- **When** "Leave inline comments on PR #101"
+- **Given** Wants line-level
+- **When** "Leave inline comments on #101"
 - **Then** NOT loaded. → `gitflow-pr-inline-review`.
 
-### Scenario 3: Boundary or Error
+### 3: Boundary — Apply Fixes
 
-- **Given** User asks to fix findings OR PR #99999 doesn't exist
-- **When** "review PR #101 and fix" or "review PR #99999"
-- **Then** For boundary: submits request-changes, no edits, → `gitflow-pr-apply-feedback`. For error: `pr view` 404, surfaces error, no fabricated verdict.
+- **Given** User asks to fix findings
+- **When** "review #101 and fix"
+- **Then** Submits request-changes. No edits. → `gitflow-pr-apply-feedback`.
+
+### 4: Error — PR Not Found
+
+- **Given** PR #99999 doesn't exist
+- **When** "review #99999"
+- **Then** `pr view` 404. No fabricated verdict.
 
 ## Success Criteria
 
-- [ ] Verdict submitted and PR URL returned
+- [ ] Verdict submitted with PR URL
 - [ ] All 6 dimensions assessed; ⚠️ cite `path:line`
-- [ ] Security evaluated (never skipped)
-- [ ] No inline comments, no fix/merge commands
+- [ ] Security evaluated
+- [ ] No inline comments / fix / merge
 
 ## Common Mistakes
 
@@ -158,9 +167,9 @@ Output PR URL.
 
 ## See Also
 
-- `gitflow-pr-inline-review` — line-level inline comments on diff
+- `gitflow-pr-inline-review` — line-level inline comments
 - `gitflow-pr-apply-feedback` — applies feedback as code changes
 - `gitflow-pr` — PR lifecycle: merge/close/ready
-- `gitflow-review` — approve / comment / request-changes
+- `gitflow-review` — approve/request-changes/comment wrapper
 - `docs/references/pr-review-checklist.md` — full 6-dim checklist
 - `docs/superpowers/templates/skill-conventions.md` — conventions

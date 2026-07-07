@@ -105,6 +105,16 @@ flowchart TD
 - ❌ Checkout without user confirmation
 - ❌ Auto-accept all comments without user review
 
+## 🔁 Delegation Rules
+
+| User Intent | Delegate To | Reason |
+|-------------|-------------|--------|
+| Apply / resolve review feedback | This skill | Code modification + resolve |
+| Initial code review | `/gitflow-pr-review` | 6-dimension checklist + decision |
+| Inline line-level review | `/gitflow-pr-inline-review` | Per-line diff analysis |
+| Create a PR | `/gitflow-pr-create` | Branch validation |
+| Merge / close PR | `/gitflow-pr` | Lifecycle operation |
+
 ## Rationalization Excuses
 
 | Excuse | Reality |
@@ -117,28 +127,28 @@ flowchart TD
 
 ## Red Flags
 
-- 🚩 "Apply all feedback" — refuse; needs individual confirmation
-- 🚩 "Skip tests, resolve now" — refuse; tests must pass
-- 🚩 "Push right away" — refuse; needs confirmation
-- 🚩 Architectural change — defer; discuss with reviewer
+- 🚩 "Apply all feedback" — Needs individual confirmation.
+- 🚩 "Skip tests, resolve" — Tests must pass.
+- 🚩 "Push right away" — Needs confirmation.
+- 🚩 Architectural change — Discuss with reviewer first.
 
 ## Test Scenarios
 
 ### 1: Happy Path
 
-- **Given** 3 pending comments; **When** "apply feedback"; **Then** Lists, applies each (confirmed), tests, commits, resolves, pushes (confirmed), notifies reviewer
+- **Given** 3 pending comments; **When** "apply feedback"; **Then** Applies each (confirmed), tests, commits, resolves, pushes (confirmed), notifies
 
 ### 2: Negative
 
-- **Given** "review PR for me"; **When** initial review request; **Then** Does NOT load; redirects to `/gitflow-pr-review`
+- **Given** "review PR"; **When** initial review; **Then** NOT loaded. → `/gitflow-pr-review`.
 
 ### 3: Boundary
 
-- **Given** all comments applied locally; **When** Claude pushes without confirmation; **Then** Violation; must show summary
+- **Given** applied locally; **When** Claude pushes without confirmation; **Then** Violation; must show summary
 
 ### 4: Error
 
-- **Given** Claude edits code for a comment; **When** `cargo test` fails; **Then** No commit or resolve; continues
+- **Given** edit fails test; **When** `cargo test` fails; **Then** No commit/resolve; continues
 
 ## Success Criteria
 
