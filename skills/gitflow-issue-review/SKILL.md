@@ -1,13 +1,15 @@
 ---
 name: gitflow-issue-review
 description: |
-  Use when the user asks to review an issue's requirements completeness, evaluate issue quality, or analyze whether an issue is ready for development.
+  Use when the user asks to review an issue's requirements completeness, evaluate its quality, or analyze whether it is ready for development.
   当用户审查 issue 需求完整性、评估 issue 质量、或分析 issue 是否可开发时使用。
 ---
 
 # gitflow-issue-review
 
-Analyzes issue completeness (title / description / acceptance criteria) and posts a structured report as an issue comment. Read + comment only — never mutates metadata, never writes code.
+## Overview
+
+Analyzes issue completeness (title/description/acceptance) and posts a structured report as a comment. Read + comment only — never mutates metadata.
 
 ## When to Use
 
@@ -16,6 +18,15 @@ Analyzes issue completeness (title / description / acceptance criteria) and post
 | review issue | 审查 issue | user provides issue number |
 | check acceptance criteria | 检查验收标准 | improve readiness |
 | fix while reviewing | 顺便修复 | **do NOT fire** → manual edit |
+
+## Core Pattern
+
+```bash
+gitflow-cli issue view <number>
+# three-dimension analysis → scorecard
+gitflow-cli issue comment <number> --body-file /tmp/issue-review.md
+rm -f /tmp/issue-review.md
+```
 
 ## Quick Reference
 
@@ -46,11 +57,10 @@ Produce scorecard, analysis, suggestions. If existing comment contains `## Issue
 ### Step 4: Post Comment
 
 ```bash
-cat > /tmp/issue-analysis.md << 'EOF'
+cat > /tmp/issue-review.md << 'EOF'
 <report>
 EOF
-gitflow-cli issue comment <number> --body-file /tmp/issue-analysis.md
-rm -f /tmp/issue-analysis.md
+gitflow-cli issue comment <number> --body-file /tmp/issue-review.md && rm -f /tmp/issue-review.md
 ```
 
 Success → URL. Failure → Error Handling.
@@ -60,7 +70,7 @@ Success → URL. Failure → Error Handling.
 | Error | Recovery |
 |-------|----------|
 | `issue view` 404/401/network | Output error; stop; no comment |
-| `issue comment` 403/timeout | Keep report in conversation; advise retry; stop |
+| `issue comment` 403/timeout | Keep report; advise retry; stop |
 | Issue closed | Warn; await confirmation |
 | Duplicate detected | Default skip |
 
@@ -80,7 +90,7 @@ Success → URL. Failure → Error Handling.
 ### 🚫 Do Not
 
 - ❌ Edit issue field
-- ❌ Skip three-dimension analysis ever
+- ❌ Skip three-dimension analysis
 - ❌ Post duplicate — ask first
 - ❌ Apply strict criteria to question/discussion
 
