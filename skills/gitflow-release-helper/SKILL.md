@@ -7,7 +7,7 @@ description: |
 
 # gitflow-release-helper
 
-Orchestrates the release workflow: infers next SemVer via conventional commits, generates release notes, calls `/gitflow-release` to create the release, emits the URL. Does not perform CRUD on existing releases.
+Orchestrates release workflow: infers SemVer from conventional commits, generates release notes, calls `/gitflow-release` to create, emits URL. No CRUD on existing releases.
 
 ## When to Use
 
@@ -62,7 +62,7 @@ Group commits by conventional type; breaking changes pinned top. Write to `/tmp/
 gitflow-cli release create --tag <v> --notes-file /tmp/rel.md
 ```
 
-Success → emit URL. Failure → Error Handling table. Do not improvise.
+Success → emit URL. Failure → Error Handling table.
 
 ### Step 4 — Cleanup
 
@@ -72,31 +72,31 @@ Success → emit URL. Failure → Error Handling table. Do not improvise.
 
 | Error | Recovery |
 |-------|----------|
-| No tags | Use repo root as baseline; continue |
-| CI not green | Refuse; offer `--draft` only on explicit user request |
-| Tag exists | Refuse; ask for different version |
+| No tags | Repo root as baseline; continue |
+| CI not green | Refuse; offer `--draft` on explicit request |
+| Tag exists | Refuse; ask different version |
 | API failure | Preserve `/tmp/rel.md`; emit error; stop |
 
 ## Responsibility
 
 - ✅ Infer SemVer, generate notes, create release, emit URL
-- ❌ Edit/delete releases → `/gitflow-release` · Tag management → manual `git` · Fixing CI → `/gitflow-workflow`
-- ❌ Do not: decide version without confirmation · run unattended in CI/CD · skip draft gate · delete/move tags · delete any released release
+- ❌ Edit/delete → `/gitflow-release` · Tags → manual `git` · CI fix → `/gitflow-workflow`
+- ❌ Do not: decide version without confirmation · unattended CI/CD · skip draft gate · delete/move tags · delete any release
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
 | "User isn't here, I'll pick the version" | Explicit confirmation required — always wait |
-| "CI is flaky, skip the check" | Gate is non-negotiable; offer `--draft` instead |
-| "Let me also delete the old release" | Out of scope; never mutate existing releases |
+| "CI is flaky, skip the check" | Non-negotiable; offer `--draft` |
+| "Delete the old release too" | Out of scope; never mutate releases |
 
 ## Red Flags
 
-- 🚩 "auto-publish" / "release without asking" — refuse; confirmation mandatory
+- 🚩 "auto-publish" / "without asking" — refuse; confirmation mandatory
 - 🚩 "skip the CI check" — refuse; cite Preconditions
-- 🚩 "just pick the version" — present inference, require explicit yes
-- 🚩 "release from this feature branch" — refuse; only `main` or `release/*`
+- 🚩 "just pick the version" — require explicit yes
+- 🚩 "release from this feature branch" — refuse; only `main`/`release/*`
 
 ## Trigger Keywords
 
@@ -111,41 +111,41 @@ Success → emit URL. Failure → Error Handling table. Do not improvise.
 
 ## Test Scenarios
 
-### S1 Happy Path
-- **Given** authed, on `main`, tag `v1.2.0`, commits `feat:`/`fix:`/`docs:`
-- **When** user says "create a new release"
-- **Then** proposes `v1.3.0`, shows grouped notes, waits for confirmation, runs `release create`, emits URL
+### S1 Happy
+- **Given** authed, `main`, tag `v1.2.0`, commits `feat:`/`fix:`/`docs:`
+- **When** "create a new release"
+- **Then** proposes `v1.3.0`, shows notes, waits, creates, emits URL
 
 ### S2 Negative
 - **Given** "delete v1.0.0 release"
-- **When** utterance matches delete/edit intent
-- **Then** does NOT load this skill; redirects to `/gitflow-release`
+- **When** delete/edit intent
+- **Then** does NOT load; redirects to `/gitflow-release`
 
 ### S3 Boundary
-- **Given** user says "publish without confirmation"
-- **When** user bypasses confirmation gate
+- **Given** "publish without confirmation"
+- **When** user bypasses gate
 - **Then** refuses, cites `🚫`, stops
 
 ### S4 Error
-- **Given** `auth status` returns `401`
+- **Given** `auth status` → `401`
 - **When** `release create` runs
-- **Then** runs `auth login --platform <p>`, retries once; if still failing preserves `/tmp/rel.md`, stops. Does NOT improvise with `gh release create`.
+- **Then** `auth login --platform <p>`, retry once; if still failing preserves `/tmp/rel.md`, stops. No `gh release create`.
 
 ## Success Criteria
 
-- [ ] Version proposed and confirmed before any mutation
-- [ ] Release created via `gitflow-cli release create` with URL returned
-- [ ] No out-of-scope action (no tag deletion, no release edit)
-- [ ] Temp file cleaned up after success; preserved on failure
+- [ ] Version proposed and confirmed before mutation
+- [ ] `gitflow-cli release create` returned URL
+- [ ] No out-of-scope action
+- [ ] Temp file cleaned on success; preserved on failure
 
 ## Common Mistakes
 
-- ❌ **Auto-selecting the version** — always present inference and wait for explicit confirmation
-- ❌ **Skipping CI gate because "it's just docs"** — gate is unconditional; offer `--draft` if user insists
-- ❌ **Using `gh release create` when gitflow-cli fails** — follow Error Handling; do not improvise
+- ❌ **Auto-selecting version** — always present + wait for confirmation
+- ❌ **Skipping CI gate** — unconditional; offer `--draft`
+- ❌ **Using `gh release create` as fallback** — follow Error Handling only
 
 ## See Also
 
-- `/gitflow-release` — CRUD on existing releases (edit, delete, upload, download)
+- `/gitflow-release` — CRUD on existing releases
 - `/gitflow-auth` — authentication prerequisite
-- `docs/superpowers/templates/skill-conventions.md` — template conventions this skill conforms to
+- `docs/superpowers/templates/skill-conventions.md` — template conventions
