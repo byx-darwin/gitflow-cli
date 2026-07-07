@@ -57,6 +57,26 @@ gitflow-cli auth status
 | Comment | `issue comment <number> --body <text>` | Issue exists |
 | Label | `issue label <number> --add <l> --remove <l>` | Issue exists |
 
+## Flowchart
+
+```mermaid
+flowchart TD
+    U[User intent] --> CMD{Subcommand?}
+    CMD -->|create| AUTH[auth status ok?]
+    AUTH -->|no| STOP1[refuse — need login]
+    AUTH -->|yes| CREATE[issue create]
+    CMD -->|list| LIST[issue list]
+    CMD -->|view| VIEW[issue view]
+    CMD -->|close| CONF{confirm?}
+    CONF -->|yes| CLOSE[issue close]
+    CONF -->|no| STOP2[abort]
+    CMD -->|reopen| REOP[issue reopen]
+    CMD -->|comment| ISS{confirm?}
+    ISS -->|yes| COMM[issue comment]
+    ISS -->|no| STOP3[abort]
+    CMD -->|label| LABEL[issue label add/remove]
+```
+
 ## Responsibility
 
 **In:** select sub-command · run read or state change · format output · record action.

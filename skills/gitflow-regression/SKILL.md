@@ -37,6 +37,22 @@ bash scripts/smoke-test.sh --platform github 2>&1
 
 Platforms: github, gitlab, gitcode. Default mode: read-only; `--write` requires explicit user confirmation.
 
+## Flowchart
+
+```mermaid
+flowchart TD
+    START[Run smoke test] --> MODE{Mode?}
+    MODE -->|read-only default| EXEC[bash smoke-test.sh]
+    MODE -->|user passes --write| CONF{confirm write?}
+    CONF -->|yes| WRITE[execute write]
+    CONF -->|no| STOP[abort]
+    EXEC --> RESULT{Exit code?}
+    RESULT -->|0 pass| DONE[all good]
+    RESULT -->|non-zero| CLASS{classify failure}
+    CLASS --> REPAIR[report to autoreport-bug]
+    WRITE --> EXEC
+```
+
 ## Implementation
 
 ### Preconditions

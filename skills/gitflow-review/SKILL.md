@@ -39,6 +39,25 @@ gitflow-cli review <verdict> <n> --body "<c>"
 
 **Decision rule:** single verdict → `approve/request-changes`; after inline comments → `submit`; neutral only → `comment`.
 
+## Flowchart
+
+```mermaid
+flowchart TD
+    START[Start review] --> PR{PR open?}
+    PR -->|no| STOP[refuse]
+    PR -->|yes| INLINE{done inline review?}
+    INLINE -->|no| DO[do inline first]
+    INLINE -->|yes| VERDICT{Verdict?}
+    VERDICT -->|approve| CONF{confirm?}
+    CONF -->|yes| APPROVE[review approve]
+    CONF -->|no| STOP2[abort]
+    VERDICT -->|changes| CHANGES[review request-changes]
+    VERDICT -->|comment only| COMMENT[review comment]
+    APPROVE --> SUBMIT[review submit]
+    CHANGES --> SUBMIT
+    COMMENT --> SUBMIT
+```
+
 ## Implementation
 
 ### Preconditions

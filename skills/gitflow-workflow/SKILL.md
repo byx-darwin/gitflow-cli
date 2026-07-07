@@ -36,6 +36,27 @@ gitflow-cli issue list --state open --output json
 
 Phase 3 内含 TDD / Review。见 workflow-phases-detail.md。
 
+## Flowchart
+
+```mermaid
+flowchart TD
+    START[User request] --> HAS{Issue exist?}
+    HAS -->|no| P1[Phase 1: Requirement]
+    P1 --> BRAIN[brainstorming]
+    BRAIN --> ISSUE[issue-create]
+    ISSUE --> P2[Phase 2: Plan]
+    HAS -->|yes| P2
+    P2 --> GATE1{Gate 1: plan approved?}
+    GATE1 -->|no| STOP1[Iterate]
+    GATE1 -->|yes| P3[Phase 3: Execute]
+    P3 --> TDD[TDD cycle]
+    TDD --> PR[pr-create]
+    PR --> P4[Phase 4: Post-delivery]
+    P4 --> GATE2{Gate 2: quality pass?}
+    GATE2 -->|no| FIX[Return to TDD]
+    GATE2 -->|yes| DONE[Delivery complete]
+```
+
 ## Implementation
 
 ### Preconditions
