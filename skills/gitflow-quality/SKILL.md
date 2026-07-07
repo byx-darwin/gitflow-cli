@@ -148,3 +148,8 @@ flowchart TD
 | is this ready, safe to release | 能交付吗, 可以发布吗 |
 | pre-commit failed, coverage too low | pre-commit 挂了, 覆盖率不够 |
 | clippy warnings, format check | clippy 警告, 格式检查 |
+
+## Common Mistakes
+
+- ❌ **Running `cargo fmt` to auto-fix** — report-only; user executes fixes.
+- ❌ **Publishing Quality Report without confirmation** — always ask first.

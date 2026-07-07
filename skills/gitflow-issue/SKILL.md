@@ -139,6 +139,11 @@ flowchart TD
 - [ ] Created issue URL reported
 - [ ] Unsupported ops redirected early
 
+## Common Mistakes
+
+- ❌ **Skipping sub-command dispatch** — route by trigger keyword, never assume intent.
+- ❌ **Closing without confirmation** — state-change always requires explicit user OK.
+
 ## See Also
 
 - `gitflow-issue-create` — interactive creation

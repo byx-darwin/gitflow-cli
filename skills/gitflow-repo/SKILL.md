@@ -129,20 +129,22 @@ flowchart TD
 
 ## Success Criteria
 
-- [ ] Correct sub-command selected per trigger
+- [ ] Correct sub-command per trigger
 - [ ] Read-only ops execute without confirmation
-- [ ] Write ops (create/push) require confirmation
+- [ ] Write ops require confirmation
 - [ ] Stats degrade if `gh` missing
-- [ ] On sync conflict, stop
+- [ ] Stop on sync conflict
+
+## Common Mistakes
+
+- ❌ **Pushing after sync without explicit confirmation** — push requires user OK.
+- ❌ **Auto-adding upstream remote** — always ask user for upstream URL.
 
 ## See Also
 
-- `gitflow-repo-onboarding` — generate onboarding guide after clone
-- `gitflow-auth` — verify auth before clone/create
-- `gitflow-workflow` — full workflow that may start with `repo clone`
-- `gitflow-commit` — inspect commits after clone
-- `gitflow-issue` — list issues after clone
-- `gitflow-pr` — PR lifecycle after clone
+- `gitflow-repo-onboarding` — onboarding after clone
+- `gitflow-auth` — auth before clone/create
+- `gitflow-workflow` — workflow may start with `repo clone`
 
 ## Trigger Keywords
 

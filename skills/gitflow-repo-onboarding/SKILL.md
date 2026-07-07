@@ -64,9 +64,9 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 
 ### 🚫 Do Not
 
-- ❌ Auto-write the guide (even if user asks "save") — ask explicit consent first
-- ❌ Fabricate CI steps — only cite existing workflow files
-- ❌ Execute installs — describe commands only
+- ❌ Auto-write the guide — ask explicit consent first
+- ❌ Fabricate CI steps — cite existing workflow files only
+- ❌ Execute installs — describe only
 - ❌ Edit manifests or `.pre-commit-config.yaml`
 
 ## Rationalization Excuses
@@ -117,14 +117,17 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 - [ ] Plain-language, newbie-friendly
 - [ ] No fabricated CI, no executed installs
 
+## Common Mistakes
+
+- ❌ **Saving the guide without consent** — chat-only unless user explicitly asks.
+- ❌ **Fabricating CI steps** — cite only what `.github/workflows/` actually contains.
+
 ## See Also
 
-- `gitflow-repo` — write the repo-level changes (clone, create, sync)
-- `gitflow-auth` — check login before read-only operations
-- `gitflow-commit` — commit conventions shown in walkthrough
-- `gitflow-precommit` — install hooks (described, not executed)
-- `gitflow-issue` — project conventions and labels
-- `gitflow-label-milestone` — 初始化默认标签和里程碑
+- `gitflow-repo` — repo-level writes
+- `gitflow-auth` — verify login
+- `gitflow-commit` — commit conventions
+- `gitflow-label-milestone` — label/milestone CRUD
 
 ## Trigger Keywords
 

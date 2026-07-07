@@ -35,26 +35,36 @@ CLI `gitflow-cli autoreport-bug`
 | 5 Create | `issue create --title "..." --body "..." --label "auto-report"` |
 | 6 Clean | remove `pending.json`; append `failed.log` if step fails |
 
-## 核心步骤 / Pattern Triplets
+## Core Pattern
 
-| 场景 | 处理 |
-|------|------|
-| `pending.json` 无效 | rename `.invalid` → 警告 → 结束 |
-| auth cache 命中 | 跳过认证检查 |
-| auth cache 未命中 | `auth status` 失败 → 保留 + append `failed.log` → 结束 |
-| 去重命中 | 清理 `pending.json` → 输出已有 #N |
-| 去重未命中 | 创建 Issue → 成功清理 / 失败保留 + append |
+| Step | Action |
+|------|--------|
+| 1 Validate | read + validate `pending.json` from `.cache/bug-reports/` |
+| 2 Auth | check `.cache/auth-cache/{platform}.ttl` or `auth status` |
+| 3 Analyze | title/body/severity from error context (no source inspection) |
+| 4 Dedup | `issue list --search "[auto-report] {cmd} {err}" --state all` |
+| 5 Create | `issue create --label "auto-report"` |
+| 6 Cleanup | remove `pending.json`; append `failed.log` if failed |
+
+Invalid JSON → rename `.invalid`. Dedup hit → exit. Auth fail → append `failed.log`.
 
 ## ✅ 职责 / 🚫 禁止
 
 ✅ 检测错误 + 认证缓存 + 仅分析原因 + 去重 + 创建 issue + 清理临时文件
 🔴 禁止修改代码 / 调用 subagent / 启动 workflow / Issue 创建后继续
 
-## 红旗与防御 · 合理化反驳 / Red Flags + Rationalization
+## Rationalization
 
-- 开始读取 `src/` → 停止；本 skill 不读代码。 *"只是看一眼源码不修改"* → 越界；本 skill 不读代码
-- 用户说"这个 bug 容易修" → 感谢但拒绝；仅报告。 *"顺手修一下更快"* → 越界
-- Issue 创建后想继续 push / commit → 停止；流程已结束。 *"顺手一推更快"* → 越界
+| Excuse | Reality |
+|--------|---------|
+| "Just peek at source" | Detection only — never read `src/`. |
+| "Quick fix is easier" | Report-only; fixes belong to `gitflow-workflow`. |
+| "Push after filing" | Skill ends at issue creation. |
+
+## Red Flags
+
+- 🚩 "Just peek at source" — refuse; read-only boundary
+- 🚩 "Quick fix while here" — refuse; redirect to `gitflow-workflow`
 
 ## 常见错误 / Common Mistakes
 

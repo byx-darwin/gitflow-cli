@@ -44,15 +44,13 @@ git rev-parse --abbrev-ref HEAD == <pr-branch>
 
 ## Responsibility
 
-**In:** fetch · prioritize · display pending · apply fixes (after confirmation) · run tests · mark resolved · push (confirmed) · notify.
-
-**Out:** initial review (`gitflow-pr-review`) · inline review (`gitflow-pr-inline-review`) · approve/merge (`gitflow-pr`) · accept/reject decisions (user decides).
+**In:** prioritize · apply fixes (confirmed) · test · resolve · push (confirmed) · notify.
+**Out:** initial review · inline review · approve/merge.
 
 ### 🚫 Do Not
 
 - ❌ Push without confirmation
 - ❌ Resolve without passing tests
-- ❌ Modify unrelated code
 - ❌ Auto-accept all comments (user confirms each)
 
 ## Rationalization Excuses
@@ -126,20 +124,23 @@ flowchart TD
 
 ## Success Criteria
 
-- [ ] Comments classified by priority
-- [ ] Every modification confirmed before commit
+- [ ] Each modification confirmed before commit
 - [ ] Tests pass before resolve
 - [ ] Push only after user confirmation
 - [ ] Reviewer notified via `gitflow-cli pr comment <pr>`
-- [ ] No out-of-scope commands (no review, no merge)
-- [ ] Branch confirmed before checkout
+- [ ] No out-of-scope commands
+
+## Common Mistakes
+
+- ❌ **Pushing without confirmation** — always show draft and await user OK.
+- ❌ **Merging after applying feedback** — merging is a separate skill.
 
 ## See Also
 
 - `gitflow-pr-review` — initial code review
 - `gitflow-pr-inline-review` — inline per-line review
-- `gitflow-pr` — PR lifecycle (create, approve, merge)
-- `gitflow-commit` — commit conventions used by fixes
+- `gitflow-pr` — PR lifecycle
+- `gitflow-commit` — commit conventions
 - `gitflow-precommit` — pre-commit gates before push
 - `gitflow-quality` — post-fix quality verify
 
