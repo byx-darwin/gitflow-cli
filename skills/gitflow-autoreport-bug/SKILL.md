@@ -11,6 +11,38 @@ description: |
 自动处理 gitflow CLI 的错误报告：检测 pending.json → 验证 JSON →
 auth cache 检查 → 去重搜索 → Claude 分析 → 创建 Issue → 清理临时文件。
 
+## ⚠️ 职责边界声明
+
+**本 skill 仅负责检测和报告 bug，绝对不会修复 bug。**
+
+### 🚫 禁止行为
+
+- ❌ **不得修改任何代码文件** — 即使你认为知道 bug 原因
+- ❌ **不得调用 subagent 修复** — 不得启动任何代码修改流程
+- ❌ **不得启动 gitflow-workflow 修复** — 不得自动触发修复工作流
+- ❌ **不得自作主张修复** — 不得开始分析源码或尝试修复
+- ❌ **不得在创建 Issue 后继续操作** — 创建 Issue 后立即结束
+
+### ✅ 职责范围
+
+- ✅ 检测错误（读取 pending.json）
+- ✅ 验证认证（auth cache 检查）
+- ✅ 分析原因（仅分析，不修复）
+- ✅ 去重检查（搜索已有 Issue）
+- ✅ 创建 Issue（GitHub/GitLab/GitCode）
+- ✅ 清理临时文件（pending.json）
+- ❌ **修复 bug** — 不在职责范围内
+
+### 🔧 修复流程
+
+如果需要修复 bug，必须由用户手动触发：
+
+1. 用户执行 `/gitflow-workflow --fast` 启动修复流程
+2. 或者用户明确指示"立即修复这个 bug"
+3. 然后才能启动完整的 4 阶段修复流程
+
+**本 skill 的职责在创建 Issue 后立即结束，不得越界。**
+
 ## 前置条件
 
 - 当前目录位于 git 仓库中

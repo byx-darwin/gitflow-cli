@@ -199,6 +199,7 @@ Follow TDD for every feature and bug fix. The cycle is: **RED → GREEN → REFA
 All code should pass `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic`. Prefer these idioms:
 
 - `x.map_or(a, f)` instead of `x.map(f).unwrap_or(a)`.
+- `x.map_or_else(d, f)` instead of `x.map(f).unwrap_or_else(d)`.
 - `v.and_then(Value::as_u64)` instead of redundant closures.
 - `"value: {x}"` instead of positional format arguments.
 - Backtick identifiers in docs, including environment variables and fields.
