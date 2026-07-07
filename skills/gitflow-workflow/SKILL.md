@@ -5,7 +5,7 @@ description: |
   当用户需要四阶段闸门驱动全流程开发时使用。
 ---
 
-# gitflow-workflow — Gated Orchestrator
+# gitflow-workflow — 四阶段闸门编排器
 
 编排层只指挥；平台走 `gitflow-cli`，循环走 Superpowers。
 
@@ -16,6 +16,8 @@ description: |
 | full workflow | 全流程 |
 | clarify → plan → execute → deliver | 需求→计划→执行→交付 |
 
+完整模式: 四阶段全流程 mandated。快速模式: 快速修复 bug 可跳过 brainstorming/writing-plans。
+
 ## Core Pattern
 
 ```bash
@@ -23,35 +25,59 @@ gitflow-cli auth status
 gitflow-cli issue list --state open --output json
 ```
 
+Phase 1 必须执行: 读取 Open Issues → superpowers:brainstorming(完整模式) → gitflow-issue-create → gitflow-issue-review 审计回贴
+
 ## Quick Reference
 
 | Phase | Sub-skill | Mode |
 |-------|-----------|------|
-| 1 | `brainstorming` | full ✅ / fast opt |
+| 1 | `superpowers:brainstorming` | full ✅ / fast opt |
 | 1 | `gitflow-issue-create` | always |
 | 1 | `gitflow-issue-review` | full ✅ / fast opt |
-| 2 | `writing-plans` | full ✅ / fast opt |
-| 3 | `subagent-driven-development` | always |
-| 4 | `pipeline-analyzer → issue-triage → review` | always |
+| 2 | `superpowers:writing-plans` | full ✅ / fast opt |
+| 3 | `superpowers:subagent-driven-development` | always |
+| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review` | always |
 
-Phase 3 内含 TDD / Review。见 workflow-phases-detail.md。
+Phase 2 必须制定完整计划 + gitflow-quality gate: Build 检查/Test 检查/Coverage 检查/Format 检查/Static 检查/Pre-commit 检查 → ALL CHECKS PASSED
+
+Phase 3 内含 TDD / Review。
+Phase 4: 流水线分析报告 → Issue 分类报告 → 代码审查报告
+
+## 模式对比
+
+### 完整模式
+全流程四阶段，必须调用：brainstorming → issue-create/review → writing-plans → subagent-driven-development → TDD → Phase 4
+
+### 快速模式 - 必须调用的 Skills 清单
+Phase 1: gitflow-issue-create(必选), brainstorming(可选)
+Phase 2: writing-plans(可选，可跳过)
+Phase 3: subagent-driven-development(必选，含 TDD + Code Review)
+Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review(必选)
+
+## 强制执行规则
+
+### 禁止行为
+- ❌ 跳过 Phase 4（任何模式）
+- ❌ 快速模式禁止跳过 TDD
+- ❌ 快速模式禁止跳过 Code Review
+- ❌ 合并多个阶段为一步
 
 ## Flowchart
 
 ```mermaid
 flowchart TD
     START[User request] --> HAS{Issue exist?}
-    HAS -->|no| P1[Phase 1: Requirement]
+    HAS -->|no| P1[Phase 1: 需求澄清]
     P1 --> BRAIN[brainstorming]
     BRAIN --> ISSUE[issue-create]
-    ISSUE --> P2[Phase 2: Plan]
+    ISSUE --> P2[Phase 2: 计划制定]
     HAS -->|yes| P2
     P2 --> GATE1{Gate 1: plan approved?}
     GATE1 -->|no| STOP1[Iterate]
-    GATE1 -->|yes| P3[Phase 3: Execute]
+    GATE1 -->|yes| P3[Phase 3: 执行]
     P3 --> TDD[TDD cycle]
     TDD --> PR[pr-create]
-    PR --> P4[Phase 4: Post-delivery]
+    PR --> P4[Phase 4: 交付后检查]
     P4 --> GATE2{Gate 2: quality pass?}
     GATE2 -->|no| FIX[Return to TDD]
     GATE2 -->|yes| DONE[Delivery complete]
@@ -65,78 +91,19 @@ flowchart TD
 
 ### Steps
 
-1. **Phase 1** — brainstorming → issue-create → issue-review；审计回贴。
-2. **Phase 2** — writing-plans + 质量关卡；worktree。
-3. **Phase 3** — subagent + TDD + review；合 PR；`Closes #N`。
-4. **Phase 4** — analyzer → triage → review。
-
-进阶前必验合规清单。
+1. **Phase 1: 需求澄清** — 读取 Open Issues → brainstorming → issue-create → issue-review
+2. **Phase 2: 计划制定** — writing-plans + gitflow-quality gate → ALL CHECKS PASSED
+3. **Phase 3: 执行** — subagent-driven-development + TDD + review；合 PR
+4. **Phase 4: 交付后检查** — 流水线分析报告 → Issue 分类报告 → 代码审查报告
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| 闸门证据缺失 | 🔒 再进；补齐 |
+| 闸门证据缺失 | 🔒 补齐再进 |
 | worktree 泄露 | `worktree remove` + `branch -d` |
-| 合 PR 后 issue 未关 | `issue close --yes` |
 | auth 过期 | 重登 resume |
-| 回滚 | Issue 留档 |
-
-## Responsibility
-
-In: 编排四阶段闸门 · 合规校验 · 路由到子 skill。
-Out: 直接 git/gh · TDD · review。
-Block: 跳 sub-skill · 跳 TDD/Review/Phase 4 · 合步骤 · 内联 · 空证据。
-
-## Rationalization
-
-| Excuse | Reality |
-|--------|---------|
-| 跳脑暴 | full 必须 |
-| 无需计划文档 | 闸门不可省 |
-| 一步跑完四阶段 | 须逐个调用 |
-| PR 合完就结束 | Phase 4 强制 |
-
-## Red Flags
-
-🚩 直接写代码 — Phase 1 先 · 🚩 TDD 慢 — 强制 · 🚩 跳过评审 — 拒绝 · 🚩 合调用 — 保持原子
 
 ## Common Mistakes
 
-❌ 跳过闸门证据 — 必输出合规 · ❌ 内联 sub skill — 只路由 · ❌ worktree 未清
-
-## Trigger Keywords
-
-| EN | ZH |
-|----|----|
-| full workflow end-to-end | 全流程开发 |
-| four-phase gated pipeline | 四阶段闸门 |
-| clarify plan execute deliver | 需求→计划→执行→交付 |
-
-## Test Scenarios
-
-### 1: Happy
-"build auth refresh" → 闸门 → brainstorm → issue-create → review → plans → subagent (+TDD+review) → PR → Phase 4。
-
-### 2: Negative
-"just write the code" → redirect Phase 1。
-
-### 3: Boundary
-"quick fix" → fast 可跳 brainstorm/plans；仍须 issue-create、subagent、Phase 4。
-
-### 4: Error
-Phase 3 auth 报错 → `auth login` → resume。
-
-## Success Criteria
-
-- [ ] 四阶段 + 闸门证据
-- [ ] 必选 sub-skills 全调用
-- [ ] 编排层未内联 sub skill
-- [ ] worktree 已清
-- [ ] 回滚 (如有) 留档
-
-## See Also
-
-`/gitflow-issue-create` · `/gitflow-issue-review` — Phase 1
-`/gitflow-review` · `/gitflow-pipeline-analyzer` · `/gitflow-issue-triage` — Phase 4
-`/gitflow-repo` · `/gitflow-autoreport-bug` · `/gitflow-pr-apply-feedback`
+❌ 跳过闸门证据 · ❌ 内联 sub skill · ❌ worktree 未清 · ❌ 跳 TDD/Review
