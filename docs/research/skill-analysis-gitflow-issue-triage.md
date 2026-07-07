@@ -1,0 +1,257 @@
+# gitflow-issue-triage Skill 分析报告
+
+> **分析日期：** 2026-07-07
+> **分析目标：** `skills/gitflow-issue-triage/SKILL.md`
+> **对应 Issue：** #28
+> **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
+
+---
+
+## 一、当前状态总览
+
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| 维度 1：Skill 结构和文档规范 | ⚠️ 需改进 | Frontmatter 存在但 description 违反规范；文档结构偏向"流程叙述"而非"可执行指令" |
+| 维度 2：职责边界清晰度 | ❌ 不合格 | 完全缺失职责边界、禁止行为、红旗列表 |
+| 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线、成功标准 |
+| 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | description 包含完整流程，缺少 TDD 流程、关键词覆盖、跨引用 |
+
+**总体评估：** gitflow-issue-triage 是一个"工作流说明书"风格的文档，描述了分类流程步骤和报告模板，但不具备 Superpowers skill 所需的可执行性、边界清晰性和可测试性。description 字段包含了完整的 5 步流程，违反了"仅描述触发条件"的核心原则。
+
+---
+
+## 二、维度 1 分析 — Skill 结构和文档规范
+
+### 2.1 检查清单
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-issue-triage` |
+| YAML frontmatter 含 description 字段 | ✅ | 存在 description |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "Issue 分类分流工作流 — 获取所有 open issues，按类型和优先级分类，标记 triage 标签并输出分类报告" |
+| description 只描述触发条件 | ❌ | 描述了完整流程（获取→分类→评估→标记→报告），而非触发时机 |
+| 含 Overview 章节 | ❌ | 无 Overview 章节 |
+| 含 When to Use 章节 | ❌ | 无触发条件说明 |
+| 含 Core Pattern 章节 | ❌ | 无核心模式（有步骤分解但非模式提炼） |
+| 含 Quick Reference | ❌ | 无快速参考卡片（分类/优先级表格嵌入式，非独立参考） |
+| 含 Implementation 章节 | ⚠️ | 有步骤 1-5，但未提炼为可复用的 Implementation 模式 |
+| 含 Common Mistakes | ❌ | 无独立章节 |
+| Token 效率 < 500 词 | ⚠️ | 约 440 词（中文），含大量表格和报告模板，已接近上限 |
+| 无叙事性示例反模式 | ❌ | "使用示例"章节含完整叙事性示例（8 issues 逐步分类），属于叙事性反模式 |
+| 无多语言稀释 | ⚠️ | 全文中文，无英文对照（对中文团队合理，但丧失国际化覆盖） |
+| 无流程图中嵌入代码 | ✅ | 无流程图 |
+
+### 2.2 具体问题
+
+1. **description 严重违反 Superpowers 规范**：当前 description 包含了完整的 5 步工作流（获取→分类→评估→标记→报告），这是典型的反模式。Superpowers 要求 description 仅描述触发条件，因为：
+   - Claude 用 description 决定**何时加载** skill，而非**如何执行**
+   - 描述流程会导致 description 无法被 Claude 的 skill 加载决策机制解析
+   - 增加 token 消耗（description 在每次 skill 匹配时都会被评估）
+
+2. **文档结构是"流程叙述"而非"可执行指令"**：
+   - 步骤 1-5 是线性叙述，未提炼为可组合的模式（如 "Triage Loop = Classify + Evaluate + Label + Report"）
+   - 缺少前置条件（如"需要 gitflow-cli 已安装并已认证"）
+   - 缺少输入验证（如"issue list 为空时如何退出"）
+   - 缺少错误处理（如"label 命令失败时如何回退"）
+
+3. **Token 效率接近上限**：
+   - 报告模板（步骤 5）占用了约 80 词，应移至 Quick Reference 或单独章节
+   - 使用示例占用了约 60 词，应精简为 1-2 行命令概要
+
+4. **叙事性示例反模式**：使用示例中包含完整的 8 issues 分类过程，这是典型的"叙事性示例"——描述了整个故事而非关键命令。应提炼为模式化示例。
+
+### 2.3 评分：⚠️ 需改进
+
+---
+
+## 三、维度 2 分析 — 职责边界清晰度
+
+### 3.1 检查清单
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 有明确的职责边界声明 | ❌ | 完全缺失 |
+| 有禁止行为清单（🚫 不得...） | ❌ | 缺失 |
+| 有职责范围说明（✅ 负责... / ❌ 不负责...） | ❌ | 缺失 |
+| 有"合理化借口"反制表格 | ❌ | 缺失 |
+| 有红旗列表（Red Flags） | ❌ | 缺失 |
+
+### 3.2 具体问题
+
+1. **完全无职责边界**：Issue triage 涉及修改仓库标签，这是一个有副作用的操作。没有边界声明可能导致：
+   - Claude 对已 triage 的 issues 重复分类（浪费 API 调用）
+   - Claude 误删或覆盖现有标签（如团队手动添加的业务标签）
+   - Claude 对 closed issues 执行 triage（命令成功但无意义）
+
+2. **缺少"triage:done"幂等性保护**：步骤 4 中 `triage:done` 标签的幂等性未声明。如果用户多次运行 triage，是否需要清除旧标签？是否应跳过已有 `triage:done` 的 issues？
+
+3. **缺少禁止行为清单**：应明确禁止：
+   - 不得删除或覆盖现有非 triage 标签
+   - 不得对 closed issues 执行 triage
+   - 不得自动关闭或合并 issues
+   - 不得修改 issue 标题或描述
+
+4. **缺少红旗信号**：应标识以下场景为红旗：
+   - 用户要求"批量关闭所有低优先级 issues"
+   - 用户要求"删除所有 type:unknown 标签"
+   - 用户要求"自动分配指派人"
+
+### 3.3 评分：❌ 不合格
+
+**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-issue-triage 应参照此模式，尤其需要声明标签操作的边界。
+
+---
+
+## 四、维度 3 分析 — 可测试性
+
+### 4.1 检查清单
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 定义了测试场景 | ❌ | 无测试场景定义 |
+| 有基线测试（无 skill 时的行为） | ❌ | 缺失 |
+| 有压力测试场景 | ❌ | 缺失 |
+| 有成功标准 | ❌ | 缺失 |
+| 可使用 writing-skills 方法论测试 | ❌ | 无测试钩子 |
+
+### 4.2 具体问题
+
+1. **零测试覆盖**：作为 skill，应定义如何验证 Claude 正确执行了 triage：
+   - 如何判断 "Claude 正确分类了 issue 类型"？
+   - 如何判断 "Claude 正确评估了优先级"？
+   - 如何判断 "Claude 没有对已 triage 的 issues 重复操作"？
+
+2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
+   - 基线：Claude 直接运行 `gitflow-cli issue list` 并输出原始列表
+   - 期望：Claude 按类型/优先级分类并输出结构化报告
+
+3. **无压力测试场景**：应覆盖：
+   - 0 个 open issues（空列表）
+   - 100+ 个 open issues（大量 issues）
+   - 所有 issues 已有 `triage:done` 标签（幂等性）
+   - 混合中英文标题的 issues
+   - 无标签的全新 issues
+
+4. **无成功标准**：应定义：
+   - 每个 issue 有且仅有 1 个 type 标签
+   - 每个 issue 有且仅有 1 个 priority 标签
+   - 所有 open issues 都有 `triage:done` 标签
+   - 报告中的统计数字与实际标签一致
+
+### 4.3 评分：❌ 不合格
+
+---
+
+## 五、维度 4 分析 — 与 Superpowers 最佳实践的差距
+
+### 5.1 检查清单
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程 |
+| description 只描述触发条件，不描述流程 | ❌ | description 包含完整 5 步流程 |
+| 关键词覆盖（错误信息、症状、同义词、工具） | ❌ | 无关键词覆盖 |
+| 跨引用其他 skills | ❌ | 无 See Also / 相关 Skills |
+| 必要时使用 flowchart | ⚠️ | 分类决策逻辑（类型判断、优先级评估）适合用 flowchart 但未提供 |
+
+### 5.2 具体问题
+
+1. **description 包含完整流程（严重违规）**：
+   - ❌ 当前：`Issue 分类分流工作流 — 获取所有 open issues，按类型和优先级分类，标记 triage 标签并输出分类报告`
+   - ✅ 应为：`Use when the user asks to triage, categorize, or prioritize open issues, or when they request a backlog health report`
+
+2. **未遵循 writing-skills 方法论**：
+   - 未进行 "baseline test"（先不用 skill 让 Claude 执行 triage，记录差距）
+   - 未基于差距优化 skill 内容
+   - 未迭代验证
+
+3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
+   - "分类" / "triage" / "整理 issues" / "梳理待办"
+   - "优先级排序" / "prioritize" / "哪些 issue 最重要"
+   - "issue 报告" / "backlog report" / "待办全景"
+   - "标记分类" / "label issues" / "给 issue 打标签"
+
+4. **缺少跨引用**：应引用相关 skills：
+   - `gitflow-issue`（issue 列表和标签操作的基础命令）
+   - `gitflow-label-milestone`（标签和里程碑管理）
+   - `gitflow-issue-review`（issue 审查流程）
+   - `gitflow-weekly-report`（周报中可能引用 triage 报告）
+
+5. **缺少 flowchart**：分类决策逻辑（类型判断、优先级评估）是一个典型的决策树，适合用 flowchart 表达。当前用表格描述判断依据，但表格无法表达"如果已有类型标签则跳过"等条件逻辑。
+
+### 5.3 评分：❌ 不合格
+
+---
+
+## 六、改进建议
+
+### P0（必须修复 — 阻断性问题）
+
+| # | 改进项 | 维度 | 说明 |
+|---|--------|------|------|
+| P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式，移除流程描述 |
+| P0-2 | 添加职责边界声明章节 | D2 | 标签操作有副作用，必须声明 🚫 禁止行为（不得删除现有标签、不得修改 issue 内容）和 ✅ 职责范围 |
+| P0-3 | 添加幂等性声明 | D2 | 明确 `triage:done` 标签的幂等语义：已有该标签的 issues 是否跳过？重复运行是否清除旧分类？ |
+| P0-4 | 添加关键词覆盖 | D4 | 覆盖常见表达（"分类"、"triage"、"优先级排序"、"backlog 整理"）和工具名（issue list、issue label） |
+
+### P1（建议修复 — 提升质量）
+
+| # | 改进项 | 维度 | 说明 |
+|---|--------|------|------|
+| P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
+| P1-2 | 添加错误处理章节 | D1 | 覆盖 issue list 为空、label 命令失败、API 限流等异常场景 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证 gitflow-cli 是否可用、是否已认证、是否在 git 仓库中 |
+| P1-4 | 添加红旗列表 | D2 | 标识敏感场景（批量关闭 issues、删除标签、修改 issue 内容等） |
+| P1-5 | 添加分类决策 flowchart | D4 | 用 flowchart 表达类型判断和优先级评估的条件逻辑 |
+| P1-6 | 精简叙事性示例 | D1 | 将 8 issues 的叙事性示例提炼为 1-2 行命令模式 + 关键参数说明 |
+
+### P2（可选改进 — 锦上添花）
+
+| # | 改进项 | 维度 | 说明 |
+|---|--------|------|------|
+| P2-1 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（直接输出 issue list 原始结果） |
+| P2-2 | 定义成功标准 | D3 | 每个 issue 有且仅有 1 个 type + 1 个 priority 标签；报告统计与实际一致 |
+| P2-3 | 添加压力测试场景 | D3 | 空列表、100+ issues、混合中英文、已 triage 幂等性 |
+| P2-4 | 添加跨引用 | D4 | 引用 gitflow-issue、gitflow-label-milestone、gitflow-weekly-report |
+| P2-5 | 提供英文版 description | D1 | 当前仅中文，可考虑 bilingual |
+
+---
+
+## 七、验收标准
+
+- [ ] description 以 "Use when..." 开头，仅描述触发条件，不包含流程步骤
+- [ ] 含职责边界声明章节（含 🚫 禁止行为和 ✅ 职责范围）
+- [ ] 含幂等性声明（`triage:done` 标签的重复执行语义）
+- [ ] 含关键词覆盖（"分类"、"triage"、"优先级排序"、"backlog 整理"等）
+- [ ] 含分类决策 flowchart（类型判断 + 优先级评估）
+- [ ] 文档结构包含 Overview / When to Use / Quick Reference / Implementation
+- [ ] 含错误处理章节（空列表、API 限流、label 失败）
+- [ ] 含跨引用（至少引用 1 个相关 skill）
+- [ ] 叙事性示例已精简为模式化示例
+
+---
+
+## 八、与同类 Skill 对比
+
+| 对比项 | gitflow-issue-triage | gitflow-autoreport-bug | 差距 |
+|--------|---------------------|----------------------|------|
+| 职责边界 | ❌ 缺失 | ✅ 完整 | 差距大 |
+| 测试场景 | ❌ 缺失 | ❌ 缺失 | — |
+| 触发条件 | ❌ 包含完整流程 | ⚠️ 描述流程 | autoreport-bug 也需改进 |
+| 跨引用 | ❌ 缺失 | ❌ 缺失 | — |
+| 错误处理 | ❌ 缺失 | ✅ 有异常处理章节 | 差距大 |
+| 幂等性 | ❌ 未声明 | N/A（autoreport-bug 无副作用） | — |
+
+---
+
+## 九、总结
+
+gitflow-issue-triage 当前的定位是"工作流说明书"，它描述了分类流程步骤和报告模板，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+
+核心差距：
+1. **description 包含完整流程** → Claude 无法用此判断何时加载 skill
+2. **缺乏职责边界** → Claude 可能误操作标签或重复 triage
+3. **缺乏错误处理** → 空列表或 API 失败时 Claude 无指导
+4. **缺乏可测试性** → 无法验证 Claude 是否正确执行了 triage
+
+重构方向：将其从"流程说明书"转型为"可执行指令 + 边界声明 + 决策流程图 + 验证标准"的完整 skill。
