@@ -1,280 +1,182 @@
 ---
 name: gitflow-pipeline-analyzer
-description: 流水线分析工作流 — 调用 gitflow-cli pipeline report 获取流水线健康数据，分析成功率趋势、失败模式和最长耗时，输出分析报告和改进建议
+description: |
+  Use when the user wants to analyze CI/CD pipeline health (success rate trends, failure patterns, duration bottlenecks), diagnose flaky tests, or generate a pipeline improvement report.
+  当用户想要分析 CI/CD 流水线健康状况（成功率趋势、失败模式、耗时瓶颈）、诊断 flaky test 或生成流水线改进报告时使用。
 ---
 
 # gitflow-pipeline-analyzer
 
-分析 CI/CD 流水线的运行健康状况。通过调用 `gitflow-cli pipeline report` 获取指定分支和时间范围的流水线数据，从成功率趋势、失败模式、最长耗时三个维度进行深度分析，输出结构化的分析报告并提供可操作的改进建议。
+Analyzes CI/CD pipeline health across success-rate trends, failure patterns, and duration. Produces prioritized improvement reports from `docs/templates/pipeline-report.md`. Read-only — no pipeline modifications.
 
-## 工作流
+## When to Use
 
-### 步骤 1：确定分析范围
+| English | 中文 | Context |
+|---------|------|---------|
+| pipeline health check | 流水线健康检查 | analyze success, failures, duration |
+| flaky test diagnosis | 间歇性失败诊断 | identify recurring failures |
+| CI analysis / report | CI 分析报告 | generate improvement report |
+| pipeline is unstable | 流水线老挂 / 不稳定 | explain why pipelines fail |
+| CI is slow | CI 太慢 / 耗时长 | identify duration bottlenecks |
+| build keeps failing | build 持续失败 | **NOT** for fixing — analysis only |
 
-获取当前分支名称和确认分析时间范围：
+## Core Pattern
 
 ```bash
-# 获取当前分支
-BRANCH=$(git branch --show-current)
-
-# 默认分析最近 7 天，可根据需要调整
-DAYS=7
+command -v gitflow-cli && git rev-parse --show-toplevel    # preconditions
+BRANCH=$(git branch --show-current); DAYS=7                 # parameters
+gitflow-cli pipeline report --branch "$BRANCH" --days "$DAYS"
+gitflow-cli pipeline status --branch "$BRANCH"
+gitflow-cli pipeline jobs --pipeline-id <longest-id>         # duration deep-dive
 ```
 
-向用户确认分析参数：
+## Quick Reference
 
-- **分支**：默认当前分支，可指定其他分支（如 `main`、`release/*`）
-- **时间范围**：默认 7 天，可选 14 天、30 天或自定义
+| Goal | Command |
+|------|---------|
+| Report / Status | `pipeline report --branch <b> --days <n>` / `pipeline status --branch <b>` |
+| Jobs / Logs | `pipeline jobs --id <id>` / `pipeline logs --id <id>` |
 
-### 步骤 2：获取流水线报告数据
+| Success Rate | Grade | Trend Arrow | Meaning |
+|--------------|-------|-------------|---------|
+| ≥ 95% | 🟢 Healthy | Latter half higher | 📈 Improving |
+| 80%–94% | 🟡 Watch | Latter half lower | 📉 Degrading |
+| < 80% | 🔴 Alert | Delta < 5% | ➡️ Stable |
 
-调用 `gitflow-cli pipeline report` 获取流水线健康数据：
+| Priority | Condition |
+|----------|-----------|
+| 🔴 Urgent | < 80% or持续性 build 失败 |
+| 🟠 High | 80%–94% or flaky test |
+| 🟡 Medium | duration ↑ > 20% or lint repeats |
+| 🟢 Low | ≥ 95% but room to optimize |
+
+## Implementation
+
+### Preconditions
+
+- `command -v gitflow-cli` succeeds
+- `git rev-parse --show-toplevel` succeeds
+- Branch has pipeline runs in range
+
+### Step 1: Gather
 
 ```bash
 gitflow-cli pipeline report --branch "$BRANCH" --days "$DAYS"
-```
-
-同时获取流水线状态概览：
-
-```bash
 gitflow-cli pipeline status --branch "$BRANCH"
 ```
 
-记录以下关键数据：
+Extract total, passed, failed, canceled, avg/max duration, per-job rate. **Empty → prompt to widen scope; stop.**
 
-- 总运行次数（total runs）
-- 成功次数（passed）
-- 失败次数（failed）
-- 取消次数（canceled）
-- 平均耗时（avg duration）
-- 最长耗时（max duration）
-- 各 Job 的成功率
+### Step 2: Success-Rate Trend
 
-### 步骤 3：分析成功率趋势
+`passed / total × 100%` → grade. Split range in half → trend arrow.
 
-对流水线数据进行成功率趋势分析：
+### Step 3: Failure Patterns
 
-**3.1 总体成功率**
+Group by job. Classify: build / test / lint / deploy / timeout. ≥ 3 consecutive = persistent; intermittent = flaky; same stage cluster = shared root cause.
 
-计算整体成功率：
+### Step 4: Duration Distribution
 
-```
-成功率 = passed / total_runs × 100%
-```
+Longest run → `pipeline jobs` → bottleneck. Use P50/P90/P95 — not just mean.
 
-**质量等级：**
+### Step 5: Report
 
-| 成功率 | 等级 | 说明 |
-|--------|------|------|
-| ≥ 95% | 🟢 健康 | 流水线稳定可靠 |
-| 80% ~ 94% | 🟡 关注 | 存在不稳定因素 |
-| < 80% | 🔴 告警 | 流水线严重不稳定 |
+Render from `docs/templates/pipeline-report.md`. Required: overview, narrative, failure table, duration table, prioritized suggestions.
 
-**3.2 趋势判断**
+## Error Handling
 
-将时间范围分为前后两半，对比成功率变化：
+| Error | Recovery |
+|-------|----------|
+| `pipeline report` empty | Prompt to widen scope; stop |
+| `pipeline report` non-zero | Output error; suggest wider scope; stop |
+| `pipeline jobs` / `logs` failure | Skip deep-dive; report available |
 
-- 📈 **上升趋势**：后半段成功率高于前半段 → 说明改进措施有效
-- 📉 **下降趋势**：后半段成功率低于前半段 → 说明近期引入了不稳定因素
-- ➡️ **平稳**：前后成功率差异 < 5% → 保持稳定
+## Responsibility
 
-### 步骤 4：分析失败模式
+### ✅ In Scope
 
-对失败的流水线进行归类分析：
+- Fetch data via `report` / `status` / `jobs` / `logs`
+- Analyze 3 dimensions: success-rate trend, failure pattern, duration
+- Generate report from `docs/templates/pipeline-report.md`
+- Produce prioritized suggestions
 
-**4.1 按失败 Job 分类**
+### ❌ Out of Scope
 
-| 失败类型 | 常见原因 | 影响程度 |
-|----------|----------|----------|
-| build 失败 | 编译错误、依赖问题 | 🔴 阻塞性 |
-| test 失败 | 单元测试失败、集成测试超时 | 🔴 阻塞性 |
-| lint 失败 | 代码格式、静态分析警告 | 🟡 非阻塞性 |
-| deploy 失败 | 环境配置、权限问题 | 🔴 阻塞性 |
-| timeout | 资源不足、死锁 | 🟠 间歇性 |
+- Modify CI config (`.gitlab-ci.yml`, `.github/workflows/*.yml`)
+- Retry / cancel / trigger pipelines
+- Auto-create issues or PRs
+- Push results to Slack / email / external channels
+- Fix root causes
 
-**4.2 识别重复失败模式**
+### 🚫 Do Not
 
-找出频繁失败的 Job 或步骤：
+- ❌ Trigger, retry, cancel, or modify any pipeline run
+- ❌ Edit CI configuration files
+- ❌ Auto-create issues / PR based on findings
+- ❌ Send reports to external channels without explicit request
+- ❌ Generate a report when `pipeline report` returns no data
+- ❌ Fabricate trend numbers when data is insufficient
 
-- 同一 Job 连续失败 ≥ 3 次 → 标记为「持续性失败」
-- 同一 Job 间歇性失败 → 标记为「flaky test」或「环境不稳定」
-- 不同 Job 在同一阶段集中失败 → 可能存在共同根因（如依赖变更）
+## Rationalization
 
-**4.3 失败根因推断**
+| Excuse | Reality |
+|--------|---------|
+| "Just retry the failed pipeline" | Read-only; never trigger |
+| "Fix the CI config while I'm at it" | Out of scope; analysis only |
+| "Auto-create an issue to track this" | Out of scope; user decides |
+| "Send report to the team chat" | Out of scope; user decides |
+| "User said fix it" | Redirect to `/gitflow-workflow` |
+| "Data's thin — I'll extrapolate" | Widen scope; never fabricate |
 
-根据失败模式推断可能的根因：
+## Red Flags
 
-- 新引入的依赖导致 build 失败
-- 数据库或外部服务变更导致测试失败
-- 并发执行导致资源竞争
-- 环境配置漂移导致部署失败
+- 🚩 "Fix the pipeline config" — refuse; analysis only
+- 🚩 "Retry all failures" — refuse; never trigger
+- 🚩 "Send this to Slack" — refuse without explicit request
+- 🚩 "Skip the trend analysis" — non-skippable
+- 🚩 "Just give a quick verdict" — all 3 dimensions required
+- 🚩 "No data, just guess" — refuse; widen scope
 
-### 步骤 5：分析耗时分布
+## Test Scenarios
 
-对流水线运行耗时进行分析：
+### Scenario 1: Happy Path
 
-**5.1 识别最长耗时**
+- **Given** Branch with ≥ 1 run in range
+- **When** "流水线最近老挂，帮我分析一下"
+- **Then** Report with 3 dimensions + prioritized suggestions; no pipeline modified
 
-找出耗时最长的 Pipeline 运行：
+### Scenario 2: Negative — Wants Fix
 
-- 记录最长耗时的 Pipeline ID
-- 通过 `gitflow-cli pipeline jobs` 分析其各 Job 耗时分布
-- 识别耗时最长的 Job（瓶颈步骤）
+- **Given** "帮我修一下流水线配置"
+- **When** Targets CI config edits
+- **Then** Do NOT load; redirect — skill is read-only
 
-```bash
-# 查看耗时最长的 Pipeline 的 Job 列表
-gitflow-cli pipeline jobs --pipeline-id <longest-pipeline-id>
-```
+### Scenario 3: Boundary — Tempted to Retry
 
-**5.2 耗时趋势**
+- **Given** Report shows repeated failures
+- **When** Claude considers retrying failed ones
+- **Then** Refuse; cite 🚫 Do Not; stick to report
 
-对比不同时段的平均耗时：
+### Scenario 4: Error — Empty Report
 
-- 平均耗时显著增长 → 可能是测试套件膨胀或依赖变慢
-- 对比 P50、P90、P95 耗时分布，识别异常值
+- **Given** New branch, no runs in range
+- **When** `pipeline report` returns empty
+- **Then** "No data — widen `--days` or change branch"; no empty report
 
-**5.3 优化建议方向**
+## Success Criteria
 
-| 耗时问题 | 建议方向 |
-|----------|----------|
-| 单个 Job 耗时过长 | 拆分任务、并行化 |
-| 依赖下载耗时 | 缓存依赖目录 |
-| 测试套件缓慢 | 拆分测试、跳过慢测试、使用更快的测试工具 |
-| 构建缓慢 | 增量编译、构建缓存 |
-
-### 步骤 6：生成分析报告
-
-汇总三个维度的分析结果，生成结构化报告：
-
-```markdown
-## 流水线分析报告
-
-**分支:** <branch>
-**分析周期:** 最近 <days> 天
-**分析时间:** <timestamp>
-
-### 概览
-
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 总运行次数 | <n> | |
-| 成功率 | <x%> | 🟢/🟡/🔴 |
-| 平均耗时 | <duration> | |
-| 最长耗时 | <duration> | Pipeline #<id> |
-| 趋势 | 📈/📉/➡️ | 简要说明 |
-
-### 成功率趋势
-
-<!-- 详细趋势分析 -->
-
-### 失败模式
-
-| 排名 | 失败 Job | 失败次数 | 失败类型 | 根因推断 |
-|------|----------|----------|----------|----------|
-| 1 | <job> | <n> | <type> | <root-cause> |
-
-### 耗时分析
-
-| 排名 | Job | 平均耗时 | 最大耗时 | 说明 |
-|------|-----|----------|----------|------|
-| 1 | <job> | <duration> | <duration> | 瓶颈步骤 |
-
-### 改进建议
-
-1. <!-- 按优先级排列的具体可操作建议 -->
-2. <!-- ... -->
-3. <!-- ... -->
-```
-
-### 步骤 7：输出改进建议
-
-根据分析结果，给出具体的改进建议：
-
-**建议优先级：**
-
-| 优先级 | 条件 | 示例 |
-|--------|------|------|
-| 🔴 紧急 | 成功率 < 80% 或 build 持续失败 | 立即修复编译错误 |
-| 🟠 高 | 成功率 80%~94% 或存在 flaky test | 修复不稳定测试 |
-| 🟡 中 | 耗时增长 > 20% 或 lint 频繁失败 | 优化构建缓存 |
-| 🟢 低 | 成功率 ≥ 95% 但仍有优化空间 | 拆分慢测试 |
-
-## 使用示例
-
-### 分析当前分支最近 7 天的流水线
-
-```bash
-# 获取当前分支的流水线报告
-gitflow-cli pipeline report --branch main --days 7
-
-# 获取流水线状态概览
-gitflow-cli pipeline status --branch main
-
-# 查看某个失败 Pipeline 的详情
-gitflow-cli pipeline jobs --pipeline-id 1234
-gitflow-cli pipeline logs --pipeline-id 1234
-```
-
-### 分析特定分支最近 30 天的流水线
-
-```bash
-gitflow-cli pipeline report --branch release/v1.3 --days 30
-```
-
-### 针对失败 Pipeline 的深入排查
-
-```bash
-# 查看最近流水线状态
-gitflow-cli pipeline status --branch main
-
-# 查看失败 Pipeline 的 Job 列表
-gitflow-cli pipeline jobs --pipeline-id 1234
-
-# 查看特定 Job 的日志
-gitflow-cli pipeline logs --pipeline-id 1234
-```
-
-### 分析报告输出示例
-
-```markdown
-## 流水线分析报告
-
-**分支:** main
-**分析周期:** 最近 7 天
-**分析时间:** 2026-07-02
-
-### 概览
-
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 总运行次数 | 42 | |
-| 成功率 | 88.1% | 🟡 关注 |
-| 平均耗时 | 12m 35s | |
-| 最长耗时 | 28m 12s | Pipeline #1198 |
-| 趋势 | 📉 | 较上周下降 5.2% |
-
-### 失败模式
-
-| 排名 | 失败 Job | 失败次数 | 失败类型 | 根因推断 |
-|------|----------|----------|----------|----------|
-| 1 | integration-test | 3 | test 失败 | 数据库连接超时 |
-| 2 | clippy-check | 1 | lint 失败 | 新增 clippy 规则 |
-| 3 | e2e-test | 1 | timeout | 页面加载超时 |
-
-### 改进建议
-
-1. 🔴 **紧急** — integration-test 连续 3 次失败，建议检查数据库连接配置和超时设置
-2. 🟠 **高** — 成功率呈下降趋势，建议排查本周引入的变更
-3. 🟡 **中** — e2e-test 超时，建议增加超时时间或优化测试数据加载
-```
-
-## 注意事项
-
-- 分析结果基于 `gitflow-cli pipeline report` 返回的数据，确保有足够的 Pipeline 运行记录
-- 成功率的质量等级阈值可根据团队实际情况调整
-- 对于 flaky test（间歇性失败的测试），建议单独标记并跟踪修复进度
-- 耗时分析应关注 P90/P95 而非仅看平均值，避免被极端值误导
-- 改进建议应按优先级排序，优先解决阻塞性问题
-- 如果流水线数据量较大，建议缩小时间范围（如 7 天）以提高分析效率
-- 对于多阶段流水线，应分阶段分析失败模式，而非笼统地看整体成功率
-- 分析完成后建议将报告分享给团队，共同关注流水线健康状况
+- [ ] All 3 dimensions analyzed (success-rate trend, failure pattern, duration)
+- [ ] Report rendered from `docs/templates/pipeline-report.md`
+- [ ] Grade + trend + priority follow thresholds
+- [ ] No pipeline triggered, modified, or retried
+- [ ] No CI config edited, no issue/PR auto-created, no external push
+- [ ] Empty data handled with scope-widening prompt, not fabricated report
+
+## See Also
+
+- `gitflow-precommit` — pre-commit checks correlate with pipeline failures
+- `gitflow-quality` — code quality gate ties into CI health
+- `gitflow-regression` — regression investigation on test failures
+- `gitflow-weekly-report` — cites pipeline analysis in weekly report
+- `superpowers:systematic-debugging` — systematic debug for pipeline failures
+- `docs/templates/pipeline-report.md` — report template
