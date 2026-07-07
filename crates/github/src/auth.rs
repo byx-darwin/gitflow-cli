@@ -188,6 +188,70 @@ impl AuthProvider for GitHubAuthProvider {
     }
 }
 
+impl gitflow_cli_core::AuthChecker for GitHubAuthProvider {
+    fn is_authenticated(&self) -> bool {
+        if std::env::var("GH_TOKEN").is_ok() {
+            return true;
+        }
+
+        let output = std::process::Command::new("gh")
+            .args(["auth", "status"])
+            .output();
+
+        matches!(output, Ok(out) if out.status.success())
+    }
+
+    fn check_status(&self) -> gitflow_cli_core::AuthCheckResult {
+        // 1. 检查环境变量
+        if std::env::var("GH_TOKEN").is_ok() {
+            return gitflow_cli_core::AuthCheckResult {
+                authenticated: true,
+                user: None,
+                reason: None,
+                hint: None,
+            };
+        }
+
+        // 2. 执行 gh auth status
+        let output = match std::process::Command::new("gh")
+            .args(["auth", "status"])
+            .output()
+        {
+            Ok(out) => out,
+            Err(e) => {
+                return gitflow_cli_core::AuthCheckResult {
+                    authenticated: false,
+                    user: None,
+                    reason: Some(format!("Failed to execute gh: {e}")),
+                    hint: Some("Install GitHub CLI: https://cli.github.com".into()),
+                };
+            }
+        };
+
+        // 3. 解析结果
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let user = parse_user_from_status(&stdout);
+
+            gitflow_cli_core::AuthCheckResult {
+                authenticated: true,
+                user,
+                reason: None,
+                hint: None,
+            }
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            gitflow_cli_core::AuthCheckResult {
+                authenticated: false,
+                user: None,
+                reason: Some(stderr.to_string()),
+                hint: Some("Run `gh auth login` to authenticate".into()),
+            }
+        }
+    }
+}
+
 /// 从 `gh auth status` 的输出中解析用户名。
 ///
 /// 支持两种 `gh` CLI 输出格式：
@@ -291,5 +355,25 @@ mod tests {
     fn test_should_parse_user_from_account_format_without_suffix() {
         let status = "Logged in to github.com account bob";
         assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
+    }
+
+    #[test]
+    fn test_auth_checker_is_authenticated_with_env_var() {
+        use gitflow_cli_core::AuthChecker;
+        temp_env::with_var("GH_TOKEN", Some("test_token"), || {
+            let provider = GitHubAuthProvider::new();
+            assert!(provider.is_authenticated());
+        });
+    }
+
+    #[test]
+    fn test_auth_checker_check_status_with_env_var() {
+        use gitflow_cli_core::AuthChecker;
+        temp_env::with_var("GH_TOKEN", Some("test_token"), || {
+            let provider = GitHubAuthProvider::new();
+            let result = provider.check_status();
+            assert!(result.authenticated);
+            assert!(result.reason.is_none());
+        });
     }
 }
