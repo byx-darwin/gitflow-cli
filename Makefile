@@ -14,7 +14,7 @@ build-release: ## Compile the project (release mode, optimized)
 
 local-install: ## Install gitflow-cli to ~/.cargo/bin (release build)
 	@echo "Installing gitflow-cli to ~/.cargo/bin..."
-	@cargo install --path . --force --locked
+	@cargo install --path apps/cli --force --locked
 	@echo "✓ Installed successfully"
 	@gitflow-cli --version
 
