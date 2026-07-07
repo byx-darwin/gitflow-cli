@@ -7,7 +7,7 @@ description: |
 
 # gitflow-issue-create
 
-Guides the user through structured issue creation — collects title (conventional-commit prefix), description (Markdown template), labels, and assignees, then invokes `gitflow-cli issue create` and returns the new issue URL. Does not edit, close, or triage existing issues.
+Interactive workflow: enforces conventional-commit title prefix, collects Markdown body with acceptance criteria, optionally attaches labels/assignees, confirms before invoking `gitflow-cli issue create`, returns URL. Does not edit, close, or triage.
 
 ## When to Use
 
@@ -16,19 +16,15 @@ Guides the user through structured issue creation — collects title (convention
 | create an issue | 创建 issue | user wants a new issue |
 | file a bug / feature | 提交 bug / 功能需求 | new work item |
 | open an issue | 新建 issue | manual creation |
-| close / edit issue | 关闭 / 编辑 issue | **do NOT fire** → `/gitflow-issue` |
+| close / edit issue | 关闭 / 编辑 | **do NOT fire** → `/gitflow-issue` |
 | triage backlog | 分流待办 | **do NOT fire** → `/gitflow-issue-triage` |
 
 ## Core Pattern
 
 ```bash
-# 1. Preconditions
 command -v gitflow-cli && gitflow-cli auth status
-# 2. Collect title (conventional-commit prefix) + body (Markdown template)
-# 3. Collect labels / assignees (optional)
-# 4. Confirm command
-gitflow-cli issue create --title "<title>" --body "<body>" --label <l> --assignee <u>
-# 5. Output issue URL
+# collect title + body + labels/assignees
+gitflow-cli issue create --title "<t>" --body "<b>" --label <l> --assignee <u>
 ```
 
 ## Quick Reference
@@ -44,117 +40,108 @@ gitflow-cli issue create --title "<title>" --body "<body>" --label <l> --assigne
 
 ### Preconditions
 
-- `command -v gitflow-cli` succeeds
-- `gitflow-cli auth status` succeeds — else run `/gitflow-auth`
+`command -v gitflow-cli` succeeds; `gitflow-cli auth status` succeeds — else `/gitflow-auth`.
 
 ### Step 1: Collect Title
 
-Prompt for a conventional-commit title: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`, `perf:`. Reject vague titles; require scope for non-chore types.
+Require conventional-commit prefix: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`, `perf:`. Reject vague titles.
 
 ### Step 2: Collect Description
 
-Prompt for Markdown body with sections: `## 背景`, `## 目标`, `## 验收标准` (checkbox `- [ ]`), `## 备注`. Confirm before proceeding.
+Markdown: `## 背景`, `## 目标`, `## 验收标准` (`- [ ]`), `## 备注`. Confirm before proceeding.
 
-### Step 3: Collect Labels (Optional)
+### Step 3: Labels / Assignees (Optional)
 
-Ask whether to attach labels. Common: `bug`, `enhancement`, `documentation`, `high-priority`, `good-first-issue`. Skip if user declines.
+Attach labels (`bug`, `enhancement`, `docs`, `high-priority`, `good-first-issue`) or assignees only on request.
 
-### Step 4: Collect Assignees (Optional)
+### Step 4: Confirm + Invoke
 
-Ask for assignee login names. Skip if user declines.
-
-### Step 5: Confirm + Invoke
-
-Show the assembled command. On confirmation, run `gitflow-cli issue create`. Success → output issue URL. Failure → Error Handling.
+Show assembled command. On confirmation run `gitflow-cli issue create`. Success → URL. Failure → Error Handling.
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| Auth failure | Stop. Direct to `/gitflow-auth`. |
-| Title rejected | Re-prompt; require conventional prefix. |
-| API 422 (validation) | Surface error; suggest field fix; stop. |
-| Network timeout | Surface error; no retry alone. |
+| Auth failure | Stop. → `/gitflow-auth`. |
+| Title rejected | Re-prompt. |
+| API 422 | Surface; suggest fix; stop. |
+| Timeout | Surface; no retry. |
 
 ## Responsibility
 
 ### ✅ In Scope
 
-- Collect title / body / labels / assignees interactively
-- Enforce conventional-commit title prefix
-- Confirm command before invoking
+- Collect title / body / labels / assignees
+- Enforce conventional-commit prefix
+- Confirm before invoking
 - Invoke `gitflow-cli issue create`; return URL
 
 ### ❌ Out of Scope
 
 - Edit / close / reopen → `/gitflow-issue`
-- Triage / prioritize → `/gitflow-issue-triage`
-- Auto-report from crash → `/gitflow-autoreport-bug`
-- Review existing issue → `/gitflow-issue-review`
+- Triage → `/gitflow-issue-triage`
+- Auto-report → `/gitflow-autoreport-bug`
+- Review → `/gitflow-issue-review`
 
 ### 🚫 Do Not
 
-- ❌ Invoke without user confirmation
-- ❌ Skip conventional-commit prefix enforcement
+- ❌ Invoke without confirmation
+- ❌ Skip prefix enforcement
 - ❌ Edit existing issues
-- ❌ Auto-add labels not requested by user
-- ❌ Retry on 5xx without surfacing to user
+- ❌ Auto-add labels not requested
+- ❌ Retry 5xx without surfacing
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
-| "Skip the prefix — user knows what they want" | Prefix enables auto-categorization; non-negotiable |
-| "Just create it, no need to confirm" | Mutation requires explicit confirmation |
-| "Add `bug` label — looks like a bug" | Labels are user-driven; never infer |
+| "Skip the prefix — user knows" | Prefix enables auto-categorization |
+| "Just create it, no confirm" | Mutation requires confirmation |
+| "Add `bug` — looks like a bug" | Labels user-driven; never infer |
 | "Auth was fine earlier" | Preconditions run every invocation |
 
 ## Red Flags
 
-- 🚩 "Skip the confirmation" — Refuse. Confirmation required.
-- 🚩 "Add a label while you're at it" — Refuse. Labels are user-driven.
-- 🚩 "Create and assign to me" without explicit ask — Refuse. Assign only if requested.
+- 🚩 "Skip confirmation" — Refuse. Required.
+- 🚩 "Add a label while at it" — Refuse. User-driven.
+- 🚩 "Assign to me" without explicit ask — Refuse.
 - 🚩 CLI fails → improvise — Follow Error Handling only.
 
 ## Test Scenarios
 
 ### Scenario 1: Happy Path
 
-- **Given** Auth valid, user provides title `fix(auth): token refresh loop`, body with acceptance criteria, label `bug`
+- **Given** Auth valid, title `fix(auth): token refresh loop`, body with criteria, label `bug`
 - **When** "create an issue"
-- **Then** Command confirmed; `issue create` invoked; issue URL returned.
+- **Then** Confirmed; `issue create` invoked; URL returned.
 
 ### Scenario 2: Negative — "close issue #42"
 
-- **Given** User wants to close an existing issue
 - **When** "close issue #42"
 - **Then** Do NOT load. Redirect to `/gitflow-issue`.
 
-### Scenario 3: Boundary — "create issue and assign it to alice"
+### Scenario 3: Boundary — assignee not requested
 
-- **Given** User did not explicitly request an assignee
 - **When** "create issue for the login bug"
-- **Then** Skill asks before assigning; refuses to infer assignee.
+- **Then** Asks before assigning; refuses to infer.
 
 ### Scenario 4: Error — `issue create` returns 422
 
-- **Given** Title missing conventional prefix rejected by API
-- **When** `issue create` invoked
-- **Then** Error surfaced; suggest prefix fix; stop.
+- **When** `issue create` invoked without prefix
+- **Then** Error surfaced; suggest fix; stop.
 
 ## Success Criteria
 
-- [ ] Issue URL returned to user
+- [ ] Issue URL returned
 - [ ] Title has conventional-commit prefix
 - [ ] Command confirmed before invocation
-- [ ] No labels/assignees added without explicit user request
-- [ ] No out-of-scope mutation performed
+- [ ] No labels/assignees added without request
 
 ## Common Mistakes
 
-- ❌ **Skipping prefix enforcement** — Always require `type(scope):` prefix.
-- ❌ **Inferring labels** — Labels are user-driven; never auto-add.
-- ❌ **Invoking without confirmation** — Mutation requires explicit approval.
+- ❌ **Skipping prefix enforcement** — Always require `type(scope):`.
+- ❌ **Inferring labels** — User-driven; never auto-add.
+- ❌ **Invoking without confirmation** — Mutation requires approval.
 
 ## Trigger Keywords
 
@@ -168,8 +155,8 @@ Show the assembled command. On confirmation, run `gitflow-cli issue create`. Suc
 
 ## See Also
 
-- `/gitflow-issue` — close, reopen, edit, comment on issues
-- `/gitflow-issue-review` — analyze issue completeness
-- `/gitflow-issue-triage` — batch classify and prioritize
-- `/gitflow-autoreport-bug` — auto-report from crash artifacts
-- `docs/superpowers/templates/skill-conventions.md` — skill conventions
+- `/gitflow-issue` — close, reopen, edit, comment
+- `/gitflow-issue-review` — analyze completeness
+- `/gitflow-issue-triage` — batch classify
+- `/gitflow-autoreport-bug` — auto-report from crashes
+- `docs/superpowers/templates/skill-conventions.md` — conventions
