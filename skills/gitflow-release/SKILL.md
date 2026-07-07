@@ -1,102 +1,152 @@
 ---
 name: gitflow-release
-description: gitflow-cli 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除
+description: |
+  Use when the user needs to manage releases: create, list, view, edit, upload/download assets, or delete a release on GitHub/GitLab/GitCode.
+  当用户需要管理 release（创建、列表、查看、编辑、上传/下载资源、删除发布）时使用。
 ---
 
-# gitflow-cli release
+# gitflow-release
 
-封装 `gitflow-cli release` 命令族，用于在 GitHub/GitLab/GitCode 等平台上管理版本发布（Release）。
+## Overview
 
-## 命令概览
+Release CRUD (create, list, view, edit, upload/download, delete). Does NOT decide versions, generate changelogs, or drive publish workflows.
 
-| 子命令 | 说明 |
-|--------|------|
-| `create` | 创建新 Release |
-| `list` | 列出仓库的 Release 列表 |
-| `view` | 查看指定 Release 的详情 |
-| `edit` | 编辑 Release 元数据 |
-| `upload` | 上传资源文件到 Release |
-| `download` | 下载 Release 的资源文件 |
-| `delete` | 删除指定 Release |
+## When to Use
 
-## 参数说明
+| English | 中文 | Context |
+|---------|------|---------|
+| create release | 创建 release | publish a version |
+| upload asset | 上传资源 | attach binary to release |
+| download release | 下载 release | fetch release binary |
+| list / edit / delete release | 列表/编辑/删除 | lifecycle management |
+| prerelease / draft | 预发布 / 草稿 | RC or draft release |
+| changelog / version decision | 变更日志 / 版本决策 | **NOT** → `gitflow-release-helper` |
 
-### `gitflow-cli release create`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `--tag` | string | 是 | 关联的 Git tag 名 |
-| `--name` | string | 否 | Release 标题 |
-| `--body` | string | 否 | Release 正文（Markdown） |
-| `--draft` | flag | 否 | 以草稿方式创建 |
-| `--prerelease` | flag | 否 | 标记为预发布版本 |
-| `--target` | string | 否 | 目标 commitish（默认当前分支 HEAD） |
-
-### `gitflow-cli release list`
-
-无需额外参数。
-
-### `gitflow-cli release view`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-
-### `gitflow-cli release edit`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-| `--name` | string | 否 | 新标题 |
-| `--body` | string | 否 | 新正文（Markdown） |
-| `--draft` | flag | 否 | 切换为草稿状态 |
-| `--prerelease` | flag | 否 | 切换为预发布状态 |
-
-### `gitflow-cli release upload`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-| `--file` | string | 是 | 本地文件路径 |
-| `--asset-name` | string | 否 | 资源显示名（默认使用文件名） |
-
-### `gitflow-cli release download`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-| `--asset` | string | 是 | 资源文件名 |
-| `--dest` | string | 否 | 本地目标路径（默认当前目录） |
-
-### `gitflow-cli release delete`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<tag>` | string | 是 | Release 的 tag 名 |
-
-## 使用示例
-
-### 创建正式版本的 Release
+## Core Pattern
 
 ```bash
-gitflow-cli release create --tag v1.0.0 --name "Version 1.0.0" --body "## 新特性\n- 用户认证\n- Issue 管理"
+gitflow-cli auth status                     # 1. verify auth
+gitflow-cli release view <tag>              # 2. verify target
+gitflow-cli release <sub> <args>            # 3. execute
+gitflow-cli release view <tag>              # 4. verify outcome
 ```
 
-### 创建预发布草稿版本
+## Quick Reference
 
-```bash
-gitflow-cli release create --tag v2.0.0-rc1 --name "v2.0 Release Candidate 1" --draft --prerelease --target main
-```
+| Goal | Command |
+|------|---------|
+| Create | `gitflow-cli release create --tag <tag> [--name <n>] [--body <b>] [--draft] [--prerelease] [--target <ref>]` |
+| List | `gitflow-cli release list` |
+| View | `gitflow-cli release view <tag>` |
+| Edit | `gitflow-cli release edit <tag> [--name <n>] [--body <b>] [--draft] [--prerelease]` |
+| Upload | `gitflow-cli release upload <tag> --file <path> [--asset-name <n>]` |
+| Download | `gitflow-cli release download <tag> --asset <name> [--dest <dir>]` |
+| Delete | `gitflow-cli release delete <tag>` |
 
-### 上传编译产物到 Release
+## Implementation
 
-```bash
-gitflow-cli release upload v1.0.0 --file ./dist/app-linux-amd64.tar.gz --asset-name "app-linux-amd64-v1.0.0.tar.gz"
-```
+### Preconditions
 
-### 下载 Release 资源并编辑元数据
+`command -v gitflow-cli`, `git rev-parse --is-inside-work-tree`, verified auth via `gitflow-cli auth status`.
 
-```bash
-gitflow-cli release download v1.0.0 --asset "app-linux-amd64-v1.0.0.tar.gz" --dest ./downloads/
-gitflow-cli release edit v1.0.0 --body "## 更新\n修复了安装脚本问题"
-```
+### Steps
+
+1. **Auth guard.** `gitflow-cli auth status` — failure → "Run `gitflow-cli auth login`", stop.
+2. **Target check** (edit/delete/upload only). `gitflow-cli release view <tag>` — 404 → "Not found", stop.
+3. **Execute** user intent against Quick Reference. Delete & non-draft publish **require explicit user confirmation** (see Red Flags).
+4. **Verify.** `release view <tag>` (or `list`) — confirm state, return URL.
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `401` | "Run `auth login`", stop |
+| `404` | "Release not found", stop |
+| `409` (tag exists) | "Tag conflict — use different tag or delete existing first", stop |
+| Timeout | Retry once, then "Network error", stop |
+| Upload file missing | "File not found", stop |
+
+## Responsibility
+
+### ✅ In Scope
+
+CRUD + auth/target checks + confirm destructive ops.
+
+### ❌ Out of Scope
+
+Version decisions / changelog → `gitflow-release-helper`. Publish workflow → `gitflow-release-helper`. Auth → `gitflow-auth`.
+
+### 🚫 Do Not
+
+- ❌ Delete without explicit confirmation
+- ❌ Overwrite asset
+- ❌ Publish non-draft without confirmation
+- ❌ Modify tags
+- ❌ Decide versions / changelog
+
+## Rationalization
+
+| Excuse | Reality |
+|--------|---------|
+| "Skip confirmation — user wants publish" | Publish/delete always require confirmation |
+| "Asset matches — safe" | Overwriting requires confirmation |
+| "Tag exists — must be stale" | Ask before delete |
+| "Release handles this" | Helper drives workflow; this executes CRUD |
+| "Quick delete — busy" | Irreversible ops need confirmation |
+
+## Red Flags
+
+- 🚩 "Delete release" — Require confirmation. Irreversible.
+- 🚩 "Overwrite asset" — Require confirmation. Destructive.
+- 🚩 "Skip confirmation" — Refuse. Cite §Do Not. Stop.
+- 🚩 "Publish without asking" — Refuse. Confirm first.
+- 🚩 "Skip precondition" — Non-skippable. Stop.
+
+## Test Scenarios
+
+### 1: Happy Path
+
+- **Given** Auth OK, tag absent, user confirms — **When** "Create release v1.0.0" — **Then** create → view → URL returned
+
+### 2: Negative
+
+- **Given** "Generate changelog and decide version" — **When** No CRUD keyword — **Then** Does NOT load → `gitflow-release-helper`
+
+### 3: Boundary
+
+- **Given** Release exists — **When** "Delete it" without user confirming — **Then** Claude asks, refuses `release delete` until confirmed
+
+### 4: Error
+
+- **Given** Not authenticated — **When** `auth status` → `401` — **Then** "Run `gitflow-cli auth login`", stop
+
+## Success Criteria
+
+- [ ] URL returned
+- [ ] Delete/publish: explicit confirmation
+- [ ] Preconditions verified
+- [ ] Error recovery verbatim
+- [ ] No version/changelog decisions
+
+## Common Mistakes
+
+- ❌ **Deleting without confirmation** — Irreversible. Always ask.
+- ❌ **Creating release on existing tag** — Tag conflict. Check first.
+- ❌ **Generating changelog** — Out of scope → `gitflow-release-helper`.
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| create release | 创建 release |
+| upload / download asset | 上传/下载资源 |
+| list releases | 列出 releases |
+| edit release | 编辑发布 |
+| delete release | 删除 release |
+| prerelease / draft | 预发布 / 草稿 |
+
+## See Also
+
+- `gitflow-release-helper` — version decision + changelog + publish workflow
+- `gitflow-auth` — authentication prerequisite
+- `docs/superpowers/templates/skill-conventions.md` — conventions
