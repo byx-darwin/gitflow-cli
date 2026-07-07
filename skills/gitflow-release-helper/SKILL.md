@@ -1,311 +1,151 @@
 ---
 name: gitflow-release-helper
-description: 发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gitflow-cli release create 创建发布并输出 release URL
+description: |
+  Use when the user wants to create a new release with auto-generated release notes from conventional commits since the last tag.
+  当用户想基于上次 tag 以来的 conventional commits 自动生成 Release Note 并创建发布时使用。
 ---
 
-# gitflow-cli release helper 工作流
+# gitflow-release-helper
 
-引导用户完成版本发布流程。通过分析自上次 release 以来的 git 提交历史，按照 conventional commits 规范自动分组生成 Release Note，调用 `gitflow-cli release create` 命令创建发布，并输出 release URL 供团队确认。
+Orchestrates the release workflow: infers next SemVer via conventional commits, generates release notes, calls `/gitflow-release` to create the release, emits the URL. Does not perform CRUD on existing releases.
 
-## 工作流
+## When to Use
 
-### 步骤 1：确定版本号
+| English | 中文 | Context |
+|---------|------|---------|
+| create release / publish version | 发布版本 | user asks to cut a release |
+| bump version / next version | 升级版本 | user asks what next version should be |
+| release notes / changelog | 发布说明 | user wants tag-to-HEAD notes |
+| delete / edit release | 删除/编辑 release | **do NOT fire** → `/gitflow-release` |
 
-首先需要确定本次发布的版本号。参考以下方式：
-
-#### 1.1 获取当前最新版本
-
-查看当前最新的 release tag：
-
-```bash
-git describe --tags --abbrev=0
-```
-
-或查看所有 tags：
+## Core Pattern
 
 ```bash
-git tag --sort=-v:refname | head -20
+command -v gitflow-cli && git rev-parse --git-dir
+last=$(git describe --tags --abbrev=0)
+git log "$last"..HEAD --pretty=format:"%h %s" --no-merges
+# infer → confirm → create
+gitflow-cli release create --tag "$next" --notes-file /tmp/rel.md
+rm -f /tmp/rel.md
 ```
 
-#### 1.2 根据变更类型推断版本升级
+## Quick Reference
 
-分析自上次 release 以来的 commit 类型，按照 SemVer 规则推断版本升级：
+| Goal | Command |
+|------|---------|
+| Latest tag | `git describe --tags --abbrev=0` |
+| Commits since tag | `git log <tag>..HEAD --pretty=format:"%h %s" --no-merges` |
+| Create release | `gitflow-cli release create --tag <v> --notes-file <path>` |
+| Draft release | `gitflow-cli release create --tag <v> --draft --notes-file <path>` |
 
-| Commit 类型 | 版本升级 | 示例 |
-|-------------|----------|------|
-| `feat!:` 或 `BREAKING CHANGE` | Major（X.0.0） | 1.0.0 → 2.0.0 |
-| `feat:` | Minor（x.Y.0） | 1.2.0 → 1.3.0 |
-| `fix:`, `perf:`, `refactor:` | Patch（x.y.Z） | 1.2.3 → 1.2.4 |
-| `docs:`, `chore:`, `ci:`, `test:` | 不触发发布或 Patch | 视项目策略 |
+## Implementation
 
-#### 1.3 确认版本号
+### Preconditions
 
-向用户确认本次发布的版本号：
+- `command -v gitflow-cli` installed
+- `git rev-parse --git-dir` inside a repo
+- `gitflow-cli auth status` valid
+- On `main` or `release/*`
+- CI green (if `.github/workflows` exists) — `gitflow-cli pipeline status`
 
-```
-当前版本: v1.2.3
-自上次发布以来包含 breaking change（feat!: ...）
-建议新版本: v2.0.0
-请确认版本号，或输入自定义版本号：
-```
+### Step 1 — Determine Next Version
 
-### 步骤 2：分析 Git Log 获取变更
+`git describe --tags --abbrev=0` → `<last>` (or repo root if no tag). Pull commits; infer: `feat!`/breaking → major; `feat` → minor; `fix`/`perf`/`refactor` → patch. **Present inference — wait for explicit yes.**
 
-获取自上次 release 以来的所有 commits：
+### Step 2 — Release Notes
+
+Group commits by conventional type; breaking changes pinned top. Write to `/tmp/rel.md`. Show; await approval.
+
+### Step 3 — Create Release
 
 ```bash
-git log <last-tag>..HEAD --pretty=format:"%h %s" --no-merges
+gitflow-cli release create --tag <v> --notes-file /tmp/rel.md
 ```
 
-或使用 gitflow 提供的命令（如支持）：
+Success → emit URL. Failure → Error Handling table. Do not improvise.
 
-```bash
-gitflow-cli release changelog --since <last-tag>
-```
+### Step 4 — Cleanup
 
-### 步骤 3：按 Conventional Commits 分组生成 Release Note
+`rm -f /tmp/rel.md`. Present version, tag, URL.
 
-将 commits 按 conventional commits 类型分组，生成结构化的 Release Note。
+## Error Handling
 
-**分组规则：**
+| Error | Recovery |
+|-------|----------|
+| No tags | Use repo root as baseline; continue |
+| CI not green | Refuse; offer `--draft` only on explicit user request |
+| Tag exists | Refuse; ask for different version |
+| API failure | Preserve `/tmp/rel.md`; emit error; stop |
 
-| Commit 前缀 | Release Note 分组 | 说明 |
-|-------------|-------------------|------|
-| `feat` | ✨ Features | 新功能 |
-| `fix` | 🐛 Bug Fixes | 缺陷修复 |
-| `perf` | ⚡ Performance | 性能优化 |
-| `refactor` | ♻️ Code Refactoring | 代码重构 |
-| `docs` | 📝 Documentation | 文档变更 |
-| `test` | ✅ Tests | 测试相关 |
-| `ci` / `build` | 🔧 CI / Build | 构建和 CI 变更 |
-| `chore` | 🧹 Chores | 杂项维护 |
+## Responsibility
 
-**Breaking Changes** 单独置顶，无论属于哪种类型。
+- ✅ Infer SemVer, generate notes, create release, emit URL
+- ❌ Edit/delete releases → `/gitflow-release` · Tag management → manual `git` · Fixing CI → `/gitflow-workflow`
+- ❌ Do not: decide version without confirmation · run unattended in CI/CD · skip draft gate · delete/move tags · delete any released release
 
-**Release Note 模板：**
+## Rationalization Excuses
 
-```markdown
-# Release <version>
+| Excuse | Reality |
+|--------|---------|
+| "User isn't here, I'll pick the version" | Explicit confirmation required — always wait |
+| "CI is flaky, skip the check" | Gate is non-negotiable; offer `--draft` instead |
+| "Let me also delete the old release" | Out of scope; never mutate existing releases |
 
-## ⚠️ Breaking Changes
+## Red Flags
 
-- <breaking change 描述> (<commit-hash>)
+- 🚩 "auto-publish" / "release without asking" — refuse; confirmation mandatory
+- 🚩 "skip the CI check" — refuse; cite Preconditions
+- 🚩 "just pick the version" — present inference, require explicit yes
+- 🚩 "release from this feature branch" — refuse; only `main` or `release/*`
 
-## ✨ Features
+## Trigger Keywords
 
-- <feature 描述> (<commit-hash>)
-  - <相关 issue 链接，如有>
+| English | 中文 |
+|---------|------|
+| create release | 创建发布 |
+| publish version | 发布版本 |
+| release notes | 发布说明 |
+| bump version | 升级版本 |
+| changelog | 变更日志 |
+| breaking change | 破坏性变更 |
 
-## 🐛 Bug Fixes
+## Test Scenarios
 
-- <fix 描述> (<commit-hash>)
+### S1 Happy Path
+- **Given** authed, on `main`, tag `v1.2.0`, commits `feat:`/`fix:`/`docs:`
+- **When** user says "create a new release"
+- **Then** proposes `v1.3.0`, shows grouped notes, waits for confirmation, runs `release create`, emits URL
 
-## ⚡ Performance
+### S2 Negative
+- **Given** "delete v1.0.0 release"
+- **When** utterance matches delete/edit intent
+- **Then** does NOT load this skill; redirects to `/gitflow-release`
 
-- <perf 描述> (<commit-hash>)
+### S3 Boundary
+- **Given** user says "publish without confirmation"
+- **When** user bypasses confirmation gate
+- **Then** refuses, cites `🚫`, stops
 
-## ♻️ Code Refactoring
+### S4 Error
+- **Given** `auth status` returns `401`
+- **When** `release create` runs
+- **Then** runs `auth login --platform <p>`, retries once; if still failing preserves `/tmp/rel.md`, stops. Does NOT improvise with `gh release create`.
 
-- <refactor 描述> (<commit-hash>)
+## Success Criteria
 
-## 📝 Documentation
+- [ ] Version proposed and confirmed before any mutation
+- [ ] Release created via `gitflow-cli release create` with URL returned
+- [ ] No out-of-scope action (no tag deletion, no release edit)
+- [ ] Temp file cleaned up after success; preserved on failure
 
-- <docs 描述> (<commit-hash>)
+## Common Mistakes
 
-## 🔧 CI / Build
+- ❌ **Auto-selecting the version** — always present inference and wait for explicit confirmation
+- ❌ **Skipping CI gate because "it's just docs"** — gate is unconditional; offer `--draft` if user insists
+- ❌ **Using `gh release create` when gitflow-cli fails** — follow Error Handling; do not improvise
 
-- <ci/build 描述> (<commit-hash>)
+## See Also
 
-## 📊 Statistics
-
-- **Total commits:** <n>
-- **Contributors:** <list>
-- **Files changed:** <n>
-```
-
-### 步骤 4：确认 Release Note
-
-向用户展示生成的 Release Note，确认内容是否准确。用户可以：
-
-- 修改或补充内容
-- 调整分组
-- 添加额外的发布说明（如升级指南、已知问题）
-
-### 步骤 5：创建 Release
-
-调用 `gitflow-cli release create` 创建发布：
-
-```bash
-gitflow-cli release create --tag <vX.Y.Z> --notes "<release-note>"
-```
-
-如果 Release Note 内容较长，可以使用 `--notes-file` 参数从文件读取：
-
-```bash
-cat > /tmp/release-note.md << 'EOF'
-<!-- Release Note 内容 -->
-EOF
-
-gitflow-cli release create --tag <vX.Y.Z> --notes-file /tmp/release-note.md
-```
-
-### 步骤 6：输出 Release URL
-
-解析命令输出，提取并展示 Release URL：
-
-```markdown
-## ✅ Release 创建成功！
-
-**版本:** <vX.Y.Z>
-**Tag:** <tag-name>
-**Release URL:** <url>
-**Release Note:** 已附加到 release 页面
-```
-
-### 步骤 7：清理临时文件
-
-删除临时的 Release Note 文件：
-
-```bash
-rm -f /tmp/release-note.md
-```
-
-## 使用示例
-
-### 发布一个 minor 版本（包含新功能和修复）
-
-```bash
-# 查看最新版本
-git describe --tags --abbrev=0
-# 输出: v1.2.3
-
-# 获取自上次发布以来的 commits
-git log v1.2.3..HEAD --pretty=format:"%h %s" --no-merges
-# 输出:
-# a1b2c3d feat(cli): add --dry-run flag to pr create
-# e4f5g6h fix(auth): handle expired token gracefully
-# i7j8k9l docs: update CLAUDE.md with new lint rules
-# m0n1o2p feat(api): support batch issue creation
-# q3r4s5t chore(deps): bump serde from 1.0.190 to 1.0.195
-
-# 分析：包含 2 个 feat，建议 minor 升级 → v1.3.0
-
-# 生成 Release Note
-cat > /tmp/release-note.md << 'EOF'
-# Release v1.3.0
-
-## ✨ Features
-
-- add --dry-run flag to pr create (a1b2c3d)
-- support batch issue creation (m0n1o2p)
-  - resolves #42
-
-## 🐛 Bug Fixes
-
-- handle expired token gracefully (e4f5g6h)
-  - resolves #38
-
-## 📝 Documentation
-
-- update CLAUDE.md with new lint rules (i7j8k9l)
-
-## 🧹 Chores
-
-- bump serde from 1.0.190 to 1.0.195 (q3r4s5t)
-
-## 📊 Statistics
-
-- **Total commits:** 5
-- **Contributors:** @alice, @bob
-- **Files changed:** 12
-EOF
-
-# 创建 release
-gitflow-cli release create --tag v1.3.0 --notes-file /tmp/release-note.md
-# 输出: Release created: https://github.com/org/repo/releases/tag/v1.3.0
-
-rm -f /tmp/release-note.md
-```
-
-### 发布一个包含 Breaking Change 的 major 版本
-
-```bash
-git log v1.3.0..HEAD --pretty=format:"%h %s" --no-merges
-# 输出:
-# x1y2z3a feat!: redesign authentication API
-# b4c5d6e fix(auth): correct token refresh logic
-
-# 有 breaking change → major 升级 → v2.0.0
-
-cat > /tmp/release-note.md << 'EOF'
-# Release v2.0.0
-
-## ⚠️ Breaking Changes
-
-- **redesign authentication API**: The `Auth::login` method now returns `Result<Session>` instead of `Option<Session>`. All callers need to handle the new error type. (x1y2z3a)
-
-  **Migration guide:**
-  ```rust
-  // Before:
-  if let Some(session) = auth.login(&credentials) { ... }
-
-  // After:
-  match auth.login(&credentials) {
-      Ok(session) => { ... }
-      Err(e) => eprintln!("Login failed: {e}"),
-  }
-  ```
-
-## 🐛 Bug Fixes
-
-- correct token refresh logic (b4c5d6e)
-
-## 📊 Statistics
-
-- **Total commits:** 2
-- **Contributors:** @alice
-- **Files changed:** 8
-EOF
-
-gitflow-cli release create --tag v2.0.0 --notes-file /tmp/release-note.md
-rm -f /tmp/release-note.md
-```
-
-### 快速发布一个 patch 版本（仅修复）
-
-```bash
-git log v2.0.0..HEAD --pretty=format:"%h %s" --no-merges
-# 输出:
-# f1g2h3i fix(cli): prevent crash on empty input
-
-# 仅 fix → patch 升级 → v2.0.1
-
-cat > /tmp/release-note.md << 'EOF'
-# Release v2.0.1
-
-## 🐛 Bug Fixes
-
-- prevent crash on empty input (f1g2h3i)
-  - resolves #55
-
-## 📊 Statistics
-
-- **Total commits:** 1
-- **Contributors:** @bob
-- **Files changed:** 2
-EOF
-
-gitflow-cli release create --tag v2.0.1 --notes-file /tmp/release-note.md
-rm -f /tmp/release-note.md
-```
-
-## 注意事项
-
-- 版本号必须遵循 SemVer 规范，breaking change 必须 major 升级
-- Release Note 中的 breaking changes 应放在最前面，并提供迁移指南
-- 每个 commit 条目应附上 commit hash（短格式即可），便于追溯
-- 如果 commit 关联了 Issue，应在条目中附上 issue 链接
-- 对于非 conventional commit 格式的提交，应根据实际内容手动归类
-- Release Note 内容较长时，优先使用 `--notes-file` 参数从文件读取，避免 shell 转义问题
-- 创建 release 前应确保所有 CI 检查通过、main 分支处于最新状态
-- 发布后应通知团队成员和相关利益方
+- `/gitflow-release` — CRUD on existing releases (edit, delete, upload, download)
+- `/gitflow-auth` — authentication prerequisite
+- `docs/superpowers/templates/skill-conventions.md` — template conventions this skill conforms to
