@@ -135,9 +135,7 @@ impl From<CommentApiResponse> for CommentData {
                 id: String::new(),
             },
             created_at: chrono::NaiveDateTime::parse_from_str(&api.created_at, "%Y-%m-%d %H:%M:%S")
-                .ok()
-                .map(|ndt| ndt.and_utc())
-                .unwrap_or_else(Utc::now),
+                .map_or_else(|_| Utc::now(), |ndt| ndt.and_utc()),
         }
     }
 }
