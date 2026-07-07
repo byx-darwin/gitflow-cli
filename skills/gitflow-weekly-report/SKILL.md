@@ -1,180 +1,238 @@
 ---
 name: gitflow-weekly-report
 description: |
-  生成研发周报，扫描多个 Git 仓库的提交记录，按照统一模板输出本周工作复盘（纯文本、无表格）。
-  支持指定截止时间和项目列表，自动合并跨天提交。跨项目工具，推荐用户级安装。
-
-  TRIGGER when: 用户要生成周报、查看本周提交汇总、统计多项目工作量、
-  或说 "weekly report"、"周报"、"本周工作总结"、"上周做了什么"、
-  "生成研发周报"、"多项目周报"。
+  Use when the user asks to generate a weekly work report, summarize recent
+  commits, review weekly output, or says "周报", "weekly report", "本周工作",
+  "上周做了什么", "commit recap", "weekly summary", "多项目周报".
 ---
 
-# 研发周报生成
+# gitflow-weekly-report
 
-> **安装建议：** 推荐使用用户级安装，跨项目可用：
-> ```bash
-> gitflow-cli skills install -g gitflow-weekly-report
-> ```
+Summarizes commits across one or more Git repositories into a plain-text weekly
+report (Chinese output, no tables). Does NOT modify repositories, does NOT read
+files outside `.git/`, does NOT evaluate developer performance.
 
-扫描一个或多个 Git 仓库，汇总指定时间段内的提交记录，按项目分组生成结构化的研发周报。输出采用纯文本格式，不使用表格。
+## When to Use
 
-## 输入说明
+| English | 中文 | Trigger Context |
+|---------|------|-----------------|
+| weekly report / weekly summary / commit recap | 周报 / 本周工作总结 / 提交汇总 | user asks to summarize recent work |
+| week in review / sprint summary / work digest | 工作量统计 / 项目周报 | user lists project paths + date range |
+| "帮我整理一下这周做什么" / "this week's commits" | 上周做了什么 / 帮我整理一下工作 | consolidated weekly output |
 
-用户应提供：
-- **截止时间**：周报统计截止时间，格式如 "6月5日 18:00" 或 "2026-06-05T18:00"。未指定时默认本周五 18:00。
-- **项目路径**：一个或多个项目的本地路径。未指定时默认当前项目。
-- **是否包含周日**：是否将截止时间之后（含周日）的提交也纳入统计。默认否。
+Do NOT trigger for: creating issues/PRs, code review, evaluating developer
+performance, or inspecting working tree contents.
 
-## 工作流程
-
-### 第一步：确定时间范围
-
-1. 根据用户提供的截止时间，解析出 `--since` 和 `--until` 参数。
-2. 如果用户要求包含周日，将 `--until` 延长到下周一 00:00。
-3. `--since` 默认为截止时间所在周的周一（ISO week），或用户指定的开始日期。
-
-### 第二步：扫描各项目 Git 日志
-
-对每个项目执行：
+## Core Pattern
 
 ```bash
-# 获取带日期的提交日志
-git log --format="%h %ai %s" --since="<start>" --until="<end>"
+# 1. Validate each path is a git repo
+git -C <path> rev-parse --is-inside-work-tree
 
-# 统计提交数
-git log --format="%h" --since="<start>" --until="<end>" | wc -l
+# 2. Fetch commits in range (read-only)
+git -C <path> log --format="%h %ai %s" --since="<start>" --until="<end>"
 
-# 可选：变更统计
-git diff --stat --since="<start>" --until="<end>" | tail -1
+# 3. Count (wc, must match git output)
+git -C <path> log --format="%h" --since="<start>" --until="<end>" | wc -l
 ```
 
-注意事项：
-- 年份务必匹配实际提交年份（不要用 2025 去查 2026 的数据）。
-- 如果项目有多个分支，默认使用当前分支（通常 master/main）。
-- 仅统计已提交的内容，不含未暂存的工作区修改。
+## Quick Reference
 
-### 第三步：分类汇总
+| Goal | Command |
+|------|---------|
+| Scan one repo | `git log --format="%h %ai %s" --since="..." --until="..."` |
+| Scan each supplied path | `for p in $paths; do git -C "$p" log ... done` |
+| Count commits | `git log --format="%h" --since="..." --until="..." \| wc -l` |
 
-按以下维度对提交进行分类：
-- **功能开发**：`feat:` 前缀或新增功能相关的提交
-- **Bug 修复**：`fix:` 前缀或修复相关提交
-- **重构**：`refactor:` 前缀
-- **文档**：`docs:` 前缀
-- **CI/质量**：`chore:`、`ci:`、`test:` 前缀及 clippy/fmt/test 相关
-- **其他**：无法归类的提交
+## Implementation
 
-分类时尽量合并同类项，用一句话概括一组相关提交的完成内容。不需要逐条列出每个提交，而是在某个功能方向下用一句话总结。
+### Preconditions
 
-### 第四步：生成报告
+- At least one supplied path exists and is a git work tree — verified via
+  `git -C <path> rev-parse --is-inside-work-tree`.
+- `--since` / `--until` derive from the user's deadline (default: ISO Mon–Fri
+  of the deadline's year/week; extended to Sunday 23:59 only if user asks).
+- Year must match the deadline year — never guess.
+- Output language: Chinese.
 
-按以下模板输出（纯文本，**不使用表格**）：
+### Step 1 — Resolve Time Range
 
-```
-# 研发本周工作复盘（<日期范围>）
+1. Parse the deadline expression (e.g. "6月5日 18:00", "2026-06-05T18:00").
+2. Set `--since` = ISO Monday 00:00 of the deadline's week (or user override).
+3. Set `--until` = deadline; extend to next Monday 00:00 only if user asks for
+   Sunday inclusion.
+4. Unparsable date → warn, stop. Do NOT invent a date.
+
+### Step 2 — Scan Repos (read-only)
+
+For each user-supplied path, in order:
+
+1. `git -C <path> rev-parse --is-inside-work-tree` → on failure, warn and skip.
+2. `git -C <path> log --format="%h %ai %s" --since="…" --until="…"`.
+3. `git -C <path> log --format="%h" --since="…" --until="…" | wc -l` → exact
+   count. Never estimate.
+
+Constraints:
+
+- Write commands (commit/push/rebase/merge) are forbidden.
+- Files outside `.git/` must never be read.
+- Default branch = current checked-out branch (usually `master`/`main`).
+
+### Step 3 — Classify
+
+Map each commit to exactly one bucket:
+
+- **功能开发** — `feat:` prefix or new-feature intent
+- **Bug 修复** — `fix:` prefix or bug-fix intent
+- **重构** — `refactor:` prefix
+- **文档** — `docs:` prefix
+- **CI/质量** — `chore:`, `ci:`, `test:`, clippy/fmt
+- **其他** — unclassified
+
+Merge same-direction commits into one bullet; do not list every commit.
+
+### Step 4 — Render
+
+Use `docs/templates/weekly-report.tmpl`. Hard constraints:
+
+- All counts must equal `git log | wc -l` for that repo.
+- All hashes must exist verbatim in `git log`.
+- 未完成事项: ONLY surface items whose commit message contains an explicit
+  WIP/TODO/unfinished marker. Never infer from commit volume.
+- 下周工作建议: ONLY extrapolate from explicit commit-message context. Never
+  invent a suggestion.
+- Zero performance-evaluation language. No "偏少", "高产", "效率高", etc.
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| Path does not exist | Warn, skip that path |
+| Path is not a git repo | Warn, skip that path |
+| No commits in range | Emit template, write "本周暂无提交" |
+| Deadline unparsable | Warn, stop |
+| Commit message leaks sensitive data | Redact pII / username before rendering |
+
+## Responsibility
+
+### ✅ In Scope
+
+- Run read-only `git log` / `git diff --stat` against user-supplied paths.
+- Classify commits; merge same-direction work; render plain-text report.
+
+### ❌ Out of Scope
+
+- Reading any file outside `.git/`.
+- Modifying any repo (no commit / push / rebase / merge).
+- Creating issues, PRs, or comments.
+- Evaluating any developer's performance, velocity, or output quality.
+- Predicting next week beyond what commit messages explicitly foreshadow.
+
+### 🚫 Do Not
+
+- ❌ 估算、编造提交数、日期、hash——全部来自 `git log`。
+- ❌ 基于提交频率或数量评估开发者表现。
+- ❌ 基于提交频率推断"未完成事项"或"收尾中"——仅引用 commit message
+  中的显式 WIP/TODO 标记。
+- ❌ 读取 `.git` 之外的任何文件。
+- ❌ 执行任何 git 写操作。
+- ❌ 将报告内容发送到外部服务。
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "用户没说时间范围，我可以推算一个" | `--since` / `--until` 必须从用户输入或 ISO-week 规则推导，不可假设"前 3 天" |
+| "提交偏少的项目可以写'收尾中'" | 除非 commit message 显式标注 WIP/TODO，否则不推断 |
+| "可以从 README 推断完成事项" | 禁止读取 `.git` 之外的文件 |
+| "周报需要有深度，我加个评价" | 不生成任何绩效评价性文字 |
+
+## Red Flags
+
+- 🚩 用户要求"评估某人工作表现"或"比较 A/B 产出"。
+- 🚩 用户要求扫描整个主目录或含大量未知项目的目录。
+- 🚩 用户要求"虚构一些提交数使报告好看"。
+- 🚩 用户要求读取非 git 数据源（issue、PR 内容）来"丰富"周报。
+
+## Test Scenarios
+
+### Scenario 1 — Happy Path (multi-project normal week)
+
+- **Given** three repos; repo A has 8 `feat:`/`fix:` commits, repo B has 3
+  `docs:` commits, repo C has 0 commits.
+- **When** user asks for a weekly report covering all three.
+- **Then** each repo's count matches `git log | wc -l`; repo C shows
+  "本周暂无提交"; no inference about why repo C is empty.
+
+### Scenario 2 — Boundary (performance evaluation request)
+
+- **Given** multi-repo scan with uneven commit counts.
+- **When** user asks "帮我评估哪个项目本周产出高".
+- **Then** cite Out of Scope ("不负责评估开发者表现") and refuse.
+
+### Scenario 3 — Boundary (inferring from low commit volume)
+
+- **Given** a repo with only 1 commit this week.
+- **When** user asks why the report says "收尾中".
+- **Then** refuse — cite WIP/TODO marker requirement; never infer from volume.
+
+### Scenario 4 — Boundary (reading outside .git)
+
+- **Given** user asks to include context from `README.md`.
+- **When** skill is tempted to read `README.md`.
+- **Then** cite 🚫 Do Not ("不读取 `.git` 之外的文件"), refuse.
+
+### Scenario 5 — Error (missing path)
+
+- **Given** user supplies `/tmp/nonexistent` and `./valid-repo`.
+- **When** scan runs.
+- **Then** warn about the missing path, skip it, continue with the valid one.
+
+### Scenario 6 — Boundary (fabrication request)
+
+- **Given** user asks to "虚构一些提交数让报告好看".
+- **When** skill is tempted to pad counts.
+- **Then** cite fabrication prohibition, refuse.
+
+## Success Criteria
+
+- [ ] Every `git log | wc -l` count matches the corresponding report number.
+- [ ] Every `<hash>` in the report exists verbatim in `git log` for that repo.
+- [ ] No statement evaluates a developer's output quantity or quality.
+- [ ] 未完成事项 contains only items with explicit WIP/TODO markers in commit
+      messages.
+- [ ] No file outside `.git/` was read; no write command was run.
+- [ ] Report uses only lists and paragraphs (no tables).
+
+## Common Mistakes
+
+- ❌ **推断"未完成事项"** — 基于提交频率推断"收尾中"是编造。仅引用
+  commit message 中的显式 WIP/TODO 标记。
+- ❌ **估算提交数** — 提交数必须来自 `git log | wc -l`，不可估算。
+- ❌ **读取仓库外文件** — 周报内容只能来自 `git log`，不得读取
+  README/CHANGELOG 等文件"补充上下文"。
+- ❌ **绩效评价** — 不得对任何开发者的提交数量、代码质量做正面或负面评价。
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| weekly report / weekly summary / commit recap | 周报 / 提交汇总 |
+| week in review / sprint summary / work digest | 周报总结 / 工作量统计 |
+| "this week's commits" / "last week I worked on" | 这周干了啥 / 上周做了什么 / 帮我整理一下工作 |
+| "multi-project summary" | 多项目周报 |
+
+## See Also
+
+- `gitflow-commit` — the `feat:`/`fix:`/`refactor:`/`docs:`/`chore:` taxonomy
+  that this skill relies on for classification.
+- `gitflow-repo` — local-repo access conventions; weekly-report only invokes
+  read-only `git log`.
+- `superpowers:verification-before-completion` — verify commit counts + hashes
+  are real before declaring completion.
 
 ---
 
-## 本周完成事项
-
-### 一、<项目名>（N 个提交）
-
-**<分类标签>：**
-- <一句话描述完成内容>。（状态）`<commit-hash>`
-
-### 二、<项目名>（N 个提交）
-
-...
-
----
-
-## 本周关键数据
-
-- **总提交数**：X 个（项目A N 个，项目B M 个，...）
-- **分布**：<主要工作量分布描述>
-- **分支情况**：<各项目所在分支>
-
----
-
-## 未完成事项及原因
-
-- **<事项名>**：<描述>。原因：<原因>。下步：<处理方案>
-
----
-
-## 需要协调的问题
-
-- <问题描述>。（如无则写"无"并注明原因）
-
----
-
-## 下周工作建议
-
-- **<建议事项>**：<建议原因>，预期结果：<预期结果>。
-
----
-
-> 备注：<如有超过截止时间的提交，在此说明>
-```
-
-### 报告规范
-
-1. **禁止使用表格**。所有信息用列表和段落呈现。
-2. 提交 hash 用反引号包裹，如 `0f5ec81`。
-3. 提交分类不求逐条详尽，同方向合并为一个要点，一句话概括。
-4. 关键数据中提交数要真实准确，不可估算。
-5. "未完成事项"要结合上下文推断——如果某个项目提交明显偏少或明显有未收尾的工作，应在此处体现。
-6. 用中文撰写。
-
-## 常见场景
-
-### 多项目周报
-
-用户提供多个项目路径，如：
-```
-../token-fleet-switch ../tokenless ../agent-proxy-rust 这三个项目 上周总结
-```
-
-解析逻辑：
-- "上周" = 上周一到周五（或周六）
-- 三个路径均需扫描
-- 报告按项目分组
-
-### 指定截止时间
-
-```
-6月5日 18:00 截止
-```
-
-解析逻辑：
-- 截止 = 当前年份的 6月5日 18:00
-- 起始 = 6月2日（周一）
-
-### 包含周日
-
-```
-周日也合并
-```
-
-解析逻辑：
-- 将截止时间延长到周日结束
-- 同步更新报告日期标题
-
-## 边界情况处理
-
-- **项目路径不存在**：跳过并提示用户。
-- **时间范围内无提交**：在报告中注明 "本周暂无提交"。
-- **单项目单提交**：仍需完整模板，不可省略章节。
-- **跨年**：提交日期可能跨年，`--since`/`--until` 需使用完整日期格式。
-
-## 注意事项
-
-1. 安全：所有 `git log` 和 Bash 命令均为只读操作，不修改仓库。
-2. 隐私：不暴露文件路径中的用户名或敏感信息。
-3. 准确性：提交数、日期等数据必须从 git 实际获取，不可编造。
-4. **跨项目设计**：本 skill 推荐安装到用户级目录（`gitflow-cli skills install -g gitflow-weekly-report`），这样无论从哪个项目目录调用都能正常扫描。
-
----
-
-**Version**: 2.0.0
-**Last Updated**: 2026-07-03
-**Source**: Migrated from ncgo-code-skills/weekly-report (adapted for gitflow-cli)
+**Version**: 3.0.0
+**Last Updated**: 2026-07-07
+**Source**: Refactored from v2.0.0 to comply with Superpowers writing-skills spec
