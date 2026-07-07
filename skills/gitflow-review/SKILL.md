@@ -1,75 +1,175 @@
 ---
 name: gitflow-review
-description: gitflow-cli 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查
+description: |
+  Use when the user wants to submit a formal code review decision (approve, request changes, or comment) on a PR, or when PR mergeability is affected by a review conclusion.
+  当用户需要提交 PR 的正式审查结论（批准、要求修改、评论），或 PR 可合并性受审查结论影响时使用。
 ---
 
-# gitflow-cli review
+# gitflow-review
 
-封装 `gitflow-cli review` 命令族，用于在 GitHub/GitLab/GitCode 等平台上对 Pull Request 进行代码审查。
+## Overview
 
-## 命令概览
+Submits review conclusions via `gitflow-cli review`. Analysis belongs to `gitflow-pr-review`.
 
-| 子命令 | 说明 |
-|--------|------|
-| `comment` | 在 PR 上发表评论（不表态） |
-| `approve` | 批准 PR，可以合并 |
-| `request-changes` | 要求修改后才能合并 |
-| `submit` | 提交一次完整的审查结论 |
+## When to Use
 
-## 参数说明
+| English | 中文 | Context |
+|---------|------|---------|
+| approve, LGTM | 审批、通过 | Post-analysis |
+| request changes | 要求修改 | PR blocked |
+| submit review | 提交审查 | Post-inline comments |
+| review comment | 审查评论 | Review-context neutral |
+| issue/commit comment | issue/commit 评论 | → `gitflow-issue` only |
 
-### `gitflow-cli review comment`
+## Flowchart
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<pr-number>` | int | 是 | PR 编号 |
-| `--body` | string | 是 | 评论内容（Markdown） |
-
-### `gitflow-cli review approve`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<pr-number>` | int | 是 | PR 编号 |
-| `--body` | string | 否 | 批准说明（可选） |
-
-### `gitflow-cli review request-changes`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<pr-number>` | int | 是 | PR 编号 |
-| `--body` | string | 是 | 修改要求的说明 |
-
-### `gitflow-cli review submit`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `<pr-number>` | int | 是 | PR 编号 |
-| `--event` | string | 是 | 审查结论：`approved`、`changes_requested`、`commented` |
-| `--body` | string | 否 | 审查总结说明（可选） |
-
-## 使用示例
-
-### 批准 PR
-
-```bash
-gitflow-cli review approve 101 --body "代码结构清晰，测试覆盖完整，LGTM!"
+```mermaid
+flowchart TD
+    A[Review decision] --> B{Neutral comment only?}
+    B -->|Yes| C["gitflow-cli review comment"]
+    B -->|No| D{Inline comments added?}
+    D -->|No| E{Decision?}
+    E -->|Approve| F["gitflow-cli review approve"]
+    E -->|Changes| G["gitflow-cli review request-changes"]
+    D -->|Yes| H{Decision?}
+    H -->|Approve| I["gitflow-cli review submit --event approved"]
+    H -->|Changes| J["gitflow-cli review submit --event changes_requested"]
 ```
 
-### 要求修改
+## Quick Reference
 
-```bash
-gitflow-cli review request-changes 101 --body "auth.rs 第 42 行建议使用 Result 类型替代 Option"
-```
+| Goal | Command |
+|------|---------|
+| Approve | `gitflow-cli review approve <number> --body "<summary>"` |
+| Changes | `gitflow-cli review request-changes <number> --body "<summary>"` |
+| Comment | `gitflow-cli review comment <number> --body "<text>"` |
+| Submit | `gitflow-cli review submit <number> --event <approved\|changes_requested> --body "<summary>"` |
 
-### 发表中立评论
+## Implementation
 
-```bash
-gitflow-cli review comment 101 --body "建议参考 issue #42 的 spec 文档"
-```
+### Preconditions
 
-### 提交完整审查（批量操作后一次性提交）
+- Auth OK: `gitflow-cli auth status --platform <platform>`
+- PR open: `gitflow-cli pr view <number>`
+- Not PR author
 
-```bash
-# 先添加多条行内评论后，一次性提交审查结论
-gitflow-cli review submit 101 --event approved --body "全面审查通过，所有修改点已处理"
-```
+### Step 1: Verify PR
+
+1. `gitflow-cli pr view <number>` — confirm open, CI green, not draft/merged.
+2. Failure → Error Handling, stop.
+
+### Step 2: Confirm Prior Analysis
+
+1. approve/request-changes requires prior `gitflow-pr-review`.
+2. None → refuse, redirect to `gitflow-pr-review`.
+
+### Step 3: Execute
+
+1. Follow Flowchart. Run command. Success → PR URL. Failure → Error Handling, stop.
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `404` | "PR #<number> not found." |
+| `403` | "Cannot review PR #<number>." |
+| `409` | Already reviewed. Suggest `submit`. |
+| `422` | Merged / self-approve. Stop. |
+| Timeout | Retry once → stop. |
+
+## Responsibility
+
+### ✅ In Scope
+
+- Submit review conclusions via `gitflow-cli review`
+- Validate PR state and auth
+- Guide approve-vs-submit via Flowchart
+
+### ❌ Out of Scope
+
+- Code analysis → `gitflow-pr-review`
+- Inline comments → `gitflow-pr-inline-review`
+- Implementing feedback → `gitflow-pr-apply-feedback`
+- General PR comments → `gitflow-pr` `comment`
+- Merging → `gitflow-pr` `merge`
+
+### 🚫 Do Not
+
+- ❌ Approve without prior analysis or on failing CI
+- ❌ Approve own PRs (platform-blocked)
+- ❌ Improvise on error
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Urgent, just approve" | Urgency never overrides prior-analysis. |
+| "Tiny change, skip" | One-liners can introduce vulnerabilities. |
+| "Another approved" | Each reviewer must verify independently. |
+| "Author knows" | Self-approval blocked by platform. |
+| "CI might pass" | Failing CI risks broken merge. |
+
+## Red Flags
+
+- 🚩 "approve without reviewing" — Refuse. → `gitflow-pr-review`.
+- 🚩 "skip the check" — Refuse. Cite Preconditions.
+- 🚩 "I'm the author" — Refuse.
+- 🚩 Red CI + approve — Refuse.
+
+## Test Scenarios
+
+### Scenario 1: Happy Path
+
+- **Given** PR #101 open, CI green, prior `gitflow-pr-review` done
+- **When** "PR #101 looks good, approve"
+- **Then** Runs `pr view 101`, then `review approve 101 --body "<summary>"`, outputs URL
+
+### Scenario 2: Negative — Issue Comment
+
+- **Given** User wants issue comment
+- **When** "给 issue #50 加评论"
+- **Then** NOT loaded. → `gitflow-issue`.
+
+### Scenario 3: Boundary — No Prior Analysis
+
+- **Given** PR #101, no prior analysis
+- **When** "帮我 approve 一下 PR #101"
+- **Then** Refuses. No `review approve`.
+
+### Scenario 4: Error — Self-Approval
+
+- **Given** PR #101 authored by current user
+- **When** Claude runs `review approve 101`
+- **Then** 422. "self-approve blocked." Stop.
+
+## Success Criteria
+
+- [ ] Review submitted with PR URL returned
+- [ ] Prior analysis confirmed before approve/request-changes
+- [ ] No self-approval
+- [ ] Flowchart routes: no inline → approve; with inline → submit
+- [ ] CI checked before approve (refuse if failing)
+
+## Common Mistakes
+
+- ❌ **Skipping `gitflow-pr-review`** — Analysis must precede approve.
+- ❌ **`approve` vs `submit` confusion** → Flowchart decides.
+- ❌ **Approving red CI** — Wait for green.
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| approve, LGTM | 审批、通过了 |
+| request changes, reject | 要求修改、驳回 |
+| submit review | 提交审查 |
+| review comment | 审查评论 |
+| code review decision | 代码审查结论 |
+
+## See Also
+
+- `gitflow-pr-review` — 6-dimension analysis preceding approve
+- `gitflow-pr-inline-review` — Inline comments; feeds `review submit`
+- `gitflow-pr-apply-feedback` — Handles feedback on author side
+- `gitflow-pr` — General PR ops; use for non-review discussions
+- `docs/superpowers/templates/skill-conventions.md` — Template conventions
