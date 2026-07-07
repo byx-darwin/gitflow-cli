@@ -393,9 +393,30 @@ fn install_single_skill_bundled(
     Ok(())
 }
 
+/// Resolve hook directory, settings path, and command for global installation.
+fn resolve_global_hook_paths(home: &std::path::Path) -> (PathBuf, PathBuf, String) {
+    let dir = home.join(".claude/hooks");
+    let settings = home.join(".claude/settings.json");
+    let cmd = "bash ~/.claude/hooks/auto-report-bug.sh".to_string();
+    (dir, settings, cmd)
+}
+
+/// Resolve hook directory, settings path, and command for project-level installation.
+///
+/// Hook script is installed to `hooks/` (repo root), **not** `.claude/hooks/`,
+/// because the command in `settings.json` uses the `hooks/` relative path.
+fn resolve_project_hook_paths(repo: &std::path::Path) -> (PathBuf, PathBuf, String) {
+    let dir = repo.join("hooks");
+    let settings = repo.join(".claude/settings.json");
+    let cmd = "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
+               pwd)/hooks/auto-report-bug.sh\""
+        .to_string();
+    (dir, settings, cmd)
+}
+
 /// 从文件系统目录安装 skills（开发场景）。
 ///
-/// 项目级：hook 脚本 → `.claude/hooks/auto-report-bug.sh`，
+/// 项目级：hook 脚本 → `hooks/auto-report-bug.sh`，
 /// 配置写入 `.claude/settings.json`。
 /// 全局级：hook 脚本 → `~/.claude/hooks/auto-report-bug.sh`，
 /// 配置写入 `~/.claude/settings.json`。
@@ -404,24 +425,10 @@ fn install_hook(global: bool, force: bool) -> miette::Result<()> {
 
     let (hook_dir, settings_path, cmd) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        let dir = home.join(".claude/hooks");
-        let settings = home.join(".claude/settings.json");
-        (
-            dir,
-            settings,
-            "bash ~/.claude/hooks/auto-report-bug.sh".to_string(),
-        )
+        resolve_global_hook_paths(&home)
     } else {
         let repo = git_repo_root()?;
-        let dir = repo.join(".claude/hooks");
-        let settings = repo.join(".claude/settings.json");
-        // 使用动态路径，避免工作目录变化导致 hook 找不到
-        (
-            dir,
-            settings,
-            "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/hooks/auto-report-bug.sh\""
-                .to_string(),
-        )
+        resolve_project_hook_paths(&repo)
     };
 
     // 写 hook 脚本
@@ -890,5 +897,34 @@ mod tests {
             stop[0].get("matcher").and_then(serde_json::Value::as_str),
             Some("other-agent")
         );
+    }
+
+    #[test]
+    fn test_resolve_project_hook_paths_uses_hooks_dir() {
+        let repo = PathBuf::from("/tmp/test-repo");
+        let (hook_dir, settings_path, cmd) = resolve_project_hook_paths(&repo);
+        assert_eq!(
+            hook_dir,
+            repo.join("hooks"),
+            "hook should be in hooks/ not .claude/hooks/"
+        );
+        assert_eq!(settings_path, repo.join(".claude/settings.json"));
+        assert!(
+            cmd.contains("/hooks/auto-report-bug.sh"),
+            "command should reference hooks/ path"
+        );
+        assert!(
+            !cmd.contains(".claude/hooks"),
+            "command should not reference .claude/hooks/"
+        );
+    }
+
+    #[test]
+    fn test_resolve_global_hook_paths_uses_claude_hooks_dir() {
+        let home = PathBuf::from("/home/user");
+        let (hook_dir, settings_path, cmd) = resolve_global_hook_paths(&home);
+        assert_eq!(hook_dir, home.join(".claude/hooks"));
+        assert_eq!(settings_path, home.join(".claude/settings.json"));
+        assert!(cmd.contains("~/.claude/hooks/auto-report-bug.sh"));
     }
 }
