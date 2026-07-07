@@ -72,3 +72,7 @@ gitflow-cli commit patch def0987654321fed | git apply -
 ```bash
 gitflow-cli commit comment abc1234567890def --body "这里建议使用 Result 替代 Option，能携带更多错误信息" --path "src/auth.rs" --line 42
 ```
+
+## See Also
+
+- `gitflow-precommit` — run quality gates before committing

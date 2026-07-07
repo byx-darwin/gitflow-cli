@@ -1,315 +1,163 @@
 ---
 name: gitflow-precommit
-description: Pre-commit 检查工作流 — 在提交前运行格式化、静态分析和测试，确保代码质量达标，并可选配置 Git pre-commit hook
+description: |
+  Use when the user runs pre-commit quality checks (fmt, clippy, test), sets up/verifies a Git pre-commit hook, or their commit is rejected by quality gate checks.
+  当运行提交前质量检查（格式化、静态分析、测试）、配置/验证 Git pre-commit hook、或提交被质量门禁拒绝时使用。
 ---
 
 # gitflow-precommit
 
-在每次 `git commit` 前自动运行代码质量检查，确保提交的代码满足格式化、静态分析和测试要求。支持解析项目配置（`Cargo.toml`、`.pre-commit-config.yaml`），运行 `cargo fmt -- --check`、`cargo clippy`、`cargo test` 三项核心检查，并可配置 `.git/hooks/pre-commit` 实现自动化门禁。
+Run fmt/clippy/test gates before commit. Diagnosis + report only. Hook setup is a separate explicit-confirmation path.
 
-## 工作流
+## When to Use
 
-### 步骤 1：检测项目配置
+| English | 中文 | Trigger Context |
+|---------|------|-----------------|
+| pre-commit checks | 提交前检查 | run 3 gates before commit |
+| setup pre-commit hook | 配置 pre-commit hook | user explicitly asks |
+| commit failed checks | 提交被检查拒绝 | diagnose + report |
+| run lint / fmt check | 跑 lint / 格式检查 | partial gate run |
+| CI quality gate | CI 质量门禁 | NOT for hook setup |
 
-解析项目配置文件，确定适用的检查规则：
-
-**1.1 解析 Cargo.toml（Rust 项目）**
-
-```bash
-# 检查是否为 Rust 项目
-if [ -f "Cargo.toml" ]; then
-    echo "检测到 Rust 项目"
-fi
-
-# 查看 workspace lint 配置
-grep -A 20 '\[workspace.lints\]' Cargo.toml 2>/dev/null
-
-# 查看 rustfmt 配置
-cat rustfmt.toml .rustfmt.toml 2>/dev/null
-
-# 查看 clippy 配置
-cat clippy.toml .clippy.toml 2>/dev/null
-```
-
-**1.2 解析 .pre-commit-config.yaml**
+## Core Pattern
 
 ```bash
-# 检查是否使用 pre-commit 框架
-if [ -f ".pre-commit-config.yaml" ]; then
-    echo "检测到 pre-commit 配置"
-    cat .pre-commit-config.yaml
-fi
+git rev-parse --show-toplevel && [ -f Cargo.toml ] || echo "non-rust"
+cargo +nightly fmt -- --check 2>&1 || exit 1
+cargo clippy --all-targets --all-features -- -D warnings 2>&1 || exit 1
+cargo test --workspace 2>&1 || exit 1
 ```
 
-从 `.pre-commit-config.yaml` 提取：
+## Quick Reference
 
-- 已配置的 hook 列表
-- 各 hook 对应的仓库和版本
-- 排除的文件模式（`exclude`）
+| Goal | Command |
+|------|---------|
+| Format check | `cargo +nightly fmt -- --check` |
+| Format fix (user-only) | `cargo +nightly fmt` |
+| Lint check | `cargo clippy --all-targets --all-features -- -D warnings` |
+| Lint fix (user-only) | `cargo clippy --fix --all-targets --all-features --allow-dirty` |
+| Test | `cargo test --workspace` |
 
-**1.3 确定检查命令集**
+## Implementation
 
-根据项目类型确定检查命令：
+### Preconditions
+- Git repo — `git rev-parse --show-toplevel`
+- `Cargo.toml` present → Rust gates; else `pre-commit run --all-files`; else stop
 
-**Rust 项目默认检查集：**
+### Step 1: Run Gates (Fast-Fail)
 
-| 检查项 | 命令 | 说明 |
-|--------|------|------|
-| 格式化 | `cargo fmt -- --check` | 代码格式检查 |
-| 静态分析 | `cargo clippy --all-targets --all-features -- -D warnings` | Clippy lint 检查 |
-| 单元测试 | `cargo test --workspace` | 运行所有测试 |
-
-### 步骤 2：运行格式化检查
-
-```bash
-cargo fmt -- --check 2>&1
+```mermaid
+flowchart TD
+    A[Start] --> B{fmt --check}
+    B -->|exit 0| C{clippy}
+    B -->|exit ≠ 0| Z[report ❌ + stop]
+    C -->|exit 0| D{test}
+    C -->|exit ≠ 0| Z
+    D -->|exit 0| E[report ✅ PASSED]
+    D -->|exit ≠ 0| Z
 ```
 
-- **通过**：退出码 0 → 记录 `✅ fmt`
-- **失败**：退出码非 0 → 记录 `❌ fmt` + 列出需要格式化的文件
+Each gate: exit ≠ 0 → record `❌` + suggest fix command (user runs) → stop.
 
-**失败处理：**
-
-```bash
-# 自动修复格式问题
-cargo fmt
-
-# 重新检查确认修复
-cargo fmt -- --check
-```
-
-### 步骤 3：运行静态分析
-
-```bash
-cargo clippy --all-targets --all-features -- -D warnings 2>&1
-```
-
-对于更严格的检查（pedantic 级别）：
-
-```bash
-cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic 2>&1
-```
-
-- **通过**：退出码 0，无 warning → 记录 `✅ clippy`
-- **失败**：有 warning 或 error → 记录 `❌ clippy` + 警告摘要
-
-**失败处理：**
-
-```bash
-# 自动修复部分 lint 问题
-cargo clippy --fix --all-targets --all-features --allow-dirty
-
-# 手动检查剩余问题
-cargo clippy --all-targets --all-features -- -D warnings
-```
-
-### 步骤 4：运行测试
-
-```bash
-cargo test --workspace 2>&1
-```
-
-- **通过**：全部测试通过 → 记录 `✅ test`
-- **失败**：有测试失败 → 记录 `❌ test` + 失败的测试列表
-
-**失败处理：**
-
-```bash
-# 查看失败测试的详细信息
-cargo test --workspace -- --nocapture
-
-# 只运行特定测试
-cargo test -p <crate-name> <test-name> -- --nocapture
-```
-
-### 步骤 5：汇总检查结果
-
-生成 Pre-commit 检查报告：
+### Step 2: Report
 
 ```markdown
-## Pre-commit 检查报告
-
-| # | 检查项 | 状态 | 详情 |
-|---|--------|------|------|
-| 1 | fmt | ✅/❌ | <详情> |
-| 2 | clippy | ✅/❌ | <详情> |
-| 3 | test | ✅/❌ | <详情> |
-
-**结论：** ✅ 全部通过，可以提交 / ❌ 存在问题，请先修复
+## Pre-commit Report — YYYY-MM-DD
+| Gate | Status | Detail |
+**Result: ✅ PASSED** or **Result: ❌ FAILED — fix and re-run**
 ```
 
-### 步骤 6：配置 Git pre-commit hook（可选）
+### Step 3: Hook Setup — CONFIRMATION REQUIRED (P0)
 
-将检查配置为 Git hook，实现每次提交自动运行：
+🚩 **Only when user explicitly asks.**
+Ask: "Write `.git/hooks/pre-commit`?" → Yes → write from [hook template](../references/gitflow-precommit-hook-template.md) → `chmod +x` → verify. No → stop. Never auto-write. Never `pip install` without confirmation.
 
-```bash
-# 创建 hooks 目录
-mkdir -p .git/hooks
+## Responsibility
 
-# 写入 pre-commit hook
-cat > .git/hooks/pre-commit << 'HOOK'
-#!/usr/bin/env bash
-set -euo pipefail
+### ✅ In Scope
+- Run fmt/clippy/test gates
+- Parse Cargo.toml / .pre-commit-config.yaml
+- Generate report
+- Write hook ONLY after explicit confirmation
 
-echo "🔍 运行 pre-commit 检查..."
+### ❌ Out of Scope
+- Auto-fixing (`cargo fmt`, `cargo clippy --fix`)
+- `git add` / `git commit` — see `/gitflow-commit`
+- Modifying configs
+- `pip install pre-commit` — user installs
+- Full 6-gate audit — see `/gitflow-quality`
 
-# 步骤 1：格式化检查
-echo "📝 检查代码格式..."
-if ! cargo fmt -- --check 2>&1; then
-    echo "❌ 格式化检查失败"
-    echo "💡 运行 'cargo fmt' 自动修复"
-    exit 1
-fi
-echo "✅ 格式化检查通过"
+### 🚫 Do Not
+- ❌ Run `cargo fmt` / `cargo clippy --fix` without explicit confirmation
+- ❌ Write hook without explicit user request
+- ❌ Run `pip install` or any system install
+- ❌ Execute `git add` / `git commit`
+- ❌ Mark failing gate as `N/A`
 
-# 步骤 2：静态分析
-echo "🔧 运行 clippy..."
-if ! cargo clippy --all-targets --all-features -- -D warnings 2>&1; then
-    echo "❌ Clippy 检查失败"
-    echo "💡 运行 'cargo clippy --fix --all-targets --all-features --allow-dirty' 自动修复"
-    exit 1
-fi
-echo "✅ Clippy 检查通过"
+## Rationalization Excuse
 
-# 步骤 3：测试
-echo "🧪 运行测试..."
-if ! cargo test --workspace 2>&1; then
-    echo "❌ 测试失败"
-    exit 1
-fi
-echo "✅ 测试通过"
+| Excuse | Reality |
+|--------|---------|
+| "Auto-fix fmt to unblock" | Out of Scope. User runs fix. |
+| "Just set up the hook — standard" | Requires explicit confirmation. |
+| "User in hurry — skip clippy" | Urgency does not override gates. |
 
-echo ""
-echo "✅ 所有 pre-commit 检查通过，继续提交..."
-HOOK
+## Red Flags
 
-# 赋予执行权限
-chmod +x .git/hooks/pre-commit
-```
+- 🚩 "skip the {check} / ship it" — refuse; stop
+- 🚩 "you don't need clippy" (authority) — non-skippable
+- 🚩 "auto-fix" / "set up hook while you're at it" — detect + confirm only
+- 🚩 "urgent — just commit" — redirect to `/gitflow-commit`; no bypass
 
-**使用 pre-commit 框架的替代方案：**
+## Test Scenarios
 
-```bash
-# 安装 pre-commit
-pip install pre-commit
+### Scenario 1: Happy Path
+- **Given** Rust workspace, staged changes, all gates pass
+- **When** "run pre-commit checks"
+- **Then** 3 gates → ✅ PASSED → stops. No hook. No fix.
 
-# 在 .pre-commit-config.yaml 中配置
-cat > .pre-commit-config.yaml << 'EOF'
-repos:
-  - repo: local
-    hooks:
-      - id: cargo-fmt
-        name: cargo fmt
-        entry: cargo fmt -- --check
-        language: system
-        types: [rust]
-        pass_filenames: false
-      - id: cargo-clippy
-        name: cargo clippy
-        entry: cargo clippy --all-targets --all-features -- -D warnings
-        language: system
-        types: [rust]
-        pass_filenames: false
-      - id: cargo-test
-        name: cargo test
-        entry: cargo test --workspace
-        language: system
-        types: [rust]
-        pass_filenames: false
-EOF
+### Scenario 2: Negative
+- **Given** user wants to commit
+- **When** "帮我提交代码"
+- **Then** No load. Redirects to `/gitflow-commit`.
 
-# 安装 hooks
-pre-commit install
-```
+### Scenario 3: Boundary
+- **Given** fmt gate fails
+- **When** "自动修复格式"
+- **Then** Refuses; cites §Out of Scope; suggests command; does NOT execute.
 
-### 步骤 7：输出结果
+### Scenario 4: Error
+- **Given** no `Cargo.toml`, `.pre-commit-config.yaml` present
+- **When** "run pre-commit checks"
+- **Then** Runs `pre-commit run --all-files`; no Rust commands.
 
-根据检查结果输出最终结论：
+## Success Criteria
 
-**全部通过：**
+- [ ] 3 gates in order; fast-fail on first non-zero
+- [ ] Report has date + 3 rows + Result line
+- [ ] No auto-fix without confirmation
+- [ ] No hook without explicit request
+- [ ] No `git add` / `git commit`
+- [ ] Non-Rust fallback works
 
-```
-✅ Pre-commit 检查全部通过
-   fmt: ✅ | clippy: ✅ | test: ✅
-   可以安全提交
-```
+## Common Mistakes
 
-**存在失败：**
+- ❌ **Running `cargo clippy --fix` automatically** — never execute; suggest only
+- ❌ **Writing hook every invocation** — only after explicit request
 
-```
-❌ Pre-commit 检查未通过
-   fmt: ❌ | clippy: ✅ | test: ✅
+## Trigger Keywords
 
-   请先修复以下问题：
-   1. 运行 `cargo fmt` 修复格式问题
-   2. 重新提交
-```
+| English | 中文 |
+|---------|------|
+| pre-commit checks | 提交前检查 |
+| setup pre-commit hook | 配置 pre-commit hook |
+| commit failed checks | 提交被检查拒绝 |
+| run lint / fmt check | 跑 lint / 格式检查 |
+| cargo clippy | cargo clippy |
 
-## 使用示例
+## See Also
 
-### 手动运行 pre-commit 检查
-
-```bash
-# 运行完整检查
-cargo fmt -- --check && \
-cargo clippy --all-targets --all-features -- -D warnings && \
-cargo test --workspace
-
-# 如果全部通过，提交代码
-git add -A
-git commit -m "feat: add new feature"
-```
-
-### 配置 Git hook 自动检查
-
-```bash
-# 使用脚本配置 hook
-cat > .git/hooks/pre-commit << 'HOOK'
-#!/usr/bin/env bash
-set -euo pipefail
-echo "🔍 运行 pre-commit 检查..."
-cargo fmt -- --check || { echo "❌ 格式化失败"; exit 1; }
-cargo clippy --all-targets --all-features -- -D warnings || { echo "❌ Clippy 失败"; exit 1; }
-cargo test --workspace || { echo "❌ 测试失败"; exit 1; }
-echo "✅ 全部通过"
-HOOK
-chmod +x .git/hooks/pre-commit
-
-# 之后每次 git commit 都会自动运行检查
-```
-
-### 跳过 pre-commit 检查（紧急情况）
-
-```bash
-# 紧急提交时跳过 hook
-git commit --no-verify -m "hotfix: urgent fix"
-```
-
-### 只检查变更涉及的文件
-
-```bash
-# 获取变更的 Rust 文件
-CHANGED_FILES=$(git diff --name-only --cached -- '*.rs')
-
-if [ -n "$CHANGED_FILES" ]; then
-    echo "变更的 Rust 文件："
-    echo "$CHANGED_FILES"
-
-    # 格式检查（只检查变更文件）
-    cargo fmt -- --check
-
-    # 运行完整测试（无法只运行部分）
-    cargo test --workspace
-fi
-```
-
-## 注意事项
-
-- pre-commit 检查应在 `git add` 之后、`git commit` 之前运行
-- 格式化检查 `cargo fmt -- --check` 不会修改文件，只检查格式是否符合规范
-- Clippy 的 `--fix` 功能可以自动修复部分问题，但需要 `--allow-dirty` 标志（在有未提交变更时）
-- 测试失败时应先看完整的失败输出，确定是测试本身的问题还是代码的问题
-- Git hook 是本地行为，不会随仓库共享——团队成员需要各自配置
-- 如果项目使用 `pre-commit` 框架，优先使用框架管理 hooks，保持一致性
-- 对于 CI 环境和 Git hook 使用相同的检查命令，确保本地和 CI 行为一致
-- 紧急情况下可使用 `git commit --no-verify` 跳过 hook，但事后应尽快修复问题
+- `gitflow-commit` — commits after pre-commit passes
+- `gitflow-quality` — full 6-gate quality audit
+- `gitflow-security-check` — security dimension
+- `docs/superpowers/templates/skill-conventions.md` — conventions
