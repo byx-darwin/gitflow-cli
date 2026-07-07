@@ -1,168 +1,166 @@
 ---
 name: gitflow-pr-review
-description: 6 维度代码审查工作流 — 获取 PR 详情，按清单逐项审查，调用 gitflow-cli review 提交审查结论
+description: |
+  Use when the user requests an overall code review of a Pull Request — covering 6 dimensions and submitting an approve, request-changes, or comment-only verdict via gitflow-cli.
+  当要求对 PR 进行整体代码审查（6 维度评估）并提交审批/要求修改/评论结论时使用。
 ---
 
-# gitflow-cli pr review 工作流
+# gitflow-pr-review
 
-提供一套结构化的 6 维度代码审查清单，引导用户全面审查 Pull Request 的各个维度，并调用 `gitflow-cli review` 命令提交审查结论。
+Performs a 6-dimension assessment of a PR diff and submits an overall verdict via `gitflow-cli review`. Line-level inline comments belong to `gitflow-pr-inline-review`.
 
-## 审查清单
+## When to Use
 
-审查 PR 时，按照以下 6 个维度逐一检查：
+| English | 中文 | Context |
+|---------|------|---------|
+| review PR | 审查 PR | overall verdict |
+| approve / LGTM | 审批 / 通过 | post-analysis |
+| request changes | 要求修改 | PR blocked |
+| code review verdict | 代码审查结论 | assessment |
+| inline comments / line review | 逐行评论 | → `gitflow-pr-inline-review` |
+| merge / close PR | 合并 / 关闭 PR | → `gitflow-pr` |
 
-### 1. 代码正确性
-
-- [ ] 逻辑实现是否符合预期功能和 spec
-- [ ] 边界条件和异常路径是否正确处理
-- [ ] 是否存在 off-by-one 错误、空指针、未初始化变量等常见问题
-- [ ] 状态机/条件分支是否覆盖所有情况
-- [ ] 是否存在竞态条件或死锁风险（并发代码）
-
-### 2. 安全性
-
-- [ ] 是否存在密钥/Token/API Key 硬编码
-- [ ] 用户输入是否经过验证/清洗后再使用
-- [ ] 是否存在 SQL 注入、命令注入、路径遍历风险
-- [ ] 敏感信息是否已脱敏（日志、错误消息、调试输出）
-- [ ] 认证/授权检查是否完整
-- [ ] 是否使用了不安全的加密算法（如 MD5、SHA1 用于安全场景）
-
-### 3. 性能
-
-- [ ] 是否存在不必要的内存分配或克隆
-- [ ] 循环内是否有 I/O 操作或数据库查询
-- [ ] 是否有可以预分配容量的集合（`Vec::with_capacity` 等）
-- [ ] 异步代码是否正确使用 `spawn_blocking` 处理阻塞操作
-- [ ] 是否有未关闭的资源或连接泄漏
-
-### 4. 可维护性
-
-- [ ] 代码是否遵循 SOLID 原则和 DRY 原则
-- [ ] 函数/方法是否职责单一、长度合理
-- [ ] 变量命名是否清晰、符合命名约定
-- [ ] 是否有过度嵌套或过长的条件链
-- [ ] 依赖引入是否合理，无循环依赖
-- [ ] 错误处理是否使用 `Result` 而非 `Option` 隐藏错误
-
-### 5. 测试覆盖
-
-- [ ] 新增功能/修复是否有对应的测试用例
-- [ ] 测试是否覆盖了正常路径和异常路径
-- [ ] 是否有边界条件/极端情况的测试
-- [ ] 测试命名是否清晰（`test_should_<expected_behavior>`）
-- [ ] 是否存在 flaky 测试或不合理的 `#[ignore]`
-
-### 6. 文档
-
-- [ ] 公共 API 是否有文档注释
-- [ ] 文档是否包含 `# Errors`、`# Panics`、`# Safety` 等必要章节
-- [ ] 模块级文档注释是否完整
-- [ ] 示例代码是否正确、可运行
-- [ ] `CLAUDE.md` / `specs/` 等项目文档是否同步更新
-
-## 工作流
-
-### 步骤 1：获取 PR 详情
-
-调用 `gitflow-cli pr view` 获取 PR 的完整信息：
+## Core Pattern
 
 ```bash
-gitflow-cli pr view <pr-number>
+gitflow-cli pr view <n>          # 1. verify open
+gitflow-cli pr diff <n>          # 2. fetch diff
+# 3. assess 6 dimensions; 4. draft conclusion
+gitflow-cli review <verdict> <n> --body "<conclusion>"  # 5. submit
 ```
 
-记录以下信息：
-- 标题和描述
-- 变更文件列表
-- 关联的 Issue
-- 当前审查状态
+## Quick Reference
 
-### 步骤 2：逐维审查
+| Goal | Command |
+|------|---------|
+| Approve | `gitflow-cli review approve <n> --body "<conclusion>"` |
+| Request changes | `gitflow-cli review request-changes <n> --body "<conclusion>"` |
+| Comment only | `gitflow-cli review comment <n> --body "<conclusion>"` |
 
-按照上述 6 维度清单逐项检查变更代码。对每个维度：
+Dimensions: `correctness`, `security`, `performance`, `maintainability`, `test-coverage`, `documentation`. Full items: [checklist](../references/pr-review-checklist.md).
 
-- 通过 ✅：该维度无明显问题
-- 需改进 ⚠️：有具体问题需要修改，记录详情（文件名、行号、问题描述、建议修改方案）
+## Implementation
 
-### 步骤 3：撰写审查结论
+### Preconditions
 
-汇总各维度审查结果，撰写审查结论。格式：
+- `open` PR — `gitflow-cli pr view <n>` non-404
+- Authenticated — `gitflow-cli auth status`
 
-```markdown
-## 审查结论
+### Step 1: Fetch
 
-### 代码正确性：✅ 通过
-<!-- 或 ⚠️ 需改进：具体问题描述 -->
+`gitflow-cli pr view <n>` then `gitflow-cli pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
 
-### 安全性：✅ 通过
+### Step 2: Assess 6 Dimensions
 
-### 性能：⚠️ 需改进
-- `src/auth.rs:42`: 循环内有数据库查询，建议批量加载后处理
+For each dimension (`correctness`, `security`, `performance`, `maintainability`, `test-coverage`, `documentation`): ✅ or ⚠️ with `path:line`. See [checklist](../references/pr-review-checklist.md).
 
-### 可维护性：✅ 通过
+### Step 3: Draft Conclusion
 
-### 测试覆盖：⚠️ 需改进
-- 缺少 `token_expired` 边界情况的回归测试
+Per-dimension verdicts with `path:line` for ⚠️ items. See [template](../references/pr-review-checklist.md).
 
-### 文档：✅ 通过
+### Step 4: Submit
 
-## 总结
-<!-- 总体评价和关键修改建议 -->
-```
+- All ✅ → `gitflow-cli review approve <n> --body "<conclusion>"`
+- Any ⚠️ → `gitflow-cli review request-changes <n> --body "<conclusion>"`
+- Comment only → `gitflow-cli review comment <n> --body "<conclusion>"`
 
-### 步骤 4：提交审查结论
+Output PR URL.
 
-根据审查结果，调用适当的 `gitflow-cli review` 命令：
+### Error Handling
 
-**审查通过时：**
+| Error | Recovery |
+|-------|----------|
+| `pr view` 404 / not open | Stop. Check PR number. |
+| Empty diff | Stop. PR may be merged. |
+| Auth failure | "Run `gitflow-cli auth login`", stop. |
+| `review` API failure | Surface error, stop. |
+| Unclear verdict | Ask before submit. |
 
-```bash
-gitflow-cli review approve <pr-number> --body "<审查结论>"
-```
+## Responsibility
 
-**需要修改时：**
+### ✅ In Scope
 
-```bash
-gitflow-cli review request-changes <pr-number> --body "<审查结论>"
-```
+- Fetch PR metadata + diff
+- 6-dimension assessment
+- Conclusion with `path:line` citations
+- Submit verdict via `gitflow-cli review`
 
-**仅发表评论、不表态时：**
+### ❌ Out of Scope
 
-```bash
-gitflow-cli review comment <pr-number> --body "<审查结论>"
-```
+- Line-level inline comments → `gitflow-pr-inline-review`
+- Applying fixes → `gitflow-pr-apply-feedback`
+- PR lifecycle → `gitflow-pr`
+- Deep security scanning → `gitflow-security-check`
 
-### 步骤 5：输出结果
+### 🚫 Do Not
 
-提示审查结论已提交，告知 PR 作者和其他相关人员。
+- ❌ Verdict before reading diff
+- ❌ Publish `[logic]`/`[security]` inline comments — that is `gitflow-pr-inline-review`
+- ❌ Edit source or run `cargo fix` from findings
+- ❌ Merge / close after approve
+- ❌ Skip security dimension — even for small changes
 
-## 使用示例
+## Rationalization Excuses
 
-### 审查通过一个功能 PR
+| Excuse | Reality |
+|--------|---------|
+| "Small change, skip analysis" | One-liners can hide vulnerabilities. |
+| "Inline comments faster" | Inline feedback is `gitflow-pr-inline-review`'s job. |
+| "Author needs verdict quickly" | Verdict requires full diff review. |
 
-```bash
-# 获取 PR 详情
-gitflow-cli pr view 101
+## Red Flags
 
-# 逐项审查后，确认无问题
-gitflow-cli review approve 101 --body "## 审查结论\n\n6 维度审查全部通过：\n- 逻辑正确，状态机覆盖完整\n- 无安全问题，敏感信息已脱敏\n- 性能合理，使用了预分配\n- 代码结构清晰，函数职责单一\n- 测试覆盖正常路径和异常路径\n- 文档完整，包含 Errors 章节\n\nLGTM!"
-```
+- 🚩 "approve without reviewing" — Refuse. Read diff first.
+- 🚩 "leave line comments too" — Refuse. → `gitflow-pr-inline-review`.
+- 🚩 "fix the issues you find" — Refuse. → `gitflow-pr-apply-feedback`.
 
-### 要求修改
+## Test Scenarios
 
-```bash
-gitflow-cli review request-changes 101 --body "## 审查结论\n\n### 安全性：⚠️ 需改进\n- \`src/auth.rs:85\`: API Key 硬编码在测试文件中，建议移至环境变量\n\n### 测试覆盖：⚠️ 需改进\n- 缺少 \`invalid_token_format\` 的失败路径测试\n\n### 文档：⚠️ 需改进\n- \`pub fn verify\` 缺少 \`# Errors\` 章节\n\n请修复以上问题后重新提交审查。"
-```
+### Scenario 1: Happy Path
 
-### 发表中立评论
+- **Given** PR #101 open, authenticated
+- **When** "review PR #101"
+- **Then** Fetches diff, calls `review approve 101`, outputs PR URL
 
-```bash
-gitflow-cli review comment 101 --body "建议参考 issue #42 的 spec 文档，当前实现与之略有差异 \`src/middleware.rs:33\`"
-```
+### Scenario 2: Negative — Inline Comments
 
-## 注意事项
+- **Given** User wants line-level feedback
+- **When** "Leave inline comments on PR #101"
+- **Then** NOT loaded. → `gitflow-pr-inline-review`.
 
-- 审查时应假设代码有 bug，带着挑错的心态而非走过场
-- 每个维度的问题描述应包含文件路径和行号，方便作者快速定位
-- 审查结论应具体、可操作，避免「代码写得不好」等模糊表述
-- 对于小改动，可以适当简化审查维度，但安全性维度不能跳过
+### Scenario 3: Boundary or Error
+
+- **Given** User asks to fix findings OR PR #99999 doesn't exist
+- **When** "review PR #101 and fix" or "review PR #99999"
+- **Then** For boundary: submits request-changes, no edits, → `gitflow-pr-apply-feedback`. For error: `pr view` 404, surfaces error, no fabricated verdict.
+
+## Success Criteria
+
+- [ ] Verdict submitted and PR URL returned
+- [ ] All 6 dimensions assessed; ⚠️ cite `path:line`
+- [ ] Security evaluated (never skipped)
+- [ ] No inline comments, no fix/merge commands
+
+## Common Mistakes
+
+- ❌ **Approving without reading diff** — violates Preconditions. Read diff first.
+- ❌ **Publishing inline comments** — line-level belongs to `gitflow-pr-inline-review`.
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| review PR, check pull request | 审查 PR |
+| approve, LGTM | 审批、通过 |
+| request changes, reject | 要求修改、驳回 |
+| code review verdict | 代码审查结论 |
+| overall PR review | 整体审查 PR |
+
+## See Also
+
+- `gitflow-pr-inline-review` — line-level inline comments on diff
+- `gitflow-pr-apply-feedback` — applies feedback as code changes
+- `gitflow-pr` — PR lifecycle: merge/close/ready
+- `gitflow-review` — approve / comment / request-changes
+- `docs/references/pr-review-checklist.md` — full 6-dim checklist
+- `docs/superpowers/templates/skill-conventions.md` — conventions
