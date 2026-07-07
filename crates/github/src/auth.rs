@@ -189,19 +189,29 @@ impl AuthProvider for GitHubAuthProvider {
 }
 
 /// 从 `gh auth status` 的输出中解析用户名。
+///
+/// 支持两种 `gh` CLI 输出格式：
+/// - 旧版：`"Logged in to github.com as <username>"`
+/// - 新版：`"Logged in to github.com account <username>"`
 fn parse_user_from_status(output: &str) -> Option<String> {
-    // 匹配模式："Logged in to github.com as <username>"
+    let separators = [" as ", " account "];
     for line in output.lines() {
-        if let Some(pos) = line.find(" as ") {
-            let after_as = &line[pos + 4..];
-            // 用户名后面可能跟 " (" 或空格或其他
-            if let Some(end) = after_as.find(' ') {
-                let user = &after_as[..end];
-                if !user.is_empty() {
-                    return Some(user.to_string());
+        // Only parse lines that contain "Logged in to" to avoid false matches
+        if !line.contains("Logged in to") {
+            continue;
+        }
+        for sep in &separators {
+            if let Some(pos) = line.find(sep) {
+                let after = &line[pos + sep.len()..];
+                // 用户名后面可能跟 " (" 或空格或其他
+                if let Some(end) = after.find(' ') {
+                    let user = &after[..end];
+                    if !user.is_empty() {
+                        return Some(user.to_string());
+                    }
+                } else if !after.is_empty() {
+                    return Some(after.trim().to_string());
                 }
-            } else if !after_as.is_empty() {
-                return Some(after_as.trim().to_string());
             }
         }
     }
@@ -264,6 +274,22 @@ mod tests {
     #[test]
     fn test_should_parse_user_without_suffix() {
         let status = "Logged in to github.com as bob";
+        assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
+    }
+
+    #[test]
+    fn test_should_parse_user_from_account_format() {
+        let status = r"github.com
+  ✓ Logged in to github.com account octocat (keyring)
+  ✓ Git operations for github.com configured to use ssh protocol.
+  ✓ API calls for github.com should use https protocol
+";
+        assert_eq!(parse_user_from_status(status), Some("octocat".to_string()));
+    }
+
+    #[test]
+    fn test_should_parse_user_from_account_format_without_suffix() {
+        let status = "Logged in to github.com account bob";
         assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
     }
 }
