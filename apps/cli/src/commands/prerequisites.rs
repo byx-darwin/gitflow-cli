@@ -17,6 +17,7 @@ use std::process::Command;
 
 /// 原生 CLI 版本要求。
 #[derive(Debug, Clone)]
+#[allow(dead_code, reason = "Fields reserved for future use")]
 pub struct CliRequirement {
     /// CLI 可执行文件名。
     pub binary: &'static str,

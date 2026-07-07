@@ -162,6 +162,8 @@ impl AuthProvider for GitLabAuthProvider {
     }
 }
 
+// AuthChecker 是同步 trait，必须使用 std::process::Command
+#[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
 impl gitflow_cli_core::AuthChecker for GitLabAuthProvider {
     fn is_authenticated(&self) -> bool {
         if std::env::var("GL_TOKEN").is_ok() {
