@@ -33,10 +33,8 @@ gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
 
 | Goal | Command |
 |------|---------|
-| Create | `gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base>` |
-| Draft | add `--draft` |
-| Ready | `gitflow-cli pr ready <number>` |
-| Push | `git push -u origin <branch>` |
+| Create | `gitflow-cli pr create -t "<t>" -b "<b>" -H <head> -B <base> [--draft]` |
+| Push upstream | `git push -u origin <branch>` |
 | Rebase | `git rebase origin/<base>` |
 
 ## Implementation
@@ -46,32 +44,23 @@ gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
 - Git repo — `git rev-parse --is-inside-work-tree`
 - CLI + auth — `command -v gitflow-cli` + `gitflow-cli auth status`
 
-### Step 1: Branch
+### Step 1: Branch — not protected, has upstream. Else stop.
 
-Not main/master/release/*, has upstream (`@{u}`). Protected → advise stop. No upstream → `git push -u origin <branch>`, stop.
+### Step 2: Changes + Base — diff warns non-conformant commits; stale base → rebase, stop.
 
-### Step 2: Changes + Base
+### Step 3: Collect title (conventional prefix) + body (Markdown template). Confirm command.
 
-`git diff --stat <base>...HEAD` warns non-conformant commits (no stop). `merge-base --is-ancestor origin/<base> HEAD` → stale → rebase, stop.
-
-### Step 3: Collect + Confirm
-
-Conventional-commit prefix (feat:, fix:, docs:, refactor:, chore:, test:, perf:) + scope + summary. Body: 变更说明, Closes #N, 验证步骤, Checklist. Confirm command.
-
-### Step 4: Create
-
-Invoke CLI. Success → URL. Draft → advise `gitflow-cli pr ready <number>`. Failure → follow Error Handling.
+### Step 4: Invoke `gitflow-cli pr create`. Success → URL. Failure → Error Handling.
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
 | Protected branch | Refuse. Stop. |
-| No upstream | `git push -u origin <branch>`. Stop. |
+| No upstream | `git push -u`. Stop. |
 | Base outdated | Rebase. Stop. |
-| Auth failure | `gitflow-cli auth login`. Stop. |
-| Network / timeout | Surface, advise retry. No improvisation. |
-| Non-zero exit | Surface. Do not retry alone. |
+| Auth failure | `auth login`. Stop. |
+| Network timeout | Surface. No retry alone. |
 
 ## Flowchart
 
@@ -107,30 +96,26 @@ flowchart TD
 ### ❌ Out of Scope
 
 - Reviewing → `/gitflow-pr-review`
-- Applying feedback → `/gitflow-pr-apply-feedback`
-- Merge / close / approve → `/gitflow-pr`
-- Label / assignee → `/gitflow-label-milestone`
+- Feedback → `/gitflow-pr-apply-feedback`
+- Merge / close → `/gitflow-pr`
 - CI/CD → `/gitflow-pipeline-analyzer`
 
 ### 🚫 Do Not
 
-- ❌ Create PR from a protected branch
-- ❌ Create PR without upstream — push first
-- ❌ Merge immediately after creation
-- ❌ Add reviewers without user approval
-- ❌ Force-push or rebase without user confirmation
-- ❌ Create PRs across multiple repos in one invocation
+- ❌ Create from protected branch
+- ❌ Create without upstream — push first
+- ❌ Merge after creation
+- ❌ Add reviewers without approval
+- ❌ Force-push without confirmation in one invocation
 
 ## 🔁 Delegation Rules
 
 | User Intent | Delegate To | Reason |
 |-------------|-------------|--------|
-| Create a PR | This skill | Branch validation + title/desc collection |
-| Review created PR | `/gitflow-pr-review` | Needs 6-dimension checklist |
-| Inline review on PR | `/gitflow-pr-inline-review` | Per-line diff analysis |
-| Apply reviewer feedback | `/gitflow-pr-apply-feedback` | Code modification + resolve |
-| Merge / close / reopen PR | `/gitflow-pr` | Lifecycle operation |
-| Check CI before merge | `/gitflow-pipeline-analyzer` | Pipeline health assessment |
+| Create a PR | This skill | Branch validation + title/desc |
+| Review / inline / apply feedback | review sibling skills | Per their scope |
+| Merge / close / reopen | `/gitflow-pr` | Lifecycle operation |
+| Check CI | `/gitflow-pipeline-analyzer` | Pipeline health |
 
 ## Rationalization Excuses
 
@@ -142,58 +127,35 @@ flowchart TD
 
 ## Red Flags
 
-- 🚩 "Skip the base check" — Refuse. Stop.
-- 🚩 "Create from main" — Refuse. Protected. Stop.
+- 🚩 "Skip the base check" — Stop.
+- 🚩 "Create from main" — Protected. Stop.
 - 🚩 "Merge after creating" — → `/gitflow-pr`.
-- 🚩 CLI fails, Claude improvises — Follow Error Handling.
+- 🚩 CLI fails → improvise — Follow Error Handling.
 
 ## Test Scenarios
 
-### Scenario 1: Happy Path
+### Scenario 1: Happy Path — `feature/ssh-auth`, upstream OK. "create a PR" → validates, invokes CLI, returns URL.
 
-- **Given** `feature/ssh-auth`, upstream, base current, auth OK
-- **When** "create a PR"
-- **Then** Validates, confirms, invokes CLI, returns URL
+### Scenario 2: Negative — "review PR #42" → NOT loaded. → `/gitflow-pr-review`.
 
-### Scenario 2: Negative — Review Request
+### Scenario 3: Boundary — PR created, "merge it" → Refuses. → `/gitflow-pr`.
 
-- **Given** "review PR #42"
-- **When** review intent
-- **Then** NOT loaded. → `/gitflow-pr-review`.
+### Scenario 4: Error — Base outdated → rebase advised, stops. No `pr create`.
 
-### Scenario 3: Boundary — Merge After
-
-- **Given** PR created, "merge it"
-- **When** merge past out-of-scope
-- **Then** Refuses. → `/gitflow-pr`. No merge.
-
-### Scenario 4: Error — Base Outdated
-
-- **Given** `feature/cache`, base NOT ancestor
-- **When** Step 2
-- **Then** Rebase advised, stops. No `pr create`.
-
-### Scenario 5: Error — No Upstream
-
-- **Given** `feature/local-only`, no `@{u}`
-- **When** Step 1
-- **Then** `git push -u` advised, stops. No `pr create`.
+### Scenario 5: Error — No upstream → `git push -u`, stops. No `pr create`.
 
 ## Success Criteria
 
 - [ ] PR URL returned
-- [ ] Branch validated
+- [ ] Branch validated (not protected, has upstream)
 - [ ] Base freshness confirmed
-- [ ] Command confirmed before invoking
-- [ ] No out-of-scope action
-- [ ] Side effects have URLs
+- [ ] User confirmed command
 
 ## Common Mistakes
 
-- ❌ **PR from protected branch** — Validate `git branch --show-current`.
-- ❌ **Skipping base freshness** — Always `merge-base --is-ancestor`.
-- ❌ **Missing conventional-commit prefix** — Prompt user with table.
-- ❌ **CLI invocation without confirmation** — Wait for approval.
+- ❌ **PR from protected branch** — Validate current branch.
+- ❌ **Skipping base check** — Always verify merge-base.
+- ❌ **Missing conventional prefix** — Prompt user.
 
 ## Trigger Keywords
 
