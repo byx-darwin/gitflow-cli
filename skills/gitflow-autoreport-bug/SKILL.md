@@ -23,11 +23,11 @@ Detects CLI errors from `pending.json` and creates deduplicated GitHub/GitLab/Gi
 # 1. Validate
 jq . .cache/bug-reports/pending.json
 # 2. Auth (cache or live)
-gitflow-cli auth status --platform {platform}
+gitflow-cli auth status --platform github
 # 3. Deduplicate
-gitflow-cli issue list --search "[auto-report] {command} {error_code}" --state all
+gitflow-cli issue list --platform github --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}" --state all
 # 4. Create
-gitflow-cli issue create --title "..." --body "..." --label auto-report
+gitflow-cli issue create --platform github --repo byx-darwin/gitflow-cli --title "..." --body "..." --label auto-report
 # 5. Cleanup
 rm -f .cache/bug-reports/pending.json
 ```
@@ -37,9 +37,9 @@ rm -f .cache/bug-reports/pending.json
 | Goal | Command |
 |------|---------|
 | Validate | `jq . .cache/bug-reports/pending.json` |
-| Check auth | `gitflow-cli auth status --platform {platform}` |
-| Deduplicate | `gitflow-cli issue list --search "..." --state all` |
-| Create issue | `gitflow-cli issue create --title "..." --body "..." --label auto-report` |
+| Check auth | `gitflow-cli auth status --platform github` |
+| Deduplicate | `gitflow-cli issue list --platform github --repo byx-darwin/gitflow-cli --search "..." --state all` |
+| Create issue | `gitflow-cli issue create --platform github --repo byx-darwin/gitflow-cli --title "..." --body "..." --label auto-report` |
 | Log failure | `echo "[...]" >> .cache/bug-reports/failed.log` |
 
 ## Implementation
@@ -68,7 +68,7 @@ Search `[auto-report] {command} {error_code}` all states. Match → output `#N`,
 
 ### Step 5: Create
 
-`issue create --label auto-report`. Success → URL, remove `pending.json`. Fail → append `failed.log`.
+`issue create --platform github --repo byx-darwin/gitflow-cli --label auto-report`. Success → URL, remove `pending.json`. Fail → append `failed.log`.
 
 ### Step 6: Cleanup
 
