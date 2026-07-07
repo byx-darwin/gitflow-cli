@@ -19,10 +19,9 @@ Router for `gitflow-cli pr`. Delegates complex flows to child skills; executes l
 ## Core Pattern
 
 ```bash
-# Route by intent:
 # create → /gitflow-pr-create | review → /gitflow-pr-review
-# inline review → /gitflow-pr-inline-review | apply → /gitflow-pr-apply-feedback
-# others → execute directly:
+# inline → /gitflow-pr-inline-review | apply → /gitflow-pr-apply-feedback
+# others → execute:
 gitflow-cli pr <subcommand> <args>
 ```
 
@@ -132,11 +131,10 @@ Run `gitflow-cli pr <subcommand> <args>`. Success → URL/confirmation + `pr vie
 
 ## Success Criteria
 
-- [ ] User intent routed to correct subcommand or child skill
-- [ ] All 11 subcommands documented in Quick Reference
-- [ ] No inline execution of create/review/inline-review/apply-feedback
-- [ ] Destructive ops (merge, close) require confirmation
-- [ ] Errors surfaced without hallucination
+- [ ] Intent routed correctly
+- [ ] All 11 subcommands documented
+- [ ] No inline create/review/inline-review/apply-feedback
+- [ ] Destructive ops require confirmation
 
 ## Common Mistakes
 
@@ -149,9 +147,8 @@ Run `gitflow-cli pr <subcommand> <args>`. Success → URL/confirmation + `pr vie
 | English | 中文 |
 |---------|------|
 | create a PR | 创建 PR |
-| list / view / close / merge PR | 列表/查看/关闭/合并 PR |
-| checkout / sync / comment PR | 检出/同步/评论 PR |
-| ready / wip | 就绪/草稿 |
+| list / view / merge PR | 列表/查看/合并 |
+| sync / comment / close PR | 同步/评论/关闭 |
 | pull request | 拉取请求 |
 
 ## See Also
