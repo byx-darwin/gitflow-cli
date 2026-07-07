@@ -52,22 +52,20 @@ flowchart TD
 
 User must manually run `/gitflow-workflow --fast` or explicitly request fix.
 
+## Target Repository
+
+**All auto-reports → fixed repo:** `byx-darwin/gitflow-cli`
+
+Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
+
 ## Workflow
 
 1. **Read & Validate** — `.cache/bug-reports/pending.json`. Required: `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop. Pre-check: `command -v gitflow-cli`.
 2. **Auth Cache** — `.cache/auth-cache/{platform}.ttl`. Hit → proceed. Miss → `gitflow-cli auth status --platform {platform}`. Fail → keep file + `failed.log`. Success → update TTL.
 3. **Claude Analysis** — root cause, fix direction, severity. Title: `[auto-report] gitflow {command} — {error_code}`.
-4. **Dedup** — `gitflow-cli issue list --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
-5. **Create Issue** — `gitflow-cli issue create --title "[auto-report] ..." --label "auto-report"`. Fail → keep file + `failed.log`.
+4. **Dedup** — `gitflow-cli issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
+5. **Create Issue** — `gitflow-cli issue create --repo byx-darwin/gitflow-cli --title "[auto-report] ..." --label "auto-report"`. Fail → keep file + `failed.log`.
 6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
-
-## `pending.json` Schema
-
-`id` (uuid), `command`, `platform`, `error_code`, `error_message`, `timestamp`, `auth_cache_ttl` (optional, default 86400).
-
-## `failed.log` Format
-
-`[timestamp] 命令: {command} | 平台: {platform} | 错误: {error_code} | 失败原因: {reason}`
 
 ## Error Handling
 
@@ -79,11 +77,10 @@ User must manually run `/gitflow-workflow --fast` or explicitly request fix.
 | Dedup hit | Clean `pending.json`, show existing Issue |
 | Issue creation failure | Keep `pending.json` + log to `failed.log` |
 
-## Trigger
-
-Auto-triggered by Stop Hook (`hooks/auto-report-bug.sh`) after Claude completes a response.
+Schema 和 failed.log 格式详见 `docs/references/gitflow-autoreport-bug-params.md`。
 
 ## Common Mistakes
 
 - ❌ **Attempting to fix the bug** — this skill reports only; fixes require user-initiated workflow
 - ❌ **Skipping dedup** — always search before creating to avoid duplicate Issues
+- ❌ **Missing --repo** — always use `--repo byx-darwin/gitflow-cli`
