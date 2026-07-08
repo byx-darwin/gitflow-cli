@@ -61,6 +61,30 @@ impl AgentPlatform {
         }
     }
 
+    /// 返回该 Agent 的 hook 子目录名（相对于项目根或 home）。
+    #[must_use]
+    pub fn hooks_dir_name(self) -> &'static str {
+        match self {
+            AgentPlatform::Claude => ".claude/hooks",
+            AgentPlatform::Codex => ".codex/hooks",
+            AgentPlatform::OpenCode => ".opencode/hooks",
+            AgentPlatform::Gemini => ".gemini/hooks",
+            AgentPlatform::Copilot => ".copilot/hooks",
+        }
+    }
+
+    /// 返回该 Agent 的 settings.json 路径（相对于项目根或 home）。
+    #[must_use]
+    pub fn settings_file_path(self) -> &'static str {
+        match self {
+            AgentPlatform::Claude => ".claude/settings.json",
+            AgentPlatform::Codex => ".codex/settings.json",
+            AgentPlatform::OpenCode => ".opencode/settings.json",
+            AgentPlatform::Gemini => ".gemini/settings.json",
+            AgentPlatform::Copilot => ".copilot/settings.json",
+        }
+    }
+
     /// 自动检测当前环境中的 Agent 平台。
     ///
     /// 检测策略：按优先级检查各平台的配置目录是否存在。
@@ -114,8 +138,8 @@ pub struct InstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（仅 -g 时有效，默认自动检测）
-    #[arg(long, value_enum, requires = "global")]
+    /// 目标 Agent 平台（默认自动检测）
+    #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义安装路径（最高优先级）
@@ -138,8 +162,8 @@ pub struct ListArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（仅 -g 时有效）
-    #[arg(long, value_enum, requires = "global")]
+    /// 目标 Agent 平台（默认自动检测）
+    #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义查找路径
@@ -154,8 +178,8 @@ pub struct UninstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（仅 -g 时有效）
-    #[arg(long, value_enum, requires = "global")]
+    /// 目标 Agent 平台（默认自动检测）
+    #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义卸载路径
@@ -305,7 +329,8 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
 
     // 安装 auto-report-bug hook（可通过 --report-bug=false 跳过）
     if args.report_bug {
-        install_hook(args.global, args.force)?;
+        let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+        install_hook(args.global, args.force, platform)?;
     }
 
     Ok(())
@@ -394,41 +419,47 @@ fn install_single_skill_bundled(
 }
 
 /// Resolve hook directory, settings path, and command for global installation.
-fn resolve_global_hook_paths(home: &std::path::Path) -> (PathBuf, PathBuf, String) {
-    let dir = home.join(".claude/hooks");
-    let settings = home.join(".claude/settings.json");
-    let cmd = "bash ~/.claude/hooks/auto-report-bug.sh".to_string();
+fn resolve_global_hook_paths(
+    home: &std::path::Path,
+    platform: AgentPlatform,
+) -> (PathBuf, PathBuf, String) {
+    let hooks_dir = platform.hooks_dir_name();
+    let settings_file = platform.settings_file_path();
+    let dir = home.join(hooks_dir);
+    let settings = home.join(settings_file);
+    let cmd = format!("bash ~/{hooks_dir}/auto-report-bug.sh");
     (dir, settings, cmd)
 }
 
 /// Resolve hook directory, settings path, and command for project-level installation.
-///
-/// Hook script is installed to `hooks/` (repo root), **not** `.claude/hooks/`,
-/// because the command in `settings.json` uses the `hooks/` relative path.
-fn resolve_project_hook_paths(repo: &std::path::Path) -> (PathBuf, PathBuf, String) {
-    let dir = repo.join("hooks");
-    let settings = repo.join(".claude/settings.json");
-    let cmd = "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
-               pwd)/hooks/auto-report-bug.sh\""
-        .to_string();
+fn resolve_project_hook_paths(
+    repo: &std::path::Path,
+    platform: AgentPlatform,
+) -> (PathBuf, PathBuf, String) {
+    let hooks_dir = platform.hooks_dir_name();
+    let settings_file = platform.settings_file_path();
+    let dir = repo.join(hooks_dir);
+    let settings = repo.join(settings_file);
+    let cmd = format!(
+        "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
+         pwd)/{hooks_dir}/auto-report-bug.sh\""
+    );
     (dir, settings, cmd)
 }
 
 /// 从文件系统目录安装 skills（开发场景）。
 ///
-/// 项目级：hook 脚本 → `hooks/auto-report-bug.sh`，
-/// 配置写入 `.claude/settings.json`。
-/// 全局级：hook 脚本 → `~/.claude/hooks/auto-report-bug.sh`，
-/// 配置写入 `~/.claude/settings.json`。
-fn install_hook(global: bool, force: bool) -> miette::Result<()> {
+/// hook 脚本安装到平台对应的 hooks 目录（Claude 下为 `.claude/hooks/`），
+/// 配置写入平台对应的 settings 文件（Claude 下为 `.claude/settings.json`）。
+fn install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()> {
     let hook_script = include_bytes!("../../../../hooks/auto-report-bug.sh");
 
     let (hook_dir, settings_path, cmd) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        resolve_global_hook_paths(&home)
+        resolve_global_hook_paths(&home, platform)
     } else {
         let repo = git_repo_root()?;
-        resolve_project_hook_paths(&repo)
+        resolve_project_hook_paths(&repo, platform)
     };
 
     // 写 hook 脚本
@@ -590,19 +621,40 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
     }
 
     // 移除 Hook 配置
-    uninstall_hook(args.global)?;
+    let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+    uninstall_hook(args.global, platform)?;
 
     Ok(())
 }
 
-/// 从配置中移除 Stop Hook。
-fn uninstall_hook(global: bool) -> miette::Result<()> {
-    let settings_path = if global {
+/// 从配置中移除 Stop Hook，并清理 hook 脚本文件。
+fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
+    let (hook_dir, settings_path) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        home.join(".claude/settings.json")
+        (
+            home.join(platform.hooks_dir_name()),
+            home.join(platform.settings_file_path()),
+        )
     } else {
-        git_repo_root()?.join(".claude/settings.json")
+        let repo = git_repo_root()?;
+        (
+            repo.join(platform.hooks_dir_name()),
+            repo.join(platform.settings_file_path()),
+        )
     };
+
+    // 删除 hook 脚本文件
+    let hook_script = hook_dir.join("auto-report-bug.sh");
+    if hook_script.exists() {
+        std::fs::remove_file(&hook_script)
+            .map_err(|e| miette::miette!("无法删除 hook 脚本 {}: {e}", hook_script.display()))?;
+        // 如果 hook 目录为空，也删除目录
+        if hook_dir.exists()
+            && std::fs::read_dir(&hook_dir).map_or(true, |mut d| d.next().is_none())
+        {
+            std::fs::remove_dir(&hook_dir).ok();
+        }
+    }
 
     if !settings_path.exists() {
         return Ok(());
@@ -692,6 +744,71 @@ mod tests {
                 | AgentPlatform::Gemini
                 | AgentPlatform::Copilot
         ));
+    }
+
+    #[test]
+    fn test_agent_platform_claude_hooks_dir() {
+        assert_eq!(AgentPlatform::Claude.hooks_dir_name(), ".claude/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_codex_hooks_dir() {
+        assert_eq!(AgentPlatform::Codex.hooks_dir_name(), ".codex/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_opencode_hooks_dir() {
+        assert_eq!(AgentPlatform::OpenCode.hooks_dir_name(), ".opencode/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_gemini_hooks_dir() {
+        assert_eq!(AgentPlatform::Gemini.hooks_dir_name(), ".gemini/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_copilot_hooks_dir() {
+        assert_eq!(AgentPlatform::Copilot.hooks_dir_name(), ".copilot/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_claude_settings_path() {
+        assert_eq!(
+            AgentPlatform::Claude.settings_file_path(),
+            ".claude/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_codex_settings_path() {
+        assert_eq!(
+            AgentPlatform::Codex.settings_file_path(),
+            ".codex/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_opencode_settings_path() {
+        assert_eq!(
+            AgentPlatform::OpenCode.settings_file_path(),
+            ".opencode/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_gemini_settings_path() {
+        assert_eq!(
+            AgentPlatform::Gemini.settings_file_path(),
+            ".gemini/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_copilot_settings_path() {
+        assert_eq!(
+            AgentPlatform::Copilot.settings_file_path(),
+            ".copilot/settings.json"
+        );
     }
 
     #[test]
@@ -827,7 +944,7 @@ mod tests {
 
         // 调用 uninstall_hook（全局模式），用 temp_env 隔离 HOME
         temp_env::with_var("HOME", Some(tmp.path()), || {
-            super::uninstall_hook(true).expect("uninstall should succeed");
+            super::uninstall_hook(true, AgentPlatform::Claude).expect("uninstall should succeed");
         });
 
         // 验证 gitflow hook 已被删除
@@ -883,7 +1000,7 @@ mod tests {
         .expect("write settings");
 
         temp_env::with_var("HOME", Some(tmp.path()), || {
-            super::uninstall_hook(true).expect("uninstall should succeed");
+            super::uninstall_hook(true, AgentPlatform::Claude).expect("uninstall should succeed");
         });
 
         let after = std::fs::read_to_string(&settings_path).expect("read after");
@@ -899,30 +1016,80 @@ mod tests {
         );
     }
 
+    /// Test is Unix-only: uses `dirs::home_dir()` which on Windows ignores HOME env var.
+    #[cfg(unix)]
+    #[test]
+    fn test_uninstall_hook_deletes_script_file_and_empty_dir() {
+        let tmp = tempfile::tempdir().expect("create temp dir");
+
+        // Create .claude/hooks/ directory with a fake hook script
+        let hooks_dir = tmp.path().join(".claude/hooks");
+        std::fs::create_dir_all(&hooks_dir).expect("create hooks dir");
+        let hook_script = hooks_dir.join("auto-report-bug.sh");
+        std::fs::write(&hook_script, b"#!/bin/bash\necho test\n").expect("write hook script");
+
+        // Create settings.json with gitflow hook
+        let settings_path = tmp.path().join(".claude/settings.json");
+        let content = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "bash .claude/hooks/auto-report-bug.sh"
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+        std::fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&content).expect("serialize"),
+        )
+        .expect("write settings");
+
+        temp_env::with_var("HOME", Some(tmp.path()), || {
+            super::uninstall_hook(true, AgentPlatform::Claude)
+                .expect("uninstall should succeed");
+        });
+
+        // Verify script file was deleted
+        assert!(
+            !hook_script.exists(),
+            "hook script should be deleted by uninstall"
+        );
+        // Verify empty hooks dir was removed
+        assert!(
+            !hooks_dir.exists(),
+            "empty hooks directory should be removed"
+        );
+    }
+
     #[test]
     fn test_resolve_project_hook_paths_uses_hooks_dir() {
         let repo = PathBuf::from("/tmp/test-repo");
-        let (hook_dir, settings_path, cmd) = resolve_project_hook_paths(&repo);
+        let (hook_dir, settings_path, cmd) =
+            resolve_project_hook_paths(&repo, AgentPlatform::Claude);
         assert_eq!(
             hook_dir,
-            repo.join("hooks"),
-            "hook should be in hooks/ not .claude/hooks/"
+            repo.join(".claude/hooks"),
+            "hook should be in .claude/hooks/"
         );
         assert_eq!(settings_path, repo.join(".claude/settings.json"));
         assert!(
-            cmd.contains("/hooks/auto-report-bug.sh"),
-            "command should reference hooks/ path"
-        );
-        assert!(
-            !cmd.contains(".claude/hooks"),
-            "command should not reference .claude/hooks/"
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/ path"
         );
     }
 
     #[test]
     fn test_resolve_global_hook_paths_uses_claude_hooks_dir() {
         let home = PathBuf::from("/home/user");
-        let (hook_dir, settings_path, cmd) = resolve_global_hook_paths(&home);
+        let (hook_dir, settings_path, cmd) =
+            resolve_global_hook_paths(&home, AgentPlatform::Claude);
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
         assert!(cmd.contains("~/.claude/hooks/auto-report-bug.sh"));

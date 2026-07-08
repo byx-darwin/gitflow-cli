@@ -567,7 +567,7 @@ Skills 脚本侧（Phase 2+ 启用）：`_common.sh` 提供 `report_error()` 函
 
 ### 检测层
 
-**`hooks/auto-report-bug.sh`：**
+**`.claude/hooks/auto-report-bug.sh`：**
 
 ```bash
 #!/usr/bin/env bash
@@ -597,7 +597,12 @@ cat "$PENDING_FILE"
     "Stop": [
       {
         "matcher": "gitflow",
-        "command": "bash hooks/auto-report-bug.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/auto-report-bug.sh\""
+          }
+        ]
       }
     ]
   }
@@ -675,7 +680,7 @@ skills/
 |---------|------|
 | `apps/cli/src/` | 新增 `error_reporter.rs` 模块 |
 | `apps/cli/src/main.rs` | `async_main` Err 分支调用 `maybe_report_error()` |
-| `hooks/auto-report-bug.sh` | 新建 |
+| `.claude/hooks/auto-report-bug.sh` | 新建 |
 | `.claude/settings.json` | 注册 Stop Hook |
 | `skills/gitflow-autoreport-bug/SKILL.md` | 新建（Phase 2+） |
 | `skills/_common.sh` | 新建（Phase 2+），提供 `report_error()` |
@@ -1839,7 +1844,7 @@ fn test_should_list_issues_with_json_output() {
 - [ ] 原生 CLI 前置检查（PATH + 版本最低要求）
 - [ ] JSON 输出格式
 - [ ] 冒烟测试脚本
-- [ ] 错误自动报告：`error_reporter` 模块 + `hooks/auto-report-bug.sh` + pending.json 写入
+- [ ] 错误自动报告：`error_reporter` 模块 + `.claude/hooks/auto-report-bug.sh` + pending.json 写入
 
 ### Phase 2: GitHub 完整支持
 

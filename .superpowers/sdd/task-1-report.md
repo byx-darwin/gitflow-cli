@@ -1,64 +1,53 @@
-# Task 1 Report: 添加 --repo 参数支持
+# Task 1 Report: Extend AgentPlatform with hooks and settings path methods
 
-## Status: DONE
+## Status
 
-## What Was Implemented
+DONE
 
-Added `--repo` CLI parameter to `gitflow-cli issue create` command, allowing users to specify a target repository (`owner/repo` format) different from the current working directory's remote.
+## Commits
 
-### Behavior
-- **Before**: `issue create` always used the repo extracted from `git remote get-url origin`
-- **After**: `--repo owner/repo` overrides the auto-detected repo; without `--repo`, behavior is unchanged
+- `b73a617`
 
-### Files Changed
+## Test Summary
 
-1. **`apps/cli/src/commands/issue.rs`**:
-   - Added `repo: Option<String>` field to `IssueCommand::Create` variant with `#[arg(long)]` attribute
-   - Modified `handle` function to compute `effective_repo` by checking for `--repo` override before creating the provider
-   - Added 2 new unit tests:
-     - `test_should_parse_issue_create_with_repo` -- verifies `--repo` is parsed correctly
-     - `test_should_parse_issue_create_without_repo` -- verifies `repo` is `None` when not specified
+**Command run:** `cargo test -p gitflow-cli`
 
-2. **No changes to `apps/cli/src/main.rs`**: The `IssueCommand` enum is defined in `issue.rs` and used via `clap::Subcommand` derive, so CLI argument parsing is handled automatically.
+**Results:** 235 tests, all passed
+- 171 unit tests (including **10 new tests** for `hooks_dir_name` and `settings_file_path` across all 5 platform variants)
+- 11 completions integration tests
+- 2 integration tests (version + help)
+- 6 issue integration tests
+- 2 JSON output integration tests
+- 4 PR integration tests
+- 18 workflow mode tests
+- 7 workflow phase 1 tests
+- 6 workflow phase 2 tests
+- 8 workflow phase 3/4 tests
 
-## Test Results
+**Additional checks:**
+- `cargo +nightly fmt --check`: passed
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed
 
-### RED Phase
-Tests failed with expected compilation errors:
-```
-error[E0026]: variant `commands::issue::IssueCommand::Create` does not have a field named `repo`
-```
+## Changes
 
-### GREEN Phase
-After implementing the feature, all tests pass:
-```
-test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 145 filtered out
-```
+**File:** `apps/cli/src/commands/skills.rs` (97 lines added)
 
-### REFACTOR Phase
-Refactored provider creation to avoid creating an unused provider for the `Create` case. The `effective_repo` is now computed once before provider construction.
+**New methods on `AgentPlatform`:**
 
-### Validation
-- `make clippy`: PASS (no warnings)
-- `cargo test -p gitflow-cli --bin gitflow-cli -- issue`: 16/16 PASS
-- `cargo test -p gitflow-cli --test issue_test`: 6/6 PASS
-- `make test`: Pre-existing failures in `workflow_modes_test` (unrelated to this change)
+1. `hooks_dir_name() -> &'static str` -- returns platform-specific hooks directory:
+   - Claude: `.claude/hooks`
+   - Codex: `.codex/hooks`
+   - OpenCode: `.opencode/hooks`
+   - Gemini: `.gemini/hooks`
+   - Copilot: `.copilot/hooks`
 
-## Usage Example
-
-```bash
-# Auto-detect repo from remote (existing behavior)
-gitflow-cli issue create --title "Bug" --body "Description"
-
-# Override repo (new behavior)
-gitflow-cli issue create --title "Bug" --body "Description" --repo byx-darwin/gitflow-cli
-
-# With platform override
-gitflow-cli issue create --platform github --repo byx-darwin/gitflow-cli --title "Bug"
-```
-
-## Commit SHA
-(To be added after commit)
+2. `settings_file_path() -> &'static str` -- returns platform-specific settings file path:
+   - Claude: `.claude/settings.json`
+   - Codex: `.codex/settings.json`
+   - OpenCode: `.opencode/settings.json`
+   - Gemini: `.gemini/settings.json`
+   - Copilot: `.copilot/settings.json`
 
 ## Concerns
-- The pre-existing `workflow_modes_test` failures are unrelated to this change and should be addressed separately.
+
+None. The brief file (`.superpowers/sdd/task-1-brief.md`) contained requirements for a different issue (Issue #47), but the user's explicit task instructions were clear and self-contained. Followed TDD: wrote 10 tests first (RED), implemented the two methods (GREEN), ran fmt + clippy (REFACTOR).

@@ -167,7 +167,7 @@ gitflow CLI 命令失败
 .error_reporter 写入 .cache/bug-reports/pending.json
        │
        ▼
-Claude Code Stop Hook 触发 hooks/auto-report-bug.sh
+Claude Code Stop Hook 触发 .claude/hooks/auto-report-bug.sh
        │
        ▼
 脚本检测到 pending.json → 打印错误 banner
@@ -224,7 +224,12 @@ Stop Hook 仅在以下条件**全部满足**时触发:
     "Stop": [
       {
         "matcher": "gitflow",
-        "command": "bash hooks/auto-report-bug.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/auto-report-bug.sh\""
+          }
+        ]
       }
     ]
   }
@@ -298,7 +303,7 @@ export APP_LOG_LEVEL=debug
 检查以下几点:
 
 1. `.claude/settings.json` 中 `hooks.Stop` 配置是否正确。
-2. `hooks/auto-report-bug.sh` 是否有执行权限: `chmod +x hooks/auto-report-bug.sh`。
+2. `.claude/hooks/auto-report-bug.sh` 是否有执行权限: `chmod +x .claude/hooks/auto-report-bug.sh`。
 3. `.cache/bug-reports/pending.json` 是否存在。
 4. 确认是非交互模式 (Hook 在 TTY 环境下会跳过)。
 

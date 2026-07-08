@@ -1,33 +1,11 @@
-# TASK-5: Refactor gitflow-pr-apply-feedback
+## Task 5: 重构 `uninstall_hook` 接受 `AgentPlatform` + 清理脚本文件
 
-**ID:** TASK-5
-**Issue:** #33
-**Effort:** 4h
-**Depends on:** TASK-0
-**Risk:** 🔴 High (code modify + commit + push)
+**文件**: `apps/cli/src/commands/skills.rs`
 
-## P0 Items
-- description: rewrite to "Use when..." trigger format
-- boundaries: each modification requires confirmation, push requires explicit confirmation
-- prohibition list
-- red flags
-- trigger keywords
-- cross-references (gitflow-pr, gitflow-pr-review, gitflow-pr-inline-review)
-- token compression
-- testability hooks (RED phase: 4 scenarios)
+**改动**:
 
-## P1 Items
-- structured template compliance
-- error handling
-- preconditions
-- rationalization excuse counter-table
-- flowchart
-- Quick Reference
+1. 函数签名变为 `uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()>`
+2. settings 路径按平台解析
+3. **新增**：删除 hook 脚本文件（`auto-report-bug.sh`），如果 hook 目录为空则也删除目录
+4. 更新 `uninstall_skills` 中调用
 
-## Context
-
-Highest combination of destructive operations: code modification + git commit + git push. Each step must have explicit user confirmation.
-
-Reference: `docs/superpowers/templates/skill-template.md` (from TASK-0)
-
-Work from: `/Users/byx/Documents/workspace/github.com/byx-darwin/gitflow-cli`

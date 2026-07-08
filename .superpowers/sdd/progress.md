@@ -1,13 +1,16 @@
-# SDD Progress Ledger — Fixed Repo Address Feature
+# SDD Progress Ledger — Hook Path Alignment + Multi-Agent Platform
 
-**Branch:** feat/issue-repo-parameter
-**Base:** 92ace821e4bba68185b9251a616233f50b486490
-**Issue:** #47
+**Branch:** fix/issue-55
+**Base:** (to be recorded)
+**Issue:** #55
 
 ## Tasks
-
-- [x] Task 1: 添加 --repo 参数支持 (commit 7086180, review APPROVED)
-- [x] Task 2: 修改 gitflow-autoreport-bug SKILL.md (commit dfb5479, review APPROVED)
-- [x] Task 3: 集成测试 (verified --repo works correctly)
-- [x] Task 4: 质量关卡 (build, lint, 16/16 tests pass)
-- [x] Task 5: 交付 (PR #51 merged to main, Issue #47 closed)
+- [x] Task 1: AgentPlatform hooks/settings methods (commits 7bde64d..0d51693, review APPROVED)
+- [x] Task 2: resolve_project_hook_paths refactor (commits bce3427..c69afac, review APPROVED)
+- [x] Task 3: resolve_global_hook_paths refactor (commits c69afac..a51ecde, review APPROVED)
+- [x] Task 4: install_hook AgentPlatform param (commits a51ecde..5e58eda, review APPROVED)
+- [x] Task 5: uninstall_hook AgentPlatform + script cleanup (commits 5e58eda..3409d84, review APPROVED)
+- [x] Task 6: --agent for project-level (commits 3409d84..7eff65b, review APPROVED)
+- [x] Task 7: install.sh hook path alignment (commits 7eff65b..de744aa, review APPROVED)
+- [x] Task 8: documentation updates (commits de744aa..1377302, review APPROVED)
+- [x] Task 9: quality gate (build, test, fmt, clippy, audit — all clean)
