@@ -329,7 +329,8 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
 
     // 安装 auto-report-bug hook（可通过 --report-bug=false 跳过）
     if args.report_bug {
-        install_hook(args.global, args.force)?;
+        let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+        install_hook(args.global, args.force, platform)?;
     }
 
     Ok(())
@@ -448,19 +449,17 @@ fn resolve_project_hook_paths(
 
 /// 从文件系统目录安装 skills（开发场景）。
 ///
-/// 项目级：hook 脚本 → `hooks/auto-report-bug.sh`，
-/// 配置写入 `.claude/settings.json`。
-/// 全局级：hook 脚本 → `~/.claude/hooks/auto-report-bug.sh`，
-/// 配置写入 `~/.claude/settings.json`。
-fn install_hook(global: bool, force: bool) -> miette::Result<()> {
+/// hook 脚本安装到平台对应的 hooks 目录（Claude 下为 `.claude/hooks/`），
+/// 配置写入平台对应的 settings 文件（Claude 下为 `.claude/settings.json`）。
+fn install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()> {
     let hook_script = include_bytes!("../../../../hooks/auto-report-bug.sh");
 
     let (hook_dir, settings_path, cmd) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        resolve_global_hook_paths(&home, AgentPlatform::Claude)
+        resolve_global_hook_paths(&home, platform)
     } else {
         let repo = git_repo_root()?;
-        resolve_project_hook_paths(&repo, AgentPlatform::Claude)
+        resolve_project_hook_paths(&repo, platform)
     };
 
     // 写 hook 脚本

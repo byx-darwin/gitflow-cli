@@ -7,3 +7,4 @@
 ## Tasks
 - [x] Task 1: AgentPlatform hooks/settings methods (commits 7bde64d..0d51693, review APPROVED)
 - [x] Task 2: resolve_project_hook_paths refactor (commits bce3427..c69afac, review APPROVED)
+- [x] Task 3: resolve_global_hook_paths refactor (commits c69afac..a51ecde, review APPROVED)
