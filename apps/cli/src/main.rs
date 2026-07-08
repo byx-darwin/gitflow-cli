@@ -302,8 +302,13 @@ fn extract_repo_from_url(url: &str) -> Option<String> {
         after.to_string()
     } else {
         // HTTPS format: `host/owner/repo` - skip the first segment (host)
+        // segments[1..] is safe here because we check `segments.len() >= 2` on the previous line
         let segments: Vec<&str> = without_auth.split('/').filter(|s| !s.is_empty()).collect();
         if segments.len() >= 2 {
+            #[allow(
+                clippy::indexing_slicing,
+                reason = "Safe: segments.len() >= 2 checked above"
+            )]
             segments[1..].join("/")
         } else {
             return None;

@@ -42,7 +42,10 @@ impl GitHubCommitProvider {
 /// `gh api repos/<repo>/commits/<sha>` 返回的 JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Fields deserialized by serde but not all read directly"
+)]
 struct CommitApiResponse {
     sha: String,
     commit: CommitInner,
@@ -56,7 +59,10 @@ struct CommitApiResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Fields deserialized by serde but not all read directly"
+)]
 struct CommitInner {
     message: String,
     author: Option<CommitAuthorInner>,
@@ -65,7 +71,10 @@ struct CommitInner {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Fields deserialized by serde but not all read directly"
+)]
 struct CommitAuthorInner {
     #[serde(default)]
     date: Option<String>,
@@ -73,7 +82,10 @@ struct CommitAuthorInner {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "Fields deserialized by serde but not all read directly"
+)]
 struct CommitStats {
     #[serde(default)]
     additions: u64,

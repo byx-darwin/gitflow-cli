@@ -10,16 +10,12 @@ use gitflow_cli_core::{
 };
 use serde::Deserialize;
 
-use crate::error::parse_gitcode_error;
-
-/// `gc run list` 请求的 JSON 字段列表。
-const PIPELINE_FIELDS: &str = "databaseId,headBranch,status,conclusion,createdAt,updatedAt,url";
-
 /// 将 GitCode `gc run list` 返回的 status 字符串映射为 [`PipelineStatusEnum`]。
 ///
 /// GitCode 返回小写状态：`queued`、`in_progress`、`completed`、`waiting`、
 /// `requested`、`pending` 等。其中 `completed` 需要结合 `conclusion`
 /// 判断最终结果。
+#[allow(dead_code, reason = "Kept for future GitCode pipeline support")]
 fn gc_status_to_enum(status: &str, conclusion: Option<&str>) -> PipelineStatusEnum {
     match status {
         "completed" => match conclusion {
@@ -40,7 +36,7 @@ fn gc_status_to_enum(status: &str, conclusion: Option<&str>) -> PipelineStatusEn
 /// Kept for future use when pipeline support is added.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
+#[allow(dead_code, reason = "Kept for future GitCode pipeline support")]
 struct GcRun {
     database_id: u64,
     head_branch: String,
@@ -52,7 +48,7 @@ struct GcRun {
 }
 
 impl GcRun {
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "Kept for future GitCode pipeline support")]
     fn into_status(self) -> PipelineStatus {
         let created_at = chrono::DateTime::parse_from_rfc3339(&self.created_at)
             .map_or_else(|_| chrono::Utc::now(), |dt| dt.with_timezone(&chrono::Utc));
@@ -71,50 +67,7 @@ impl GcRun {
     }
 }
 
-/// `gc run view --json jobs` 的包裹结构体。
-///
-/// GitCode 返回 `{"jobs": [...]}` 而非直接数组。
-#[derive(Debug, Deserialize)]
-struct JobsResponse {
-    jobs: Vec<GcJob>,
-}
-
-/// GitCode 单次 job 的原始响应。
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GcJob {
-    database_id: u64,
-    name: String,
-    status: String,
-    conclusion: Option<String>,
-    started_at: Option<String>,
-    completed_at: Option<String>,
-    url: String,
-}
-
-impl GcJob {
-    fn into_job_data(self) -> JobData {
-        let parse_ts = |s: Option<&str>| {
-            s.and_then(|v| {
-                chrono::DateTime::parse_from_rfc3339(v)
-                    .ok()
-                    .map(|dt| dt.with_timezone(&chrono::Utc))
-            })
-        };
-
-        JobData {
-            id: self.database_id,
-            name: self.name,
-            status: self.status,
-            conclusion: self.conclusion,
-            started_at: parse_ts(self.started_at.as_deref()),
-            completed_at: parse_ts(self.completed_at.as_deref()),
-            url: self.url,
-        }
-    }
-}
-
-/// GitCode Pipeline 提供者，通过 `gitcode`  CLI 操作 CI/CD 流水线。
+/// GitCode Pipeline 提供者，通过 `gitcode` CLI 操作 CI/CD 流水线。
 ///
 /// # Examples
 ///
@@ -125,7 +78,7 @@ impl GcJob {
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitCodePipelineProvider {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
+    #[allow(dead_code, reason = "Stored for future pipeline API calls")]
     repo: String,
 }
 
@@ -141,44 +94,36 @@ impl GitCodePipelineProvider {
 
 #[async_trait]
 impl PipelineProvider for GitCodePipelineProvider {
-    async fn status(&self, branch: &str) -> Result<Vec<PipelineStatus>> {
-        // GitCode CLI does not support `run` command (version 0.6.1)
-        // and GitCode API does not have pipeline endpoints
-        return Err(CoreError::Platform(
+    async fn status(&self, _branch: &str) -> Result<Vec<PipelineStatus>> {
+        Err(CoreError::Platform(
             "GitCode does not support pipeline management. GitCode CLI v0.6.1 does not have 'run' \
              command."
                 .into(),
-        ));
+        ))
     }
 
-    async fn logs(&self, pipeline_id: u64) -> Result<String> {
-        // GitCode CLI does not support `run` command (version 0.6.1)
-        // and GitCode API does not have pipeline endpoints
-        return Err(CoreError::Platform(
+    async fn logs(&self, _pipeline_id: u64) -> Result<String> {
+        Err(CoreError::Platform(
             "GitCode does not support pipeline management. GitCode CLI v0.6.1 does not have 'run' \
              command."
                 .into(),
-        ));
+        ))
     }
 
-    async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
-        // GitCode CLI does not support `run` command (version 0.6.1)
-        // and GitCode API does not have pipeline endpoints
-        return Err(CoreError::Platform(
+    async fn jobs(&self, _pipeline_id: u64) -> Result<Vec<JobData>> {
+        Err(CoreError::Platform(
             "GitCode does not support pipeline management. GitCode CLI v0.6.1 does not have 'run' \
              command."
                 .into(),
-        ));
+        ))
     }
 
-    async fn report(&self, branch: &str, days: u32) -> Result<PipelineReport> {
-        // GitCode CLI does not support `run` command (version 0.6.1)
-        // and GitCode API does not have pipeline endpoints
-        return Err(CoreError::Platform(
+    async fn report(&self, _branch: &str, _days: u32) -> Result<PipelineReport> {
+        Err(CoreError::Platform(
             "GitCode does not support pipeline management. GitCode CLI v0.6.1 does not have 'run' \
              command."
                 .into(),
-        ));
+        ))
     }
 }
 
@@ -308,5 +253,47 @@ mod tests {
             gc_status_to_enum("completed", None),
             PipelineStatusEnum::Running
         );
+    }
+
+    #[test]
+    fn test_should_deserialize_gc_run_from_json() {
+        let json = br#"{
+            "databaseId": 12345,
+            "headBranch": "main",
+            "status": "completed",
+            "conclusion": "success",
+            "createdAt": "2026-07-01T10:00:00Z",
+            "updatedAt": "2026-07-01T10:05:30Z",
+            "url": "https://gitcode.com/example/repo/actions/runs/12345"
+        }"#;
+
+        let run: GcRun = serde_json::from_slice(json).expect("valid GcRun JSON");
+        assert_eq!(run.database_id, 12345);
+        assert_eq!(run.head_branch, "main");
+        assert_eq!(run.status, "completed");
+        assert_eq!(run.conclusion.as_deref(), Some("success"));
+        assert_eq!(
+            run.url,
+            "https://gitcode.com/example/repo/actions/runs/12345"
+        );
+    }
+
+    #[test]
+    fn test_should_convert_gc_run_to_pipeline_status() {
+        let run = GcRun {
+            database_id: 42,
+            head_branch: "main".into(),
+            status: "completed".into(),
+            conclusion: Some("success".into()),
+            created_at: "2026-07-01T10:00:00Z".into(),
+            updated_at: "2026-07-01T10:05:30Z".into(),
+            url: "https://example.com/42".into(),
+        };
+
+        let status = run.into_status();
+        assert_eq!(status.id, 42);
+        assert_eq!(status.ref_name, "main");
+        assert_eq!(status.status, PipelineStatusEnum::Success);
+        assert_eq!(status.conclusion.as_deref(), Some("success"));
     }
 }
