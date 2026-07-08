@@ -270,7 +270,8 @@ impl PrProvider for GitCodePrProvider {
         if strategy.is_some() {
             tracing::warn!(
                 ?strategy,
-                "Merge strategies are not yet supported on GitCode platform; using default merge behavior"
+                "Merge strategies are not yet supported on GitCode platform; using default merge \
+                 behavior"
             );
         }
 
