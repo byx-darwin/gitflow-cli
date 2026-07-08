@@ -172,8 +172,6 @@ impl IssueProvider for GitHubIssueProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -183,15 +181,13 @@ impl IssueProvider for GitHubIssueProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        // Fetch updated issue details
+        self.view(number).await
     }
 
     /// 重新打开指定编号的 Issue。
     ///
-    /// 调用 `gh issue reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 Issue，
+    /// 调用 `gh issue reopen <number> --repo <repo>` 重新打开已关闭的 Issue，
     /// 并返回更新后的完整 Issue 数据。
     ///
     /// # Errors
@@ -205,8 +201,6 @@ impl IssueProvider for GitHubIssueProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -216,10 +210,8 @@ impl IssueProvider for GitHubIssueProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        // Fetch updated issue details
+        self.view(number).await
     }
 
     /// 在指定 Issue 上添加评论。

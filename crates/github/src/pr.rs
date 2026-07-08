@@ -160,7 +160,7 @@ impl PrProvider for GitHubPrProvider {
 
     /// 关闭指定编号的 PR。
     ///
-    /// 调用 `gh pr close <number> --repo <repo> --json <fields>` 关闭 PR，
+    /// 调用 `gh pr close <number> --repo <repo>` 关闭 PR，
     /// 并返回更新后的完整 PR 数据。
     ///
     /// # Errors
@@ -174,8 +174,6 @@ impl PrProvider for GitHubPrProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -185,15 +183,13 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let pr: PrData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(pr)
+        // Fetch updated PR details
+        self.view(number).await
     }
 
     /// 重新打开指定编号的 PR。
     ///
-    /// 调用 `gh pr reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 PR，
+    /// 调用 `gh pr reopen <number> --repo <repo>` 重新打开已关闭的 PR，
     /// 并返回更新后的完整 PR 数据。
     ///
     /// # Errors
@@ -207,8 +203,6 @@ impl PrProvider for GitHubPrProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -218,10 +212,8 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let pr: PrData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(pr)
+        // Fetch updated PR details
+        self.view(number).await
     }
 
     /// 在指定 PR 上添加评论。
