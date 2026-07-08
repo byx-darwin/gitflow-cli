@@ -61,12 +61,8 @@ impl AgentPlatform {
         }
     }
 
-    /// 返回该 Agent 的 hooks 子目录名（相对于 home）。
+    /// 返回该 Agent 的 hook 子目录名（相对于项目根或 home）。
     #[must_use]
-    #[cfg_attr(
-        not(test),
-        allow(dead_code, reason = "Used in subsequent tasks for hook path alignment")
-    )]
     pub fn hooks_dir_name(self) -> &'static str {
         match self {
             AgentPlatform::Claude => ".claude/hooks",
@@ -77,12 +73,8 @@ impl AgentPlatform {
         }
     }
 
-    /// 返回该 Agent 的配置文件路径（相对于 home）。
+    /// 返回该 Agent 的 settings.json 路径（相对于项目根或 home）。
     #[must_use]
-    #[cfg_attr(
-        not(test),
-        allow(dead_code, reason = "Used in subsequent tasks for hook path alignment")
-    )]
     pub fn settings_file_path(self) -> &'static str {
         match self {
             AgentPlatform::Claude => ".claude/settings.json",
@@ -434,15 +426,18 @@ fn resolve_global_hook_paths(home: &std::path::Path) -> (PathBuf, PathBuf, Strin
 }
 
 /// Resolve hook directory, settings path, and command for project-level installation.
-///
-/// Hook script is installed to `hooks/` (repo root), **not** `.claude/hooks/`,
-/// because the command in `settings.json` uses the `hooks/` relative path.
-fn resolve_project_hook_paths(repo: &std::path::Path) -> (PathBuf, PathBuf, String) {
-    let dir = repo.join("hooks");
-    let settings = repo.join(".claude/settings.json");
-    let cmd = "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
-               pwd)/hooks/auto-report-bug.sh\""
-        .to_string();
+fn resolve_project_hook_paths(
+    repo: &std::path::Path,
+    platform: AgentPlatform,
+) -> (PathBuf, PathBuf, String) {
+    let hooks_dir = platform.hooks_dir_name();
+    let settings_file = platform.settings_file_path();
+    let dir = repo.join(hooks_dir);
+    let settings = repo.join(settings_file);
+    let cmd = format!(
+        "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
+         pwd)/{hooks_dir}/auto-report-bug.sh\""
+    );
     (dir, settings, cmd)
 }
 
@@ -460,7 +455,7 @@ fn install_hook(global: bool, force: bool) -> miette::Result<()> {
         resolve_global_hook_paths(&home)
     } else {
         let repo = git_repo_root()?;
-        resolve_project_hook_paths(&repo)
+        resolve_project_hook_paths(&repo, AgentPlatform::Claude)
     };
 
     // 写 hook 脚本
@@ -999,20 +994,17 @@ mod tests {
     #[test]
     fn test_resolve_project_hook_paths_uses_hooks_dir() {
         let repo = PathBuf::from("/tmp/test-repo");
-        let (hook_dir, settings_path, cmd) = resolve_project_hook_paths(&repo);
+        let (hook_dir, settings_path, cmd) =
+            resolve_project_hook_paths(&repo, AgentPlatform::Claude);
         assert_eq!(
             hook_dir,
-            repo.join("hooks"),
-            "hook should be in hooks/ not .claude/hooks/"
+            repo.join(".claude/hooks"),
+            "hook should be in .claude/hooks/"
         );
         assert_eq!(settings_path, repo.join(".claude/settings.json"));
         assert!(
-            cmd.contains("/hooks/auto-report-bug.sh"),
-            "command should reference hooks/ path"
-        );
-        assert!(
-            !cmd.contains(".claude/hooks"),
-            "command should not reference .claude/hooks/"
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/ path"
         );
     }
 

@@ -1,33 +1,13 @@
-# TASK-3: Refactor gitflow-quality
+## Task 3: 重构 `resolve_global_hook_paths` 接受 `AgentPlatform`
 
-**ID:** TASK-3
-**Issue:** #35
-**Effort:** 4h
-**Depends on:** TASK-0
-**Risk:** 🔴 High (Issue publishing side effect)
+**文件**: `apps/cli/src/commands/skills.rs`
 
-## P0 Items
-- description: rewrite to "Use when..." trigger format
-- boundaries: Issue publish requires confirmation
-- prohibition list
-- red flags
-- trigger keywords
-- cross-references
-- token compression
-- testability hooks (RED phase: 4 scenarios)
+**改动**:
 
-## P1 Items
-- structured template compliance
-- error handling
-- preconditions
-- rationalization excuse counter-table
-- flowchart
-- Quick Reference
+1. 函数签名变为 `resolve_global_hook_paths(home: &Path, platform: AgentPlatform) -> (PathBuf, PathBuf, String)`
+2. hook 脚本目录：`home.join(platform.hooks_dir_name())`
+3. settings 路径：`home.join(platform.settings_file_path())`
+4. command 路径：`bash ~/<hooks_dir_name>/auto-report-bug.sh`
 
-## Context
+**TDD**: 更新 `test_resolve_global_hook_paths_uses_claude_hooks_dir` 测试
 
-Quality skill auto-publishes Issues — high-risk boundary concern. Must add confirmation gate before any Issue creation.
-
-Reference: `docs/superpowers/templates/skill-template.md` (from TASK-0)
-
-Work from: `/Users/byx/Documents/workspace/github.com/byx-darwin/gitflow-cli`
