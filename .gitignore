@@ -9,6 +9,13 @@
 ruvector.db
 .idea/
 
+# Agent-local runtime dirs (skills install artifacts, hooks, settings.json)
+# 每个 agent 都把这些当成本地运行环境，不进仓库；源文件在仓库根 skills/
+.codex/
+.opencode/
+.gemini/
+.copilot/
+
 # Secrets and credentials
 .env
 .env.*
