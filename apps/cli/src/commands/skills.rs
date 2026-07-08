@@ -138,8 +138,8 @@ pub struct InstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（仅 -g 时有效，默认自动检测）
-    #[arg(long, value_enum, requires = "global")]
+    /// 目标 Agent 平台（默认自动检测）
+    #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义安装路径（最高优先级）

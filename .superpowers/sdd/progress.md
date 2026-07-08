@@ -9,3 +9,4 @@
 - [x] Task 2: resolve_project_hook_paths refactor (commits bce3427..c69afac, review APPROVED)
 - [x] Task 3: resolve_global_hook_paths refactor (commits c69afac..a51ecde, review APPROVED)
 - [x] Task 4: install_hook AgentPlatform param (commits a51ecde..5e58eda, review APPROVED)
+- [x] Task 5: uninstall_hook AgentPlatform + script cleanup (commits 5e58eda..3409d84, review APPROVED)
