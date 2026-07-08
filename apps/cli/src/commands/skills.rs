@@ -9,9 +9,9 @@
 //!
 //! Note: the install/uninstall helpers use `std::fs` for synchronous
 //! file operations. This module is invoked before the `tokio` runtime is
-//! initialized. This is intentional — these operations are
-//! short-lived I/O that do not benefit from async.
 //! constructed (see `main()`), so `tokio::fs` is not available here.
+//! This is intentional — these operations are short-lived I/O that do
+//! not benefit from async.
 
 #![allow(
     clippy::disallowed_methods,
@@ -33,12 +33,12 @@ use clap::{ArgAction, Args, Subcommand, ValueEnum};
 /// 支持的 AI Agent 平台。
 ///
 /// 每种平台有不同的 Skills 安装目录约定（依据 Superpowers 和各平台官方文档）。
-/// Codex / Gemini / Copilot 还共享跨平台路径 `~/.agents/skills/`。
+/// 路径统一使用 `~/<.agent>/skills/` 形式，不与 `~/.agents/skills/` 混用。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum AgentPlatform {
     /// Claude Code / Superpowers — `~/.claude/skills/`
     Claude,
-    /// Codex (`OpenAI`) — `~/.codex/skills/`（也支持 `~/.agents/skills/`）
+    /// Codex (`OpenAI`) — `~/.codex/skills/`
     Codex,
     /// `OpenCode` — `~/.opencode/skills/`
     OpenCode,
@@ -83,6 +83,15 @@ impl AgentPlatform {
             AgentPlatform::Gemini => ".gemini/settings.json",
             AgentPlatform::Copilot => ".copilot/settings.json",
         }
+    }
+
+    /// 该 Agent 是否支持 Stop hook 配置（写入 `settings.json` 的 `hooks.Stop`）。
+    ///
+    /// 当前仅 Claude Code 与 Codex 识别此 schema；
+    /// `OpenCode` / Gemini / Copilot 不支持，安装时应跳过 hook 以避免污染其配置。
+    #[must_use]
+    pub const fn supports_hooks(self) -> bool {
+        matches!(self, AgentPlatform::Claude | AgentPlatform::Codex)
     }
 
     /// 自动检测当前环境中的 Agent 平台。
@@ -193,7 +202,7 @@ pub struct UninstallArgs {
 
 /// 解析目标目录。
 ///
-/// 优先级：`custom_path` > `-g` 全局 > 项目级（默认）
+/// 优先级：`custom_path` > `-g` 全局（按 agent）> 项目级（按 agent，默认自动检测）
 fn resolve_target_dir(
     global: bool,
     agent: Option<AgentPlatform>,
@@ -204,29 +213,28 @@ fn resolve_target_dir(
         return Ok(PathBuf::from(p));
     }
 
+    let platform = agent.unwrap_or_else(AgentPlatform::detect);
+
     if global {
-        let platform = agent.unwrap_or_else(AgentPlatform::detect);
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
         Ok(home.join(platform.skills_dir_name()))
     } else {
-        // 默认：项目级 - 尝试 git rev-parse，失败则回退到当前目录
-        let output = std::process::Command::new("git")
-            .args(["rev-parse", "--show-toplevel"])
-            .output();
-        let repo_root = match output {
-            Ok(out) if out.status.success() => {
-                String::from_utf8_lossy(&out.stdout).trim().to_string()
-            }
-            _ => {
-                // 不在 git 仓库中，使用当前工作目录
-                std::env::current_dir()
-                    .map_err(|e| miette::miette!("无法获取当前目录: {e}"))?
-                    .to_string_lossy()
-                    .to_string()
-            }
-        };
-        Ok(PathBuf::from(repo_root).join(".claude").join("skills"))
+        let repo_root = git_repo_root()?;
+        Ok(resolve_project_target(&repo_root, platform))
     }
+}
+
+/// 解析项目级 skills 安装目录（尊重 agent 参数）。
+///
+/// 独立函数便于单测覆盖，避免在 `resolve_target_dir` 内部隐式调用
+/// `git rev-parse`。参数 `repo_root` 已由调用方通过 `git_repo_root()` 解析，
+/// 此函数仅做路径拼接（无失败分支），因此直接返回 `PathBuf`。
+///
+/// 注意：`agent` 接受 `AgentPlatform` 而非 `Option<AgentPlatform>`，
+/// 因为调用方在调用前已确定目标平台（避免 `detect()` 重复触发）。
+fn resolve_project_target(repo_root: &std::path::Path, agent: AgentPlatform) -> PathBuf {
+    // `skills_dir_name` 返回 `.claude/skills` 这类相对路径，直接拼到 repo 根
+    repo_root.join(agent.skills_dir_name())
 }
 
 /// Skills 源目录（仓库内的 skills/）。
@@ -267,7 +275,11 @@ pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
 
 /// 安装 skills。
 fn install_skills(args: &InstallArgs) -> miette::Result<()> {
-    let target = resolve_target_dir(args.global, args.agent, args.custom_path.as_deref())?;
+    // 一次性解析目标平台；避免 `AgentPlatform::detect()` 在 resolve_target_dir
+    // 与 install_hook 分支被重复调用（每次 detect 会扫 5 个平台目录）。
+    let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+
+    let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
     let source = skills_source_dir();
 
     let has_source = source.exists();
@@ -328,9 +340,20 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     }
 
     // 安装 auto-report-bug hook（可通过 --report-bug=false 跳过）
+    // 仅当目标 Agent 支持 Stop hook 时才写入；其他平台只装 skills。
     if args.report_bug {
-        let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
-        install_hook(args.global, args.force, platform)?;
+        if platform.supports_hooks() {
+            install_hook(args.global, args.force, platform)?;
+        } else {
+            // `AgentPlatform` 是 derived `ValueEnum`，`to_possible_value()` 对
+            // 所有 variant 都返回 `Some`；保留 fallback 以满足 `-D clippy::expect_used`
+            // 与 `-D clippy::unwrap_used`，避免 panic 路径。
+            let name = platform.to_possible_value().map_or_else(
+                || format!("{platform:?}").to_lowercase(),
+                |pv| pv.get_name().to_owned(),
+            );
+            println!("⚠ Agent {name} 不支持 Stop hook，已跳过 hook 安装");
+        }
     }
 
     Ok(())
@@ -418,33 +441,47 @@ fn install_single_skill_bundled(
     Ok(())
 }
 
-/// Resolve hook directory, settings path, and command for global installation.
+/// Resolve hook directory, settings path, and command for a given install scope.
+///
+/// 拆成 global / project 两个私有 helper：
+/// - `resolve_global_hook_paths`：基于 HOME，命令用 `~/` 简写
+/// - `resolve_project_hook_paths`：基于 repo，命令用 `$(git rev-parse ...)` 解析
+///
+/// 两个 helper 都接受路径参数，便于单测覆盖。
+fn resolve_hook_paths(
+    global: bool,
+    platform: AgentPlatform,
+) -> miette::Result<(PathBuf, PathBuf, String)> {
+    if global {
+        let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+        Ok(resolve_global_hook_paths(&home, platform))
+    } else {
+        let repo = git_repo_root()?;
+        Ok(resolve_project_hook_paths(&repo, platform))
+    }
+}
+
 fn resolve_global_hook_paths(
     home: &std::path::Path,
     platform: AgentPlatform,
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let dir = home.join(hooks_dir);
-    let settings = home.join(settings_file);
     let cmd = format!("bash ~/{hooks_dir}/auto-report-bug.sh");
-    (dir, settings, cmd)
+    (home.join(hooks_dir), home.join(settings_file), cmd)
 }
 
-/// Resolve hook directory, settings path, and command for project-level installation.
 fn resolve_project_hook_paths(
     repo: &std::path::Path,
     platform: AgentPlatform,
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let dir = repo.join(hooks_dir);
-    let settings = repo.join(settings_file);
     let cmd = format!(
         "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
          pwd)/{hooks_dir}/auto-report-bug.sh\""
     );
-    (dir, settings, cmd)
+    (repo.join(hooks_dir), repo.join(settings_file), cmd)
 }
 
 /// 从文件系统目录安装 skills（开发场景）。
@@ -454,13 +491,7 @@ fn resolve_project_hook_paths(
 fn install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()> {
     let hook_script = include_bytes!("../../../../hooks/auto-report-bug.sh");
 
-    let (hook_dir, settings_path, cmd) = if global {
-        let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        resolve_global_hook_paths(&home, platform)
-    } else {
-        let repo = git_repo_root()?;
-        resolve_project_hook_paths(&repo, platform)
-    };
+    let (hook_dir, settings_path, cmd) = resolve_hook_paths(global, platform)?;
 
     // 写 hook 脚本
     std::fs::create_dir_all(&hook_dir).map_err(|e| miette::miette!("无法创建 hook 目录: {e}"))?;
@@ -582,7 +613,10 @@ fn list_skills(args: &ListArgs) -> miette::Result<()> {
 
 /// 卸载 skills。
 fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
-    let target = resolve_target_dir(args.global, args.agent, args.custom_path.as_deref())?;
+    // 一次性解析目标平台；与 `install_skills` 对称，避免重复 detect()。
+    let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+
+    let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
 
     if !target.exists() {
         println!("(未安装任何 skills)");
@@ -620,8 +654,7 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
         println!("已卸载 {removed} 个 skills");
     }
 
-    // 移除 Hook 配置
-    let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+    // 移除 Hook 配置（幂等操作，对所有平台都尝试；未安装时静默退出）
     uninstall_hook(args.global, platform)?;
 
     Ok(())
@@ -812,9 +845,45 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_global_target() {
+    fn test_resolve_global_target_claude() {
         let dir = resolve_target_dir(true, Some(AgentPlatform::Claude), None).expect("resolve");
         assert!(dir.ends_with(".claude/skills"));
+    }
+
+    #[test]
+    fn test_resolve_global_target_codex() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Codex), None).expect("resolve");
+        assert!(dir.ends_with(".codex/skills"));
+    }
+
+    #[test]
+    fn test_resolve_global_target_gemini() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Gemini), None).expect("resolve");
+        assert!(dir.ends_with(".gemini/skills"));
+    }
+
+    #[test]
+    fn test_resolve_project_target_respects_agent() {
+        // 项目级必须遵循 --agent；不能硬编码到 .claude/skills
+        let repo = PathBuf::from("/tmp/test-repo-skills");
+        let dir = resolve_project_target(&repo, AgentPlatform::Codex);
+        assert!(
+            dir.ends_with(".codex/skills"),
+            "project-level install must respect --agent, got {}",
+            dir.display()
+        );
+
+        let dir_gemini = resolve_project_target(&repo, AgentPlatform::Gemini);
+        assert!(dir_gemini.ends_with(".gemini/skills"));
+    }
+
+    #[test]
+    fn test_agent_supports_hooks_matrix() {
+        assert!(AgentPlatform::Claude.supports_hooks());
+        assert!(AgentPlatform::Codex.supports_hooks());
+        assert!(!AgentPlatform::OpenCode.supports_hooks());
+        assert!(!AgentPlatform::Gemini.supports_hooks());
+        assert!(!AgentPlatform::Copilot.supports_hooks());
     }
 
     #[test]
