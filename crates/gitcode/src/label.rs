@@ -61,8 +61,9 @@ impl LabelProvider for GitCodeLabelProvider {
             .arg(&args.name)
             .arg("--color")
             .arg(&args.color)
-            .arg("--repo")
-            .arg(&self.repo);
+            .arg("-R")
+            .arg(&self.repo)
+            .arg("--json");
 
         if let Some(ref desc) = args.description {
             cmd.arg("--description").arg(desc);
@@ -88,7 +89,7 @@ impl LabelProvider for GitCodeLabelProvider {
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["label", "list"])
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
             .arg(LABEL_FIELDS)
@@ -113,10 +114,11 @@ impl LabelProvider for GitCodeLabelProvider {
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["label", "edit"])
             .arg(name)
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--color")
-            .arg(&args.color);
+            .arg(&args.color)
+            .arg("--json");
 
         if let Some(ref desc) = args.description {
             cmd.arg("--description").arg(desc);
@@ -132,8 +134,12 @@ impl LabelProvider for GitCodeLabelProvider {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        // gitcode label edit 不返回 JSON，重新 fetch 获取最新数据
-        self.fetch_label(name).await
+        // Try to parse JSON response, fallback to fetch if not available
+        if let Ok(label) = serde_json::from_slice::<LabelData>(&output.stdout) {
+            Ok(label)
+        } else {
+            self.fetch_label(name).await
+        }
     }
 
     async fn delete(&self, name: &str) -> Result<()> {
@@ -143,7 +149,7 @@ impl LabelProvider for GitCodeLabelProvider {
             .args(["label", "delete"])
             .arg(name)
             .arg("--yes")
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .output()
             .await
@@ -251,25 +257,26 @@ impl From<MilestoneApiResponse> for MilestoneData {
 #[async_trait]
 impl MilestoneProvider for GitCodeMilestoneProvider {
     async fn create(&self, args: CreateMilestoneArgs) -> Result<MilestoneData> {
-        debug!(repo = %self.repo, title = %args.title, "spawning `gc api milestones POST`");
-
-        let api_path = format!("repos/{repo}/milestones", repo = self.repo);
+        debug!(repo = %self.repo, title = %args.title, "spawning `gc milestone create`");
 
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["api", &api_path, "-X", "POST"])
-            .arg("-f")
-            .arg(format!("title={}", args.title));
+        cmd.args(["milestone", "create"])
+            .arg(&args.title)
+            .arg("-R")
+            .arg(&self.repo)
+            .arg("--json");
 
         if let Some(ref desc) = args.description {
-            cmd.arg("-f").arg(format!("description={desc}"));
+            cmd.arg("--description").arg(desc);
         }
 
         if let Some(ref due) = args.due_on {
-            cmd.arg("-f").arg(format!("due_on={}", due.to_rfc3339()));
+            cmd.arg("--due-date")
+                .arg(due.format("%Y-%m-%d").to_string());
         }
 
         let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn gitcode api milestones: {e}"))
+            CoreError::Platform(format!("Failed to spawn gitcode milestone create: {e}"))
         })?;
 
         if !output.status.success() {
@@ -284,16 +291,17 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
     }
 
     async fn list(&self) -> Result<Vec<MilestoneData>> {
-        debug!(repo = %self.repo, "spawning `gc api milestones list`");
-
-        let api_path = format!("repos/{repo}/milestones", repo = self.repo);
+        debug!(repo = %self.repo, "spawning `gc milestone list`");
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["api", &api_path])
+            .args(["milestone", "list"])
+            .arg("-R")
+            .arg(&self.repo)
+            .arg("--json")
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode api milestones: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
             })?;
 
         if !output.status.success() {
@@ -308,25 +316,28 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
     }
 
     async fn edit(&self, number: u64, args: CreateMilestoneArgs) -> Result<MilestoneData> {
-        debug!(repo = %self.repo, number, "spawning `gc api milestones PATCH`");
-
-        let api_path = format!("repos/{repo}/milestones/{number}", repo = self.repo);
+        debug!(repo = %self.repo, number, "spawning `gc milestone edit`");
 
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["api", &api_path, "-X", "PATCH"]);
-
-        cmd.arg("-f").arg(format!("title={}", args.title));
+        cmd.args(["milestone", "edit"])
+            .arg(number.to_string())
+            .arg("-R")
+            .arg(&self.repo)
+            .arg("--title")
+            .arg(&args.title)
+            .arg("--json");
 
         if let Some(ref desc) = args.description {
-            cmd.arg("-f").arg(format!("description={desc}"));
+            cmd.arg("--description").arg(desc);
         }
 
         if let Some(ref due) = args.due_on {
-            cmd.arg("-f").arg(format!("due_on={}", due.to_rfc3339()));
+            cmd.arg("--due-date")
+                .arg(due.format("%Y-%m-%d").to_string());
         }
 
         let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn gitcode api milestone edit: {e}"))
+            CoreError::Platform(format!("Failed to spawn gitcode milestone edit: {e}"))
         })?;
 
         if !output.status.success() {
@@ -341,16 +352,18 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
     }
 
     async fn close(&self, number: u64) -> Result<MilestoneData> {
-        debug!(repo = %self.repo, number, "spawning `gc api milestones close`");
-
-        let api_path = format!("repos/{repo}/milestones/{number}", repo = self.repo);
+        debug!(repo = %self.repo, number, "spawning `gc milestone close`");
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["api", &api_path, "-X", "PATCH", "-f", "state=closed"])
+            .args(["milestone", "close"])
+            .arg(number.to_string())
+            .arg("-R")
+            .arg(&self.repo)
+            .arg("--json")
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode api milestone close: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode milestone close: {e}"))
             })?;
 
         if !output.status.success() {
@@ -365,16 +378,18 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
     }
 
     async fn reopen(&self, number: u64) -> Result<MilestoneData> {
-        debug!(repo = %self.repo, number, "spawning `gc api milestones reopen`");
-
-        let api_path = format!("repos/{repo}/milestones/{number}", repo = self.repo);
+        debug!(repo = %self.repo, number, "spawning `gc milestone reopen`");
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["api", &api_path, "-X", "PATCH", "-f", "state=open"])
+            .args(["milestone", "reopen"])
+            .arg(number.to_string())
+            .arg("-R")
+            .arg(&self.repo)
+            .arg("--json")
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode api milestone reopen: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode milestone reopen: {e}"))
             })?;
 
         if !output.status.success() {

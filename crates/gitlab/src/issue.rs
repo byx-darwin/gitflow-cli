@@ -209,11 +209,17 @@ impl IssueProvider for GitLabIssueProvider {
             .arg("--output")
             .arg("json");
 
+        // glab uses --closed for closed issues, --all for all issues
+        // Default (no flag) shows open issues
         if let Some(state) = &args.state {
-            cmd.arg("--state").arg(match state {
-                State::Open => "opened",
-                State::Closed => "closed",
-            });
+            match state {
+                State::Open => {
+                    // Default behavior, no flag needed
+                }
+                State::Closed => {
+                    cmd.arg("--closed");
+                }
+            }
         }
 
         if let Some(ref search) = args.search {

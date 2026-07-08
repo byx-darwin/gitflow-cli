@@ -13,9 +13,12 @@ use tracing::debug;
 
 use crate::error::parse_gh_error;
 
-/// `gh release` 请求的 JSON 字段列表。
-const RELEASE_FIELDS: &str =
-    "id,tagName,name,body,draft,prerelease,author,createdAt,publishedAt,url";
+/// `gh release list` 请求的 JSON 字段列表。
+const RELEASE_LIST_FIELDS: &str = "tagName,name,isDraft,isPrerelease,createdAt,publishedAt";
+
+/// `gh release view` 请求的 JSON 字段列表。
+const RELEASE_VIEW_FIELDS: &str =
+    "databaseId,tagName,name,body,isDraft,isPrerelease,author,createdAt,publishedAt,url";
 
 /// GitHub Release 提供者，通过 `gh` CLI 操作。
 ///
@@ -52,9 +55,7 @@ impl ReleaseProvider for GitHubReleaseProvider {
         cmd.args(["release", "create"])
             .arg(&args.tag_name)
             .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_FIELDS);
+            .arg(&self.repo);
 
         if let Some(ref name) = args.name {
             cmd.arg("--title").arg(name);
@@ -92,10 +93,8 @@ impl ReleaseProvider for GitHubReleaseProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let release: ReleaseData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(release)
+        // gh release create doesn't support --json, so we fetch the created release
+        self.view(&args.tag_name).await
     }
 
     async fn list(&self) -> Result<Vec<ReleaseData>> {
@@ -106,7 +105,7 @@ impl ReleaseProvider for GitHubReleaseProvider {
             .arg("--repo")
             .arg(&self.repo)
             .arg("--json")
-            .arg(RELEASE_FIELDS)
+            .arg(RELEASE_LIST_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -131,7 +130,7 @@ impl ReleaseProvider for GitHubReleaseProvider {
             .arg("--repo")
             .arg(&self.repo)
             .arg("--json")
-            .arg(RELEASE_FIELDS)
+            .arg(RELEASE_VIEW_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -152,9 +151,7 @@ impl ReleaseProvider for GitHubReleaseProvider {
         cmd.args(["release", "edit"])
             .arg(tag_name)
             .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_FIELDS);
+            .arg(&self.repo);
 
         if let Some(ref name) = args.name {
             cmd.arg("--title").arg(name);
@@ -192,10 +189,8 @@ impl ReleaseProvider for GitHubReleaseProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let release: ReleaseData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(release)
+        // gh release edit doesn't support --json, so we fetch the edited release
+        self.view(tag_name).await
     }
 
     async fn upload_asset(&self, tag_name: &str, file_path: &str, _asset_name: &str) -> Result<()> {
@@ -336,8 +331,8 @@ mod tests {
         assert_eq!(release.body.as_deref(), Some("Initial stable release"));
         assert!(!release.draft);
         assert!(!release.prerelease);
-        assert_eq!(release.author.login, "octocat");
-        assert_eq!(release.author.id, "1");
+        assert_eq!(release.author.as_ref().unwrap().login, "octocat");
+        assert_eq!(release.author.as_ref().unwrap().id, "1");
         assert_eq!(
             release.url,
             "https://github.com/octocat/hello-world/releases/tag/v1.0.0"

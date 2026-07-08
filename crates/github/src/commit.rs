@@ -100,6 +100,10 @@ struct CommitFileResponse {
 #[serde(rename_all = "camelCase")]
 struct ApiUser {
     login: String,
+    #[serde(
+        default,
+        deserialize_with = "gitflow_cli_core::types::deserialize_u64_or_string_to_string"
+    )]
     id: String,
 }
 

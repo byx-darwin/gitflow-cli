@@ -26,10 +26,10 @@ struct IssueApiResponse {
     body: Option<String>,
     state: String,
     #[serde(default)]
-    labels: Vec<LabelApi>,
+    labels: Option<Vec<LabelApi>>,
     user: Option<UserApi>,
     #[serde(default)]
-    assignees: Vec<UserApi>,
+    assignees: Option<Vec<UserApi>>,
     created_at: Option<String>,
     updated_at: Option<String>,
     html_url: String,
@@ -62,7 +62,12 @@ impl From<IssueApiResponse> for IssueData {
                 "closed" => State::Closed,
                 _ => State::Open,
             },
-            labels: api.labels.into_iter().map(Label::from).collect(),
+            labels: api
+                .labels
+                .unwrap_or_default()
+                .into_iter()
+                .map(Label::from)
+                .collect(),
             author: api.user.map_or(
                 UserSummary {
                     login: "unknown".into(),
@@ -70,7 +75,12 @@ impl From<IssueApiResponse> for IssueData {
                 },
                 UserSummary::from,
             ),
-            assignees: api.assignees.into_iter().map(UserSummary::from).collect(),
+            assignees: api
+                .assignees
+                .unwrap_or_default()
+                .into_iter()
+                .map(UserSummary::from)
+                .collect(),
             created_at: api
                 .created_at
                 .and_then(|s| {

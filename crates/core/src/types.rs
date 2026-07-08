@@ -41,6 +41,40 @@ where
     deserializer.deserialize_any(U64OrString)
 }
 
+/// Deserialize a `u64` or string in JSON, returning a `String`.
+///
+/// GitHub's `gh` CLI returns GraphQL node IDs as integers in some APIs,
+/// but `UserSummary.id` is a `String`. This helper handles both cases.
+///
+/// # Errors
+///
+/// Returns an error if the value cannot be parsed as a `u64` or `String`.
+pub fn deserialize_u64_or_string_to_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    struct U64OrStringToString;
+    impl de::Visitor<'_> for U64OrStringToString {
+        type Value = String;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a u64 integer or string")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<String, E> {
+            Ok(v.to_string())
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<String, E> {
+            Ok(v.to_string())
+        }
+    }
+
+    deserializer.deserialize_any(U64OrStringToString)
+}
+
 /// A summary of a platform user.
 ///
 /// Contains the minimal identifying information needed to reference
@@ -59,7 +93,7 @@ pub struct UserSummary {
 /// The state of an Issue or Pull Request.
 ///
 /// Uses `snake_case` for serialization (`"open"`/`"closed"`), with
-/// uppercase aliases for GitHub's `gh` CLI output (`"OPEN"`/`"CLOSED"`).
+/// uppercase aliases for GitHub's `gh` CLI output (`"OPEN"`/`"CLOSED"`/`"MERGED"`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
@@ -67,7 +101,7 @@ pub enum State {
     #[serde(alias = "OPEN")]
     Open,
     /// Closed or merged.
-    #[serde(alias = "CLOSED")]
+    #[serde(alias = "CLOSED", alias = "MERGED")]
     Closed,
 }
 

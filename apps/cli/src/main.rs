@@ -268,15 +268,19 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
     Ok((platform, repo))
 }
 
-/// Extract `owner/repo` from a git remote URL.
+/// Extract repository path from a git remote URL.
 ///
 /// Supports both HTTPS and SSH remote formats:
 /// - `https://github.com/owner/repo.git` → `owner/repo`
 /// - `git@github.com:owner/repo.git` → `owner/repo`
 /// - `https://gitlab.example.com/group/project` → `group/project`
+/// - `git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git` → `fusion-cdn/bff/admin`
+/// - `https://oauth2:token@gitlab.example.com/group/project.git` → `group/project`
 ///
-/// Returns `None` if the URL cannot be parsed into at least two path
-/// segments after stripping the scheme and host.
+/// Returns the full path after the domain, preserving multi-level paths
+/// for self-hosted GitLab instances. Returns `None` if the URL cannot
+/// be parsed into at least two path segments after stripping the scheme,
+/// authentication info, and host.
 #[must_use]
 fn extract_repo_from_url(url: &str) -> Option<String> {
     let without_prefix = url
@@ -284,22 +288,34 @@ fn extract_repo_from_url(url: &str) -> Option<String> {
         .trim_start_matches("http://")
         .trim_start_matches("git@");
 
+    // Remove authentication info (user:pass@ or token@) if present
+    let without_auth = if let Some((_auth, host_and_path)) = without_prefix.split_once('@') {
+        host_and_path
+    } else {
+        without_prefix
+    };
+
     // For SSH URLs like `host:owner/repo`, take the part after `:`.
-    // For HTTPS URLs like `host/owner/repo`, there's no `:` so keep the whole path.
-    let path = without_prefix
-        .split_once(':')
-        .map_or(without_prefix, |(_before, after)| after);
+    // For HTTPS URLs like `host/owner/repo`, split by `/` and skip the host.
+    let path = if let Some((_before, after)) = without_auth.split_once(':') {
+        // SSH format: `host:owner/repo`
+        after.to_string()
+    } else {
+        // HTTPS format: `host/owner/repo` - skip the first segment (host)
+        let segments: Vec<&str> = without_auth.split('/').filter(|s| !s.is_empty()).collect();
+        if segments.len() >= 2 {
+            segments[1..].join("/")
+        } else {
+            return None;
+        }
+    };
 
     let no_suffix = path.trim_end_matches(".git");
     let segments: Vec<&str> = no_suffix.split('/').filter(|s| !s.is_empty()).collect();
 
     if segments.len() >= 2 {
-        let owner = segments
-            .get(segments.len() - 2)
-            .copied()
-            .unwrap_or_default();
-        let repo = segments.last().copied().unwrap_or_default();
-        Some(format!("{owner}/{repo}"))
+        // Preserve the full path for multi-level GitLab namespaces
+        Some(segments.join("/"))
     } else {
         None
     }
@@ -500,5 +516,42 @@ mod tests {
         assert_eq!(extract_repo_from_url("just-a-string"), None);
         assert_eq!(extract_repo_from_url(""), None);
         assert_eq!(extract_repo_from_url("https://github.com"), None);
+    }
+
+    #[test]
+    fn test_should_preserve_multilevel_gitlab_path() {
+        // GitLab self-hosted with multi-level namespace
+        let url = "git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git";
+        assert_eq!(
+            extract_repo_from_url(url),
+            Some("fusion-cdn/bff/admin".to_string())
+        );
+    }
+
+    #[test]
+    fn test_should_preserve_gitlab_subgroup_path() {
+        // GitLab with subgroup
+        let url = "https://gitlab.example.com/group/subgroup/project.git";
+        assert_eq!(
+            extract_repo_from_url(url),
+            Some("group/subgroup/project".to_string())
+        );
+    }
+
+    #[test]
+    fn test_should_handle_https_with_authentication() {
+        // HTTPS URL with authentication info
+        let url = "https://oauth2:token@xyun.git.nyuncloud.com/fusion-cdn/bff/admin.git";
+        assert_eq!(
+            extract_repo_from_url(url),
+            Some("fusion-cdn/bff/admin".to_string())
+        );
+
+        // HTTPS URL with simple token
+        let url = "https://token@gitlab.example.com/group/project.git";
+        assert_eq!(
+            extract_repo_from_url(url),
+            Some("group/project".to_string())
+        );
     }
 }
