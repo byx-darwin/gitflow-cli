@@ -36,7 +36,7 @@ readonly SETTINGS_FILE=".claude/settings.json"
 
 # 嵌套 Stop Hook 配置（对齐 Claude Code 官方 schema）
 # matcher 在顶层，hooks 数组包含 type+command 对象
-readonly HOOK_CONFIG='{"matcher": "gitflow", "hooks": [{"type": "command", "command": "bash hooks/auto-report-bug.sh"}]}'
+readonly HOOK_CONFIG='{"matcher": "gitflow", "hooks": [{"type": "command", "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/auto-report-bug.sh\""}]}'
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ---------------------------------------------------------------------------
@@ -423,6 +423,12 @@ register_hooks() {
     # 确保 hook 脚本可执行
     chmod +x "$hook_script"
 
+    # 复制 hook 脚本到 .claude/hooks/ 目录
+    local hook_target_dir="${REPO_ROOT}/.claude/hooks"
+    mkdir -p "$hook_target_dir"
+    cp "$hook_script" "${hook_target_dir}/auto-report-bug.sh"
+    chmod +x "${hook_target_dir}/auto-report-bug.sh"
+
     # 确保 .claude 目录存在
     mkdir -p "$settings_dir"
 
@@ -514,8 +520,9 @@ verify_installation() {
 
     # 验证 hook
     local settings_target="${REPO_ROOT}/${SETTINGS_FILE}"
-    if [[ -f "$settings_target" ]] && grep -q "auto-report-bug" "$settings_target" 2>/dev/null; then
-        info "Stop Hook: 已配置"
+    local hook_target="${REPO_ROOT}/.claude/hooks/auto-report-bug.sh"
+    if [[ -f "$hook_target" ]] && [[ -f "$settings_target" ]] && grep -q "auto-report-bug" "$settings_target" 2>/dev/null; then
+        info "Stop Hook: 已配置（.claude/hooks/auto-report-bug.sh）"
     else
         warn "Stop Hook: 未配置（运行 ${SCRIPT_NAME} 不带 --no-hooks 可注册）"
     fi
