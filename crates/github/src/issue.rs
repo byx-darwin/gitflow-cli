@@ -251,7 +251,11 @@ impl IssueProvider for GitHubIssueProvider {
         }
 
         // 2. 使用 gh api 获取该 issue 的最新评论
-        let api_path = format!("repos/{repo}/issues/{number}/comments?per_page=1", repo = self.repo, number = number);
+        let api_path = format!(
+            "repos/{repo}/issues/{number}/comments?per_page=1",
+            repo = self.repo,
+            number = number
+        );
         let api_output = tokio::process::Command::new("gh")
             .args(["api", &api_path])
             .output()
@@ -269,9 +273,10 @@ impl IssueProvider for GitHubIssueProvider {
         let comments: Vec<GitHubCommentApiResponse> =
             serde_json::from_slice(&api_output.stdout).map_err(CoreError::Serialization)?;
 
-        let comment = comments.into_iter().next().ok_or_else(|| {
-            CoreError::Platform("No comment returned from gh api".to_string())
-        })?;
+        let comment = comments
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::Platform("No comment returned from gh api".to_string()))?;
 
         Ok(comment.into())
     }

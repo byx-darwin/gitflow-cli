@@ -1052,8 +1052,7 @@ mod tests {
         .expect("write settings");
 
         temp_env::with_var("HOME", Some(tmp.path()), || {
-            super::uninstall_hook(true, AgentPlatform::Claude)
-                .expect("uninstall should succeed");
+            super::uninstall_hook(true, AgentPlatform::Claude).expect("uninstall should succeed");
         });
 
         // Verify script file was deleted
