@@ -61,6 +61,38 @@ impl AgentPlatform {
         }
     }
 
+    /// 返回该 Agent 的 hooks 子目录名（相对于 home）。
+    #[must_use]
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "Used in subsequent tasks for hook path alignment")
+    )]
+    pub fn hooks_dir_name(self) -> &'static str {
+        match self {
+            AgentPlatform::Claude => ".claude/hooks",
+            AgentPlatform::Codex => ".codex/hooks",
+            AgentPlatform::OpenCode => ".opencode/hooks",
+            AgentPlatform::Gemini => ".gemini/hooks",
+            AgentPlatform::Copilot => ".copilot/hooks",
+        }
+    }
+
+    /// 返回该 Agent 的配置文件路径（相对于 home）。
+    #[must_use]
+    #[cfg_attr(
+        not(test),
+        allow(dead_code, reason = "Used in subsequent tasks for hook path alignment")
+    )]
+    pub fn settings_file_path(self) -> &'static str {
+        match self {
+            AgentPlatform::Claude => ".claude/settings.json",
+            AgentPlatform::Codex => ".codex/settings.json",
+            AgentPlatform::OpenCode => ".opencode/settings.json",
+            AgentPlatform::Gemini => ".gemini/settings.json",
+            AgentPlatform::Copilot => ".copilot/settings.json",
+        }
+    }
+
     /// 自动检测当前环境中的 Agent 平台。
     ///
     /// 检测策略：按优先级检查各平台的配置目录是否存在。
@@ -692,6 +724,71 @@ mod tests {
                 | AgentPlatform::Gemini
                 | AgentPlatform::Copilot
         ));
+    }
+
+    #[test]
+    fn test_agent_platform_claude_hooks_dir() {
+        assert_eq!(AgentPlatform::Claude.hooks_dir_name(), ".claude/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_codex_hooks_dir() {
+        assert_eq!(AgentPlatform::Codex.hooks_dir_name(), ".codex/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_opencode_hooks_dir() {
+        assert_eq!(AgentPlatform::OpenCode.hooks_dir_name(), ".opencode/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_gemini_hooks_dir() {
+        assert_eq!(AgentPlatform::Gemini.hooks_dir_name(), ".gemini/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_copilot_hooks_dir() {
+        assert_eq!(AgentPlatform::Copilot.hooks_dir_name(), ".copilot/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_claude_settings_path() {
+        assert_eq!(
+            AgentPlatform::Claude.settings_file_path(),
+            ".claude/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_codex_settings_path() {
+        assert_eq!(
+            AgentPlatform::Codex.settings_file_path(),
+            ".codex/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_opencode_settings_path() {
+        assert_eq!(
+            AgentPlatform::OpenCode.settings_file_path(),
+            ".opencode/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_gemini_settings_path() {
+        assert_eq!(
+            AgentPlatform::Gemini.settings_file_path(),
+            ".gemini/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_copilot_settings_path() {
+        assert_eq!(
+            AgentPlatform::Copilot.settings_file_path(),
+            ".copilot/settings.json"
+        );
     }
 
     #[test]
