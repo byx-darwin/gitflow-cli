@@ -259,14 +259,21 @@ impl PrProvider for GitCodePrProvider {
 
     /// 合并指定编号的 PR。
     ///
-    /// 调用 `gc pr merge <number> --repo <repo>` 并根据 `strategy` 参数
-    /// 添加 `--squash`、`--rebase` 或 `--merge` 标志。
-    /// 未指定策略时使用 `--merge`（标准合并）。
+    /// 调用 `gc pr merge <number> --repo <repo>` 合并 PR。
+    /// 注意：GitCode CLI 当前不支持通过命令行参数指定合并策略（squash/rebase/merge），
+    /// 因此 `strategy` 参数会被忽略，并使用 GitCode 平台的默认合并策略。
     ///
     /// # Errors
     ///
     /// 当 PR 不存在、存在冲突无法合并或 `gitcode` CLI 调用失败时返回错误。
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
+        if strategy.is_some() {
+            tracing::warn!(
+                ?strategy,
+                "Merge strategies are not yet supported on GitCode platform; using default merge behavior"
+            );
+        }
+
         debug!(repo = %self.repo, number, ?strategy, "spawning `gc pr merge`");
 
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
@@ -274,18 +281,6 @@ impl PrProvider for GitCodePrProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo);
-
-        match strategy {
-            Some(MergeStrategy::Squash) => {
-                cmd.arg("--squash");
-            }
-            Some(MergeStrategy::Rebase) => {
-                cmd.arg("--rebase");
-            }
-            Some(MergeStrategy::Merge) | None => {
-                cmd.arg("--merge");
-            }
-        }
 
         let output = cmd
             .output()
