@@ -58,9 +58,7 @@ impl PrProvider for GitHubPrProvider {
             .arg("--head")
             .arg(&args.head)
             .arg("--base")
-            .arg(&args.base)
-            .arg("--json")
-            .arg(PR_FIELDS);
+            .arg(&args.base);
 
         if let Some(body) = &args.body {
             cmd.arg("--body").arg(body);
@@ -88,10 +86,14 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let pr: PrData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // Parse the PR URL from stdout (format: https://github.com/owner/repo/pull/123)
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let pr_number = parse_pr_number_from_url(&stdout).ok_or_else(|| {
+            CoreError::Platform(format!("Failed to parse PR URL from output: {stdout}"))
+        })?;
 
-        Ok(pr)
+        // Fetch full PR details via view
+        self.view(pr_number).await
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
@@ -443,6 +445,22 @@ impl PrProvider for GitHubPrProvider {
 
         Ok(())
     }
+}
+
+/// Parse PR number from GitHub URL.
+///
+/// Extracts the numeric PR number from URLs like:
+/// - `https://github.com/owner/repo/pull/123`
+/// - `https://github.enterprise.com/org/project/pull/456`
+fn parse_pr_number_from_url(url: &str) -> Option<u64> {
+    url.lines().find_map(|line| {
+        let line = line.trim();
+        if line.contains("/pull/") {
+            line.rsplit('/').next().and_then(|s| s.parse().ok())
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(test)]
