@@ -1016,6 +1016,58 @@ mod tests {
         );
     }
 
+    /// Test is Unix-only: uses `dirs::home_dir()` which on Windows ignores HOME env var.
+    #[cfg(unix)]
+    #[test]
+    fn test_uninstall_hook_deletes_script_file_and_empty_dir() {
+        let tmp = tempfile::tempdir().expect("create temp dir");
+
+        // Create .claude/hooks/ directory with a fake hook script
+        let hooks_dir = tmp.path().join(".claude/hooks");
+        std::fs::create_dir_all(&hooks_dir).expect("create hooks dir");
+        let hook_script = hooks_dir.join("auto-report-bug.sh");
+        std::fs::write(&hook_script, b"#!/bin/bash\necho test\n").expect("write hook script");
+
+        // Create settings.json with gitflow hook
+        let settings_path = tmp.path().join(".claude/settings.json");
+        let content = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "bash .claude/hooks/auto-report-bug.sh"
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+        std::fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&content).expect("serialize"),
+        )
+        .expect("write settings");
+
+        temp_env::with_var("HOME", Some(tmp.path()), || {
+            super::uninstall_hook(true, AgentPlatform::Claude)
+                .expect("uninstall should succeed");
+        });
+
+        // Verify script file was deleted
+        assert!(
+            !hook_script.exists(),
+            "hook script should be deleted by uninstall"
+        );
+        // Verify empty hooks dir was removed
+        assert!(
+            !hooks_dir.exists(),
+            "empty hooks directory should be removed"
+        );
+    }
+
     #[test]
     fn test_resolve_project_hook_paths_uses_hooks_dir() {
         let repo = PathBuf::from("/tmp/test-repo");

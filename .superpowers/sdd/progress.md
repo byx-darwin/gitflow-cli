@@ -10,3 +10,7 @@
 - [x] Task 3: resolve_global_hook_paths refactor (commits c69afac..a51ecde, review APPROVED)
 - [x] Task 4: install_hook AgentPlatform param (commits a51ecde..5e58eda, review APPROVED)
 - [x] Task 5: uninstall_hook AgentPlatform + script cleanup (commits 5e58eda..3409d84, review APPROVED)
+- [x] Task 6: --agent for project-level (commits 3409d84..7eff65b, review APPROVED)
+- [x] Task 7: install.sh hook path alignment (commits 7eff65b..de744aa, review APPROVED)
+- [x] Task 8: documentation updates (commits de744aa..1377302, review APPROVED)
+- [x] Task 9: quality gate (build, test, fmt, clippy, audit — all clean)
