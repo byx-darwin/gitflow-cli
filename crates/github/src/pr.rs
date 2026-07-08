@@ -16,7 +16,7 @@ use crate::error::parse_gh_error;
 
 /// `gh pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str =
-    "number,title,body,state,draft,author,baseBranch,headBranch,createdAt,updatedAt,url";
+    "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,updatedAt,url";
 
 /// GitHub Pull Request 提供者，通过 `gh` CLI 操作。
 ///

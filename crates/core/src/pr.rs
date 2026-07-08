@@ -33,12 +33,15 @@ pub struct PrData {
     /// PR 当前状态。
     pub state: State,
     /// 是否为草稿 PR。
+    #[serde(alias = "isDraft")]
     pub draft: bool,
     /// PR 作者。
     pub author: UserSummary,
     /// 目标分支。
+    #[serde(alias = "baseRefName")]
     pub base_branch: String,
     /// 来源分支。
+    #[serde(alias = "headRefName")]
     pub head_branch: String,
     /// 创建时间（UTC）。
     pub created_at: DateTime<Utc>,
