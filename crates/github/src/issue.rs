@@ -172,8 +172,6 @@ impl IssueProvider for GitHubIssueProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -183,15 +181,13 @@ impl IssueProvider for GitHubIssueProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        // Fetch updated issue details
+        self.view(number).await
     }
 
     /// 重新打开指定编号的 Issue。
     ///
-    /// 调用 `gh issue reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 Issue，
+    /// 调用 `gh issue reopen <number> --repo <repo>` 重新打开已关闭的 Issue，
     /// 并返回更新后的完整 Issue 数据。
     ///
     /// # Errors
@@ -205,8 +201,6 @@ impl IssueProvider for GitHubIssueProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -216,16 +210,14 @@ impl IssueProvider for GitHubIssueProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let issue: IssueData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issue)
+        // Fetch updated issue details
+        self.view(number).await
     }
 
     /// 在指定 Issue 上添加评论。
     ///
-    /// 调用 `gh issue comment <number> --repo <repo> --body "<body>" --json
-    /// id,body,author,createdAt` 发布评论，并返回新建评论的数据。
+    /// 调用 `gh issue comment <number> --repo <repo> --body "<body>"` 发布评论，
+    /// 然后通过 `gh api` 获取最新评论数据。
     ///
     /// # Errors
     ///
@@ -233,6 +225,7 @@ impl IssueProvider for GitHubIssueProvider {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gh issue comment`");
 
+        // 1. 执行 gh issue comment 发布评论（不返回 JSON）
         let output = tokio::process::Command::new("gh")
             .args(["issue", "comment"])
             .arg(number.to_string())
@@ -240,8 +233,6 @@ impl IssueProvider for GitHubIssueProvider {
             .arg(&self.repo)
             .arg("--body")
             .arg(body)
-            .arg("--json")
-            .arg("id,body,author,createdAt")
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -251,10 +242,35 @@ impl IssueProvider for GitHubIssueProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let comment: CommentData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // 2. 使用 gh api 获取该 issue 的最新评论
+        let api_path = format!(
+            "repos/{repo}/issues/{number}/comments?per_page=1",
+            repo = self.repo,
+            number = number
+        );
+        let api_output = tokio::process::Command::new("gh")
+            .args(["api", &api_path])
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
-        Ok(comment)
+        if !api_output.status.success() {
+            let gh_err = String::from_utf8_lossy(&api_output.stderr);
+            return Err(CoreError::Platform(format!(
+                "Failed to fetch comment via gh api: {gh_err}"
+            )));
+        }
+
+        // 3. 解析 API 响应（返回的是数组，取最后一个）
+        let comments: Vec<GitHubCommentApiResponse> =
+            serde_json::from_slice(&api_output.stdout).map_err(CoreError::Serialization)?;
+
+        let comment = comments
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::Platform("No comment returned from gh api".to_string()))?;
+
+        Ok(comment.into())
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -323,6 +339,41 @@ impl IssueProvider for GitHubIssueProvider {
         }
 
         Ok(())
+    }
+}
+
+/// GitHub API 评论响应结构。
+///
+/// 用于解析 `gh api repos/{owner}/{repo}/issues/{number}/comments` 的返回数据。
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct GitHubCommentApiResponse {
+    pub id: u64,
+    pub body: String,
+    pub user: GitHubUser,
+    pub created_at: String,
+}
+
+/// GitHub API 用户结构。
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct GitHubUser {
+    pub login: String,
+    pub id: u64,
+}
+
+impl From<GitHubCommentApiResponse> for CommentData {
+    fn from(api: GitHubCommentApiResponse) -> Self {
+        Self {
+            id: api.id,
+            body: api.body,
+            author: gitflow_cli_core::types::UserSummary {
+                login: api.user.login,
+                id: api.user.id.to_string(),
+            },
+            created_at: api.created_at.parse().unwrap_or_else(|_| {
+                tracing::warn!(created_at = %api.created_at, "Failed to parse comment created_at, using epoch");
+                chrono::DateTime::UNIX_EPOCH
+            }),
+        }
     }
 }
 
@@ -489,6 +540,45 @@ mod tests {
         assert_eq!(round_tripped.id, comment.id);
         assert_eq!(round_tripped.body, comment.body);
         assert_eq!(round_tripped.author.login, comment.author.login);
+    }
+
+    // --- GitHubCommentApiResponse conversion tests ---
+
+    #[test]
+    fn test_should_convert_github_api_response_to_comment_data() {
+        let api_response = GitHubCommentApiResponse {
+            id: 12345,
+            body: "Test comment body".to_string(),
+            user: GitHubUser {
+                login: "testuser".to_string(),
+                id: 42,
+            },
+            created_at: "2026-07-08T10:30:00Z".to_string(),
+        };
+
+        let comment_data: CommentData = api_response.into();
+
+        assert_eq!(comment_data.id, 12345);
+        assert_eq!(comment_data.body, "Test comment body");
+        assert_eq!(comment_data.author.login, "testuser");
+        assert_eq!(comment_data.author.id, "42");
+    }
+
+    #[test]
+    fn test_should_handle_invalid_date_in_api_response() {
+        let api_response = GitHubCommentApiResponse {
+            id: 1,
+            body: "test".to_string(),
+            user: GitHubUser {
+                login: "user".to_string(),
+                id: 1,
+            },
+            created_at: "invalid-date".to_string(),
+        };
+
+        let comment_data: CommentData = api_response.into();
+        // Should fall back to UNIX_EPOCH
+        assert_eq!(comment_data.created_at, chrono::DateTime::UNIX_EPOCH);
     }
 
     // --- add_labels / remove_label: unit tests for provider ---

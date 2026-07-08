@@ -16,7 +16,7 @@ use crate::error::parse_gh_error;
 
 /// `gh pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str =
-    "number,title,body,state,draft,author,baseBranch,headBranch,createdAt,updatedAt,url";
+    "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,updatedAt,url";
 
 /// GitHub Pull Request 提供者，通过 `gh` CLI 操作。
 ///
@@ -58,9 +58,7 @@ impl PrProvider for GitHubPrProvider {
             .arg("--head")
             .arg(&args.head)
             .arg("--base")
-            .arg(&args.base)
-            .arg("--json")
-            .arg(PR_FIELDS);
+            .arg(&args.base);
 
         if let Some(body) = &args.body {
             cmd.arg("--body").arg(body);
@@ -88,10 +86,14 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let pr: PrData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // Parse the PR URL from stdout (format: https://github.com/owner/repo/pull/123)
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let pr_number = parse_pr_number_from_url(&stdout).ok_or_else(|| {
+            CoreError::Platform(format!("Failed to parse PR URL from output: {stdout}"))
+        })?;
 
-        Ok(pr)
+        // Fetch full PR details via view
+        self.view(pr_number).await
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
@@ -158,7 +160,7 @@ impl PrProvider for GitHubPrProvider {
 
     /// 关闭指定编号的 PR。
     ///
-    /// 调用 `gh pr close <number> --repo <repo> --json <fields>` 关闭 PR，
+    /// 调用 `gh pr close <number> --repo <repo>` 关闭 PR，
     /// 并返回更新后的完整 PR 数据。
     ///
     /// # Errors
@@ -172,8 +174,6 @@ impl PrProvider for GitHubPrProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -183,15 +183,13 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let pr: PrData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(pr)
+        // Fetch updated PR details
+        self.view(number).await
     }
 
     /// 重新打开指定编号的 PR。
     ///
-    /// 调用 `gh pr reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 PR，
+    /// 调用 `gh pr reopen <number> --repo <repo>` 重新打开已关闭的 PR，
     /// 并返回更新后的完整 PR 数据。
     ///
     /// # Errors
@@ -205,8 +203,6 @@ impl PrProvider for GitHubPrProvider {
             .arg(number.to_string())
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -216,16 +212,14 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let pr: PrData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(pr)
+        // Fetch updated PR details
+        self.view(number).await
     }
 
     /// 在指定 PR 上添加评论。
     ///
-    /// 调用 `gh pr comment <number> --repo <repo> --body "<body>" --json id,body,author,createdAt`
-    /// 发布评论，并返回新建评论的数据。
+    /// 调用 `gh pr comment <number> --repo <repo> --body "<body>"` 发布评论，
+    /// 然后通过 `gh api` 获取最新评论数据。
     ///
     /// # Errors
     ///
@@ -233,6 +227,7 @@ impl PrProvider for GitHubPrProvider {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `gh pr comment`");
 
+        // 1. 执行 gh pr comment 发布评论（不返回 JSON）
         let output = tokio::process::Command::new("gh")
             .args(["pr", "comment"])
             .arg(number.to_string())
@@ -240,8 +235,6 @@ impl PrProvider for GitHubPrProvider {
             .arg(&self.repo)
             .arg("--body")
             .arg(body)
-            .arg("--json")
-            .arg("id,body,author,createdAt")
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -251,10 +244,35 @@ impl PrProvider for GitHubPrProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let comment: CommentData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // 2. 使用 gh api 获取该 PR 的最新评论
+        let api_path = format!(
+            "repos/{repo}/issues/{number}/comments?per_page=1",
+            repo = self.repo,
+            number = number
+        );
+        let api_output = tokio::process::Command::new("gh")
+            .args(["api", &api_path])
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
-        Ok(comment)
+        if !api_output.status.success() {
+            let gh_err = String::from_utf8_lossy(&api_output.stderr);
+            return Err(CoreError::Platform(format!(
+                "Failed to fetch comment via gh api: {gh_err}"
+            )));
+        }
+
+        // 3. 解析 API 响应（返回的是数组，取最后一个）
+        let comments: Vec<crate::issue::GitHubCommentApiResponse> =
+            serde_json::from_slice(&api_output.stdout).map_err(CoreError::Serialization)?;
+
+        let comment = comments
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::Platform("No comment returned from gh api".to_string()))?;
+
+        Ok(comment.into())
     }
 
     /// 合并指定编号的 PR。
@@ -419,6 +437,22 @@ impl PrProvider for GitHubPrProvider {
 
         Ok(())
     }
+}
+
+/// Parse PR number from GitHub URL.
+///
+/// Extracts the numeric PR number from URLs like:
+/// - `https://github.com/owner/repo/pull/123`
+/// - `https://github.enterprise.com/org/project/pull/456`
+fn parse_pr_number_from_url(url: &str) -> Option<u64> {
+    url.lines().find_map(|line| {
+        let line = line.trim();
+        if line.contains("/pull/") {
+            line.rsplit('/').next().and_then(|s| s.parse().ok())
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(test)]
