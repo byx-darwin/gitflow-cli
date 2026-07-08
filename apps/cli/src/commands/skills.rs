@@ -162,8 +162,8 @@ pub struct ListArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（仅 -g 时有效）
-    #[arg(long, value_enum, requires = "global")]
+    /// 目标 Agent 平台（默认自动检测）
+    #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义查找路径
@@ -178,8 +178,8 @@ pub struct UninstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（仅 -g 时有效）
-    #[arg(long, value_enum, requires = "global")]
+    /// 目标 Agent 平台（默认自动检测）
+    #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
     /// 自定义卸载路径
@@ -631,10 +631,16 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
 fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
     let (hook_dir, settings_path) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        (home.join(platform.hooks_dir_name()), home.join(platform.settings_file_path()))
+        (
+            home.join(platform.hooks_dir_name()),
+            home.join(platform.settings_file_path()),
+        )
     } else {
         let repo = git_repo_root()?;
-        (repo.join(platform.hooks_dir_name()), repo.join(platform.settings_file_path()))
+        (
+            repo.join(platform.hooks_dir_name()),
+            repo.join(platform.settings_file_path()),
+        )
     };
 
     // 删除 hook 脚本文件
@@ -643,7 +649,9 @@ fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
         std::fs::remove_file(&hook_script)
             .map_err(|e| miette::miette!("无法删除 hook 脚本 {}: {e}", hook_script.display()))?;
         // 如果 hook 目录为空，也删除目录
-        if hook_dir.exists() && std::fs::read_dir(&hook_dir).map_or(true, |mut d| d.next().is_none()) {
+        if hook_dir.exists()
+            && std::fs::read_dir(&hook_dir).map_or(true, |mut d| d.next().is_none())
+        {
             std::fs::remove_dir(&hook_dir).ok();
         }
     }
