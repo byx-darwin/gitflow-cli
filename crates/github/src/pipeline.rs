@@ -620,7 +620,10 @@ mod tests {
     fn test_should_compute_report_from_runs() {
         // 模拟 report 使用的最小结构体
         #[derive(Debug, Deserialize)]
-        #[allow(dead_code)]
+        #[allow(
+            dead_code,
+            reason = "Test fixture struct fields are deserialized but not all read"
+        )]
         #[serde(rename_all = "camelCase")]
         struct TestReportRun {
             conclusion: Option<String>,

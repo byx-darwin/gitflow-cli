@@ -93,13 +93,7 @@ struct ReleaseApiResponse {
 impl From<ReleaseApiResponse> for ReleaseData {
     fn from(api: ReleaseApiResponse) -> Self {
         let now = Utc::now();
-        let author = api.author.as_ref().map_or_else(
-            || UserSummary {
-                login: "unknown".into(),
-                id: "0".to_string(),
-            },
-            UserSummary::from,
-        );
+        let author = api.author.as_ref().map(UserSummary::from);
 
         Self {
             id: api.id.unwrap_or(0),
@@ -412,7 +406,7 @@ mod tests {
         assert_eq!(release.body.as_deref(), Some("Initial stable release"));
         assert!(!release.draft);
         assert!(!release.prerelease);
-        assert_eq!(release.author.login, "admin");
+        assert_eq!(release.author.as_ref().unwrap().login, "admin");
         assert_eq!(
             release.url,
             "https://gitlab.com/gitlab-org/gitlab/-/releases/v1.0.0"

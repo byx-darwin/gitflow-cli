@@ -22,7 +22,16 @@ impl Platform {
     ///
     /// Performs a case-insensitive substring match against known platform
     /// domain patterns. Supports both HTTPS and SSH remote formats, as
-    /// well as self-hosted instances (e.g., `gitlab.mycorp.com`).
+    /// well as self-hosted instances.
+    ///
+    /// # Detection Strategy
+    ///
+    /// - `github.com` or `github.*` → GitHub
+    /// - `gitcode.com` or `gitcode.*` → `GitCode`
+    /// - All other domains → GitLab (default, including self-hosted)
+    ///
+    /// This approach assumes that any unrecognized domain is a GitLab instance,
+    /// which covers custom domains like `xyun.git.nyuncloud.com`.
     ///
     /// # Examples
     ///
@@ -39,19 +48,21 @@ impl Platform {
     ///     Platform::detect_from_remote_url("git@gitlab.mycorp.com:group/project.git"),
     ///     Some(Platform::GitLab),
     /// );
-    /// assert!(Platform::detect_from_remote_url("https://example.com/repo.git").is_none());
+    /// assert_eq!(
+    ///     Platform::detect_from_remote_url("git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git"),
+    ///     Some(Platform::GitLab),
+    /// );
     /// ```
     #[must_use]
     pub fn detect_from_remote_url(url: &str) -> Option<Self> {
         let url_lower = url.to_lowercase();
         if url_lower.contains("github.com") || url_lower.contains("github.") {
             Some(Self::GitHub)
-        } else if url_lower.contains("gitlab.com") || url_lower.contains("gitlab.") {
-            Some(Self::GitLab)
         } else if url_lower.contains("gitcode.com") || url_lower.contains("gitcode.") {
             Some(Self::GitCode)
         } else {
-            None
+            // Default to GitLab for all other domains (including self-hosted GitLab)
+            Some(Self::GitLab)
         }
     }
 }
@@ -101,8 +112,25 @@ mod tests {
     }
 
     #[test]
-    fn test_should_return_none_for_unrecognized_url() {
-        assert!(Platform::detect_from_remote_url("https://example.com/repo.git").is_none());
+    fn test_should_detect_gitlab_from_custom_domain() {
+        // Custom GitLab domains should be detected as GitLab
+        assert_eq!(
+            Platform::detect_from_remote_url("git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git"),
+            Some(Platform::GitLab),
+        );
+        assert_eq!(
+            Platform::detect_from_remote_url("https://gitlab.mycorp.com/group/project.git"),
+            Some(Platform::GitLab),
+        );
+    }
+
+    #[test]
+    fn test_should_default_to_gitlab_for_unrecognized_url() {
+        // Unrecognized domains default to GitLab
+        assert_eq!(
+            Platform::detect_from_remote_url("https://example.com/repo.git"),
+            Some(Platform::GitLab),
+        );
     }
 
     #[test]

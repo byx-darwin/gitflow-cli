@@ -193,18 +193,17 @@ impl CommitProvider for GitCodeCommitProvider {
     }
 
     async fn diff(&self, sha: &str) -> Result<String> {
-        debug!(repo = %self.repo, sha, "spawning `gc api commit diff`");
-
-        let api_path = format!("repos/{repo}/commits/{sha}", repo = self.repo);
+        debug!(repo = %self.repo, sha, "spawning `gc commit diff`");
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["api", &api_path])
-            .arg("-H")
-            .arg("Accept: application/vnd.gitcode.v3.diff")
+            .args(["commit", "diff"])
+            .arg(sha)
+            .arg("-R")
+            .arg(&self.repo)
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode api commit diff: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode commit diff: {e}"))
             })?;
 
         if !output.status.success() {
@@ -216,18 +215,17 @@ impl CommitProvider for GitCodeCommitProvider {
     }
 
     async fn patch(&self, sha: &str) -> Result<String> {
-        debug!(repo = %self.repo, sha, "spawning `gc api commit patch`");
-
-        let api_path = format!("repos/{repo}/commits/{sha}", repo = self.repo);
+        debug!(repo = %self.repo, sha, "spawning `gc commit patch`");
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["api", &api_path])
-            .arg("-H")
-            .arg("Accept: application/vnd.gitcode.v3.patch")
+            .args(["commit", "patch"])
+            .arg(sha)
+            .arg("-R")
+            .arg(&self.repo)
             .output()
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode api commit patch: {e}"))
+                CoreError::Platform(format!("Failed to spawn gitcode commit patch: {e}"))
             })?;
 
         if !output.status.success() {

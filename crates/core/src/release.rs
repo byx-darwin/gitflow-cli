@@ -17,28 +17,33 @@ use crate::{Result, types::UserSummary};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseData {
-    /// Release 的 numeric ID。
+    /// Release 的 numeric ID（list 命令可能不包含此字段）。
+    #[serde(default, alias = "databaseId")]
     pub id: u64,
     /// 关联的 Git tag 名。
     pub tag_name: String,
     /// Release 标题（可选）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    /// Release 正文（Markdown）。
+    /// Release 正文（Markdown，list 命令可能不包含此字段）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
     /// 是否为草稿 Release。
+    #[serde(alias = "isDraft")]
     pub draft: bool,
     /// 是否为预发布版本。
+    #[serde(alias = "isPrerelease")]
     pub prerelease: bool,
-    /// Release 作者。
-    pub author: UserSummary,
+    /// Release 作者（list 命令可能不包含此字段）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<UserSummary>,
     /// 创建时间（UTC）。
     pub created_at: DateTime<Utc>,
     /// 发布时间（UTC），草稿 Release 为 None。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub published_at: Option<DateTime<Utc>>,
-    /// Release 的 Web URL。
+    /// Release 的 Web URL（list 命令可能不包含此字段）。
+    #[serde(default)]
     pub url: String,
 }
 
@@ -157,8 +162,8 @@ mod tests {
         assert_eq!(release.body.as_deref(), Some("Initial stable release"));
         assert!(!release.draft);
         assert!(!release.prerelease);
-        assert_eq!(release.author.login, "octocat");
-        assert_eq!(release.author.id, "1");
+        assert_eq!(release.author.as_ref().unwrap().login, "octocat");
+        assert_eq!(release.author.as_ref().unwrap().id, "1");
         assert_eq!(
             release.url,
             "https://github.com/octocat/hello-world/releases/tag/v1.0.0"

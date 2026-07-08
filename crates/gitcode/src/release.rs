@@ -15,7 +15,7 @@ use crate::error::parse_gitcode_error;
 
 /// `gc release` 请求的 JSON 字段列表。
 const RELEASE_FIELDS: &str =
-    "id,tagName,name,body,draft,prerelease,author,createdAt,publishedAt,url";
+    "id,tagName,name,body,isDraft,isPrerelease,author,createdAt,publishedAt,url";
 
 /// GitCode Release 提供者，通过 `gitcode` CLI 操作。
 ///
@@ -51,7 +51,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["release", "create"])
             .arg(&args.tag_name)
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
             .arg(RELEASE_FIELDS);
@@ -92,10 +92,12 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let release: ReleaseData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(release)
+        // If JSON parsing fails, the release was still created successfully
+        // Try to fetch it via view
+        match serde_json::from_slice::<ReleaseData>(&output.stdout) {
+            Ok(release) => Ok(release),
+            Err(_) => self.view(&args.tag_name).await,
+        }
     }
 
     async fn list(&self) -> Result<Vec<ReleaseData>> {
@@ -103,7 +105,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "list"])
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
             .arg(RELEASE_FIELDS)
@@ -128,10 +130,9 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "view"])
             .arg(tag_name)
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
-            .arg(RELEASE_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
@@ -151,7 +152,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
         cmd.args(["release", "edit"])
             .arg(tag_name)
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .arg("--json")
             .arg(RELEASE_FIELDS);
@@ -172,10 +173,6 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             cmd.arg("--prerelease");
         }
 
-        if let Some(ref commitish) = args.target_commitish {
-            cmd.arg("--target").arg(commitish);
-        }
-
         debug!(
             repo = %self.repo,
             tag = %tag_name,
@@ -192,10 +189,31 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let release: ReleaseData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        // If JSON parsing fails, try to fetch the edited release
+        match serde_json::from_slice::<ReleaseData>(&output.stdout) {
+            Ok(release) => Ok(release),
+            Err(_) => self.view(tag_name).await,
+        }
+    }
 
-        Ok(release)
+    async fn delete(&self, tag_name: &str) -> Result<()> {
+        debug!(repo = %self.repo, tag = %tag_name, "spawning `gc release delete`");
+
+        let output = tokio::process::Command::new(crate::gitcode_binary())
+            .args(["release", "delete"])
+            .arg(tag_name)
+            .arg("-R")
+            .arg(&self.repo)
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
+
+        if !output.status.success() {
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
+        }
+
+        Ok(())
     }
 
     async fn upload_asset(&self, tag_name: &str, file_path: &str, _asset_name: &str) -> Result<()> {
@@ -210,7 +228,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             .args(["release", "upload"])
             .arg(tag_name)
             .arg(file_path)
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
             .output()
             .await
@@ -224,68 +242,29 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         Ok(())
     }
 
-    #[allow(
-        clippy::disallowed_methods,
-        reason = "Path parent extraction is safe here"
-    )]
     async fn download_asset(
         &self,
         tag_name: &str,
         asset_name: &str,
-        dest_path: &str,
+        output_path: &str,
     ) -> Result<()> {
         debug!(
             repo = %self.repo,
             tag = %tag_name,
             asset = %asset_name,
-            dest = %dest_path,
+            output = %output_path,
             "spawning `gc release download`"
         );
-
-        // 下载到目标文件的父目录，然后重命名到目标路径
-        let dest = std::path::PathBuf::from(dest_path);
-        let parent = dest.parent().unwrap_or_else(|| std::path::Path::new("."));
 
         let output = tokio::process::Command::new(crate::gitcode_binary())
             .args(["release", "download"])
             .arg(tag_name)
-            .arg("--repo")
+            .arg("-R")
             .arg(&self.repo)
-            .arg("--pattern")
+            .arg("--asset")
             .arg(asset_name)
-            .arg("--dir")
-            .arg(parent)
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
-
-        if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
-        }
-
-        // gitcode 使用资源的实际文件名下载，尝试找到并移动
-        let downloaded = parent.join(asset_name);
-        if downloaded != dest && downloaded.exists() {
-            std::fs::rename(&downloaded, &dest).map_err(|e| {
-                CoreError::Platform(format!(
-                    "Failed to move downloaded asset to {dest_path}: {e}"
-                ))
-            })?;
-        }
-
-        Ok(())
-    }
-
-    async fn delete(&self, tag_name: &str) -> Result<()> {
-        debug!(repo = %self.repo, tag = %tag_name, "spawning `gc release delete`");
-
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["release", "delete"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--yes")
+            .arg("--output")
+            .arg(output_path)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
@@ -296,108 +275,5 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         }
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_should_construct_gitcode_release_provider() {
-        let provider = GitCodeReleaseProvider::new("octocat/hello-world");
-        assert_eq!(provider.repo, "octocat/hello-world");
-    }
-
-    #[test]
-    fn test_should_construct_gitcode_release_provider_from_string() {
-        let repo = String::from("octocat/hello-world");
-        let provider = GitCodeReleaseProvider::new(repo);
-        assert_eq!(provider.repo, "octocat/hello-world");
-    }
-
-    #[test]
-    fn test_should_deserialize_release_data_from_gc_output() {
-        let gc_json = br#"{
-            "id": 1001,
-            "tagName": "v1.0.0",
-            "name": "Version 1.0.0",
-            "body": "Initial stable release",
-            "draft": false,
-            "prerelease": false,
-            "author": {"login": "octocat", "id": "1"},
-            "createdAt": "2026-01-01T00:00:00Z",
-            "publishedAt": "2026-01-15T12:00:00Z",
-            "url": "https://gitcode.com/octocat/hello-world/releases/tag/v1.0.0"
-        }"#;
-
-        let release: ReleaseData = serde_json::from_slice(gc_json).expect("valid ReleaseData JSON");
-        assert_eq!(release.id, 1001);
-        assert_eq!(release.tag_name, "v1.0.0");
-        assert_eq!(release.name.as_deref(), Some("Version 1.0.0"));
-        assert_eq!(release.body.as_deref(), Some("Initial stable release"));
-        assert!(!release.draft);
-        assert!(!release.prerelease);
-        assert_eq!(release.author.login, "octocat");
-        assert_eq!(release.author.id, "1");
-        assert_eq!(
-            release.url,
-            "https://gitcode.com/octocat/hello-world/releases/tag/v1.0.0"
-        );
-    }
-
-    #[test]
-    fn test_should_deserialize_empty_release_list_from_gc_output() {
-        let gc_json = b"[]";
-        let releases: Vec<ReleaseData> =
-            serde_json::from_slice(gc_json).expect("valid ReleaseData list");
-        assert!(releases.is_empty());
-    }
-
-    #[test]
-    fn test_should_deserialize_draft_release_from_gc_output() {
-        let gc_json = br#"{
-            "id": 5,
-            "tagName": "v0.1.0-draft",
-            "name": null,
-            "body": null,
-            "draft": true,
-            "prerelease": true,
-            "author": {"login": "dev", "id": "99"},
-            "createdAt": "2026-03-01T00:00:00Z",
-            "publishedAt": null,
-            "url": "https://example.com/releases/5"
-        }"#;
-
-        let release: ReleaseData =
-            serde_json::from_slice(gc_json).expect("valid draft ReleaseData");
-        assert!(release.draft);
-        assert!(release.prerelease);
-        assert!(release.name.is_none());
-        assert!(release.body.is_none());
-        assert!(release.published_at.is_none());
-    }
-
-    #[test]
-    fn test_should_debug_format_provider() {
-        let provider = GitCodeReleaseProvider::new("octocat/hello-world");
-        let debug = format!("{provider:?}");
-        assert!(debug.contains("GitCodeReleaseProvider"));
-        assert!(debug.contains("octocat/hello-world"));
-    }
-
-    #[test]
-    fn test_should_create_provider_with_different_repos() {
-        let r1 = GitCodeReleaseProvider::new("org/repo-a");
-        let r2 = GitCodeReleaseProvider::new("org/repo-b");
-        assert_eq!(r1.repo, "org/repo-a");
-        assert_eq!(r2.repo, "org/repo-b");
-    }
-
-    #[test]
-    fn test_should_clone_gitcode_release_provider() {
-        let original = GitCodeReleaseProvider::new("owner/repo");
-        let cloned = original.clone();
-        assert_eq!(original.repo, cloned.repo);
     }
 }

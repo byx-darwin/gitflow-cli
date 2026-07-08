@@ -208,11 +208,17 @@ impl PrProvider for GitLabMrProvider {
             .arg("--output")
             .arg("json");
 
+        // glab uses --closed for closed MRs
+        // Default (no flag) shows open MRs
         if let Some(state) = &args.state {
-            cmd.arg("--state").arg(match state {
-                State::Open => "opened",
-                State::Closed => "closed",
-            });
+            match state {
+                State::Open => {
+                    // Default behavior, no flag needed
+                }
+                State::Closed => {
+                    cmd.arg("--closed");
+                }
+            }
         }
 
         if let Some(limit) = args.limit {

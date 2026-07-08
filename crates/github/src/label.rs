@@ -78,10 +78,12 @@ impl LabelProvider for GitHubLabelProvider {
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let label: LabelData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(label)
+        // gh label create doesn't return JSON, construct the response manually
+        Ok(LabelData {
+            name: args.name,
+            color: Some(args.color),
+            description: args.description,
+        })
     }
 
     async fn list(&self) -> Result<Vec<LabelData>> {
