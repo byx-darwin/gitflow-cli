@@ -418,10 +418,15 @@ fn install_single_skill_bundled(
 }
 
 /// Resolve hook directory, settings path, and command for global installation.
-fn resolve_global_hook_paths(home: &std::path::Path) -> (PathBuf, PathBuf, String) {
-    let dir = home.join(".claude/hooks");
-    let settings = home.join(".claude/settings.json");
-    let cmd = "bash ~/.claude/hooks/auto-report-bug.sh".to_string();
+fn resolve_global_hook_paths(
+    home: &std::path::Path,
+    platform: AgentPlatform,
+) -> (PathBuf, PathBuf, String) {
+    let hooks_dir = platform.hooks_dir_name();
+    let settings_file = platform.settings_file_path();
+    let dir = home.join(hooks_dir);
+    let settings = home.join(settings_file);
+    let cmd = format!("bash ~/{hooks_dir}/auto-report-bug.sh");
     (dir, settings, cmd)
 }
 
@@ -452,7 +457,7 @@ fn install_hook(global: bool, force: bool) -> miette::Result<()> {
 
     let (hook_dir, settings_path, cmd) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        resolve_global_hook_paths(&home)
+        resolve_global_hook_paths(&home, AgentPlatform::Claude)
     } else {
         let repo = git_repo_root()?;
         resolve_project_hook_paths(&repo, AgentPlatform::Claude)
@@ -1011,7 +1016,8 @@ mod tests {
     #[test]
     fn test_resolve_global_hook_paths_uses_claude_hooks_dir() {
         let home = PathBuf::from("/home/user");
-        let (hook_dir, settings_path, cmd) = resolve_global_hook_paths(&home);
+        let (hook_dir, settings_path, cmd) =
+            resolve_global_hook_paths(&home, AgentPlatform::Claude);
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
         assert!(cmd.contains("~/.claude/hooks/auto-report-bug.sh"));

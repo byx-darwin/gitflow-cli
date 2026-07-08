@@ -1,32 +1,10 @@
-# TASK-4: Refactor gitflow-review
+## Task 4: 重构 `install_hook` 接受 `AgentPlatform`
 
-**ID:** TASK-4
-**Issue:** #39
-**Effort:** 4h
-**Depends on:** TASK-0
-**Risk:** 🔴 High (merge gate — approve affects PR mergeability)
+**文件**: `apps/cli/src/commands/skills.rs`
 
-## P0 Items
-- description: rewrite to "Use when..." trigger format
-- boundaries: approve requires prior pr-review analysis
-- prohibition list
-- red flags
-- trigger keywords
-- cross-references (gitflow-pr, gitflow-pr-review, gitflow-pr-inline-review, gitflow-pr-apply-feedback)
-- testability hooks (RED phase: 4 scenarios)
+**改动**:
 
-## P1 Items
-- structured template compliance
-- error handling
-- preconditions
-- rationalization excuse counter-table
-- flowchart (approve vs submit decision)
-- Quick Reference
+1. 函数签名变为 `install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()>`
+2. 调用 `resolve_*_hook_paths` 时传入 `platform`
+3. 更新 `install_skills` 中调用 `install_hook` 的地方，传入平台信息
 
-## Context
-
-Approve directly affects PR mergeability. Must require prior pr-review analysis. Also has approve-vs-submit ambiguity that needs a flowchart.
-
-Reference: `docs/superpowers/templates/skill-template.md` (from TASK-0)
-
-Work from: `/Users/byx/Documents/workspace/github.com/byx-darwin/gitflow-cli`
