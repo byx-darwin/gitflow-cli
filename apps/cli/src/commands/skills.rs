@@ -621,19 +621,32 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
     }
 
     // 移除 Hook 配置
-    uninstall_hook(args.global)?;
+    let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+    uninstall_hook(args.global, platform)?;
 
     Ok(())
 }
 
-/// 从配置中移除 Stop Hook。
-fn uninstall_hook(global: bool) -> miette::Result<()> {
-    let settings_path = if global {
+/// 从配置中移除 Stop Hook，并清理 hook 脚本文件。
+fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
+    let (hook_dir, settings_path) = if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        home.join(".claude/settings.json")
+        (home.join(platform.hooks_dir_name()), home.join(platform.settings_file_path()))
     } else {
-        git_repo_root()?.join(".claude/settings.json")
+        let repo = git_repo_root()?;
+        (repo.join(platform.hooks_dir_name()), repo.join(platform.settings_file_path()))
     };
+
+    // 删除 hook 脚本文件
+    let hook_script = hook_dir.join("auto-report-bug.sh");
+    if hook_script.exists() {
+        std::fs::remove_file(&hook_script)
+            .map_err(|e| miette::miette!("无法删除 hook 脚本 {}: {e}", hook_script.display()))?;
+        // 如果 hook 目录为空，也删除目录
+        if hook_dir.exists() && std::fs::read_dir(&hook_dir).map_or(true, |mut d| d.next().is_none()) {
+            std::fs::remove_dir(&hook_dir).ok();
+        }
+    }
 
     if !settings_path.exists() {
         return Ok(());
@@ -923,7 +936,7 @@ mod tests {
 
         // 调用 uninstall_hook（全局模式），用 temp_env 隔离 HOME
         temp_env::with_var("HOME", Some(tmp.path()), || {
-            super::uninstall_hook(true).expect("uninstall should succeed");
+            super::uninstall_hook(true, AgentPlatform::Claude).expect("uninstall should succeed");
         });
 
         // 验证 gitflow hook 已被删除
@@ -979,7 +992,7 @@ mod tests {
         .expect("write settings");
 
         temp_env::with_var("HOME", Some(tmp.path()), || {
-            super::uninstall_hook(true).expect("uninstall should succeed");
+            super::uninstall_hook(true, AgentPlatform::Claude).expect("uninstall should succeed");
         });
 
         let after = std::fs::read_to_string(&settings_path).expect("read after");
