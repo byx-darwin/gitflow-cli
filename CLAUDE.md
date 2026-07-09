@@ -184,6 +184,42 @@ Follow TDD for every feature and bug fix. The cycle is: **RED → GREEN → REFA
 - Include examples where helpful, and document `# Errors`, `# Panics`, and `# Safety` sections when applicable.
 - Generate docs with `cargo doc --no-deps` when documentation rendering needs verification.
 
+## Skill Documentation
+
+### 语言约定
+
+- **`description:` 字段保留英中双语**(触发匹配字段,支持中英文用户命中 skill)
+- **叙述性正文统一使用英文**:段落、列表、表格的非触发词列、说明文字
+- **`When to Use` / 触发词表格的 `中文`/`ZH` 列保留中文触发词**(中文用户的匹配入口)
+- **代码块、shell 命令、工具名、文件路径**保持原文不动(不翻译)
+
+### 为什么这样设计
+
+- `description` 和触发词列是 **匹配接口**:AI 根据用户输入(可能中文可能英文)匹配 skill。双语保证两种语言的用户都能准确命中
+- 正文叙述是 **执行指令**:统一的英文风格降低多语言混杂的认知负载,与 Superpowers/Claude Code 生态的 skill 惯例一致
+- 代码/命令/路径是 **执行内容**:这些值是机器消费的字面量,翻译会破坏功能
+
+### 示例
+
+```yaml
+# ✅ 正确
+description: |
+  Use when the user wants to authenticate, check auth status, or obtain a token.
+  当用户需要登录、检查认证状态或获取访问 Token 时使用。
+# 正文用英文
+Creates a new authentication session via OAuth device flow.
+# 触发词表格保留中文列
+| EN | ZH |
+|----|----|
+| login | 登录 |
+```
+
+```yaml
+# ❌ 错误
+# 正文混用中文
+创建新的认证会话。当用户需要时调用。
+```
+
 ## Code Style
 
 - Import order: standard library, external dependencies, local modules.
