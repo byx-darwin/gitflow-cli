@@ -25,6 +25,8 @@ use std::path::PathBuf;
 include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
 
 use clap::{ArgAction, Args, Subcommand, ValueEnum};
+use gitflow_cli_core::AuthChecker;
+use is_terminal::IsTerminal;
 
 // ---------------------------------------------------------------------------
 // Agent platform
@@ -338,6 +340,54 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
                 |pv| pv.get_name().to_owned(),
             );
             println!("⚠ Agent {name} 不支持 Stop hook，已跳过 hook 安装");
+        }
+    }
+
+    // Co-contribution plan — interactive opt-in (only in interactive mode)
+    if !std::io::stderr().is_terminal() {
+        println!("ℹ️ 非交互模式，已跳过共建计划");
+        return Ok(());
+    }
+
+    println!();
+    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+    println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
+    println!();
+
+    if !confirm("是否加入共建计划？", true)? {
+        println!("已跳过共建计划。你可以稍后运行 `skills install --force` 重新加入。");
+        return Ok(());
+    }
+
+    // Check GitHub auth
+    let auth_provider = gitflow_cli_github::GitHubAuthProvider::new();
+    if auth_provider.is_authenticated() {
+        merge_co_contribution(args.global, platform)?;
+        println!("✅ 共建计划已激活");
+    } else {
+        println!("⚠️ 未检测到 GitHub 登录。");
+        if confirm("是否现在执行 `gh auth login`？", true)? {
+            let status = std::process::Command::new("gh")
+                .args(["auth", "login"])
+                .stdin(std::process::Stdio::inherit())
+                .stdout(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
+                .status();
+            match status {
+                Ok(s) if s.success() => {
+                    merge_co_contribution(args.global, platform)?;
+                    println!("✅ 共建计划已激活");
+                }
+                _ => {
+                    println!(
+                        "登录失败。请手动运行 `gh auth login`，然后重新 `skills install --force`。"
+                    );
+                }
+            }
+        } else {
+            println!(
+                "请手动运行 `gh auth login`，然后重新 `skills install --force` 激活共建计划。"
+            );
         }
     }
 
@@ -731,10 +781,6 @@ fn merge_co_contribution_json(mut json: serde_json::Value, joined_at: &str) -> s
 ///
 /// Reads the existing settings file (or creates an empty JSON object),
 /// merges the `gitflow.co_contribution` field, and writes back.
-#[allow(
-    dead_code,
-    reason = "will be called by the co-contribution install flow in a follow-up task"
-)]
 fn merge_co_contribution(global: bool, platform: AgentPlatform) -> miette::Result<()> {
     let (_hook_dir, settings_path, _cmd) = resolve_hook_paths(global, platform)?;
 
@@ -821,10 +867,6 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
 /// Displays `prompt` and reads one line. Accepts `y/yes` (case-insensitive) as true,
 /// `n/no` as false, and empty input as `default`. On EOF or invalid input after 3
 /// retries, returns `default`.
-#[allow(
-    dead_code,
-    reason = "will be called by install/uninstall commands in a follow-up task"
-)]
 fn confirm(prompt: &str, default: bool) -> miette::Result<bool> {
     let stdin = std::io::stdin();
     let mut reader = stdin.lock();
