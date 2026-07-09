@@ -122,7 +122,9 @@ impl MockCommandRunner {
     #[cfg(windows)]
     fn make_exit_status(code: i32) -> ExitStatus {
         use std::os::windows::process::ExitStatusExt;
-        ExitStatus::from_raw(code as u32)
+        // Exit codes are conventionally non-negative; clamp negatives to 1.
+        let raw = u32::try_from(code).unwrap_or(1);
+        ExitStatus::from_raw(raw)
     }
 
     /// Create a mock that returns success with the given stdout.
