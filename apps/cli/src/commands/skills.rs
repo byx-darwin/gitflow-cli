@@ -25,6 +25,8 @@ use std::path::PathBuf;
 include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
 
 use clap::{ArgAction, Args, Subcommand, ValueEnum};
+use gitflow_cli_core::AuthChecker;
+use is_terminal::IsTerminal;
 
 // ---------------------------------------------------------------------------
 // Agent platform
@@ -94,27 +96,12 @@ impl AgentPlatform {
         matches!(self, AgentPlatform::Claude | AgentPlatform::Codex)
     }
 
-    /// 自动检测当前环境中的 Agent 平台。
+    /// 返回默认 Agent 平台。
     ///
-    /// 检测策略：按优先级检查各平台的配置目录是否存在。
-    /// 默认返回 `Claude`。
+    /// 默认固定为 `Claude`；其他平台需通过 `--agent` 参数显式指定。
+    /// 不扫描 `$HOME` 下各平台目录的存在性，避免隐式探测导致目标漂移。
     #[must_use]
     pub fn detect() -> Self {
-        let Some(home) = dirs::home_dir() else {
-            return AgentPlatform::Claude;
-        };
-        // 按优先级检测
-        for platform in &[
-            AgentPlatform::Claude,
-            AgentPlatform::Codex,
-            AgentPlatform::OpenCode,
-            AgentPlatform::Gemini,
-            AgentPlatform::Copilot,
-        ] {
-            if home.join(platform.skills_dir_name()).exists() {
-                return *platform;
-            }
-        }
         AgentPlatform::Claude
     }
 }
@@ -147,7 +134,7 @@ pub struct InstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测）
+    /// 目标 Agent 平台（默认 `claude`）
     #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
@@ -160,7 +147,7 @@ pub struct InstallArgs {
     pub force: bool,
 
     /// 启用自动 bug 上报（Stop Hook），默认开启
-    #[arg(long, default_value_t = true, action = ArgAction::SetTrue)]
+    #[arg(long = "report-bug", default_value_t = true, action = ArgAction::Set)]
     pub report_bug: bool,
 }
 
@@ -171,7 +158,7 @@ pub struct ListArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测）
+    /// 目标 Agent 平台（默认 `claude`）
     #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
@@ -187,7 +174,7 @@ pub struct UninstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测）
+    /// 目标 Agent 平台（默认 `claude`）
     #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
@@ -202,7 +189,7 @@ pub struct UninstallArgs {
 
 /// 解析目标目录。
 ///
-/// 优先级：`custom_path` > `-g` 全局（按 agent）> 项目级（按 agent，默认自动检测）
+/// 优先级：`custom_path` > `-g` 全局（按 agent）> 项目级（按 agent，默认 `Claude`）
 fn resolve_target_dir(
     global: bool,
     agent: Option<AgentPlatform>,
@@ -276,7 +263,7 @@ pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
 /// 安装 skills。
 fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     // 一次性解析目标平台；避免 `AgentPlatform::detect()` 在 resolve_target_dir
-    // 与 install_hook 分支被重复调用（每次 detect 会扫 5 个平台目录）。
+    // 与 install_hook 分支被重复调用。
     let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
 
     let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
@@ -356,6 +343,9 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
         }
     }
 
+    // Co-contribution plan — interactive opt-in
+    try_enable_co_contribution(args, platform)?;
+
     Ok(())
 }
 
@@ -413,7 +403,9 @@ fn install_single_skill_bundled(
     skipped: &mut u32,
     overwritten: &mut u32,
 ) -> miette::Result<()> {
-    if dest.exists() {
+    let is_overwrite = dest.exists();
+
+    if is_overwrite {
         if args.force {
             std::fs::remove_dir_all(dest).map_err(|e| miette::miette!("无法删除: {e}"))?;
         } else {
@@ -431,7 +423,7 @@ fn install_single_skill_bundled(
         std::fs::write(&file_path, data).map_err(|e| miette::miette!("写入失败: {e}"))?;
     }
 
-    if args.force && dest.exists() {
+    if is_overwrite && args.force {
         println!("♻ 已覆盖: {}", dest.display());
         *overwritten += 1;
     } else {
@@ -715,6 +707,153 @@ fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Co-contribution opt-in
+// ---------------------------------------------------------------------------
+
+/// Prompt the user to join the co-contribution plan and verify GitHub auth.
+///
+/// In non-interactive mode, silently skips. In interactive mode, asks the user
+/// whether to join, checks `gh auth status`, and writes the settings.json marker
+/// on success.
+fn try_enable_co_contribution(args: &InstallArgs, platform: AgentPlatform) -> miette::Result<()> {
+    if !std::io::stderr().is_terminal() {
+        println!("ℹ️ 非交互模式，已跳过共建计划");
+        return Ok(());
+    }
+
+    println!();
+    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+    println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
+    println!();
+
+    if !confirm("是否加入共建计划？", true)? {
+        println!("已跳过共建计划。你可以稍后运行 `skills install --force` 重新加入。");
+        return Ok(());
+    }
+
+    // Check GitHub auth
+    let auth_provider = gitflow_cli_github::GitHubAuthProvider::new();
+    if auth_provider.is_authenticated() {
+        merge_co_contribution(args.global, platform)?;
+        println!("✅ 共建计划已激活");
+    } else {
+        println!("⚠️ 未检测到 GitHub 登录。");
+        if confirm("是否现在执行 `gh auth login`？", true)? {
+            let status = std::process::Command::new("gh")
+                .args(["auth", "login"])
+                .stdin(std::process::Stdio::inherit())
+                .stdout(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
+                .status();
+            match status {
+                Ok(s) if s.success() => {
+                    merge_co_contribution(args.global, platform)?;
+                    println!("✅ 共建计划已激活");
+                }
+                _ => {
+                    println!(
+                        "登录失败。请手动运行 `gh auth login`，然后重新 `skills install --force`。"
+                    );
+                }
+            }
+        } else {
+            println!(
+                "请手动运行 `gh auth login`，然后重新 `skills install --force` 激活共建计划。"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Co-contribution marker
+// ---------------------------------------------------------------------------
+
+/// Merge the co-contribution marker into a settings JSON object.
+///
+/// Sets `gitflow.co_contribution = true` and `gitflow.joined_at` to the given
+/// ISO 8601 timestamp. Preserves all existing fields.
+fn merge_co_contribution_json(mut json: serde_json::Value, joined_at: &str) -> serde_json::Value {
+    if let serde_json::Value::Object(ref mut obj) = json {
+        let gitflow = obj.entry("gitflow").or_insert(serde_json::json!({}));
+        if let serde_json::Value::Object(gf) = gitflow {
+            gf.insert("co_contribution".into(), serde_json::json!(true));
+            gf.insert("joined_at".into(), serde_json::json!(joined_at));
+        }
+    } else {
+        json = serde_json::json!({
+            "gitflow": {
+                "co_contribution": true,
+                "joined_at": joined_at
+            }
+        });
+    }
+    json
+}
+
+/// Write the co-contribution marker to the platform's settings.json.
+///
+/// Reads the existing settings file (or creates an empty JSON object),
+/// merges the `gitflow.co_contribution` field, and writes back.
+fn merge_co_contribution(global: bool, platform: AgentPlatform) -> miette::Result<()> {
+    let (_hook_dir, settings_path, _cmd) = resolve_hook_paths(global, platform)?;
+
+    let existing = if settings_path.exists() {
+        let content = std::fs::read_to_string(&settings_path)
+            .map_err(|e| miette::miette!("无法读取配置 {}: {e}", settings_path.display()))?;
+        serde_json::from_str::<serde_json::Value>(&content)
+            .map_err(|e| miette::miette!("无法解析配置 {}: {e}", settings_path.display()))?
+    } else {
+        serde_json::json!({})
+    };
+
+    let joined_at = iso8601_utc_now_co_contribution();
+    let new_settings = merge_co_contribution_json(existing, &joined_at);
+    let formatted = serde_json::to_string_pretty(&new_settings)
+        .map_err(|e| miette::miette!("JSON 序列化失败: {e}"))?;
+    std::fs::write(&settings_path, formatted)
+        .map_err(|e| miette::miette!("写入配置失败 {}: {e}", settings_path.display()))?;
+
+    Ok(())
+}
+
+/// Format the current UTC time as ISO 8601 for the co-contribution marker.
+#[allow(
+    dead_code,
+    reason = "called by `merge_co_contribution`; direct calls from tests for isolation"
+)]
+#[allow(
+    clippy::cast_possible_wrap,
+    clippy::cast_lossless,
+    clippy::cast_sign_loss,
+    reason = "Howard Hinnant's algorithm operates on mixed-sign integer ranges within known bounds"
+)]
+fn iso8601_utc_now_co_contribution() -> String {
+    // Reuse the same algorithm as error_reporter::iso8601_utc_now
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    // Inline Howard Hinnant's algorithm (same as error_reporter)
+    let day_secs = secs % 86_400;
+    let hours = day_secs / 3_600;
+    let minutes = (day_secs % 3_600) / 60;
+    let seconds = day_secs % 60;
+    let days = (secs / 86_400) as i64;
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe as i64 + era * 400;
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -732,6 +871,61 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Interactive prompts
+// ---------------------------------------------------------------------------
+
+/// Read a Y/n confirmation from stdin.
+///
+/// Displays `prompt` and reads one line. Accepts `y/yes` (case-insensitive) as true,
+/// `n/no` as false, and empty input as `default`. On EOF or invalid input after 3
+/// retries, returns `default`.
+fn confirm(prompt: &str, default: bool) -> miette::Result<bool> {
+    let stdin = std::io::stdin();
+    let mut reader = stdin.lock();
+    confirm_with_reader(prompt, default, &mut reader)
+}
+
+/// Testable core of [`confirm`] — reads from any `BufRead` source.
+#[allow(
+    dead_code,
+    reason = "called by `confirm`; direct calls from tests for isolation"
+)]
+fn confirm_with_reader(
+    prompt: &str,
+    default: bool,
+    reader: &mut impl std::io::BufRead,
+) -> miette::Result<bool> {
+    use std::io::Write;
+    let hint = if default { "[Y/n]" } else { "[y/N]" };
+    print!("{prompt} {hint} ");
+    let _ = std::io::stdout().flush();
+
+    for _ in 0..3 {
+        let mut line = String::new();
+        let bytes_read = reader
+            .read_line(&mut line)
+            .map_err(|e| miette::miette!("读取输入失败: {e}"))?;
+
+        if bytes_read == 0 {
+            // EOF
+            return Ok(default);
+        }
+
+        match line.trim().to_lowercase().as_str() {
+            "" => return Ok(default),
+            "y" | "yes" => return Ok(true),
+            "n" | "no" => return Ok(false),
+            _ => {
+                print!("请输入 y 或 n: ");
+                let _ = std::io::stdout().flush();
+            }
+        }
+    }
+
+    Ok(default)
 }
 
 // ---------------------------------------------------------------------------
@@ -767,16 +961,10 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_detect_returns_some() {
-        let platform = AgentPlatform::detect();
-        assert!(matches!(
-            platform,
-            AgentPlatform::Claude
-                | AgentPlatform::Codex
-                | AgentPlatform::OpenCode
-                | AgentPlatform::Gemini
-                | AgentPlatform::Copilot
-        ));
+    fn test_agent_detect_always_returns_claude() {
+        // 契约：detect() 默认固定返回 Claude，不扫描 $HOME 下其他平台目录。
+        // 其他平台必须通过 `--agent` 显式指定。
+        assert_eq!(AgentPlatform::detect(), AgentPlatform::Claude);
     }
 
     #[test]
@@ -1161,5 +1349,239 @@ mod tests {
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
         assert!(cmd.contains("~/.claude/hooks/auto-report-bug.sh"));
+    }
+
+    #[test]
+    fn test_should_parse_report_bug_false() {
+        use clap::Parser;
+
+        #[derive(Debug, Parser)]
+        struct TestCli {
+            #[command(subcommand)]
+            cmd: TestCmd,
+        }
+
+        #[derive(Debug, Subcommand)]
+        enum TestCmd {
+            Install(InstallArgs),
+        }
+
+        let cli = TestCli::parse_from(["test", "install", "--report-bug=false"]);
+        let TestCmd::Install(args) = cli.cmd;
+        assert!(
+            !args.report_bug,
+            "--report-bug=false must set report_bug to false"
+        );
+    }
+
+    #[test]
+    fn test_should_default_report_bug_to_true() {
+        use clap::Parser;
+
+        #[derive(Debug, Parser)]
+        struct TestCli {
+            #[command(subcommand)]
+            cmd: TestCmd,
+        }
+
+        #[derive(Debug, Subcommand)]
+        enum TestCmd {
+            Install(InstallArgs),
+        }
+
+        let cli = TestCli::parse_from(["test", "install"]);
+        let TestCmd::Install(args) = cli.cmd;
+        assert!(args.report_bug, "report_bug must default to true");
+    }
+
+    #[test]
+    fn test_should_count_overwritten_in_bundled_path() {
+        // Verify that install_single_skill_bundled correctly increments `overwritten`
+        // ONLY when force=true AND dest already existed before the call.
+        // This catches the dead-code bug where `args.force && dest.exists()` was
+        // checked AFTER files were written (so dest.exists() was always true),
+        // causing fresh installs with force=true to falsely increment overwritten.
+        let tmp = tempfile::tempdir().expect("create temp dir");
+
+        // Case 1: fresh install (dest does NOT exist), force=true
+        // Expected: overwritten=0, installed=1
+        let dest_fresh = tmp.path().join("fresh-skill");
+        let args = InstallArgs {
+            agent: Some(AgentPlatform::Claude),
+            global: false,
+            force: true,
+            report_bug: false,
+            custom_path: None,
+        };
+        let files: &[(&str, &[u8])] = &[("test.md", b"# Test Skill")];
+
+        let mut installed = 0u32;
+        let mut skipped = 0u32;
+        let mut overwritten = 0u32;
+
+        install_single_skill_bundled(
+            &dest_fresh,
+            files,
+            &args,
+            &mut installed,
+            &mut skipped,
+            &mut overwritten,
+        )
+        .expect("install should succeed");
+
+        assert_eq!(
+            overwritten, 0,
+            "fresh install with force=true should NOT count as overwritten"
+        );
+        assert_eq!(installed, 1, "fresh install should count as installed");
+        assert_eq!(skipped, 0, "fresh install should not count as skipped");
+
+        // Case 2: overwrite (dest already exists), force=true
+        // Expected: overwritten=1, installed stays at 1
+        let mut installed = 0u32;
+        let mut skipped = 0u32;
+        let mut overwritten = 0u32;
+
+        // Pre-create the destination directory so it counts as an overwrite
+        let dest_existing = tmp.path().join("existing-skill");
+        std::fs::create_dir_all(&dest_existing).expect("create dest dir");
+        std::fs::write(dest_existing.join("old.txt"), b"old data").expect("write old file");
+
+        install_single_skill_bundled(
+            &dest_existing,
+            files,
+            &args,
+            &mut installed,
+            &mut skipped,
+            &mut overwritten,
+        )
+        .expect("install should succeed");
+
+        assert_eq!(
+            overwritten, 1,
+            "overwrite of existing dir with force=true should increment overwritten"
+        );
+        assert_eq!(installed, 0, "overwrite should not count as fresh install");
+        assert_eq!(
+            skipped, 0,
+            "overwrite with force should not count as skipped"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // confirm / confirm_with_reader tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_should_return_default_on_empty_input() {
+        // Simulate empty input by providing a reader with just a newline
+        let input = b"\n";
+        let result = confirm_with_reader("Continue?", true, &mut &input[..]).expect("confirm");
+        assert!(result, "empty input should return default=true");
+
+        let result = confirm_with_reader("Continue?", false, &mut &input[..]).expect("confirm");
+        assert!(!result, "empty input should return default=false");
+    }
+
+    #[test]
+    fn test_should_accept_yes_variants() {
+        for answer in &[b"y\n" as &[u8], b"Y\n", b"yes\n", b"YES\n"] {
+            let result = confirm_with_reader("Continue?", false, &mut &**answer).expect("confirm");
+            assert!(result, "input {answer:?} should be accepted as yes");
+        }
+    }
+
+    #[test]
+    fn test_should_accept_no_variants() {
+        for answer in &[b"n\n" as &[u8], b"N\n", b"no\n", b"NO\n"] {
+            let result = confirm_with_reader("Continue?", true, &mut &**answer).expect("confirm");
+            assert!(!result, "input {answer:?} should be accepted as no");
+        }
+    }
+
+    #[test]
+    fn test_should_return_default_on_eof() {
+        let input: &[u8] = b"";
+        let result = confirm_with_reader("Continue?", true, &mut &input[..]).expect("confirm");
+        assert!(result, "EOF should return default=true");
+    }
+
+    // -----------------------------------------------------------------------
+    // merge_co_contribution_json tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_should_merge_co_contribution_into_empty_settings() {
+        let input = serde_json::json!({});
+        let result = merge_co_contribution_json(input, "2026-07-09T08:30:00Z");
+
+        assert_eq!(
+            result
+                .pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .pointer("/gitflow/joined_at")
+                .and_then(serde_json::Value::as_str),
+            Some("2026-07-09T08:30:00Z")
+        );
+    }
+
+    #[test]
+    fn test_should_preserve_existing_hooks_when_merging_co_contribution() {
+        let input = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "hooks": [{"type": "command", "command": "bash hook.sh"}]
+                    }
+                ]
+            }
+        });
+        let result = merge_co_contribution_json(input, "2026-07-09T08:30:00Z");
+
+        // hooks must be preserved
+        let stop = result
+            .pointer("/hooks/Stop")
+            .and_then(serde_json::Value::as_array);
+        assert!(stop.is_some(), "existing hooks must be preserved");
+        assert_eq!(stop.expect("stop array").len(), 1);
+
+        // co_contribution must be added
+        assert_eq!(
+            result
+                .pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn test_should_update_existing_gitflow_section() {
+        let input = serde_json::json!({
+            "gitflow": {
+                "co_contribution": false,
+                "joined_at": "2020-01-01T00:00:00Z"
+            }
+        });
+        let result = merge_co_contribution_json(input, "2026-07-09T08:30:00Z");
+
+        assert_eq!(
+            result
+                .pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true),
+            "co_contribution must be updated to true"
+        );
+        assert_eq!(
+            result
+                .pointer("/gitflow/joined_at")
+                .and_then(serde_json::Value::as_str),
+            Some("2026-07-09T08:30:00Z"),
+            "joined_at must be updated"
+        );
     }
 }

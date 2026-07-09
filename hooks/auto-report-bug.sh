@@ -7,7 +7,8 @@
 #   1. Checks for pending.json
 #   2. Shallow-validates JSON
 #   3. Uses auth cache (24h TTL) to avoid redundant auth checks
-#   4. Outputs a banner that triggers the gitflow-autoreport-bug skill
+#   4. On auth failure: outputs login guide + Issue template and exits
+#   5. On auth success: outputs banner that triggers gitflow-autoreport-bug skill
 #
 # Exit codes: 0 always (silent no-op when nothing to do)
 
@@ -44,10 +45,11 @@ ERROR_CODE=$(echo "$PENDING_CONTENT" | grep -o '"error_code"[[:space:]]*:[[:spac
 PLATFORM=$(echo "$PENDING_CONTENT" | grep -o '"platform"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 TIMESTAMP=$(echo "$PENDING_CONTENT" | grep -o '"timestamp"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 
-# Auth cache check (24h TTL).
+# Auth cache check (24h TTL) with failure fallback.
 CACHE_FILE="$REPO_ROOT/.cache/auth-cache/${PLATFORM}.ttl"
 AUTH_CACHE_TTL=86400
 AUTH_STATUS="未知"
+AUTH_CHECK_FAILED=false
 
 if [ -f "$CACHE_FILE" ]; then
   CACHED_TIME=$(cat "$CACHE_FILE")
@@ -55,7 +57,52 @@ if [ -f "$CACHE_FILE" ]; then
   AGE=$(( NOW - CACHED_TIME ))
   if [ "$AGE" -lt "$AUTH_CACHE_TTL" ]; then
     AUTH_STATUS="✅ cache 命中（age: ${AGE}s）"
+  else
+    AUTH_STATUS="⚠️ cache 过期"
+    AUTH_CHECK_FAILED=true
   fi
+else
+  # No cache — attempt live auth check
+  if command -v gh >/dev/null 2>&1; then
+    if gh auth status >/dev/null 2>&1; then
+      AUTH_STATUS="✅ 已登录"
+      # Update cache
+      mkdir -p "$(dirname "$CACHE_FILE")"
+      date +%s > "$CACHE_FILE"
+    else
+      AUTH_STATUS="❌ 未登录"
+      AUTH_CHECK_FAILED=true
+    fi
+  else
+    AUTH_STATUS="❌ gh CLI 未安装"
+    AUTH_CHECK_FAILED=true
+  fi
+fi
+
+# Auth failure fallback — guide user to login or manually create Issue
+if [ "$AUTH_CHECK_FAILED" = "true" ]; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ⚠️  GitHub 未登录，无法自动创建 Issue"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "  方式 1: 登录后重新触发（推荐）"
+  echo "    gh auth login"
+  echo ""
+  echo "  方式 2: 手动创建 Issue"
+  echo "    URL: https://github.com/byx-darwin/gitflow-cli/issues/new"
+  echo ""
+  ERROR_MSG=$(echo "$PENDING_CONTENT" | grep -o '"error_message"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+  echo "  📋 报告内容（可复制）:"
+  echo "  ---"
+  echo "  **命令**: ${COMMAND}"
+  echo "  **平台**: ${PLATFORM}"
+  echo "  **错误码**: ${ERROR_CODE}"
+  echo "  **错误信息**: ${ERROR_MSG}"
+  echo "  **时间**: ${TIMESTAMP}"
+  echo "  ---"
+  echo ""
+  exit 0
 fi
 
 echo ""

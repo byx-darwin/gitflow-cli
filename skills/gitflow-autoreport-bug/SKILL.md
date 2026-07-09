@@ -1,13 +1,13 @@
 ---
 name: gitflow-autoreport-bug
 description: |
-  Use when a Stop Hook detects `.cache/bug-reports/pending.json` — auto-analyzes CLI errors, checks auth cache, deduplicates, creates GitHub/GitLab/GitCode Issues, and logs failures for retry.
+  Use when a Stop Hook detects `.cache/bug-reports/pending.json` — auto-analyzes CLI errors, checks GitHub auth, deduplicates, creates GitHub/GitLab/GitCode Issues, and logs failures for retry.
   当 Stop Hook 检测到 pending.json 时自动使用。
 ---
 
 # gitflow-autoreport-bug
 
-Detects `pending.json` → validates → auth cache check → dedup → Claude analysis → creates Issue → cleans up.
+Detects `pending.json` → validates → auth check → dedup → Claude analysis → creates Issue → cleans up.
 
 ## Decision Flow
 
@@ -15,17 +15,29 @@ Detects `pending.json` → validates → auth cache check → dedup → Claude a
 flowchart TD
     A[Read pending.json] --> B{Valid JSON?}
     B -->|No| C[Rename .invalid, warn, stop]
-    B -->|Yes| D{Auth cache hit?}
-    D -->|No| E[Auth check]
-    E -->|Fail| F[Keep file + log to failed.log]
-    E -->|Pass| G[Update cache TTL]
-    D -->|Yes| G
-    G --> H{Duplicate Issue exists?}
-    H -->|Yes| I[Show existing Issue, clean file]
-    H -->|No| J[Claude analysis + create Issue]
-    J -->|Fail| F
+    B -->|Yes| D{Auth check}
+    D -->|Pass| G{Duplicate Issue?}
+    D -->|Fail| NEW[输出登录提示 + Issue 模板]
+    NEW --> KEEP[保留 pending.json, stop]
+    G -->|Yes| I[Clean, stop]
+    G -->|No| J[Create Issue]
+    J -->|Fail| F[Keep file + failed.log]
     J -->|Pass| K[Remove pending.json]
 ```
+
+## Auth 失败处理
+
+当 `gitflow-cli auth status` 返回未登录时，不要尝试创建 Issue。改为：
+
+1. 输出登录提示：`gh auth login`
+2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`
+3. 格式化 `pending.json` 内容为可复制的 Issue 模板：
+   - **命令**: `{command}`
+   - **平台**: `{platform}`
+   - **错误码**: `{error_code}`
+   - **错误信息**: `{error_message}`
+   - **时间**: `{timestamp}`
+4. 保留 `pending.json`，不做清理（等待用户登录后下次触发）
 
 ## ⚠️ Responsibility Boundary
 
@@ -42,7 +54,7 @@ flowchart TD
 ### ✅ Scope
 
 - Read `pending.json`, validate JSON
-- Auth cache check (TTL-based)
+- Auth check (GitHub login verification)
 - Dedup via existing Issue search
 - Analyze root cause (analysis only, no fixes)
 - Create Issue with `[auto-report]` prefix
@@ -61,11 +73,10 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 ## Workflow
 
 1. **Read & Validate** — `.cache/bug-reports/pending.json`. Required: `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop. Pre-check: `command -v gitflow-cli`.
-2. **Auth Cache** — `.cache/auth-cache/{platform}.ttl`. Hit → proceed. Miss → `gitflow-cli auth status --platform {platform}`. Fail → keep file + `failed.log`. Success → update TTL.
-3. **Claude Analysis** — root cause, fix direction, severity. Title: `[auto-report] gitflow {command} — {error_code}`.
-4. **Dedup** — `gitflow-cli issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
-5. **Create Issue** — `gitflow-cli issue create --repo byx-darwin/gitflow-cli --title "[auto-report] ..." --label "auto-report"`. Fail → keep file + `failed.log`.
-6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
+2. **Auth Check** — `gitflow-cli auth status --platform {platform}`. Pass → proceed. Fail → output login prompt + Issue template, keep `pending.json`, stop.
+3. **Dedup** — `gitflow-cli issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
+4. **Create Issue** — Analyze root cause, fix direction, severity. Create Issue via `gitflow-cli issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gitflow {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+5. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
 
 ## Error Handling
 
@@ -73,7 +84,7 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 |-------|--------|
 | Missing `pending.json` | "No pending reports", stop |
 | Invalid JSON | Rename to `.invalid`, warn, stop |
-| Auth check failure | Keep `pending.json` + log to `failed.log` |
+| Auth check failure | Output login guide + Issue template, keep `pending.json` |
 | Dedup hit | Clean `pending.json`, show existing Issue |
 | Issue creation failure | Keep `pending.json` + log to `failed.log` |
 
