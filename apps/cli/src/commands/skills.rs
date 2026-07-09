@@ -702,6 +702,97 @@ fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Co-contribution marker
+// ---------------------------------------------------------------------------
+
+/// Merge the co-contribution marker into a settings JSON object.
+///
+/// Sets `gitflow.co_contribution = true` and `gitflow.joined_at` to the given
+/// ISO 8601 timestamp. Preserves all existing fields.
+fn merge_co_contribution_json(mut json: serde_json::Value, joined_at: &str) -> serde_json::Value {
+    if let serde_json::Value::Object(ref mut obj) = json {
+        let gitflow = obj.entry("gitflow").or_insert(serde_json::json!({}));
+        if let serde_json::Value::Object(gf) = gitflow {
+            gf.insert("co_contribution".into(), serde_json::json!(true));
+            gf.insert("joined_at".into(), serde_json::json!(joined_at));
+        }
+    } else {
+        json = serde_json::json!({
+            "gitflow": {
+                "co_contribution": true,
+                "joined_at": joined_at
+            }
+        });
+    }
+    json
+}
+
+/// Write the co-contribution marker to the platform's settings.json.
+///
+/// Reads the existing settings file (or creates an empty JSON object),
+/// merges the `gitflow.co_contribution` field, and writes back.
+#[allow(
+    dead_code,
+    reason = "will be called by the co-contribution install flow in a follow-up task"
+)]
+fn merge_co_contribution(global: bool, platform: AgentPlatform) -> miette::Result<()> {
+    let (_hook_dir, settings_path, _cmd) = resolve_hook_paths(global, platform)?;
+
+    let existing = if settings_path.exists() {
+        let content = std::fs::read_to_string(&settings_path)
+            .map_err(|e| miette::miette!("无法读取配置 {}: {e}", settings_path.display()))?;
+        serde_json::from_str::<serde_json::Value>(&content)
+            .map_err(|e| miette::miette!("无法解析配置 {}: {e}", settings_path.display()))?
+    } else {
+        serde_json::json!({})
+    };
+
+    let joined_at = iso8601_utc_now_co_contribution();
+    let new_settings = merge_co_contribution_json(existing, &joined_at);
+    let formatted = serde_json::to_string_pretty(&new_settings)
+        .map_err(|e| miette::miette!("JSON 序列化失败: {e}"))?;
+    std::fs::write(&settings_path, formatted)
+        .map_err(|e| miette::miette!("写入配置失败 {}: {e}", settings_path.display()))?;
+
+    Ok(())
+}
+
+/// Format the current UTC time as ISO 8601 for the co-contribution marker.
+#[allow(
+    dead_code,
+    reason = "called by `merge_co_contribution`; direct calls from tests for isolation"
+)]
+#[allow(
+    clippy::cast_possible_wrap,
+    clippy::cast_lossless,
+    clippy::cast_sign_loss,
+    reason = "Howard Hinnant's algorithm operates on mixed-sign integer ranges within known bounds"
+)]
+fn iso8601_utc_now_co_contribution() -> String {
+    // Reuse the same algorithm as error_reporter::iso8601_utc_now
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    // Inline Howard Hinnant's algorithm (same as error_reporter)
+    let day_secs = secs % 86_400;
+    let hours = day_secs / 3_600;
+    let minutes = (day_secs % 3_600) / 60;
+    let seconds = day_secs % 60;
+    let days = (secs / 86_400) as i64;
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe as i64 + era * 400;
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -1356,5 +1447,84 @@ mod tests {
         let input: &[u8] = b"";
         let result = confirm_with_reader("Continue?", true, &mut &input[..]).expect("confirm");
         assert!(result, "EOF should return default=true");
+    }
+
+    // -----------------------------------------------------------------------
+    // merge_co_contribution_json tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_should_merge_co_contribution_into_empty_settings() {
+        let input = serde_json::json!({});
+        let result = merge_co_contribution_json(input, "2026-07-09T08:30:00Z");
+
+        assert_eq!(
+            result
+                .pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            result
+                .pointer("/gitflow/joined_at")
+                .and_then(serde_json::Value::as_str),
+            Some("2026-07-09T08:30:00Z")
+        );
+    }
+
+    #[test]
+    fn test_should_preserve_existing_hooks_when_merging_co_contribution() {
+        let input = serde_json::json!({
+            "hooks": {
+                "Stop": [
+                    {
+                        "matcher": "gitflow",
+                        "hooks": [{"type": "command", "command": "bash hook.sh"}]
+                    }
+                ]
+            }
+        });
+        let result = merge_co_contribution_json(input, "2026-07-09T08:30:00Z");
+
+        // hooks must be preserved
+        let stop = result
+            .pointer("/hooks/Stop")
+            .and_then(serde_json::Value::as_array);
+        assert!(stop.is_some(), "existing hooks must be preserved");
+        assert_eq!(stop.expect("stop array").len(), 1);
+
+        // co_contribution must be added
+        assert_eq!(
+            result
+                .pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn test_should_update_existing_gitflow_section() {
+        let input = serde_json::json!({
+            "gitflow": {
+                "co_contribution": false,
+                "joined_at": "2020-01-01T00:00:00Z"
+            }
+        });
+        let result = merge_co_contribution_json(input, "2026-07-09T08:30:00Z");
+
+        assert_eq!(
+            result
+                .pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true),
+            "co_contribution must be updated to true"
+        );
+        assert_eq!(
+            result
+                .pointer("/gitflow/joined_at")
+                .and_then(serde_json::Value::as_str),
+            Some("2026-07-09T08:30:00Z"),
+            "joined_at must be updated"
+        );
     }
 }
