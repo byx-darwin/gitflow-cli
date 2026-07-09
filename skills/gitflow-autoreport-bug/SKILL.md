@@ -15,17 +15,29 @@ Detects `pending.json` → validates → auth cache check → dedup → Claude a
 flowchart TD
     A[Read pending.json] --> B{Valid JSON?}
     B -->|No| C[Rename .invalid, warn, stop]
-    B -->|Yes| D{Auth cache hit?}
-    D -->|No| E[Auth check]
-    E -->|Fail| F[Keep file + log to failed.log]
-    E -->|Pass| G[Update cache TTL]
-    D -->|Yes| G
-    G --> H{Duplicate Issue exists?}
-    H -->|Yes| I[Show existing Issue, clean file]
-    H -->|No| J[Claude analysis + create Issue]
-    J -->|Fail| F
+    B -->|Yes| D{Auth check}
+    D -->|Pass| G{Duplicate Issue?}
+    D -->|Fail| NEW[输出登录提示 + Issue 模板]
+    NEW --> KEEP[保留 pending.json, stop]
+    G -->|Yes| I[Clean, stop]
+    G -->|No| J[Create Issue]
+    J -->|Fail| F[Keep file + failed.log]
     J -->|Pass| K[Remove pending.json]
 ```
+
+## Auth 失败处理
+
+当 `gitflow-cli auth status` 返回未登录时，不要尝试创建 Issue。改为：
+
+1. 输出登录提示：`gh auth login`
+2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`
+3. 格式化 `pending.json` 内容为可复制的 Issue 模板：
+   - **命令**: `{command}`
+   - **平台**: `{platform}`
+   - **错误码**: `{error_code}`
+   - **错误信息**: `{error_message}`
+   - **时间**: `{timestamp}`
+4. 保留 `pending.json`，不做清理（等待用户登录后下次触发）
 
 ## ⚠️ Responsibility Boundary
 
