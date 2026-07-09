@@ -1,7 +1,7 @@
 # GitCode 认证状态检查修复与重构设计
 
-**日期**: 2026-07-08  
-**状态**: 草案  
+**日期**: 2026-07-08
+**状态**: 草案
 **范围**: GitCode 平台认证检查 bug 修复 + 架构重构
 
 ---
@@ -68,7 +68,7 @@ GitCode 平台的认证状态检查存在以下问题：
 pub trait AuthChecker {
     /// 快速检查是否已认证（不查询 API，仅检查本地凭据）
     fn is_authenticated(&self) -> bool;
-    
+
     /// 获取认证检查的详细状态
     fn check_status(&self) -> AuthCheckResult;
 }
@@ -105,15 +105,15 @@ impl AuthChecker for GitCodeAuthProvider {
         if std::env::var("GITCODE_TOKEN").is_ok() {
             return true;
         }
-        
+
         // 2. 检查 gitcode CLI 是否可用
         let binary = crate::gitcode_binary();
         debug!(binary = %binary, "checking gitcode authentication");
-        
+
         let output = std::process::Command::new(&binary)
             .args(["auth", "status"])
             .output();
-            
+
         match output {
             Ok(out) => {
                 debug!(
@@ -130,7 +130,7 @@ impl AuthChecker for GitCodeAuthProvider {
             }
         }
     }
-    
+
     fn check_status(&self) -> AuthCheckResult {
         // 1. 检查环境变量
         if std::env::var("GITCODE_TOKEN").is_ok() {
@@ -141,7 +141,7 @@ impl AuthChecker for GitCodeAuthProvider {
                 hint: None,
             };
         }
-        
+
         // 2. 执行 gitcode auth status
         let binary = crate::gitcode_binary();
         let output = match std::process::Command::new(&binary)
@@ -158,12 +158,12 @@ impl AuthChecker for GitCodeAuthProvider {
                 };
             }
         };
-        
+
         // 3. 解析结果
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let user = parse_user_from_status(&stdout);
-            
+
             AuthCheckResult {
                 authenticated: true,
                 user,
@@ -172,7 +172,7 @@ impl AuthChecker for GitCodeAuthProvider {
             }
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            
+
             AuthCheckResult {
                 authenticated: false,
                 user: None,
@@ -195,14 +195,14 @@ impl AuthChecker for GitHubAuthProvider {
         if std::env::var("GH_TOKEN").is_ok() {
             return true;
         }
-        
+
         let output = std::process::Command::new("gh")
             .args(["auth", "status"])
             .output();
-            
+
         matches!(output, Ok(out) if out.status.success())
     }
-    
+
     fn check_status(&self) -> AuthCheckResult {
         // 1. 检查环境变量
         if std::env::var("GH_TOKEN").is_ok() {
@@ -213,7 +213,7 @@ impl AuthChecker for GitHubAuthProvider {
                 hint: None,
             };
         }
-        
+
         // 2. 执行 gh auth status
         let output = match std::process::Command::new("gh")
             .args(["auth", "status"])
@@ -229,13 +229,13 @@ impl AuthChecker for GitHubAuthProvider {
                 };
             }
         };
-        
+
         // 3. 解析结果
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             // GitHub 格式: "Logged in to github.com as <username>"
             let user = parse_github_user_from_status(&stdout);
-            
+
             AuthCheckResult {
                 authenticated: true,
                 user,
@@ -244,7 +244,7 @@ impl AuthChecker for GitHubAuthProvider {
             }
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            
+
             AuthCheckResult {
                 authenticated: false,
                 user: None,
@@ -261,14 +261,14 @@ impl AuthChecker for GitLabAuthProvider {
         if std::env::var("GL_TOKEN").is_ok() {
             return true;
         }
-        
+
         let output = std::process::Command::new("glab")
             .args(["auth", "status"])
             .output();
-            
+
         matches!(output, Ok(out) if out.status.success())
     }
-    
+
     fn check_status(&self) -> AuthCheckResult {
         // 1. 检查环境变量
         if std::env::var("GL_TOKEN").is_ok() {
@@ -279,7 +279,7 @@ impl AuthChecker for GitLabAuthProvider {
                 hint: None,
             };
         }
-        
+
         // 2. 执行 glab auth status
         let output = match std::process::Command::new("glab")
             .args(["auth", "status"])
@@ -295,12 +295,12 @@ impl AuthChecker for GitLabAuthProvider {
                 };
             }
         };
-        
+
         // 3. 解析结果
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let user = parse_gitlab_user_from_status(&stdout);
-            
+
             AuthCheckResult {
                 authenticated: true,
                 user,
@@ -309,7 +309,7 @@ impl AuthChecker for GitLabAuthProvider {
             }
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            
+
             AuthCheckResult {
                 authenticated: false,
                 user: None,
@@ -334,14 +334,14 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
         .ok_or_else(|| PrerequisiteError::UnsupportedPlatform {
             platform: platform.into(),
         })?;
-    
+
     // 1. 查找 CLI
     let path = find_cli_binary(requirement.binary)?;
-    
+
     // 2. 检查版本
     let version = get_version(&path)?;
     check_version(&version, requirement.min_version)?;
-    
+
     // 3. 认证检查（使用 AuthChecker）
     let auth_checker = create_auth_checker(platform);
     if !auth_checker.is_authenticated() {
@@ -353,7 +353,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
             hint: result.hint.unwrap_or_else(|| requirement.login_cmd.into()),
         });
     }
-    
+
     Ok(())
 }
 
@@ -415,7 +415,7 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 #[derive(Debug, thiserror::Error)]
 pub enum PrerequisiteError {
     // ... 现有变体 ...
-    
+
     #[error(
         "[[PLATFORM]] Not authenticated.\n\n\
          🔍 Reason: {reason}\n\n\
@@ -427,7 +427,7 @@ pub enum PrerequisiteError {
         reason: String,
         hint: String,
     },
-    
+
     #[error("[[PLATFORM]] Unsupported platform: {platform}")]
     UnsupportedPlatform {
         platform: String,
@@ -483,7 +483,7 @@ prerequisites::check(platform)
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_should_parse_user_from_status_old_format() {
         let status = r"gitcode.com
@@ -492,19 +492,19 @@ mod tests {
 ";
         assert_eq!(parse_user_from_status(status), Some("octocat".to_string()));
     }
-    
+
     #[test]
     fn test_should_parse_user_from_status_new_format() {
         let status = "Logged in as alice";
         assert_eq!(parse_user_from_status(status), Some("alice".to_string()));
     }
-    
+
     #[test]
     fn test_should_parse_user_from_status_new_format_with_suffix() {
         let status = "Logged in as bob (oauth_token)";
         assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
     }
-    
+
     #[test]
     fn test_auth_checker_with_env_var() {
         // 设置环境变量
@@ -513,7 +513,7 @@ mod tests {
             assert!(provider.is_authenticated());
         });
     }
-    
+
     #[test]
     fn test_auth_checker_check_status_authenticated() {
         // 使用 mockall 或实际调用（如果 gitcode CLI 可用）
@@ -524,7 +524,7 @@ mod tests {
         // 方案 2: 如果测试环境有 gitcode CLI，直接调用
         //   - 使用 temp_env 设置 GITCODE_TOKEN
         //   - 验证返回 AuthCheckResult { authenticated: true, ... }
-        
+
         temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
             let provider = GitCodeAuthProvider::new();
             let result = provider.check_status();
@@ -532,7 +532,7 @@ mod tests {
             assert!(result.reason.is_none());
         });
     }
-    
+
     #[test]
     fn test_auth_checker_check_status_not_authenticated() {
         // 方案 1: 使用 mockall Mock gitcode CLI 返回失败
@@ -542,7 +542,7 @@ mod tests {
         // 方案 2: 确保测试环境没有 GITCODE_TOKEN，且 gitcode CLI 未认证
         //   - 使用 temp_env 清除 GITCODE_TOKEN
         //   - 验证返回 AuthCheckResult { authenticated: false, ... }
-        
+
         temp_env::with_var_unset("GITCODE_TOKEN", || {
             let provider = GitCodeAuthProvider::new();
             let result = provider.check_status();
@@ -573,7 +573,7 @@ fn test_prerequisites_check_success() {
     temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
         let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
         cmd.arg("auth").arg("status").arg("--platform").arg("gitcode");
-        
+
         cmd.assert()
             .success()
             .stdout(predicate::str::contains("logged in"));
@@ -586,7 +586,7 @@ fn test_prerequisites_check_not_authenticated() {
     temp_env::with_var_unset("GITCODE_TOKEN", || {
         let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
         cmd.arg("issue").arg("list").arg("--platform").arg("gitcode");
-        
+
         // 如果 gitcode CLI 未认证，应该失败并显示错误信息
         cmd.assert()
             .failure()
@@ -604,7 +604,7 @@ fn test_prerequisites_check_cli_not_found() {
     temp_env::with_var("PATH", Some(temp_dir.path()), || {
         let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
         cmd.arg("issue").arg("list").arg("--platform").arg("gitcode");
-        
+
         cmd.assert()
             .failure()
             .stderr(predicate::str::contains("is not installed"))
@@ -697,6 +697,6 @@ fn test_prerequisites_check_cli_not_found() {
 
 ---
 
-**文档版本**: 1.0  
-**最后更新**: 2026-07-08  
+**文档版本**: 1.0
+**最后更新**: 2026-07-08
 **维护者**: byx-darwin

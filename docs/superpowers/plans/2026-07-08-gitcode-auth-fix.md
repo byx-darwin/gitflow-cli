@@ -44,7 +44,7 @@
 
 **Interfaces:**
 - Consumes: 无（首个任务）
-- Produces: 
+- Produces:
   - `pub trait AuthChecker { fn is_authenticated(&self) -> bool; fn check_status(&self) -> AuthCheckResult; }`
   - `pub struct AuthCheckResult { pub authenticated: bool, pub user: Option<String>, pub reason: Option<String>, pub hint: Option<String> }`
 
@@ -736,7 +736,7 @@ fn test_prerequisites_check_fails_with_clear_error_when_not_authenticated() {
         std::env::set_var("PATH", temp_dir.path());
 
         let result = super::check("gitcode");
-        
+
         // 恢复 PATH
         std::env::set_var("PATH", original_path);
 
