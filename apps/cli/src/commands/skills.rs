@@ -344,7 +344,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     }
 
     // Co-contribution plan — interactive opt-in
-    try_enable_co_contribution(args, platform)?;
+    try_enable_co_contribution(platform)?;
 
     Ok(())
 }
@@ -715,7 +715,7 @@ fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
 /// In non-interactive mode, silently skips. In interactive mode, asks the user
 /// whether to join, checks `gh auth status`, and writes the settings.json marker
 /// on success.
-fn try_enable_co_contribution(_args: &InstallArgs, platform: AgentPlatform) -> miette::Result<()> {
+fn try_enable_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
     if !std::io::stderr().is_terminal() {
         println!("ℹ️ 非交互模式，已跳过共建计划");
         return Ok(());
@@ -723,7 +723,7 @@ fn try_enable_co_contribution(_args: &InstallArgs, platform: AgentPlatform) -> m
 
     println!();
     println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
-    println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
+    println!("   用户级设置，加入一次即所有项目生效。");
     println!();
 
     if !confirm("是否加入共建计划？", true)? {
