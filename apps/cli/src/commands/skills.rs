@@ -398,7 +398,9 @@ fn install_single_skill_bundled(
     skipped: &mut u32,
     overwritten: &mut u32,
 ) -> miette::Result<()> {
-    if dest.exists() {
+    let is_overwrite = dest.exists();
+
+    if is_overwrite {
         if args.force {
             std::fs::remove_dir_all(dest).map_err(|e| miette::miette!("无法删除: {e}"))?;
         } else {
@@ -416,7 +418,7 @@ fn install_single_skill_bundled(
         std::fs::write(&file_path, data).map_err(|e| miette::miette!("写入失败: {e}"))?;
     }
 
-    if args.force && dest.exists() {
+    if is_overwrite && args.force {
         println!("♻ 已覆盖: {}", dest.display());
         *overwritten += 1;
     } else {
@@ -1183,5 +1185,79 @@ mod tests {
         let cli = TestCli::parse_from(["test", "install"]);
         let TestCmd::Install(args) = cli.cmd;
         assert!(args.report_bug, "report_bug must default to true");
+    }
+
+    #[test]
+    fn test_should_count_overwritten_in_bundled_path() {
+        // Verify that install_single_skill_bundled correctly increments `overwritten`
+        // ONLY when force=true AND dest already existed before the call.
+        // This catches the dead-code bug where `args.force && dest.exists()` was
+        // checked AFTER files were written (so dest.exists() was always true),
+        // causing fresh installs with force=true to falsely increment overwritten.
+        let tmp = tempfile::tempdir().expect("create temp dir");
+
+        // Case 1: fresh install (dest does NOT exist), force=true
+        // Expected: overwritten=0, installed=1
+        let dest_fresh = tmp.path().join("fresh-skill");
+        let args = InstallArgs {
+            agent: Some(AgentPlatform::Claude),
+            global: false,
+            force: true,
+            report_bug: false,
+            custom_path: None,
+        };
+        let files: &[(&str, &[u8])] = &[("test.md", b"# Test Skill")];
+
+        let mut installed = 0u32;
+        let mut skipped = 0u32;
+        let mut overwritten = 0u32;
+
+        install_single_skill_bundled(
+            &dest_fresh,
+            files,
+            &args,
+            &mut installed,
+            &mut skipped,
+            &mut overwritten,
+        )
+        .expect("install should succeed");
+
+        assert_eq!(
+            overwritten, 0,
+            "fresh install with force=true should NOT count as overwritten"
+        );
+        assert_eq!(installed, 1, "fresh install should count as installed");
+        assert_eq!(skipped, 0, "fresh install should not count as skipped");
+
+        // Case 2: overwrite (dest already exists), force=true
+        // Expected: overwritten=1, installed stays at 1
+        let mut installed = 0u32;
+        let mut skipped = 0u32;
+        let mut overwritten = 0u32;
+
+        // Pre-create the destination directory so it counts as an overwrite
+        let dest_existing = tmp.path().join("existing-skill");
+        std::fs::create_dir_all(&dest_existing).expect("create dest dir");
+        std::fs::write(dest_existing.join("old.txt"), b"old data").expect("write old file");
+
+        install_single_skill_bundled(
+            &dest_existing,
+            files,
+            &args,
+            &mut installed,
+            &mut skipped,
+            &mut overwritten,
+        )
+        .expect("install should succeed");
+
+        assert_eq!(
+            overwritten, 1,
+            "overwrite of existing dir with force=true should increment overwritten"
+        );
+        assert_eq!(installed, 0, "overwrite should not count as fresh install");
+        assert_eq!(
+            skipped, 0,
+            "overwrite with force should not count as skipped"
+        );
     }
 }
