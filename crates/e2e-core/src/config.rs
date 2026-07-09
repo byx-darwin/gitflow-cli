@@ -50,7 +50,11 @@ mod tests {
 
     #[test]
     fn test_config_missing_env_var() {
-        std::env::remove_var("E2E_TEST_REPO");
+        // SAFETY: test-only code modifying environment
+        #[allow(unsafe_code, reason = "Test-only environment manipulation")]
+        unsafe {
+            std::env::remove_var("E2E_TEST_REPO");
+        }
         let result = TestConfig::from_env();
         assert!(result.is_err());
     }
