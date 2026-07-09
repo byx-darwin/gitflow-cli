@@ -46,11 +46,11 @@ gitflow-cli issue create --title "<prefix>(scope): summary" --body "<md>" [--lab
 ### Step 2: Body — Markdown template.
 
 ```markdown
-## 背景 / Context
+## Context
 
-## 目标 / Goal
+## Goal
 
-## 验收标准 / Acceptance Criteria
+## Acceptance Criteria
 - [ ] …
 - [ ] …
 ```

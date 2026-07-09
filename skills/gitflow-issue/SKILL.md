@@ -9,7 +9,7 @@ description: |
 
 ## Overview
 
-封装 `gitflow-cli issue`。7 个子命令：`create · list · view · close · reopen · comment · label`。
+Wraps `gitflow-cli issue`. 7 subcommands: `create · list · view · close · reopen · comment · label`.
 
 ## When to Use
 
@@ -152,7 +152,7 @@ flowchart TD
 - `gitflow-label-milestone` — labels/milestones
 - `gitflow-autoreport-bug` — auto-create from CLI error
 - `gitflow-workflow` — end-to-end workflow
-- `gitflow-pr` — PR 关联
+- `gitflow-pr` — PR linking
 
 ## Trigger Keywords
 

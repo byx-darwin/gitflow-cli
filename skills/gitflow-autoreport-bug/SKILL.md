@@ -77,7 +77,7 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 | Dedup hit | Clean `pending.json`, show existing Issue |
 | Issue creation failure | Keep `pending.json` + log to `failed.log` |
 
-Schema 和 failed.log 格式详见 `docs/references/gitflow-autoreport-bug-params.md`。
+For Schema and failed.log format, see `docs/references/gitflow-autoreport-bug-params.md`.
 
 ## Common Mistakes
 
