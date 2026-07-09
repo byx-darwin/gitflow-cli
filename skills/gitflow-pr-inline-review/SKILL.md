@@ -22,7 +22,7 @@ Publishes inline comments on PR changed lines. No review decisions, no code fixe
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <n>          # 1. verify PR open
+gitflow-cli pr view <n>    # 1. verify PR open
 gitflow-cli pr diff <n>          # 2. fetch diff
 # 3. analyze → draft comments
 # 4. show draft → await user confirm

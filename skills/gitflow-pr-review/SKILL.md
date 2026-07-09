@@ -22,7 +22,7 @@ description: |
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <n>                          # 1. verify
+gitflow-cli pr view <n>              # 1. verify
 gitflow-cli pr diff <n>                          # 2. diff
 # 3. assess 6 dims; draft conclusion
 gitflow-cli review <verdict> <n> --body "<c>"     # 4. submit

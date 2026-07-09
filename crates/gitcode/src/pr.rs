@@ -281,7 +281,8 @@ impl PrProvider for GitCodePrProvider {
         cmd.args(["pr", "merge"])
             .arg(number.to_string())
             .arg("--repo")
-            .arg(&self.repo);
+            .arg(&self.repo)
+            .arg("--yes");
 
         let output = cmd
             .output()

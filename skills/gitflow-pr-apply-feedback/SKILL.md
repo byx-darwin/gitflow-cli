@@ -24,7 +24,7 @@ Fetch pending review feedback · prioritize (security → logic → boundary →
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <pr>                                       # fetch + list pending
+gitflow-cli pr view <pr>                               # fetch + list pending
 # prioritize → confirm each comment with user
 git checkout <pr-branch>                                       # confirmed PR branch
 # per comment: edit → test → commit (referencing reviewer + location)

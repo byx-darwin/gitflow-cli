@@ -34,6 +34,7 @@ pub mod platform;
 pub mod pr;
 pub mod release;
 pub mod review;
+pub mod toon;
 pub mod types;
 
 // Re-export types at the crate root for convenience.

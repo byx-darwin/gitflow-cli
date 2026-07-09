@@ -1,10 +1,10 @@
 //! 共享输出格式化模块。
 //!
-//! 提供统一的 [`print_output`] 函数，支持 JSON（默认）和
-//! 人类友好的 Text 格式。Text 格式根据 JSON 结构自动选择：
-//! - 数组 → 表格格式
-//! - 对象 → 键值对格式
-//! - 标量 → 纯文本
+//! 提供统一的 [`print_output`] 函数，支持 JSON（默认）、Text、TOON 和 Auto 格式。
+//! - JSON: 美化 JSON（默认，机器消费）
+//! - Text: 人类友好的表格/键值对格式
+//! - TOON: Token-Oriented Object Notation，紧凑格式（LLM 消费）
+//! - Auto: 根据数据结构自动选择 JSON 或 TOON
 
 use crate::OutputFormat;
 
@@ -14,11 +14,13 @@ use crate::OutputFormat;
 ///
 /// 返回错误当：
 /// - JSON 序列化失败。
-/// - Text 格式化时内部 JSON 转换失败。
+/// - Text/TOON 格式化时内部转换失败。
 pub fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> miette::Result<()> {
     match format {
         OutputFormat::Json => print_json(value),
         OutputFormat::Text => print_text(value),
+        OutputFormat::Toon => print_toon(value),
+        OutputFormat::Auto => print_auto(value),
     }
 }
 
@@ -27,6 +29,44 @@ fn print_json<T: serde::Serialize>(value: &T) -> miette::Result<()> {
     let json = serde_json::to_string_pretty(value)
         .map_err(|e| miette::miette!("Failed to serialize output to JSON: {e}"))?;
     println!("{json}");
+    Ok(())
+}
+
+/// TOON 格式输出。
+fn print_toon<T: serde::Serialize>(value: &T) -> miette::Result<()> {
+    let json_value = serde_json::to_value(value)
+        .map_err(|e| miette::miette!("Failed to serialize value for TOON output: {e}"))?;
+    let toon = gitflow_cli_core::toon::encode(&json_value)
+        .map_err(|e| miette::miette!("Failed to encode TOON output: {e}"))?;
+    println!("{toon}");
+    Ok(())
+}
+
+/// 自动选择格式输出。
+///
+/// 根据数据结构分析选择 JSON 或 TOON：
+/// - 小数据 (< 200 字符) → JSON
+/// - 均匀数组 (≥5 元素) → TOON
+/// - 深度嵌套 (> 3 层) → TOON
+/// - 其他 → JSON
+fn print_auto<T: serde::Serialize>(value: &T) -> miette::Result<()> {
+    let json_value = serde_json::to_value(value)
+        .map_err(|e| miette::miette!("Failed to serialize value for auto output: {e}"))?;
+    let shape = gitflow_cli_core::toon::analyze(&json_value);
+    let strategy = gitflow_cli_core::toon::select_strategy(&shape);
+
+    match strategy {
+        gitflow_cli_core::toon::ToonStrategy::Toon => {
+            let toon = gitflow_cli_core::toon::encode(&json_value)
+                .map_err(|e| miette::miette!("Failed to encode TOON output: {e}"))?;
+            println!("{toon}");
+        }
+        gitflow_cli_core::toon::ToonStrategy::Json => {
+            let json = serde_json::to_string_pretty(&json_value)
+                .map_err(|e| miette::miette!("Failed to serialize output to JSON: {e}"))?;
+            println!("{json}");
+        }
+    }
     Ok(())
 }
 
@@ -298,5 +338,27 @@ mod tests {
     #[test]
     fn test_pad_right_no_truncation() {
         assert_eq!(pad_right("hello", 3), "hello");
+    }
+
+    #[test]
+    fn test_should_output_toon_format() {
+        let issues = vec![TestIssue {
+            number: 1,
+            title: String::from("test"),
+            state: String::from("open"),
+        }];
+        let result = print_output(&issues, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_output_auto_format() {
+        let issues = vec![TestIssue {
+            number: 1,
+            title: String::from("test"),
+            state: String::from("open"),
+        }];
+        let result = print_output(&issues, &OutputFormat::Auto);
+        assert!(result.is_ok());
     }
 }

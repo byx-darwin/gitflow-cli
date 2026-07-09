@@ -19,6 +19,7 @@ thiserror.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
+toon-format.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

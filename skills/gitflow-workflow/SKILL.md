@@ -22,7 +22,7 @@ description: |
 
 ```bash
 gitflow-cli auth status
-gitflow-cli issue list --state open --output json
+gitflow-cli issue list --state open
 ```
 
 Phase 1 必须执行: 读取 Open Issues → superpowers:brainstorming(完整模式) → gitflow-issue-create → gitflow-issue-review 审计回贴

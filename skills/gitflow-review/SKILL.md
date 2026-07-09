@@ -24,7 +24,7 @@ Submits review verdicts via `gitflow-cli review`. Read-only skill — does not a
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <n>        # verify open
+gitflow-cli pr view <n>   # verify open
 gitflow-cli review <verdict> <n> --body "<c>"
 ```
 

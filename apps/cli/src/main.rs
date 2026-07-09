@@ -395,11 +395,15 @@ enum PlatformArg {
 /// Controls how command output is rendered to the terminal.
 #[derive(Debug, Default, Clone, clap::ValueEnum)]
 pub enum OutputFormat {
-    /// Structured JSON output (default; for machine consumption by skills).
-    #[default]
+    /// Structured JSON output (for machine consumption by skills).
     Json,
     /// Human-readable plain text output.
     Text,
+    /// TOON (Token-Oriented Object Notation) — compact format for LLM consumption.
+    Toon,
+    /// Automatically select the best format based on data structure analysis (default).
+    #[default]
+    Auto,
 }
 
 /// gitflow-cli command-line interface.
@@ -410,8 +414,8 @@ struct Cli {
     #[arg(long, global = true)]
     platform: Option<PlatformArg>,
 
-    /// Output format (json or text).
-    #[arg(long, global = true, default_value = "json")]
+    /// Output format (json, text, toon, or auto).
+    #[arg(long, global = true, default_value = "auto")]
     output: OutputFormat,
 
     /// Enable verbose output.
