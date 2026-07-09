@@ -344,7 +344,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     }
 
     // Co-contribution plan — interactive opt-in
-    try_enable_co_contribution(args, platform)?;
+    try_enable_co_contribution(platform)?;
 
     Ok(())
 }
@@ -715,7 +715,7 @@ fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
 /// In non-interactive mode, silently skips. In interactive mode, asks the user
 /// whether to join, checks `gh auth status`, and writes the settings.json marker
 /// on success.
-fn try_enable_co_contribution(args: &InstallArgs, platform: AgentPlatform) -> miette::Result<()> {
+fn try_enable_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
     if !std::io::stderr().is_terminal() {
         println!("ℹ️ 非交互模式，已跳过共建计划");
         return Ok(());
@@ -723,7 +723,7 @@ fn try_enable_co_contribution(args: &InstallArgs, platform: AgentPlatform) -> mi
 
     println!();
     println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
-    println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
+    println!("   用户级设置，加入一次即所有项目生效。");
     println!();
 
     if !confirm("是否加入共建计划？", true)? {
@@ -734,7 +734,7 @@ fn try_enable_co_contribution(args: &InstallArgs, platform: AgentPlatform) -> mi
     // Check GitHub auth
     let auth_provider = gitflow_cli_github::GitHubAuthProvider::new();
     if auth_provider.is_authenticated() {
-        merge_co_contribution(args.global, platform)?;
+        merge_co_contribution(platform)?;
         println!("✅ 共建计划已激活");
     } else {
         println!("⚠️ 未检测到 GitHub 登录。");
@@ -747,7 +747,7 @@ fn try_enable_co_contribution(args: &InstallArgs, platform: AgentPlatform) -> mi
                 .status();
             match status {
                 Ok(s) if s.success() => {
-                    merge_co_contribution(args.global, platform)?;
+                    merge_co_contribution(platform)?;
                     println!("✅ 共建计划已激活");
                 }
                 _ => {
@@ -796,8 +796,9 @@ fn merge_co_contribution_json(mut json: serde_json::Value, joined_at: &str) -> s
 ///
 /// Reads the existing settings file (or creates an empty JSON object),
 /// merges the `gitflow.co_contribution` field, and writes back.
-fn merge_co_contribution(global: bool, platform: AgentPlatform) -> miette::Result<()> {
-    let (_hook_dir, settings_path, _cmd) = resolve_hook_paths(global, platform)?;
+fn merge_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
+    let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+    let (_hook_dir, settings_path, _cmd) = resolve_global_hook_paths(&home, platform);
 
     let existing = if settings_path.exists() {
         let content = std::fs::read_to_string(&settings_path)
@@ -812,6 +813,13 @@ fn merge_co_contribution(global: bool, platform: AgentPlatform) -> miette::Resul
     let new_settings = merge_co_contribution_json(existing, &joined_at);
     let formatted = serde_json::to_string_pretty(&new_settings)
         .map_err(|e| miette::miette!("JSON 序列化失败: {e}"))?;
+
+    // 确保目录存在
+    if let Some(parent) = settings_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| miette::miette!("无法创建目录 {}: {e}", parent.display()))?;
+    }
+
     std::fs::write(&settings_path, formatted)
         .map_err(|e| miette::miette!("写入配置失败 {}: {e}", settings_path.display()))?;
 
@@ -1583,5 +1591,48 @@ mod tests {
             Some("2026-07-09T08:30:00Z"),
             "joined_at must be updated"
         );
+    }
+
+    /// Test is Unix-only: uses `dirs::home_dir()` which on Windows ignores HOME env var.
+    #[cfg(unix)]
+    #[test]
+    fn test_should_write_co_contribution_to_global_path() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let home = temp.path();
+
+        // 使用 temp_env 安全地设置 HOME 环境变量
+        temp_env::with_var("HOME", Some(home), || {
+            // 验证始终写入全局路径（不依赖 --global 标志）
+            let result = merge_co_contribution(AgentPlatform::Claude);
+
+            assert!(
+                result.is_ok(),
+                "merge_co_contribution should succeed: {:?}",
+                result.err()
+            );
+
+            // 验证写入全局路径
+            let global_settings = home.join(".claude/settings.json");
+            assert!(
+                global_settings.exists(),
+                "global settings.json must be created"
+            );
+
+            let content = std::fs::read_to_string(&global_settings).expect("read");
+            let json: serde_json::Value = serde_json::from_str(&content).expect("parse");
+
+            assert_eq!(
+                json.pointer("/gitflow/co_contribution")
+                    .and_then(serde_json::Value::as_bool),
+                Some(true),
+                "co_contribution must be true in global settings"
+            );
+            assert!(
+                json.pointer("/gitflow/joined_at")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some(),
+                "joined_at must be set in global settings"
+            );
+        });
     }
 }
