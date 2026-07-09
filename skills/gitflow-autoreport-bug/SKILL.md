@@ -1,13 +1,13 @@
 ---
 name: gitflow-autoreport-bug
 description: |
-  Use when a Stop Hook detects `.cache/bug-reports/pending.json` — auto-analyzes CLI errors, checks auth cache, deduplicates, creates GitHub/GitLab/GitCode Issues, and logs failures for retry.
+  Use when a Stop Hook detects `.cache/bug-reports/pending.json` — auto-analyzes CLI errors, checks GitHub auth, deduplicates, creates GitHub/GitLab/GitCode Issues, and logs failures for retry.
   当 Stop Hook 检测到 pending.json 时自动使用。
 ---
 
 # gitflow-autoreport-bug
 
-Detects `pending.json` → validates → auth cache check → dedup → Claude analysis → creates Issue → cleans up.
+Detects `pending.json` → validates → auth check → dedup → Claude analysis → creates Issue → cleans up.
 
 ## Decision Flow
 
@@ -54,7 +54,7 @@ flowchart TD
 ### ✅ Scope
 
 - Read `pending.json`, validate JSON
-- Auth cache check (TTL-based)
+- Auth check (GitHub login verification)
 - Dedup via existing Issue search
 - Analyze root cause (analysis only, no fixes)
 - Create Issue with `[auto-report]` prefix
@@ -73,11 +73,10 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 ## Workflow
 
 1. **Read & Validate** — `.cache/bug-reports/pending.json`. Required: `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop. Pre-check: `command -v gitflow-cli`.
-2. **Auth Cache** — `.cache/auth-cache/{platform}.ttl`. Hit → proceed. Miss → `gitflow-cli auth status --platform {platform}`. Fail → keep file + `failed.log`. Success → update TTL.
-3. **Claude Analysis** — root cause, fix direction, severity. Title: `[auto-report] gitflow {command} — {error_code}`.
-4. **Dedup** — `gitflow-cli issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
-5. **Create Issue** — `gitflow-cli issue create --repo byx-darwin/gitflow-cli --title "[auto-report] ..." --label "auto-report"`. Fail → keep file + `failed.log`.
-6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
+2. **Auth Check** — `gitflow-cli auth status --platform {platform}`. Pass → proceed. Fail → output login prompt + Issue template, keep `pending.json`, stop.
+3. **Dedup** — `gitflow-cli issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
+4. **Create Issue** — Analyze root cause, fix direction, severity. Create Issue via `gitflow-cli issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gitflow {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+5. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
 
 ## Error Handling
 
@@ -85,7 +84,7 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 |-------|--------|
 | Missing `pending.json` | "No pending reports", stop |
 | Invalid JSON | Rename to `.invalid`, warn, stop |
-| Auth check failure | Keep `pending.json` + log to `failed.log` |
+| Auth check failure | Output login guide + Issue template, keep `pending.json` |
 | Dedup hit | Clean `pending.json`, show existing Issue |
 | Issue creation failure | Keep `pending.json` + log to `failed.log` |
 
