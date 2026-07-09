@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitflow-cli.ai/schemas/workflow-contract-v1.json",
+  "title": "Workflow Contract",
+  "description": "Phase 间传递的结构化合同，用于 gitflow-workflow 四阶段编排器",
+  "type": "object",
+  "required": ["version", "workflow_id", "title", "mode", "created_at", "updated_at", "current_phase", "phases"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "合同版本（兼容未来升级）"
+    },
+    "workflow_id": {
+      "type": "string",
+      "pattern": "^wf-\\d{4}-\\d{2}-\\d{2}-\\d{3}$",
+      "description": "唯一标识，格式：wf-YYYY-MM-DD-NNN"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "任务标题（从 Issue 标题同步）"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["full", "fast"],
+      "description": "full = 完整四阶段；fast = 跳过非必需 Phase"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "创建时间 (ISO 8601)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "最后更新时间 (ISO 8601)"
+    },
+    "current_phase": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "当前 Phase 编号 (1-4)"
+    },
+    "phases": {
+      "type": "object",
+      "required": ["1", "2", "3", "4"],
+      "properties": {
+        "1": { "$ref": "#/$defs/phase" },
+        "2": { "$ref": "#/$defs/phase" },
+        "3": { "$ref": "#/$defs/phase" },
+        "4": { "$ref": "#/$defs/phase" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["需求澄清", "计划制定", "执行", "交付"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "complete", "skipped"]
+        },
+        "started_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "executor": {
+          "type": ["string", "null"]
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "issue_url": { "type": "string" },
+            "comment_id": { "type": "string" },
+            "spec_path": { "type": "string" },
+            "user_approved": { "type": "boolean" },
+            "branch": { "type": "string" },
+            "pr_url": { "type": "string" },
+            "tests_passed": { "type": "boolean" },
+            "pipeline_ok": { "type": "boolean" },
+            "review_report_path": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
