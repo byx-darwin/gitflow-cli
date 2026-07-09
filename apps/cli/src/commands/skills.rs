@@ -94,27 +94,12 @@ impl AgentPlatform {
         matches!(self, AgentPlatform::Claude | AgentPlatform::Codex)
     }
 
-    /// 自动检测当前环境中的 Agent 平台。
+    /// 返回默认 Agent 平台。
     ///
-    /// 检测策略：按优先级检查各平台的配置目录是否存在。
-    /// 默认返回 `Claude`。
+    /// 默认固定为 `Claude`；其他平台需通过 `--agent` 参数显式指定。
+    /// 不扫描 `$HOME` 下各平台目录的存在性，避免隐式探测导致目标漂移。
     #[must_use]
     pub fn detect() -> Self {
-        let Some(home) = dirs::home_dir() else {
-            return AgentPlatform::Claude;
-        };
-        // 按优先级检测
-        for platform in &[
-            AgentPlatform::Claude,
-            AgentPlatform::Codex,
-            AgentPlatform::OpenCode,
-            AgentPlatform::Gemini,
-            AgentPlatform::Copilot,
-        ] {
-            if home.join(platform.skills_dir_name()).exists() {
-                return *platform;
-            }
-        }
         AgentPlatform::Claude
     }
 }
@@ -147,7 +132,7 @@ pub struct InstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测）
+    /// 目标 Agent 平台（默认 `claude`）
     #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
@@ -171,7 +156,7 @@ pub struct ListArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测）
+    /// 目标 Agent 平台（默认 `claude`）
     #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
@@ -187,7 +172,7 @@ pub struct UninstallArgs {
     #[arg(short = 'g', long, action = ArgAction::SetTrue)]
     pub global: bool,
 
-    /// 目标 Agent 平台（默认自动检测）
+    /// 目标 Agent 平台（默认 `claude`）
     #[arg(long, value_enum)]
     pub agent: Option<AgentPlatform>,
 
@@ -202,7 +187,7 @@ pub struct UninstallArgs {
 
 /// 解析目标目录。
 ///
-/// 优先级：`custom_path` > `-g` 全局（按 agent）> 项目级（按 agent，默认自动检测）
+/// 优先级：`custom_path` > `-g` 全局（按 agent）> 项目级（按 agent，默认 `Claude`）
 fn resolve_target_dir(
     global: bool,
     agent: Option<AgentPlatform>,
@@ -276,7 +261,7 @@ pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
 /// 安装 skills。
 fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     // 一次性解析目标平台；避免 `AgentPlatform::detect()` 在 resolve_target_dir
-    // 与 install_hook 分支被重复调用（每次 detect 会扫 5 个平台目录）。
+    // 与 install_hook 分支被重复调用。
     let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
 
     let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
@@ -767,16 +752,10 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_detect_returns_some() {
-        let platform = AgentPlatform::detect();
-        assert!(matches!(
-            platform,
-            AgentPlatform::Claude
-                | AgentPlatform::Codex
-                | AgentPlatform::OpenCode
-                | AgentPlatform::Gemini
-                | AgentPlatform::Copilot
-        ));
+    fn test_agent_detect_always_returns_claude() {
+        // 契约：detect() 默认固定返回 Claude，不扫描 $HOME 下其他平台目录。
+        // 其他平台必须通过 `--agent` 显式指定。
+        assert_eq!(AgentPlatform::detect(), AgentPlatform::Claude);
     }
 
     #[test]
