@@ -153,7 +153,7 @@ Full gate definitions: `skills/gitflow-workflow/gates.md`
 
 **Execution Steps:**
 
-1. **[AUTO]** Check if existing Issue exists
+1. **[AUTO]** Read Open Issues - Check if existing Issue exists
    - If user specified an Issue → use that Issue
    - If not specified → run `gitflow-cli issue list --state open` to read open issues list for selection
 
