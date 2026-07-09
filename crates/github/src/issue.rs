@@ -12,7 +12,10 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gh_error;
+use crate::{
+    error::parse_gh_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// `gh issue` 请求的 JSON 字段列表。
 const ISSUE_FIELDS: &str =
@@ -23,6 +26,9 @@ const ISSUE_FIELDS: &str =
 /// 该结构体通过调用 `gh` CLI 实现 [`IssueProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitHub Issue。
 ///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+///
 /// # Examples
 ///
 /// ```no_run
@@ -31,47 +37,75 @@ const ISSUE_FIELDS: &str =
 /// let provider = GitHubIssueProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubIssueProvider {
+pub struct GitHubIssueProvider<R: CommandRunner = RealCommandRunner> {
     /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitHubIssueProvider {
-    /// 创建新的 GitHub Issue 提供者。
+impl GitHubIssueProvider<RealCommandRunner> {
+    /// 创建新的 GitHub Issue 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubIssueProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl IssueProvider for GitHubIssueProvider {
+impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["issue", "create"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--title")
-            .arg(&args.title);
+        let labels_joined = args.labels.join(",");
+        let assignees_joined = args.assignees.join(",");
+
+        let mut cmd_args: Vec<&str> = vec![
+            "issue",
+            "create",
+            "--repo",
+            &self.repo,
+            "--title",
+            &args.title,
+        ];
 
         if let Some(body) = &args.body {
-            cmd.arg("--body").arg(body);
+            cmd_args.push("--body");
+            cmd_args.push(body);
         }
 
         if !args.labels.is_empty() {
-            cmd.arg("--label").arg(args.labels.join(","));
+            cmd_args.push("--label");
+            cmd_args.push(&labels_joined);
         }
 
         if !args.assignees.is_empty() {
-            cmd.arg("--assignee").arg(args.assignees.join(","));
+            cmd_args.push("--assignee");
+            cmd_args.push(&assignees_joined);
         }
 
         debug!(repo = %self.repo, title = %args.title, "spawning `gh issue create`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -91,32 +125,39 @@ impl IssueProvider for GitHubIssueProvider {
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["issue", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS);
+        let mut cmd_args: Vec<&str> = vec![
+            "issue",
+            "list",
+            "--repo",
+            &self.repo,
+            "--json",
+            ISSUE_FIELDS,
+        ];
 
         if let Some(state) = &args.state {
-            cmd.arg("--state").arg(match state {
+            cmd_args.push("--state");
+            cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
             });
         }
 
         if let Some(ref search) = args.search {
-            cmd.arg("--search").arg(search);
+            cmd_args.push("--search");
+            cmd_args.push(search);
         }
 
-        if let Some(limit) = args.limit {
-            cmd.arg("--limit").arg(limit.to_string());
+        let limit_str = args.limit.map(|limit| limit.to_string());
+        if let Some(ref limit) = limit_str {
+            cmd_args.push("--limit");
+            cmd_args.push(limit);
         }
 
         debug!(repo = %self.repo, "spawning `gh issue list`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -134,14 +175,21 @@ impl IssueProvider for GitHubIssueProvider {
     async fn view(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gh issue view`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["issue", "view"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(ISSUE_FIELDS)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "issue",
+                    "view",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    ISSUE_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -158,7 +206,7 @@ impl IssueProvider for GitHubIssueProvider {
 
     /// 关闭指定编号的 Issue。
     ///
-    /// 调用 `gh issue close <number> --repo <repo> --json <fields>` 关闭 Issue，
+    /// 调用 `gh issue close <number> --repo <repo>` 关闭 Issue，
     /// 并返回更新后的完整 Issue 数据。
     ///
     /// # Errors
@@ -167,12 +215,10 @@ impl IssueProvider for GitHubIssueProvider {
     async fn close(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gh issue close`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["issue", "close"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("gh", &["issue", "close", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -196,12 +242,13 @@ impl IssueProvider for GitHubIssueProvider {
     async fn reopen(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `gh issue reopen`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["issue", "reopen"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &["issue", "reopen", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -226,14 +273,21 @@ impl IssueProvider for GitHubIssueProvider {
         debug!(repo = %self.repo, number, "spawning `gh issue comment`");
 
         // 1. 执行 gh issue comment 发布评论（不返回 JSON）
-        let output = tokio::process::Command::new("gh")
-            .args(["issue", "comment"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "issue",
+                    "comment",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    body,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -248,9 +302,9 @@ impl IssueProvider for GitHubIssueProvider {
             repo = self.repo,
             number = number
         );
-        let api_output = tokio::process::Command::new("gh")
-            .args(["api", &api_path])
-            .output()
+        let api_output = self
+            .runner
+            .run("gh", &["api", &api_path])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
@@ -289,18 +343,17 @@ impl IssueProvider for GitHubIssueProvider {
             "spawning `gh issue edit --add-label`"
         );
 
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["issue", "edit"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo);
+        let number_str = number.to_string();
+        let mut cmd_args: Vec<&str> = vec!["issue", "edit", &number_str, "--repo", &self.repo];
 
         for label in labels {
-            cmd.arg("--add-label").arg(label);
+            cmd_args.push("--add-label");
+            cmd_args.push(label);
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -322,14 +375,21 @@ impl IssueProvider for GitHubIssueProvider {
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
         debug!(repo = %self.repo, number, label, "spawning `gh issue edit --remove-label`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["issue", "edit"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--remove-label")
-            .arg(label)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "issue",
+                    "edit",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--remove-label",
+                    label,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -401,6 +461,7 @@ mod tests {
     use gitflow_cli_core::types::UserSummary;
 
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_github_issue_provider() {
@@ -631,5 +692,218 @@ mod tests {
             parse_issue_number_from_url("https://github.com/owner/repo/issues/"),
             None
         );
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_view() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Issue not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(999).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(1).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_list() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListIssueArgs::default()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListIssueArgs::default()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    fn sample_create_args() -> CreateIssueArgs {
+        CreateIssueArgs {
+            title: "Bug report".to_string(),
+            body: Some("Steps to reproduce".to_string()),
+            labels: vec!["bug".to_string()],
+            assignees: vec!["octocat".to_string()],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_create() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Validation failed"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        // `create` succeeds and parses the issue number from this URL, then delegates
+        // to `view`, which receives the same non-JSON stdout and fails to deserialize.
+        let runner = MockCommandRunner::success("https://github.com/owner/repo/issues/7");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_close() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_close() {
+        // `close` succeeds, then `view` fails to deserialize the non-JSON stdout.
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_reopen() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_reopen() {
+        // `reopen` succeeds, then `view` fails to deserialize the non-JSON stdout.
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_comment() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_comment() {
+        // The `gh issue comment` call succeeds, then the `gh api` call returns the same
+        // non-JSON stdout that fails to deserialize into the comment response array.
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_add_labels() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.add_labels(42, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_remove_label() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.remove_label(42, "bug").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }

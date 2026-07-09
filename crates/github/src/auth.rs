@@ -2,7 +2,8 @@
 //!
 //! 通过 `gh auth` CLI 命令实现 [`AuthProvider`] trait，支持登录、
 //! 登出、状态查询及 Token 管理。
-//! 所有方法通过 `tokio::process::Command` 调用 `gh`。
+//! 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+//! [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 
 use async_trait::async_trait;
 use gitflow_cli_core::{
@@ -11,9 +12,15 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gh_error;
+use crate::{
+    error::parse_gh_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitHub 认证提供者，通过 `gh` CLI 操作认证。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -23,13 +30,28 @@ use crate::error::parse_gh_error;
 /// let provider = GitHubAuthProvider::new();
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubAuthProvider;
+pub struct GitHubAuthProvider<R: CommandRunner = RealCommandRunner> {
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
+}
 
-impl GitHubAuthProvider {
-    /// 创建新的 GitHub 认证提供者。
+impl GitHubAuthProvider<RealCommandRunner> {
+    /// 创建新的 GitHub 认证提供者，使用真实的进程执行器。
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubAuthProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    #[must_use]
+    pub fn with_runner(runner: R) -> Self {
+        Self { runner }
     }
 }
 
@@ -40,11 +62,12 @@ impl Default for GitHubAuthProvider {
 }
 
 #[async_trait]
-impl AuthProvider for GitHubAuthProvider {
+impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
     /// 执行交互式登录。
     ///
     /// 调用 `gh auth login`，将子进程的 stdout/stderr 透传给终端。
-    /// 如果提供了 token，则通过 `--with-token` 参数进行非交互式登录。
+    /// 如果提供了 token，则通过 `--with-token` 参数进行非交互式登录，
+    /// 并将 token 写入子进程的标准输入，避免其出现在进程参数中。
     ///
     /// # Errors
     ///
@@ -52,41 +75,26 @@ impl AuthProvider for GitHubAuthProvider {
     async fn login(&self, token: Option<&str>) -> Result<()> {
         debug!("spawning `gh auth login`");
 
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.arg("auth").arg("login");
-
         if let Some(token) = token {
-            // Non-interactive mode with token
-            cmd.arg("--with-token");
-            cmd.stdin(std::process::Stdio::piped());
-            let mut child = cmd
-                .spawn()
+            // 非交互模式：通过 stdin 传入 token，避免在进程参数中暴露敏感值
+            let output = self
+                .runner
+                .run_with_stdin("gh", &["auth", "login", "--with-token"], token.as_bytes())
+                .await
                 .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth login: {e}")))?;
 
-            // Write token to stdin
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(token.as_bytes()).await.map_err(|e| {
-                    CoreError::Platform(format!("Failed to write token to stdin: {e}"))
-                })?;
-                drop(stdin);
-            }
-
-            let status = child.wait().await.map_err(|e| {
-                CoreError::Platform(format!("Failed to wait for gh auth login: {e}"))
-            })?;
-
-            if !status.success() {
+            if !output.status.success() {
                 return Err(CoreError::Platform("gh auth login failed".into()));
             }
         } else {
             // Interactive mode
-            let status = cmd
-                .status()
+            let output = self
+                .runner
+                .run("gh", &["auth", "login"])
                 .await
                 .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth login: {e}")))?;
 
-            if !status.success() {
+            if !output.status.success() {
                 return Err(CoreError::Platform("gh auth login failed".into()));
             }
         }
@@ -102,9 +110,9 @@ impl AuthProvider for GitHubAuthProvider {
     async fn logout(&self) -> Result<()> {
         debug!("spawning `gh auth logout`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["auth", "logout"])
-            .output()
+        let output = self
+            .runner
+            .run("gh", &["auth", "logout"])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth logout: {e}")))?;
 
@@ -119,18 +127,23 @@ impl AuthProvider for GitHubAuthProvider {
     /// 查询当前认证状态。
     ///
     /// 调用 `gh auth status` 并解析输出来构造 [`AuthStatus`]。
+    /// 当 `gh` 命令执行失败或用户未登录时，返回 `AuthStatus { logged_in: false }`
+    /// 而非传播错误。
     ///
     /// # Errors
     ///
-    /// 当 `gh` 调用失败或无法解析状态输出时返回错误。
+    /// 仅在 `gh` 返回非零退出码且无法识别为"未登录"模式时返回错误。
     async fn status(&self) -> Result<AuthStatus> {
         debug!("spawning `gh auth status`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["auth", "status"])
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth status: {e}")))?;
+        let Ok(output) = self.runner.run("gh", &["auth", "status"]).await else {
+            // CLI 执行失败（如 gh 未安装）→ 视为未登录
+            return Ok(AuthStatus {
+                logged_in: false,
+                user: None,
+                scopes: vec![],
+            });
+        };
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -168,13 +181,13 @@ impl AuthProvider for GitHubAuthProvider {
     ///
     /// # Errors
     ///
-    /// 当用户未登录或 Token 获取失败时返回错误。
+    /// 当 `gh` 命令执行失败、用户未登录或 Token 为空时返回错误。
     async fn token(&self) -> Result<String> {
         debug!("spawning `gh auth token`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["auth", "token"])
-            .output()
+        let output = self
+            .runner
+            .run("gh", &["auth", "token"])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth token: {e}")))?;
 
@@ -184,13 +197,19 @@ impl AuthProvider for GitHubAuthProvider {
         }
 
         let token = String::from_utf8_lossy(&output.stdout);
-        Ok(token.trim().to_string())
+        let trimmed = token.trim().to_string();
+        if trimmed.is_empty() {
+            return Err(CoreError::Platform(
+                "gh auth token returned empty output".into(),
+            ));
+        }
+        Ok(trimmed)
     }
 }
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl gitflow_cli_core::AuthChecker for GitHubAuthProvider {
+impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitHubAuthProvider<R> {
     fn is_authenticated(&self) -> bool {
         if std::env::var("GH_TOKEN").is_ok() {
             return true;
@@ -287,6 +306,7 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_github_auth_provider() {
@@ -296,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_should_default_github_auth_provider() {
-        let provider = GitHubAuthProvider;
+        let provider = GitHubAuthProvider::default();
         let _ = format!("{provider:?}");
     }
 
@@ -377,5 +397,101 @@ mod tests {
             assert!(result.authenticated);
             assert!(result.reason.is_none());
         });
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_login_fails() {
+        let runner = MockCommandRunner::failure("login failed", 1);
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.login(None).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_login_with_token_via_stdin() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("ghp_secret_token")).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_login_with_token_fails() {
+        let runner = MockCommandRunner::failure("token login failed", 1);
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("ghp_secret_token")).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_logout_fails() {
+        let runner = MockCommandRunner::failure("logout failed", 1);
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.logout().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_not_logged_in_when_gh_status_spawn_fails() {
+        let runner = MockCommandRunner::spawn_error();
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.status().await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert!(!status.logged_in);
+        assert!(status.user.is_none());
+        assert!(status.scopes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_token_fails() {
+        let runner = MockCommandRunner::failure("token failed", 1);
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_gh_token_returns_empty() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }

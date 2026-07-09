@@ -2,7 +2,7 @@
 //!
 //! 通过 `glab` CLI 实现 [`IssueProvider`] trait，支持 Issue 的创建、列表、查看、
 //! 关闭、重新打开、评论及标签管理。
-//! 所有方法通过 `tokio::process::Command` 调用 `glab`，捕获 stdout 并解析 JSON。
+//! 所有方法通过 [`CommandRunner`] 抽象调用 `glab` CLI，捕获 stdout 并解析 JSON。
 //!
 //! `glab` 的 `JSON` 输出使用 `snake_case` 字段名和 `GitLab` 特有的字段名（如 `iid`、
 //! `description`、`web_url`），因此本模块使用中间类型 [`IssueApiResponse`] 进行
@@ -18,9 +18,18 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab Issue 提供者，通过 `glab` CLI 操作。
+///
+/// 该结构体通过调用 `glab` CLI 实现 [`IssueProvider`] trait 的所有方法，
+/// 使上层命令能够以统一的方式操作 GitLab Issue。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -30,18 +39,37 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabIssueProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabIssueProvider {
+pub struct GitLabIssueProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`，如 `"gitlab-org/gitlab"`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabIssueProvider {
-    /// 创建新的 GitLab Issue 提供者。
+impl GitLabIssueProvider<RealCommandRunner> {
+    /// 创建新的 GitLab Issue 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabIssueProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -158,31 +186,40 @@ impl From<CommentApiResponse> for CommentData {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl IssueProvider for GitLabIssueProvider {
+impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["issue", "create"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--title")
-            .arg(&args.title);
+        let labels_joined = args.labels.join(",");
+        let assignees_joined = args.assignees.join(",");
+
+        let mut cmd_args: Vec<&str> = vec![
+            "issue",
+            "create",
+            "--repo",
+            &self.repo,
+            "--title",
+            &args.title,
+        ];
 
         if let Some(body) = &args.body {
-            cmd.arg("--description").arg(body);
+            cmd_args.push("--description");
+            cmd_args.push(body);
         }
 
         if !args.labels.is_empty() {
-            cmd.arg("--label").arg(args.labels.join(","));
+            cmd_args.push("--label");
+            cmd_args.push(&labels_joined);
         }
 
         if !args.assignees.is_empty() {
-            cmd.arg("--assignee").arg(args.assignees.join(","));
+            cmd_args.push("--assignee");
+            cmd_args.push(&assignees_joined);
         }
 
         debug!(repo = %self.repo, title = %args.title, "spawning `glab issue create`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -202,38 +239,33 @@ impl IssueProvider for GitLabIssueProvider {
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["issue", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json");
+        let mut cmd_args: Vec<&str> =
+            vec!["issue", "list", "--repo", &self.repo, "--output", "json"];
 
         // glab uses --closed for closed issues, --all for all issues
         // Default (no flag) shows open issues
-        if let Some(state) = &args.state {
-            match state {
-                State::Open => {
-                    // Default behavior, no flag needed
-                }
-                State::Closed => {
-                    cmd.arg("--closed");
-                }
-            }
+        if let Some(state) = &args.state
+            && matches!(state, State::Closed)
+        {
+            cmd_args.push("--closed");
         }
 
         if let Some(ref search) = args.search {
-            cmd.arg("--search").arg(search);
+            cmd_args.push("--search");
+            cmd_args.push(search);
         }
 
-        if let Some(limit) = args.limit {
-            cmd.arg("--per-page").arg(limit.to_string());
+        let limit_str = args.limit.map(|limit| limit.to_string());
+        if let Some(ref limit) = limit_str {
+            cmd_args.push("--per-page");
+            cmd_args.push(limit);
         }
 
         debug!(repo = %self.repo, "spawning `glab issue list`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -251,14 +283,21 @@ impl IssueProvider for GitLabIssueProvider {
     async fn view(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `glab issue view`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["issue", "view"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "issue",
+                    "view",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -273,17 +312,32 @@ impl IssueProvider for GitLabIssueProvider {
         Ok(api_response.into())
     }
 
+    /// 关闭指定编号的 Issue。
+    ///
+    /// 调用 `glab issue close <number> --repo <repo> --output json` 关闭 Issue，
+    /// 并返回更新后的完整 Issue 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、已关闭或 `glab` CLI 调用失败时返回错误。
     async fn close(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `glab issue close`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["issue", "close"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "issue",
+                    "close",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -298,17 +352,32 @@ impl IssueProvider for GitLabIssueProvider {
         Ok(api_response.into())
     }
 
+    /// 重新打开指定编号的 Issue。
+    ///
+    /// 调用 `glab issue reopen <number> --repo <repo> --output json` 重新打开已关闭的 Issue，
+    /// 并返回更新后的完整 Issue 数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、未关闭或 `glab` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<IssueData> {
         debug!(repo = %self.repo, number, "spawning `glab issue reopen`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["issue", "reopen"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "issue",
+                    "reopen",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -323,19 +392,34 @@ impl IssueProvider for GitLabIssueProvider {
         Ok(api_response.into())
     }
 
+    /// 在指定 Issue 上添加评论。
+    ///
+    /// 调用 `glab issue note <number> --repo <repo> --body "<body>" --output json` 发布评论，
+    /// 并返回评论文数据。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、`body` 为空或 `glab` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
-        debug!(repo = %self.repo, number, "spawning `glab issue comment`");
+        debug!(repo = %self.repo, number, "spawning `glab issue note`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["issue", "note"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "issue",
+                    "note",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    body,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -350,6 +434,14 @@ impl IssueProvider for GitLabIssueProvider {
         Ok(api_response.into())
     }
 
+    /// 为指定 Issue 添加一个或多个标签。
+    ///
+    /// 调用 `glab issue edit <number> --repo <repo> --add-label <labels>` 添加标签，
+    /// 多个标签以逗号连接后一次性提交。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、标签名无效或 `glab` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
         debug!(
             repo = %self.repo,
@@ -358,14 +450,22 @@ impl IssueProvider for GitLabIssueProvider {
             "spawning `glab issue edit --add-label`"
         );
 
-        let output = tokio::process::Command::new("glab")
-            .args(["issue", "edit"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--add-label")
-            .arg(labels.join(","))
-            .output()
+        let labels_joined = labels.join(",");
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "issue",
+                    "edit",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--add-label",
+                    &labels_joined,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -377,17 +477,31 @@ impl IssueProvider for GitLabIssueProvider {
         Ok(())
     }
 
+    /// 从指定 Issue 移除一个标签。
+    ///
+    /// 调用 `glab issue edit <number> --repo <repo> --remove-label <label>` 移除标签。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、标签未附加到该 Issue 或 `glab` CLI 调用失败时返回错误。
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
         debug!(repo = %self.repo, number, label, "spawning `glab issue edit --remove-label`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["issue", "edit"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--remove-label")
-            .arg(label)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "issue",
+                    "edit",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--remove-label",
+                    label,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -422,6 +536,7 @@ fn parse_issue_iid_from_url(url: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitlab_issue_provider() {
@@ -604,5 +719,214 @@ mod tests {
             parse_issue_iid_from_url("https://gitlab.com/owner/repo/-/issues/"),
             None
         );
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_view() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Issue not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(999).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(1).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_list() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListIssueArgs::default()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListIssueArgs::default()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    fn sample_create_args() -> CreateIssueArgs {
+        CreateIssueArgs {
+            title: "Bug report".to_string(),
+            body: Some("Steps to reproduce".to_string()),
+            labels: vec!["bug".to_string()],
+            assignees: vec!["alice".to_string()],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_create() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Validation failed"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        // `create` succeeds and parses the issue IID from this URL, then delegates
+        // to `view`, which receives the same non-JSON stdout and fails to deserialize.
+        let runner = MockCommandRunner::success("https://gitlab.com/owner/repo/-/issues/7");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_close() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_close() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_reopen() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_reopen() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_comment() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_comment() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_add_labels() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.add_labels(42, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_remove_label() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.remove_label(42, "bug").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }

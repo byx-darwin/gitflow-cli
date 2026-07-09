@@ -15,7 +15,10 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gitcode_error;
+use crate::{
+    error::parse_gitcode_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// gitcode CLI `issue list --json` 的响应类型。
 #[derive(Debug, Clone, Deserialize)]
@@ -184,45 +187,73 @@ impl From<CloseApiResponse> for IssueData {
     }
 }
 
-/// GitCode Issue 提供者，通过 `gitcode`/`gitcode` CLI 操作。
+/// GitCode Issue 提供者，通过 `gitcode` CLI 操作。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 #[derive(Debug, Clone)]
-pub struct GitCodeIssueProvider {
+pub struct GitCodeIssueProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodeIssueProvider {
-    /// 创建一个新的 `GitCodeIssueProvider`。
+impl GitCodeIssueProvider<RealCommandRunner> {
+    /// 创建一个新的 `GitCodeIssueProvider`，使用真实的进程执行器。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodeIssueProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl IssueProvider for GitCodeIssueProvider {
+impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["issue", "create"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--title")
-            .arg(&args.title)
-            .arg("--json");
+        let binary = crate::gitcode_binary();
+        let mut cmd_args: Vec<&str> = vec![
+            "issue",
+            "create",
+            "-R",
+            &self.repo,
+            "--title",
+            &args.title,
+            "--json",
+        ];
 
         if let Some(body) = &args.body {
-            cmd.arg("--body").arg(body);
+            cmd_args.push("--body");
+            cmd_args.push(body);
         }
         for label in &args.labels {
-            cmd.arg("--label").arg(label);
+            cmd_args.push("--label");
+            cmd_args.push(label);
         }
         for assignee in &args.assignees {
-            cmd.arg("--assignee").arg(assignee);
+            cmd_args.push("--assignee");
+            cmd_args.push(assignee);
         }
 
         debug!(repo = %self.repo, title = %args.title, "spawning gitcode issue create");
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
@@ -231,36 +262,39 @@ impl IssueProvider for GitCodeIssueProvider {
             ));
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
-            .map(|api: IssueApiResponse| IssueData::from(api))
+            .map(IssueData::from)
             .map_err(CoreError::Serialization)
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["issue", "list"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json");
+        let binary = crate::gitcode_binary();
+        let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", &self.repo, "--json"];
 
         if let Some(ref state) = args.state {
-            cmd.arg("--state").arg(match state {
+            cmd_args.push("--state");
+            cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
             });
         }
         if let Some(ref search) = args.search {
-            cmd.arg("--search").arg(search);
+            cmd_args.push("--search");
+            cmd_args.push(search);
         }
-        if let Some(limit) = args.limit {
-            cmd.arg("--limit").arg(limit.to_string());
+        let limit_str = args.limit.map(|limit| limit.to_string());
+        if let Some(ref limit) = limit_str {
+            cmd_args.push("--limit");
+            cmd_args.push(limit);
         }
         for label in &args.labels {
-            cmd.arg("--label").arg(label);
+            cmd_args.push("--label");
+            cmd_args.push(label);
         }
 
         debug!(repo = %self.repo, "spawning gitcode issue list");
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
@@ -274,14 +308,15 @@ impl IssueProvider for GitCodeIssueProvider {
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning gitcode issue view");
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["issue", "view"])
-            .arg(number.to_string())
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["issue", "view", &number_str, "-R", &self.repo, "--json"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
@@ -291,20 +326,28 @@ impl IssueProvider for GitCodeIssueProvider {
             ));
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
-            .map(|api: IssueApiResponse| IssueData::from(api))
+            .map(IssueData::from)
             .map_err(CoreError::Serialization)
     }
 
     async fn close(&self, number: u64) -> Result<IssueData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning gitcode issue close");
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["issue", "close"])
-            .arg(number.to_string())
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--yes")
-            .arg("--json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "issue",
+                    "close",
+                    &number_str,
+                    "-R",
+                    &self.repo,
+                    "--yes",
+                    "--json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
@@ -314,20 +357,28 @@ impl IssueProvider for GitCodeIssueProvider {
             ));
         }
         serde_json::from_slice::<CloseApiResponse>(&output.stdout)
-            .map(|api: CloseApiResponse| IssueData::from(api))
+            .map(IssueData::from)
             .map_err(CoreError::Serialization)
     }
 
     async fn reopen(&self, number: u64) -> Result<IssueData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning gitcode issue reopen");
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["issue", "reopen"])
-            .arg(number.to_string())
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--yes")
-            .arg("--json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "issue",
+                    "reopen",
+                    &number_str,
+                    "-R",
+                    &self.repo,
+                    "--yes",
+                    "--json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
@@ -337,7 +388,7 @@ impl IssueProvider for GitCodeIssueProvider {
             ));
         }
         serde_json::from_slice::<CloseApiResponse>(&output.stdout)
-            .map(|api: CloseApiResponse| IssueData::from(api))
+            .map(IssueData::from)
             .map_err(CoreError::Serialization)
     }
 
@@ -350,17 +401,25 @@ impl IssueProvider for GitCodeIssueProvider {
     ///
     /// 当 Issue 不存在、`body` 为空或 `gitcode` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc issue comment`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["issue", "comment"])
-            .arg(number.to_string())
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .arg("--json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "issue",
+                    "comment",
+                    &number_str,
+                    "-R",
+                    &self.repo,
+                    "--body",
+                    body,
+                    "--json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -384,6 +443,8 @@ impl IssueProvider for GitCodeIssueProvider {
     ///
     /// 当 Issue 不存在、标签名无效或 `gitcode` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(
             repo = %self.repo,
             number,
@@ -391,18 +452,15 @@ impl IssueProvider for GitCodeIssueProvider {
             "spawning `gc issue edit --add-label`"
         );
 
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["issue", "edit"])
-            .arg(number.to_string())
-            .arg("-R")
-            .arg(&self.repo);
-
+        let mut cmd_args: Vec<&str> = vec!["issue", "edit", &number_str, "-R", &self.repo];
         for label in labels {
-            cmd.arg("--add-label").arg(label);
+            cmd_args.push("--add-label");
+            cmd_args.push(label);
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -422,16 +480,24 @@ impl IssueProvider for GitCodeIssueProvider {
     ///
     /// 当 Issue 不存在、标签未附加到该 Issue 或 `gitcode` CLI 调用失败时返回错误。
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, label, "spawning `gc issue edit --remove-label`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["issue", "edit"])
-            .arg(number.to_string())
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--remove-label")
-            .arg(label)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "issue",
+                    "edit",
+                    &number_str,
+                    "-R",
+                    &self.repo,
+                    "--remove-label",
+                    label,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -449,6 +515,7 @@ mod tests {
     use gitflow_cli_core::types::UserSummary;
 
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitcode_issue_provider() {
@@ -596,5 +663,159 @@ mod tests {
         let original = GitCodeIssueProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_create_args() -> CreateIssueArgs {
+        CreateIssueArgs {
+            title: "Bug report".to_string(),
+            body: Some("Steps to reproduce".to_string()),
+            labels: vec!["bug".to_string()],
+            assignees: vec!["alice".to_string()],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_view() {
+        let runner = MockCommandRunner::failure("issue not found", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(999).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(1).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_list() {
+        let runner = MockCommandRunner::failure("forbidden", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListIssueArgs::default()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListIssueArgs::default()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_create() {
+        let runner = MockCommandRunner::failure("validation failed", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_close() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_reopen() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_comment() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_add_labels() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.add_labels(42, &["bug".to_string()]).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_remove_label() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.remove_label(42, "bug").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }

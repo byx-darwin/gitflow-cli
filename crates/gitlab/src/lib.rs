@@ -41,6 +41,7 @@ pub mod mr;
 pub mod pipeline;
 pub mod release;
 pub mod review;
+pub mod runner;
 
 pub use auth::GitLabAuthProvider;
 pub use commit::GitLabCommitProvider;

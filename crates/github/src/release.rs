@@ -2,7 +2,7 @@
 //!
 //! 通过 `gh` CLI 实现 [`ReleaseProvider`] trait，支持 Release 的创建、列表、
 //! 查看、编辑、资源上传/下载及删除。
-//! 所有方法通过 `tokio::process::Command` 调用 `gh`，捕获 stdout 并解析 JSON。
+//! 命令执行通过 [`CommandRunner`] 抽象，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
 use gitflow_cli_core::{
@@ -11,7 +11,10 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gh_error;
+use crate::{
+    error::parse_gh_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// `gh release list` 请求的 JSON 字段列表。
 const RELEASE_LIST_FIELDS: &str = "tagName,name,isDraft,isPrerelease,createdAt,publishedAt";
@@ -25,6 +28,9 @@ const RELEASE_VIEW_FIELDS: &str =
 /// 该结构体通过调用 `gh` CLI 实现 [`ReleaseProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitHub Release。
 ///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+///
 /// # Examples
 ///
 /// ```no_run
@@ -33,48 +39,67 @@ const RELEASE_VIEW_FIELDS: &str =
 /// let provider = GitHubReleaseProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubReleaseProvider {
+pub struct GitHubReleaseProvider<R: CommandRunner = RealCommandRunner> {
     /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitHubReleaseProvider {
-    /// 创建新的 GitHub Release 提供者。
+impl GitHubReleaseProvider<RealCommandRunner> {
+    /// 创建新的 GitHub Release 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubReleaseProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl ReleaseProvider for GitHubReleaseProvider {
+impl<R: CommandRunner + 'static> ReleaseProvider for GitHubReleaseProvider<R> {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["release", "create"])
-            .arg(&args.tag_name)
-            .arg("--repo")
-            .arg(&self.repo);
+        let mut cmd_args: Vec<&str> =
+            vec!["release", "create", &args.tag_name, "--repo", &self.repo];
 
-        if let Some(ref name) = args.name {
-            cmd.arg("--title").arg(name);
+        if let Some(name) = &args.name {
+            cmd_args.push("--title");
+            cmd_args.push(name);
         }
 
-        if let Some(ref body) = args.body {
-            cmd.arg("--notes").arg(body);
+        if let Some(body) = &args.body {
+            cmd_args.push("--notes");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         if args.prerelease {
-            cmd.arg("--prerelease");
+            cmd_args.push("--prerelease");
         }
 
-        if let Some(ref commitish) = args.target_commitish {
-            cmd.arg("--target").arg(commitish);
+        if let Some(commitish) = &args.target_commitish {
+            cmd_args.push("--target");
+            cmd_args.push(commitish);
         }
 
         debug!(
@@ -83,8 +108,9 @@ impl ReleaseProvider for GitHubReleaseProvider {
             "spawning `gh release create`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -100,13 +126,19 @@ impl ReleaseProvider for GitHubReleaseProvider {
     async fn list(&self) -> Result<Vec<ReleaseData>> {
         debug!(repo = %self.repo, "spawning `gh release list`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["release", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_LIST_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "release",
+                    "list",
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    RELEASE_LIST_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -124,14 +156,20 @@ impl ReleaseProvider for GitHubReleaseProvider {
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
         debug!(repo = %self.repo, tag = %tag_name, "spawning `gh release view`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["release", "view"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_VIEW_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "release",
+                    "view",
+                    tag_name,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    RELEASE_VIEW_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -147,30 +185,29 @@ impl ReleaseProvider for GitHubReleaseProvider {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["release", "edit"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo);
+        let mut cmd_args: Vec<&str> = vec!["release", "edit", tag_name, "--repo", &self.repo];
 
-        if let Some(ref name) = args.name {
-            cmd.arg("--title").arg(name);
+        if let Some(name) = &args.name {
+            cmd_args.push("--title");
+            cmd_args.push(name);
         }
 
-        if let Some(ref body) = args.body {
-            cmd.arg("--notes").arg(body);
+        if let Some(body) = &args.body {
+            cmd_args.push("--notes");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         if args.prerelease {
-            cmd.arg("--prerelease");
+            cmd_args.push("--prerelease");
         }
 
-        if let Some(ref commitish) = args.target_commitish {
-            cmd.arg("--target").arg(commitish);
+        if let Some(commitish) = &args.target_commitish {
+            cmd_args.push("--target");
+            cmd_args.push(commitish);
         }
 
         debug!(
@@ -179,8 +216,9 @@ impl ReleaseProvider for GitHubReleaseProvider {
             "spawning `gh release edit`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -201,13 +239,14 @@ impl ReleaseProvider for GitHubReleaseProvider {
             "spawning `gh release upload`"
         );
 
-        let output = tokio::process::Command::new("gh")
-            .args(["release", "upload"])
-            .arg(tag_name)
-            .arg(file_path)
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "release", "upload", tag_name, file_path, "--repo", &self.repo,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -237,17 +276,28 @@ impl ReleaseProvider for GitHubReleaseProvider {
         // 下载到目标文件的父目录，然后重命名到目标路径
         let dest = std::path::PathBuf::from(dest_path);
         let parent = dest.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let parent_str = parent.to_str().ok_or_else(|| {
+            CoreError::Platform(format!(
+                "Destination directory is not valid UTF-8: {dest_path}"
+            ))
+        })?;
 
-        let output = tokio::process::Command::new("gh")
-            .args(["release", "download"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--pattern")
-            .arg(asset_name)
-            .arg("--dir")
-            .arg(parent)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "release",
+                    "download",
+                    tag_name,
+                    "--repo",
+                    &self.repo,
+                    "--pattern",
+                    asset_name,
+                    "--dir",
+                    parent_str,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -272,13 +322,12 @@ impl ReleaseProvider for GitHubReleaseProvider {
     async fn delete(&self, tag_name: &str) -> Result<()> {
         debug!(repo = %self.repo, tag = %tag_name, "spawning `gh release delete`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["release", "delete"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--yes")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &["release", "delete", tag_name, "--repo", &self.repo, "--yes"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -294,6 +343,7 @@ impl ReleaseProvider for GitHubReleaseProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_github_release_provider() {
@@ -392,5 +442,178 @@ mod tests {
         let original = GitHubReleaseProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_create_args() -> CreateReleaseArgs {
+        CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Version 1.0.0".to_string()),
+            body: Some("Release notes".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_create() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Validation failed"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        // `create` succeeds, then re-fetches via `view`, whose invalid JSON fails parsing.
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_list() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list().await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_view() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Release not found"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view("v1.0.0").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view("v1.0.0").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_edit() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Release not found"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.edit("v1.0.0", sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_edit() {
+        // `edit` succeeds, then re-fetches via `view`, whose invalid JSON fails parsing.
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.edit("v1.0.0", sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_delete() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Release not found"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.delete("v1.0.0").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_upload_asset() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Upload failed"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
+            .await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_download_asset() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Asset not found"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .download_asset("v1.0.0", "asset.tar.gz", "/tmp/download/asset.tar.gz")
+            .await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }

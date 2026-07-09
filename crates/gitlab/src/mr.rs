@@ -2,7 +2,7 @@
 //!
 //! 通过 `glab mr` CLI 实现 [`PrProvider`] trait，支持 MR 的创建、列表、查看、
 //! 关闭、合并、检出、草稿状态切换和分支同步。
-//! 所有方法通过 `tokio::process::Command` 调用 `glab`，捕获 stdout 并解析 JSON。
+//! 所有方法通过 [`CommandRunner`] 抽象调用 `glab`，捕获 stdout 并解析 JSON。
 //!
 //! `glab` 的 `JSON` 输出使用 `snake_case` 字段名和 `GitLab` 特有的字段名（如 `iid`、
 //! `source_branch`、`target_branch`、`web_url`），因此使用中间类型 [`MrApiResponse`]
@@ -18,9 +18,15 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab Merge Request 提供者，通过 `glab` CLI 操作。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -30,18 +36,37 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabMrProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabMrProvider {
+pub struct GitLabMrProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabMrProvider {
-    /// 创建新的 GitLab MR 提供者。
+impl GitLabMrProvider<RealCommandRunner> {
+    /// 创建新的 GitLab MR 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabMrProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -153,27 +178,31 @@ impl From<CommentApiResponse> for CommentData {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl PrProvider for GitLabMrProvider {
+impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["mr", "create"])
-            .arg("--repo")
-            .arg(args.repo.as_deref().unwrap_or(&self.repo))
-            .arg("--title")
-            .arg(&args.title)
-            .arg("--source-branch")
-            .arg(&args.head)
-            .arg("--target-branch")
-            .arg(&args.base)
-            .arg("--output")
-            .arg("json");
+        let repo = args.repo.as_deref().unwrap_or(&self.repo);
+        let mut cmd_args: Vec<&str> = vec![
+            "mr",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            &args.title,
+            "--source-branch",
+            &args.head,
+            "--target-branch",
+            &args.base,
+            "--output",
+            "json",
+        ];
 
         if let Some(body) = &args.body {
-            cmd.arg("--description").arg(body);
+            cmd_args.push("--description");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         debug!(
@@ -184,8 +213,9 @@ impl PrProvider for GitLabMrProvider {
             "spawning `glab mr create`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -201,34 +231,27 @@ impl PrProvider for GitLabMrProvider {
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["mr", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json");
+        let mut cmd_args: Vec<&str> = vec!["mr", "list", "--repo", &self.repo, "--output", "json"];
 
         // glab uses --closed for closed MRs
         // Default (no flag) shows open MRs
-        if let Some(state) = &args.state {
-            match state {
-                State::Open => {
-                    // Default behavior, no flag needed
-                }
-                State::Closed => {
-                    cmd.arg("--closed");
-                }
-            }
+        if let Some(state) = &args.state
+            && matches!(state, State::Closed)
+        {
+            cmd_args.push("--closed");
         }
 
-        if let Some(limit) = args.limit {
-            cmd.arg("--per-page").arg(limit.to_string());
+        let limit_str = args.limit.map(|limit| limit.to_string());
+        if let Some(ref limit) = limit_str {
+            cmd_args.push("--per-page");
+            cmd_args.push(limit);
         }
 
         debug!(repo = %self.repo, "spawning `glab mr list`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -246,14 +269,21 @@ impl PrProvider for GitLabMrProvider {
     async fn view(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `glab mr view`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "view"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "view",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -271,14 +301,21 @@ impl PrProvider for GitLabMrProvider {
     async fn close(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `glab mr close`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "close"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "close",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -296,14 +333,21 @@ impl PrProvider for GitLabMrProvider {
     async fn reopen(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `glab mr reopen`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "reopen"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "reopen",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -321,16 +365,23 @@ impl PrProvider for GitLabMrProvider {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `glab mr note`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "note"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "note",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    body,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -348,26 +399,18 @@ impl PrProvider for GitLabMrProvider {
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
         debug!(repo = %self.repo, number, ?strategy, "spawning `glab mr merge`");
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["mr", "merge"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo);
+        let number_str = number.to_string();
+        let mut cmd_args: Vec<&str> = vec!["mr", "merge", &number_str, "--repo", &self.repo];
 
         match strategy {
-            Some(MergeStrategy::Squash) => {
-                cmd.arg("--squash");
-            }
-            Some(MergeStrategy::Rebase) => {
-                cmd.arg("--rebase");
-            }
-            Some(MergeStrategy::Merge) | None => {
-                cmd.arg("--merge");
-            }
+            Some(MergeStrategy::Squash) => cmd_args.push("--squash"),
+            Some(MergeStrategy::Rebase) => cmd_args.push("--rebase"),
+            Some(MergeStrategy::Merge) | None => cmd_args.push("--merge"),
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -387,12 +430,13 @@ impl PrProvider for GitLabMrProvider {
     async fn checkout(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `glab mr checkout`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "checkout"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &["mr", "checkout", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -407,12 +451,10 @@ impl PrProvider for GitLabMrProvider {
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `glab mr ready`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "ready"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("glab", &["mr", "ready", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -427,12 +469,10 @@ impl PrProvider for GitLabMrProvider {
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `glab mr draft`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "draft"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("glab", &["mr", "draft", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -447,12 +487,10 @@ impl PrProvider for GitLabMrProvider {
     async fn sync_branch(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `glab mr rebase`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "rebase"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("glab", &["mr", "rebase", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -468,6 +506,7 @@ impl PrProvider for GitLabMrProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitlab_mr_provider() {
@@ -628,5 +667,200 @@ mod tests {
         let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert_eq!(pr.author.login, "unknown");
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_create_args() -> CreatePrArgs {
+        CreatePrArgs {
+            title: "Add feature".to_string(),
+            body: Some("Description".to_string()),
+            head: "feature/x".to_string(),
+            base: "main".to_string(),
+            draft: false,
+            repo: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_create() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Validation failed"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_list() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListPrArgs::default()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListPrArgs::default()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_view() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(999).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(1).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_close() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_reopen() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_comment() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_merge() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not mergeable"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.merge(42, None).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_checkout() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.checkout(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_sync_branch() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Rebase failed"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.sync_branch(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_mark_ready() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.mark_ready(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_mark_wip() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.mark_wip(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }
