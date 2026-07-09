@@ -1,5 +1,7 @@
 //! GitHub auth 命令 E2E 测试
 
+#![allow(clippy::unwrap_used, reason = "Test code uses unwrap for simplicity")]
+
 use e2e_core::{TtyMode, TtyRunner};
 
 #[tokio::test]
