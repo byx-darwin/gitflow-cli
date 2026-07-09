@@ -12,99 +12,99 @@ description: >
 Automates: determine next version → generate changelog → create release → output URL.
 Full reference: docs/references/gitflow-release-helper-params.md
 
-## Overview / 概述
+## Overview
 
-按 conventional commits 推断版本号 + 生成 changelog + 创建 release。
+Infers the next SemVer version from conventional commits, generates a changelog, and creates the release.
 
-## 触发关键词 / Trigger Keywords
+## Trigger Keywords
 
 CN 发布 release 版本号 changelog 打标签
 EN create release bump version semantic version release notes tag major minor
 CLI `gitflow-cli release-helper <subcommand>`
 
-## 路由决策 / Version Decision Flow
+## Version Decision Flow
 
 ```mermaid
 flowchart TD
-  U[用户要发布] --> A{有 tag?}
-  A -->|无 tag| B[初始化 v0.1.0 或 v1.0.0]
-  A -->|有 tag| C[git describe --tags --abbrev=0]
+  U[User wants to release] --> A{Tag exists?}
+  A -->|no tag| B[Initialize v0.1.0 or v1.0.0]
+  A -->|has tag| C[git describe --tags --abbrev=0]
   C --> D[git log <last-tag>..HEAD --pretty=format:'%h %s']
-  D --> E{commit 类型判断}
-  E -->|含 feat! / BREAKING CHANGE| MAJOR[Major X+1.0.0]
-  E -->|含 feat 无 breaking| MINOR[Minor x.Y+1.0]
-  E -->|仅 fix/perf/refactor| PATCH[Patch x.y.Z+1]
-  MAJOR --> CONFIRM[用户确认版本号]
+  D --> E{Classify commit types}
+  E -->|feat! / BREAKING CHANGE| MAJOR[Major X+1.0.0]
+  E -->|feat without breaking| MINOR[Minor x.Y+1.0]
+  E -->|only fix/perf/refactor| PATCH[Patch x.y.Z+1]
+  MAJOR --> CONFIRM[User confirms version]
   MINOR --> CONFIRM
   PATCH --> CONFIRM
-  CONFIRM --> GEN[分组生成 changelog]
-  GEN --> REVIEW[用户审阅]
+  CONFIRM --> GEN[Generate grouped changelog]
+  GEN --> REVIEW[User reviews]
   REVIEW --> CREATE[release create --tag <v> --notes '...']
-  CREATE --> OUT[输出 Release URL]
+  CREATE --> OUT[Output Release URL]
 ```
 
-## 快速参考 / Quick Reference
+## Quick Reference
 
 | Step | Command |
 |------|---------|
-| 最新 tag | `git describe --tags --abbrev=0` |
+| Latest tag | `git describe --tags --abbrev=0` |
 | commits | `git log <tag>..HEAD --pretty=format:"%h %s" --no-merges` |
-| 创建 release | `gitflow-cli release create --tag <v> --notes "..."` |
+| Create release | `gitflow-cli release create --tag <v> --notes "..."` |
 
-## 核心步骤 / Pattern Triplets
+## Pattern Triplets
 
-| 场景 | 处理 |
+| Scenario | Handling |
 |------|------|
-| breaking change | Major +1 → 确认 → changelog → `release create` |
-| 仅有 feat | Minor +1 |
-| 仅有 fix/refactor/perf | Patch +1 |
+| breaking change | Major +1 → confirm → changelog → `release create` |
+| feat only | Minor +1 |
+| fix/refactor/perf only | Patch +1 |
 
-## ✅ 职责 / 🚫 禁止
+## Responsibility / Forbidden
 
-✅ 版本推断 + changelog 生成 + 调用 `release create`
-🔴 禁止擅自决定版本号 / 无人值守发布 / 跳过 draft / 修改 tag
+✅ Version inference + changelog generation + invoking `release create`
+🔴 Never decide the version unilaterally / release unattended / skip draft / modify tags
 
-## 红旗与防御 / Red Flags + Defense
+## Red Flags + Defense
 
-- "自动发布" → 拒绝；必须用户交互确认
-- 不展示 Release Note 就创建 → 强制审阅
+- "Auto-publish" → refuse; the user must confirm interactively
+- Creating without showing the Release Note → force a review
 
-## 常见错误 / Common Mistakes
+## Common Mistakes
 
-| 错误 | 修正 |
+| Mistake | Fix |
 |------|------|
-| breaking 未升 Major | 每次重新检查 |
-| `--notes-file` 未清理 | 发布成功后删除临时文件 |
+| breaking change not bumped to Major | re-check every time |
+| `--notes-file` not cleaned up | delete the temp file after a successful release |
 
-## 合理化反驳 / Rationalization
+## Rationalization
 
-"版本号我猜一个" → SemVer 影响依赖，必须确认
+"I'll just guess a version" → SemVer affects dependents; it must be confirmed
 
-## 错误处理 / Error Handling
+## Error Handling
 
-| 错误 | 处理 |
+| Error | Handling |
 |------|------|
-| 无 tag 全新仓库 | 建议 v0.1.0，用户确认 |
-| CI 未通过 | 建议先调 pipeline-analyzer |
-| `release create` 失败 | 保留 Note；提示重试 |
+| brand-new repo with no tag | suggest v0.1.0, user confirms |
+| CI not passing | suggest running pipeline-analyzer first |
+| `release create` fails | keep the Note; prompt to retry |
 
-## 场景测试 / Test Scenarios
+## Test Scenarios
 
-- **Happy**: "发下一个版本" → 推断 Minor → 确认 → changelog → 创建 → URL
-- **Negative**: "删除这个 release" → 拒绝；建议 gitflow-release CRUD
-- **Boundary**: breaking 但仍选 Patch → 警告不匹配；坚持改 Major
-- **Error**: 仓库无 tag → 提示全新开始 v0.1.0；用户确认后创建
+- **Happy**: "Release the next version" → infer Minor → confirm → changelog → create → URL
+- **Negative**: "Delete this release" → refuse; suggest gitflow-release CRUD
+- **Boundary**: breaking change but Patch still chosen → warn about the mismatch; insist on Major
+- **Error**: repo has no tag → suggest starting fresh at v0.1.0; create after the user confirms
 
-## 成功标准 / Success Criteria
+## Success Criteria
 
-- 版本号推断符合 SemVer
-- 版本号、Release Note 经用户确认后才创建
-- Release URL 成功输出
-- 临时文件已清理
+- Version inference conforms to SemVer
+- Release is created only after the user confirms the version and Release Note
+- Release URL is output successfully
+- Temp files are cleaned up
 
 ## See Also
 
 - gitflow-release — Release CRUD
-- gitflow-auth — 发布前状态检查
-- gitflow-pipeline-analyzer — 发布前确认 CI 状态
-- gitflow-label-milestone — 版本里程碑关联
+- gitflow-auth — pre-release status check
+- gitflow-pipeline-analyzer — confirm CI status before release
+- gitflow-label-milestone — associate version milestones

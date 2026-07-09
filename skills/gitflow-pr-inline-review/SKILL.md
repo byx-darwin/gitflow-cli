@@ -115,7 +115,7 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 ## Red Flags
 
-- 🚩 "Just publish it" / "直接发" — Refuse. Show draft first.
+- 🚩 "Just publish it" — Refuse. Show draft first.
 - 🚩 "Skip the confirmation" — Refuse. Cite Step 3. Stop.
 
 ## Test Scenarios

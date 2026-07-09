@@ -20,7 +20,7 @@ Top-level entry for `gitflow-cli pr` (11 subcommands). Simple CRUD; complex work
 | list / view / close / merge | 列出/查看/关闭/合并 |
 | checkout / comment / sync | 检出/评论/同步 |
 | ready / wip / draft | 标记就绪/草稿 |
-| PR review | 委派 review skill |
+| PR review | delegate → review skill |
 
 ## Flowchart
 

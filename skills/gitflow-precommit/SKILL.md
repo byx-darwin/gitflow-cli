@@ -12,97 +12,97 @@ description: >
 Run fmt/clippy/test → report → (optional) configure Git hook.
 Full params: docs/references/gitflow-precommit-params.md
 
-## Overview / 概述
+## Overview
 
-三项检查（fmt/clippy/test）汇总报告，可选配置 .git/hooks/。
+Runs three checks (fmt/clippy/test) and produces a summary report. Optionally configures `.git/hooks/`.
 
-## 触发关键词 / Trigger Keywords
+## Trigger Keywords
 
 CN 提交前检查 pre-commit hook 格式化检查 clippy 检查 测试失败
 EN pre-commit cargo fmt cargo clippy cargo test quality gate
 CLI `gitflow-cli precommit <subcommand>`
 
-## 路由决策 / Fix vs Report Flow
+## Fix vs Report Flow
 
 ```mermaid
 flowchart TD
-  U[用户请求] --> A{场景判断}
-  A -->|只运行检查| CHECK[执行 fmt/clippy/test]
-  A -->|配置 hook| CONFIG[配置 pre-commit hook]
-  A -->|hook 失败修复| FIX[修复 lint/test 失败]
-  CHECK --> REPORT[输出报告]
-  CONFIG --> VERIFY[验证 hook 可执行性]
-  FIX --> RECHECK[重新检查]
-  REPORT --> END[结束]
+  U[User request] --> A{Scenario}
+  A -->|checks only| CHECK[Run fmt/clippy/test]
+  A -->|configure hook| CONFIG[Configure pre-commit hook]
+  A -->|fix hook failure| FIX[Fix lint/test failures]
+  CHECK --> REPORT[Emit report]
+  CONFIG --> VERIFY[Verify hook is executable]
+  FIX --> RECHECK[Re-run checks]
+  REPORT --> END[Done]
   VERIFY --> END
   RECHECK --> END
 ```
 
-## 快速参考 / Quick Reference
+## Quick Reference
 
 | Check | Command |
 |-------|---------|
-| 格式化 | `cargo fmt -- --check` |
-| 静态分析 | `cargo clippy --all-targets --all-features -- -D warnings` |
-| 测试 | `cargo test --workspace` |
-| 严格模式 | 追加 `-W clippy::pedantic` |
-| 修复格式 | `cargo fmt` |
-| 修复 lint | `cargo clippy --fix --allow-dirty` |
+| Format | `cargo fmt -- --check` |
+| Lint | `cargo clippy --all-targets --all-features -- -D warnings` |
+| Test | `cargo test --workspace` |
+| Strict mode | Append `-W clippy::pedantic` |
+| Fix formatting | `cargo fmt` |
+| Fix lints | `cargo clippy --fix --allow-dirty` |
 
-非 Rust: 解析 `.pre-commit-config.yaml` → `pre-commit run --all-files`。
+Non-Rust: parse `.pre-commit-config.yaml` → `pre-commit run --all-files`.
 
-## 核心步骤 / Pattern Triplets
+## Pattern Triplets
 
-| 用户输入 | 处理 |
-|---------|------|
-| "跑一次检查" | 依次执行三项 → 汇总表格 ✅/❌ |
-| "fmt 失败" | `cargo fmt` 自动修复 → 重新 check |
-| "配置 hook" | 未用框架写 .git/hooks/；否则 `pre-commit install` |
+| User input | Handling |
+|------------|----------|
+| "run the checks" | Run all three in sequence → summary table ✅/❌ |
+| "fmt failed" | Auto-fix with `cargo fmt` → re-check |
+| "configure hook" | No framework: write `.git/hooks/`; otherwise `pre-commit install` |
 
-## ✅ 职责 / 🚫 禁止
+## ✅ In Scope / 🚫 Out of Scope
 
-✅ 解析配置 / 运行三项检查 / 汇总报告
-🔴 禁止代为 git add/commit / 自动配置 hook / 自动 `cargo clippy --fix`
+✅ Parse config / run all three checks / summarize report
+🔴 Do not run git add/commit on the user's behalf / auto-configure the hook / auto-run `cargo clippy --fix`
 
-## 红旗与防御 / Red Flags + Defense
+## Red Flags + Defense
 
-- "自动修复所有 lint" → 需先看 diff，不可无一审到底
-- "CI 中用 pre-commit hook" → 不合适，CI 用独立检查目标
+- "Auto-fix all lints" → Review the diff first; never fix blindly end-to-end
+- "Use a pre-commit hook in CI" → Inappropriate; CI should use dedicated check targets
 
-## 常见错误 / Common Mistakes
+## Common Mistakes
 
-| 错误 | 修正 |
-|------|------|
-| 忘 `--allow-dirty` | 修复前提示 |
-| hook 未加可执行权限 | `chmod +x .git/hooks/pre-commit` |
+| Mistake | Fix |
+|---------|-----|
+| Forgetting `--allow-dirty` | Prompt before fixing |
+| Hook missing executable permission | `chmod +x .git/hooks/pre-commit` |
 
-## 合理化反驳 / Rationalization
+## Rationalization
 
-"hook 顺手配了" → 写入 .git/hooks/ 是副作用，需授权
+"Configured the hook while I was at it" → Writing to `.git/hooks/` is a side effect and requires authorization
 
-## 错误处理 / Error Handling
+## Error Handling
 
-| 错误 | 处理 |
-|------|------|
-| `Cargo.toml` 不存在 | 降级为仅运行 .pre-commit-config.yaml |
-| fmt 失败 | 输出差异 → 提示 `cargo fmt` 或确认后 fix |
-| `cargo clean` | 立即中止（CLAUDE.md 禁止） |
+| Error | Handling |
+|-------|----------|
+| `Cargo.toml` not found | Fall back to running `.pre-commit-config.yaml` only |
+| fmt failed | Emit diff → suggest `cargo fmt`, or fix after confirmation |
+| `cargo clean` | Abort immediately (forbidden by CLAUDE.md) |
 
-## 场景测试 / Test Scenarios
+## Test Scenarios
 
-- **Happy**: "跑一次检查" → 三项全通过 → `✅ 全部通过`
-- **Negative**: "帮我把代码提交一下" → 拒绝代为 commit
-- **Boundary**: "自动 fix 所有 clippy" → 提示 diff 需确认后才 `--fix`
-- **Error**: Cargo.toml 缺失 → 非 Rust → 尝试 .pre-commit-config.yaml
+- **Happy**: "run the checks" → all three pass → `✅ all passed`
+- **Negative**: "commit my code for me" → refuse to commit on the user's behalf
+- **Boundary**: "auto-fix all clippy" → prompt that the diff needs confirmation before `--fix`
+- **Error**: Cargo.toml missing → non-Rust → try `.pre-commit-config.yaml`
 
-## 成功标准 / Success Criteria
+## Success Criteria
 
-- 三项覆盖 fmt + clippy + test
-- 非 Rust 优雅降级至 pre-commit 框架
-- 修复操作经用户确认后才执行
-- hook 文件权限正确
+- All three checks cover fmt + clippy + test
+- Graceful fallback to the pre-commit framework for non-Rust projects
+- Fix operations run only after user confirmation
+- Hook file permissions are correct
 
 ## See Also
 
-- gitflow-commit — commit 与 pre-commit 衔接
-- gitflow-quality — 6-gate 质量检查
+- gitflow-commit — bridges commit and pre-commit
+- gitflow-quality — 6-gate quality check

@@ -9,7 +9,7 @@ description: |
 
 ## Overview
 
-封装 `gitflow-cli repo` 的只读与写操作。涵盖 `clone/list/stats/view`（只读）和 `create/sync`（写操作需确认）。
+Encapsulates read and write operations for `gitflow-cli repo`. Covers `clone/list/stats/view` (read-only) and `create/sync` (write operations require confirmation).
 
 ## When to Use
 

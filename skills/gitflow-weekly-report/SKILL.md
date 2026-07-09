@@ -7,7 +7,7 @@ description: |
 
 # gitflow-weekly-report — Read-Only Aggregator
 
-只读扫描 Git 日志 → 按项目 + 类型归并 → 纯文本周报。模板: [`docs/templates/weekly-report-template.md`](docs/templates/weekly-report-template.md) · 质量阈值: [`docs/references/gitflow-quality-params.md`](docs/references/gitflow-quality-params.md)
+Read-only Git log scan → group by project + type → plain-text weekly report. Template: [`docs/templates/weekly-report-template.md`](docs/templates/weekly-report-template.md) · Quality thresholds: [`docs/references/gitflow-quality-params.md`](docs/references/gitflow-quality-params.md)
 
 ## When to Use
 
@@ -28,63 +28,63 @@ grep -E '^(feat|fix|refactor|docs|chore|ci|test):'
 
 | Goal | Tool |
 |------|------|
-| 日志 | `git log --format="%h %ai %s" --since <s> --until <u>` |
-| 计数 | `git log --format="%h" --since <s> --until <u> \| wc -l` |
-| 变更 | `git diff --stat --since <s> --until <u> \| tail -1` |
-| 分类 | grep conventional prefix |
+| Fetch log | `git log --format="%h %ai %s" --since <s> --until <u>` |
+| Count commits | `git log --format="%h" --since <s> --until <u> \| wc -l` |
+| Diff stat | `git diff --stat --since <s> --until <u> \| tail -1` |
+| Classify | grep conventional prefix |
 
 ## Implementation
 
 ### Preconditions
 
-路径有效 (非法跳过) · 窗口由截止日推算 · 年份与提交年份一致。
+Valid paths (skip invalid) · window derived from the cutoff date · year matches the commit year.
 
 ### Steps
 
-1. **窗口** — 截止日算 `--since`/`--until`
-2. **扫描** — `git log` hash + date + subject
-3. **分类归并** — `feat`/`fix`/`refactor`/`docs`/`chore|ci|test` 并为一句
-4. **渲染** — weekly-report-template.md；hash 反引号；中文
+1. **Window** — derive `--since`/`--until` from the cutoff date
+2. **Scan** — `git log` hash + date + subject
+3. **Classify & merge** — group `feat`/`fix`/`refactor`/`docs`/`chore|ci|test` into one sentence
+4. **Render** — weekly-report-template.md; backtick hashes; Chinese output
 
 ### Error Handling
 
 | Error | Recovery |
 |-------|----------|
-| 路径非法 | 跳过 |
-| 无提交 | 写"暂无提交" |
-| 跨年 | 完整 ISO |
-| 单提交 | 仍完整模板 |
-| 请求评分 | 拒绝 |
+| Invalid path | Skip |
+| No commits | Write `"暂无提交"` |
+| Cross-year | Full ISO |
+| Single commit | Still full template |
+| Rating requested | Refuse |
 
 ## Responsibility
 
 ### ✅ In Scope
 
-跨 N 仓只读 · 前缀分类 · 模板 + 真实计数。
+Read-only across N repos · prefix-based classification · template + real counts.
 
 ### ❌ Out of Scope
 
-改任何仓 · 评分 · 表格。
+Modifying any repo · scoring · tables.
 
 ### 🚫 Do Not
 
-❌ 杜撰提交 · ❌ 评绩效 · ❌ 省略章节。
+❌ Fabricate commits · ❌ Judge performance · ❌ Omit sections.
 
 ## Rationalization
 
 | Excuse | Reality |
 |--------|---------|
-| 估算就够 | 必精确 wc -l |
-| 加绩效评分 | 超出范围 |
-| 内容少省略 | 必完整模板 |
+| "Estimates are good enough" | Must be exact via `wc -l` |
+| "Add a performance score" | Out of scope |
+| "Little content, so omit sections" | Full template required |
 
 ## Red Flags
 
-🚩 "给我打分" — 拒绝 · 🚩 "评生产力" — 超出 · 🚩 "凑整" — 精确
+🚩 "Give me a score" — Refuse · 🚩 "Rate productivity" — Out of scope · 🚩 "Round the numbers" — Be exact
 
 ## Common Mistakes
 
-❌ 无提交杜撰 · ❌ 复用旧年日期 · ❌ 省略片段
+❌ Fabricating commits when there are none · ❌ Reusing prior-year dates · ❌ Omitting fragments
 
 ## Trigger Keywords
 
@@ -96,27 +96,27 @@ grep -E '^(feat|fix|refactor|docs|chore|ci|test):'
 ## Test Scenarios
 
 ### 1: Happy
-三仓有提交 → 分类归并；完整纯文本。
+Three repos with commits → classify & merge; full plain text.
 
 ### 2: Negative
-"rate my output" → 拒绝评分。
+"rate my output" → refuse to score.
 
 ### 3: Boundary
-无提交 → 写"暂无提交"；计数 0。
+No commits → write `"暂无提交"`; count 0.
 
 ### 4: Error
-`/nope` + 一合法 → 跳过；不全盘中止。
+`/nope` + one valid path → skip; do not abort entirely.
 
 ## Success Criteria
 
-- [ ] 计数全由 `git log`
-- [ ] 纯文本完整
-- [ ] 无绩效评判
-- [ ] 非法路径跳过
+- [ ] All counts come from `git log`
+- [ ] Plain text is complete
+- [ ] No performance judgment
+- [ ] Invalid paths skipped
 
 ## See Also
 
-`/gitflow-workflow` — Phase 4 触发
-`/gitflow-pipeline-analyzer` — CI 健康
-`/gitflow-commit` — 单提交
-`/gitflow-label-milestone` — 里程碑
+`/gitflow-workflow` — Phase 4 trigger
+`/gitflow-pipeline-analyzer` — CI health
+`/gitflow-commit` — single commit
+`/gitflow-label-milestone` — milestones

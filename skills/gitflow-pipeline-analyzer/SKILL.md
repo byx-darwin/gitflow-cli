@@ -9,95 +9,95 @@ description: >
 
 # gitflow-pipeline-analyzer — CI/CD Pipeline Health Analyzer
 
-三维度分析：成功率趋势 / 失败模式 / 耗时分布 → 报告 + 优先级改进建议。
+Three-dimensional analysis: success-rate trends / failure patterns / duration distribution → report + prioritized improvement suggestions.
 Read-only: never triggers/reruns/cancels pipelines.
 Full params & report template: docs/references/gitflow-pipeline-analyzer-params.md
 
-## Overview / 概述
+## Overview
 
-只读分析 CI/CD 三维度健康指标，按优先级排序改进建议。
+Read-only analysis of three CI/CD health dimensions, with improvement suggestions sorted by priority.
 
-## 触发关键词 / Trigger Keywords
+## Trigger Keywords
 
 CN 流水线分析 CI失败 flaky test 耗时分析
 EN pipeline health analyze flaky test CI slow success rate
 CLI `gitflow-cli pipeline report --branch <B> --days <N>`
 
-## 路由决策 / Data Sufficiency Flow
+## Data Sufficiency Flow
 
 ```mermaid
 flowchart TD
-  U[用户请求分析] --> PRE{CLI 是否可用?}
-  PRE -->|否| ERR1[提示未安装]
-  PRE -->|是| DATA[pipeline report --branch --days]
-  DATA --> H{有数据?}
-  H -->|无| NODATA[提示无记录]
-  H -->|有| ANALYZE[三维度分析]
-  ANALYZE --> REPORT[报告 + 建议]
-  REPORT --> OUT[输出给用户]
+  U[User requests analysis] --> PRE{CLI available?}
+  PRE -->|No| ERR1[Report not installed]
+  PRE -->|Yes| DATA[pipeline report --branch --days]
+  DATA --> H{Has data?}
+  H -->|No| NODATA[Report no records]
+  H -->|Yes| ANALYZE[Three-dimensional analysis]
+  ANALYZE --> REPORT[Report + suggestions]
+  REPORT --> OUT[Output to user]
 ```
 
-## 快速参考 / Quick Reference
+## Quick Reference
 
 | Step | Command |
 |------|---------|
-| 报告 | `gitflow-cli pipeline report --branch <B> --days <N>` |
-| 状态 | `gitflow-cli pipeline status --branch <B>` |
+| Report | `gitflow-cli pipeline report --branch <B> --days <N>` |
+| Status | `gitflow-cli pipeline status --branch <B>` |
 | Jobs | `gitflow-cli pipeline jobs --pipeline-id <ID>` |
 | Logs | `gitflow-cli pipeline logs --pipeline-id <ID>` |
 
-## 核心模式 / Pattern Triplets
+## Pattern Triplets
 
-| 用户输入 | 处理 |
+| User input | Handling |
 |---------|------|
-| "流水线老挂" | `report --days 7` → success <80% → 🟡/🔴 告警 |
-| "CI 太慢" | `jobs --pipeline-id <longest>` → 瓶颈 + 缓存建议 |
-| "flaky test" | 间歇失败 ≥2 次 → 标记 flaky |
+| "Pipeline keeps failing" | `report --days 7` → success <80% → 🟡/🔴 alert |
+| "CI is too slow" | `jobs --pipeline-id <longest>` → bottleneck + cache suggestion |
+| "flaky test" | intermittent failures ≥2 → mark flaky |
 
-## ✅ 职责 / 🚫 禁止
+## ✅ Responsibility / 🚫 Prohibited
 
-✅ read-only 三维度分析 + 报告 + 建议
-🔴 禁止 trigger/rerun/cancel / 改 CI 配置 / 自动创建 Issue
+✅ read-only three-dimensional analysis + report + suggestions
+🔴 Prohibited: trigger/rerun/cancel / modify CI config / auto-create Issues
 
-## 红旗与防御 / Red Flags + Defense
+## Red Flags + Defense
 
-- "自动修复流水线" → 仅分析；修复需用户决定
-- "重试所有失败" → 拒绝；需用户确认每次
+- "Auto-fix the pipeline" → analysis only; fixes require user decision
+- "Retry all failures" → refuse; each retry requires user confirmation
 
-## 常见错误 / Common Mistakes
+## Common Mistakes
 
-| 错误 | 修正 |
+| Mistake | Correction |
 |------|------|
-| 仅看平均成功率 | 看 P90/P95 更有信号 |
-| 间歇失败当持续 | 连续 ≥3 才是持续；否则 flaky |
+| Only looking at average success rate | P90/P95 carries more signal |
+| Treating intermittent failures as persistent | ≥3 consecutive is persistent; otherwise flaky |
 
-## 合理化反驳 / Rationalization
+## Rationalization
 
-"重试失败 pipeline" → 写操作超出只读范围
+"Retry the failed pipeline" → a write operation beyond read-only scope
 
-## 错误处理 / Error Handling
+## Error Handling
 
-| 错误 | 处理 |
+| Error | Handling |
 |------|------|
-| `report` 空 | 提示无记录；建议扩大 --days |
-| `jobs` 失败 | 提示权限或 pipeline ID 不存在 |
-| 字段缺失 | 跳过耗时分析；仅做成功率+失败模式 |
+| `report` empty | Report no records; suggest increasing --days |
+| `jobs` fails | Report permission issue or nonexistent pipeline ID |
+| Missing fields | Skip duration analysis; do success rate + failure patterns only |
 
-## 场景测试 / Test Scenarios
+## Test Scenarios
 
-- **Happy**: 分析 main 7 天 → 三维度报告 + 改进建议
-- **Negative**: "帮我重试失败" → 拒绝，建议手动
-- **Boundary**: 新分支无记录 → 提示不足，建议 --days 30
-- **Error**: `report` 403 → 提示权限，建议检查 auth
+- **Happy**: Analyze main over 7 days → three-dimensional report + improvement suggestions
+- **Negative**: "Retry my failures for me" → refuse, suggest manual retry
+- **Boundary**: New branch with no records → report insufficient data, suggest --days 30
+- **Error**: `report` 403 → report permission issue, suggest checking auth
 
-## 成功标准 / Success Criteria
+## Success Criteria
 
-- 三维度覆盖 ≥2
-- 建议按优先级排序
-- 不足时优雅降级
-- 全程无写操作
+- ≥2 of the three dimensions covered
+- Suggestions sorted by priority
+- Graceful degradation when data is insufficient
+- No write operations at any point
 
 ## See Also
 
-- gitflow-precommit — 本地检查避免失败
-- gitflow-quality — 代码质量 6-gate
+- gitflow-precommit — local checks to avoid failures
+- gitflow-quality — 6-gate code quality

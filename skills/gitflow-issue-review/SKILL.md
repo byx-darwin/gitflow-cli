@@ -59,22 +59,22 @@ rm -f /tmp/issue-analysis.md
 **Report template:**
 
 ```markdown
-## Issue 需求分析报告 / Issue Requirement Report
+## Issue Requirement Report
 
 **Issue:** #<n> — <title>
-**分析时间:** <timestamp>
+**Analysis time:** <timestamp>
 
-| 维度 | 等级 | 说明 |
+| Dimension | Rating | Notes |
 |------|------|------|
-| 标题清晰度 | 🟢/🟡/🔴 | <brief> |
-| 描述充分度 | 🟢/🟡/🔴 | <brief> |
-| 验收标准明确度 | 🟢/🟡/🔴 | <brief> |
+| Title Clarity | 🟢/🟡/🔴 | <brief> |
+| Description Sufficiency | 🟢/🟡/🔴 | <brief> |
+| Acceptance Criteria Clarity | 🟢/🟡/🔴 | <brief> |
 
-### 改进建议
+### Improvement Suggestions
 1. <actionable>
 2. ...
 
-### 建议的完善标题
+### Suggested Title
 `<proposed title>`
 ```
 

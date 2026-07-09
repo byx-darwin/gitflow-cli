@@ -471,10 +471,10 @@ mod tests {
   "updated_at": "2026-07-09T00:00:00Z",
   "current_phase": 1,
   "phases": {{
-    "1": {{ "name": "需求澄清", "status": "in_progress", "started_at": "2026-07-09T00:00:00Z" }},
-    "2": {{ "name": "计划制定", "status": "pending" }},
-    "3": {{ "name": "执行", "status": "pending" }},
-    "4": {{ "name": "交付", "status": "pending" }}
+    "1": {{ "name": "Clarification", "status": "in_progress", "started_at": "2026-07-09T00:00:00Z" }},
+    "2": {{ "name": "Planning", "status": "pending" }},
+    "3": {{ "name": "Execution", "status": "pending" }},
+    "4": {{ "name": "Delivery", "status": "pending" }}
   }}
 }}"#
         );
@@ -602,7 +602,7 @@ mod tests {
   "current_phase": 3,
   "phases": {
     "1": {
-      "name": "需求澄清",
+      "name": "Clarification",
       "status": "complete",
       "started_at": "2026-07-09T02:59:32Z",
       "completed_at": "2026-07-09T03:10:00Z",
@@ -613,7 +613,7 @@ mod tests {
       }
     },
     "2": {
-      "name": "计划制定",
+      "name": "Planning",
       "status": "complete",
       "started_at": "2026-07-09T03:10:00Z",
       "completed_at": "2026-07-09T03:20:00Z",
@@ -624,7 +624,7 @@ mod tests {
       }
     },
     "3": {
-      "name": "执行",
+      "name": "Execution",
       "status": "in_progress",
       "started_at": "2026-07-09T03:20:00Z",
       "completed_at": null,
@@ -632,7 +632,7 @@ mod tests {
       "evidence": {}
     },
     "4": {
-      "name": "交付",
+      "name": "Delivery",
       "status": "pending",
       "started_at": null,
       "completed_at": null,
@@ -651,7 +651,7 @@ mod tests {
         assert_eq!(contract.current_phase, 3);
         assert_eq!(contract.phases.len(), 4);
         let phase1 = contract.phases.get("1").expect("phase 1");
-        assert_eq!(phase1.name, "需求澄清");
+        assert_eq!(phase1.name, "Clarification");
         assert_eq!(phase1.status, PhaseStatus::Complete);
         assert_eq!(
             phase1.evidence.issue_url.as_deref(),
