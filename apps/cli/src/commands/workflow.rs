@@ -57,22 +57,31 @@ pub enum PhaseStatus {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PhaseEvidence {
     /// Issue 链接。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub issue_url: Option<String>,
     /// 评论 ID。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub comment_id: Option<String>,
     /// 规格文件路径。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub spec_path: Option<String>,
     /// 用户是否已批准。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user_approved: Option<bool>,
     /// 关联分支。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub branch: Option<String>,
     /// PR 链接。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pr_url: Option<String>,
     /// 测试是否通过。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tests_passed: Option<bool>,
     /// 流水线是否 OK。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pipeline_ok: Option<bool>,
     /// 审查报告路径。
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub review_report_path: Option<String>,
 }
 
@@ -90,6 +99,7 @@ pub struct Phase {
     /// 执行者。
     pub executor: Option<String>,
     /// 阶段证据。
+    #[serde(default)]
     pub evidence: PhaseEvidence,
 }
 
@@ -126,70 +136,13 @@ pub struct WorkflowContract {
     pub phases: BTreeMap<String, Phase>,
 }
 
-#[allow(
-    dead_code,
-    reason = "new() is used by tests and will be used by the workflow orchestrator"
-)]
 impl WorkflowContract {
-    /// 创建一个新的工作流合同。
-    ///
-    /// 自动生成 `workflow_id`（格式 `wf-YYYY-MM-DD-NNN`），
-    /// 初始化为阶段一进行中，其余阶段待处理。
-    #[must_use]
-    pub fn new(title: String, mode: WorkflowMode) -> Self {
-        let now = Utc::now();
-        let date = now.format("%Y-%m-%d").to_string();
-        // 简化实现：固定后缀 001，实际应扫描目录自增
-        let workflow_id = format!("wf-{date}-001");
-
-        Self {
-            version: "1.0".to_string(),
-            workflow_id,
-            title,
-            mode,
-            created_at: now.to_rfc3339(),
-            updated_at: now.to_rfc3339(),
-            current_phase: 1,
-            phases: BTreeMap::from([
-                (
-                    "1".to_string(),
-                    Phase {
-                        name: "需求澄清".into(),
-                        status: PhaseStatus::InProgress,
-                        started_at: Some(now.to_rfc3339()),
-                        ..Default::default()
-                    },
-                ),
-                (
-                    "2".to_string(),
-                    Phase {
-                        name: "计划制定".into(),
-                        ..Default::default()
-                    },
-                ),
-                (
-                    "3".to_string(),
-                    Phase {
-                        name: "执行".into(),
-                        ..Default::default()
-                    },
-                ),
-                (
-                    "4".to_string(),
-                    Phase {
-                        name: "交付".into(),
-                        ..Default::default()
-                    },
-                ),
-            ]),
-        }
-    }
-
     /// 检查是否可以进入目标阶段。
     ///
     /// 根据当前各阶段状态和证据检查关卡条件：
     /// - 进入阶段二：阶段一必须完成且有 `issue_url`
-    /// - 进入阶段三：快速模式跳过阶段二；完整模式需阶段二完成且有 `spec_path` 和 `user_approved`
+    /// - 进入阶段三：任何模式都要求阶段一完成且有 `issue_url`；
+    ///   快速模式在此之后跳过阶段二，完整模式还需阶段二完成且有 `spec_path` 和 `user_approved`
     /// - 进入阶段四：阶段三必须完成且有 `pr_url` 和 `tests_passed`
     #[must_use]
     pub fn can_enter_phase(&self, target: u8) -> GateCheck {
@@ -210,7 +163,17 @@ impl WorkflowContract {
                 GateCheck::Pass
             }
             3 => {
-                // 快速模式跳过阶段二
+                // 无论快速还是完整模式，Phase 1 都必须完成且已产出 issue_url。
+                let Some(phase1) = self.phases.get("1") else {
+                    return GateCheck::PhaseNotComplete(1);
+                };
+                if phase1.status != PhaseStatus::Complete {
+                    return GateCheck::PhaseNotComplete(1);
+                }
+                if phase1.evidence.issue_url.is_none() {
+                    return GateCheck::MissingEvidence("issue_url".into());
+                }
+                // 快速模式在 Phase 1 通过后跳过 Phase 2。
                 if self.mode == WorkflowMode::Fast {
                     return GateCheck::Pass;
                 }
@@ -300,6 +263,22 @@ fn archive_dir() -> PathBuf {
     cwd.join(".cache/workflows/archive")
 }
 
+/// 校验外部传入的 `workflow_id` 是否符合 `wf-YYYY-MM-DD-NNN` 格式。
+///
+/// `workflow_id` 会被拼接进文件路径，必须在使用前完成校验以阻止路径穿越
+/// （例如 `../../etc/passwd`）。只接受形如 `wf-2026-07-09-001` 的字符串。
+fn validate_workflow_id(workflow_id: &str) -> miette::Result<()> {
+    let pattern = regex::Regex::new(r"^wf-\d{4}-\d{2}-\d{2}-\d{3}$")
+        .map_err(|e| miette::miette!("内部错误：workflow_id 正则编译失败: {e}"))?;
+    if pattern.is_match(workflow_id) {
+        Ok(())
+    } else {
+        Err(miette::miette!(
+            "无效的 workflow_id '{workflow_id}'，格式应为 wf-YYYY-MM-DD-NNN"
+        ))
+    }
+}
+
 /// 列出所有 active workflows。
 fn list_workflows() -> miette::Result<()> {
     let dir = workflow_dir();
@@ -333,6 +312,7 @@ fn list_workflows() -> miette::Result<()> {
 
 /// 查看指定 workflow 的合同详情（JSON 格式）。
 fn show_status(workflow_id: &str) -> miette::Result<()> {
+    validate_workflow_id(workflow_id)?;
     let path = workflow_dir().join(format!("{workflow_id}.json"));
     if !path.exists() {
         return Err(miette::miette!("workflow {workflow_id} 不存在"));
@@ -383,6 +363,7 @@ fn archive_workflow_at(
     archive_root: &Path,
     workflow_id: &str,
 ) -> miette::Result<()> {
+    validate_workflow_id(workflow_id)?;
     let src = active_dir.join(format!("{workflow_id}.json"));
     if !src.exists() {
         return Err(miette::miette!("workflow {workflow_id} 不存在"));
@@ -475,21 +456,60 @@ fn cleanup_archives_at(dir: &Path, older_than_days: i64) -> miette::Result<()> {
 mod tests {
     use super::*;
 
+    /// 从 mode 构造一个测试用基础合同（Phase 1 进行中，其余待处理）。
+    ///
+    /// 替代已移除的 `WorkflowContract::new`，统一改用 `serde_json::from_str`，
+    /// 确保 Rust 类型始终与合同 schema 对齐。
+    fn base_contract(mode: &str) -> WorkflowContract {
+        let json = format!(
+            r#"{{
+  "version": "1.0",
+  "workflow_id": "wf-2026-07-09-001",
+  "title": "feat: test",
+  "mode": "{mode}",
+  "created_at": "2026-07-09T00:00:00Z",
+  "updated_at": "2026-07-09T00:00:00Z",
+  "current_phase": 1,
+  "phases": {{
+    "1": {{ "name": "需求澄清", "status": "in_progress", "started_at": "2026-07-09T00:00:00Z" }},
+    "2": {{ "name": "计划制定", "status": "pending" }},
+    "3": {{ "name": "执行", "status": "pending" }},
+    "4": {{ "name": "交付", "status": "pending" }}
+  }}
+}}"#
+        );
+        serde_json::from_str(&json).expect("deserialize base contract")
+    }
+
     #[test]
-    fn test_workflow_contract_new_id_format() {
-        let contract = WorkflowContract::new("feat: test".to_string(), WorkflowMode::Full);
+    fn test_should_accept_valid_workflow_id() {
+        assert!(validate_workflow_id("wf-2026-07-09-001").is_ok());
+    }
+
+    #[test]
+    fn test_should_reject_workflow_id_with_path_traversal() {
+        assert!(validate_workflow_id("../../etc/passwd").is_err());
+        assert!(validate_workflow_id("wf-2026-07-09-001/../secret").is_err());
+        assert!(validate_workflow_id("wf-2026-7-9-1").is_err());
+        assert!(validate_workflow_id("").is_err());
+    }
+
+    #[test]
+    fn test_should_reject_archive_with_path_traversal_id() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        std::fs::create_dir_all(&active).expect("create active");
+        let result = archive_workflow_at(&active, &archive, "../../evil");
         assert!(
-            regex::Regex::new(r"^wf-\d{4}-\d{2}-\d{2}-\d{3}$")
-                .expect("regex compile")
-                .is_match(&contract.workflow_id),
-            "workflow_id format mismatch: {}",
-            contract.workflow_id
+            result.is_err(),
+            "path traversal id must be rejected before any file I/O"
         );
     }
 
     #[test]
-    fn test_workflow_contract_serialization_roundtrip() {
-        let contract = WorkflowContract::new("fix: pr merge".to_string(), WorkflowMode::Fast);
+    fn test_should_roundtrip_contract_serialization() {
+        let contract = base_contract("fast");
         let json = serde_json::to_string_pretty(&contract).expect("serialize");
         let deserialized: WorkflowContract = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.workflow_id, contract.workflow_id);
@@ -499,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_gate_1_to_2_blocks_without_issue_url() {
-        let mut contract = WorkflowContract::new("feat: test".to_string(), WorkflowMode::Full);
+        let mut contract = base_contract("full");
         // 阶段一状态为 Complete 但缺少 issue_url
         contract.phases.get_mut("1").expect("phase 1").status = PhaseStatus::Complete;
         let result = contract.can_enter_phase(2);
@@ -511,7 +531,7 @@ mod tests {
 
     #[test]
     fn test_gate_1_to_2_passes_with_issue_url() {
-        let mut contract = WorkflowContract::new("feat: test".to_string(), WorkflowMode::Full);
+        let mut contract = base_contract("full");
         let phase1 = contract.phases.get_mut("1").expect("phase 1");
         phase1.status = PhaseStatus::Complete;
         phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
@@ -521,19 +541,45 @@ mod tests {
     }
 
     #[test]
-    fn test_gate_2_to_3_fast_mode_always_passes() {
-        let contract = WorkflowContract::new("fix: typo".to_string(), WorkflowMode::Fast);
-        // 快速模式下 Gate 2→3 自动通过（阶段二被跳过）
+    fn test_gate_2_to_3_fast_mode_passes_after_phase1() {
+        let mut contract = base_contract("fast");
+        let phase1 = contract.phases.get_mut("1").expect("phase 1");
+        phase1.status = PhaseStatus::Complete;
+        phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        // 快速模式在 Phase 1 通过后跳过阶段二直接放行
         let result = contract.can_enter_phase(3);
         assert!(
             matches!(result, GateCheck::Pass),
-            "fast mode should skip phase 2 gate"
+            "fast mode should pass gate 3 once phase 1 is complete"
+        );
+    }
+
+    #[test]
+    fn test_gate_2_to_3_fast_mode_blocked_without_phase1() {
+        // Phase 1 仍进行中：快速模式也不得绕过阶段一完成校验
+        let contract = base_contract("fast");
+        let result = contract.can_enter_phase(3);
+        assert!(
+            matches!(result, GateCheck::PhaseNotComplete(1)),
+            "fast mode must not bypass phase 1 completion"
+        );
+    }
+
+    #[test]
+    fn test_gate_2_to_3_fast_mode_blocked_without_issue_url() {
+        // Phase 1 完成但缺少 issue_url：快速模式仍需该证据
+        let mut contract = base_contract("fast");
+        contract.phases.get_mut("1").expect("phase 1").status = PhaseStatus::Complete;
+        let result = contract.can_enter_phase(3);
+        assert!(
+            matches!(result, GateCheck::MissingEvidence(_)),
+            "fast mode still requires issue_url"
         );
     }
 
     #[test]
     fn test_gate_3_to_4_never_fast_exempt() {
-        let mut contract = WorkflowContract::new("fix: test".to_string(), WorkflowMode::Fast);
+        let mut contract = base_contract("fast");
         // 先标记阶段三为完成（绕过 PhaseNotComplete 检查）
         contract.phases.get_mut("3").expect("phase 3").status = PhaseStatus::Complete;
         // Gate 3→4 没有快速豁免——即使 Fast 模式也需要证据
@@ -619,7 +665,7 @@ mod tests {
 
     #[test]
     fn test_should_serialize_mode_lowercase_and_phases_object() {
-        let contract = WorkflowContract::new("feat: x".to_string(), WorkflowMode::Full);
+        let contract = base_contract("full");
         let json = serde_json::to_string(&contract).expect("serialize");
         // mode 必须是小写字符串，phases 必须是带字符串键的对象
         assert!(
@@ -637,13 +683,39 @@ mod tests {
     }
 
     #[test]
+    fn test_should_omit_none_evidence_fields_on_serialize() {
+        let mut contract = base_contract("full");
+        let phase1 = contract.phases.get_mut("1").expect("phase 1");
+        phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        let json = serde_json::to_string(&contract).expect("serialize");
+        // 已设置的字段应出现，未设置的 Option 不应序列化为 null
+        assert!(
+            json.contains(r#""issue_url":"https://github.com/org/repo/issues/1""#),
+            "set evidence field must be present: {json}"
+        );
+        assert!(
+            !json.contains(r#""comment_id":null"#),
+            "unset evidence fields must be omitted: {json}"
+        );
+        assert!(
+            !json.contains(r#""spec_path":null"#),
+            "unset evidence fields must be omitted: {json}"
+        );
+        // 完全为空的 evidence 序列化为空对象而非一堆 null
+        assert!(
+            json.contains(r#""evidence":{}"#),
+            "empty evidence should be an empty object: {json}"
+        );
+    }
+
+    #[test]
     fn test_should_archive_completed_workflow() {
         let tmp = tempfile::TempDir::new().expect("temp dir");
         let active = tmp.path().join("active");
         let archive = tmp.path().join("archive");
         std::fs::create_dir_all(&active).expect("create active");
 
-        let mut contract = WorkflowContract::new("feat: done".to_string(), WorkflowMode::Full);
+        let mut contract = base_contract("full");
         contract.current_phase = 4;
         contract.phases.get_mut("4").expect("phase 4").status = PhaseStatus::Complete;
         let id = contract.workflow_id.clone();
@@ -674,7 +746,7 @@ mod tests {
         std::fs::create_dir_all(&active).expect("create active");
 
         // Phase 4 仍为 pending，不可归档
-        let contract = WorkflowContract::new("feat: wip".to_string(), WorkflowMode::Full);
+        let contract = base_contract("full");
         let id = contract.workflow_id.clone();
         std::fs::write(
             active.join(format!("{id}.json")),
@@ -700,7 +772,7 @@ mod tests {
         std::fs::create_dir_all(&fresh_month).expect("create fresh month");
 
         // 过期合同（创建时间远早于阈值）
-        let mut old = WorkflowContract::new("feat: old".to_string(), WorkflowMode::Full);
+        let mut old = base_contract("full");
         old.created_at = "2020-01-01T00:00:00Z".to_string();
         std::fs::write(
             old_month.join("wf-2020-01-01-001.json"),
@@ -709,7 +781,8 @@ mod tests {
         .expect("write old contract");
 
         // 新合同（刚创建，应保留）
-        let fresh = WorkflowContract::new("feat: fresh".to_string(), WorkflowMode::Full);
+        let mut fresh = base_contract("full");
+        fresh.created_at = Utc::now().to_rfc3339();
         std::fs::write(
             fresh_month.join("wf-fresh-001.json"),
             serde_json::to_string(&fresh).expect("serialize"),
