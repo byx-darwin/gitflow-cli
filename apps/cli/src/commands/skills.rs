@@ -1602,7 +1602,7 @@ mod tests {
 
         // 使用 temp_env 安全地设置 HOME 环境变量
         temp_env::with_var("HOME", Some(home), || {
-            // 调用函数（Task 2 将移除此处的 `false` 参数）
+            // 验证始终写入全局路径（不依赖 --global 标志）
             let result = merge_co_contribution(AgentPlatform::Claude);
 
             assert!(
