@@ -1584,4 +1584,48 @@ mod tests {
             "joined_at must be updated"
         );
     }
+
+    #[test]
+    fn test_should_write_co_contribution_to_global_path() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let home = temp.path();
+
+        // 临时覆盖 HOME 环境变量
+        let original_home = std::env::var("HOME").ok();
+        std::env::set_var("HOME", home);
+
+        // 调用函数（Task 2 将移除此处的 `false` 参数）
+        let result = merge_co_contribution(AgentPlatform::Claude);
+
+        // 恢复 HOME
+        match original_home {
+            Some(h) => std::env::set_var("HOME", h),
+            None => std::env::remove_var("HOME"),
+        }
+
+        assert!(result.is_ok(), "merge_co_contribution should succeed");
+
+        // 验证写入全局路径
+        let global_settings = home.join(".claude/settings.json");
+        assert!(
+            global_settings.exists(),
+            "global settings.json must be created"
+        );
+
+        let content = std::fs::read_to_string(&global_settings).expect("read");
+        let json: serde_json::Value = serde_json::from_str(&content).expect("parse");
+
+        assert_eq!(
+            json.pointer("/gitflow/co_contribution")
+                .and_then(serde_json::Value::as_bool),
+            Some(true),
+            "co_contribution must be true in global settings"
+        );
+        assert!(
+            json.pointer("/gitflow/joined_at")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "joined_at must be set in global settings"
+        );
+    }
 }
