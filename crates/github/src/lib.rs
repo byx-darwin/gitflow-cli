@@ -42,6 +42,7 @@ pub mod pipeline;
 pub mod pr;
 pub mod release;
 pub mod review;
+pub mod runner;
 
 pub use auth::GitHubAuthProvider;
 pub use commit::GitHubCommitProvider;
