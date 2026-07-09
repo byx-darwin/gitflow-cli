@@ -96,7 +96,7 @@ description: |
 
 | 转入 Phase | 必需 evidence | fast 模式豁免 |
 |-----------|--------------|--------------|
-| 2 (计划) | `issue_url` | — |
+| 2 (计划) | `issue_url` + `comment_id` | `comment_id` 可省 |
 | 3 (执行) | `spec_path` + `user_approved` | ✅ 可跳过 |
 | 4 (交付) | `pr_url` + `tests_passed` | — |
 
@@ -195,13 +195,26 @@ EOF
 ### 更新合同（Phase 完成时）
 
 ```bash
-# 使用 jq 更新（或手动编辑）
+# 使用 jq 更新（或手动编辑）；临时文件按 workflow_id 命名，避免并发覆盖
+COMPLETED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 jq --arg phase "$PHASE_NUM" \
    --arg status "complete" \
-   --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+   --arg completed_at "$COMPLETED_AT" \
    --argjson evidence "$EVIDENCE_JSON" \
   '.phases[$phase].status = $status | .phases[$phase].completed_at = $completed_at | .phases[$phase].evidence = $evidence | .updated_at = $completed_at' \
-  ".cache/workflows/active/${WORKFLOW_ID}.json" > tmp.json && mv tmp.json ".cache/workflows/active/${WORKFLOW_ID}.json"
+  ".cache/workflows/active/${WORKFLOW_ID}.json" > "${WORKFLOW_ID}.tmp" \
+  && mv "${WORKFLOW_ID}.tmp" ".cache/workflows/active/${WORKFLOW_ID}.json"
+```
+
+### 推进到下一 Phase（门控通过后）
+
+```bash
+# 递增 current_phase，并将下一 Phase 置为 in_progress；同样使用 workflow_id 命名临时文件
+jq --arg next "$((PHASE_NUM + 1))" \
+   --arg started_at "$COMPLETED_AT" \
+  '.current_phase = ($next | tonumber) | .phases[$next].status = "in_progress" | .phases[$next].started_at = $started_at | .updated_at = $started_at' \
+  ".cache/workflows/active/${WORKFLOW_ID}.json" > "${WORKFLOW_ID}.tmp" \
+  && mv "${WORKFLOW_ID}.tmp" ".cache/workflows/active/${WORKFLOW_ID}.json"
 ```
 
 ### 读取合同
