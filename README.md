@@ -1,7 +1,9 @@
 # gitflow-cli
 
+[![CI](https://img.shields.io/github/actions/workflow/status/byx-darwin/gitflow-cli/ci.yml?branch=main)](https://github.com/byx-darwin/gitflow-cli/actions)
 [![Release](https://img.shields.io/github/v/release/byx-darwin/gitflow-cli)](https://github.com/byx-darwin/gitflow-cli/releases/latest)
-[![gitflow-cli/0.5.0](https://img.shields.io/badge/gitflow--cli-0.5.0-blue)](https://github.com/byx-darwin/gitflow-cli)
+[![Rust 2024](https://img.shields.io/badge/Rust-2024-orange?logo=rust)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 多平台 Git 锻造 CLI + Superpowers Skills 集合，覆盖从需求到交付的完整 AI 编程工程循环。
 
