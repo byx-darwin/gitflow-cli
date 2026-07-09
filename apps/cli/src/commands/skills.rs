@@ -722,6 +722,65 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Interactive prompts
+// ---------------------------------------------------------------------------
+
+/// Read a Y/n confirmation from stdin.
+///
+/// Displays `prompt` and reads one line. Accepts `y/yes` (case-insensitive) as true,
+/// `n/no` as false, and empty input as `default`. On EOF or invalid input after 3
+/// retries, returns `default`.
+#[allow(
+    dead_code,
+    reason = "will be called by install/uninstall commands in a follow-up task"
+)]
+fn confirm(prompt: &str, default: bool) -> miette::Result<bool> {
+    let stdin = std::io::stdin();
+    let mut reader = stdin.lock();
+    confirm_with_reader(prompt, default, &mut reader)
+}
+
+/// Testable core of [`confirm`] — reads from any `BufRead` source.
+#[allow(
+    dead_code,
+    reason = "called by `confirm`; direct calls from tests for isolation"
+)]
+fn confirm_with_reader(
+    prompt: &str,
+    default: bool,
+    reader: &mut impl std::io::BufRead,
+) -> miette::Result<bool> {
+    use std::io::Write;
+    let hint = if default { "[Y/n]" } else { "[y/N]" };
+    print!("{prompt} {hint} ");
+    let _ = std::io::stdout().flush();
+
+    for _ in 0..3 {
+        let mut line = String::new();
+        let bytes_read = reader
+            .read_line(&mut line)
+            .map_err(|e| miette::miette!("读取输入失败: {e}"))?;
+
+        if bytes_read == 0 {
+            // EOF
+            return Ok(default);
+        }
+
+        match line.trim().to_lowercase().as_str() {
+            "" => return Ok(default),
+            "y" | "yes" => return Ok(true),
+            "n" | "no" => return Ok(false),
+            _ => {
+                print!("请输入 y 或 n: ");
+                let _ = std::io::stdout().flush();
+            }
+        }
+    }
+
+    Ok(default)
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1259,5 +1318,43 @@ mod tests {
             skipped, 0,
             "overwrite with force should not count as skipped"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // confirm / confirm_with_reader tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_should_return_default_on_empty_input() {
+        // Simulate empty input by providing a reader with just a newline
+        let input = b"\n";
+        let result = confirm_with_reader("Continue?", true, &mut &input[..]).expect("confirm");
+        assert!(result, "empty input should return default=true");
+
+        let result = confirm_with_reader("Continue?", false, &mut &input[..]).expect("confirm");
+        assert!(!result, "empty input should return default=false");
+    }
+
+    #[test]
+    fn test_should_accept_yes_variants() {
+        for answer in &[b"y\n" as &[u8], b"Y\n", b"yes\n", b"YES\n"] {
+            let result = confirm_with_reader("Continue?", false, &mut &**answer).expect("confirm");
+            assert!(result, "input {answer:?} should be accepted as yes");
+        }
+    }
+
+    #[test]
+    fn test_should_accept_no_variants() {
+        for answer in &[b"n\n" as &[u8], b"N\n", b"no\n", b"NO\n"] {
+            let result = confirm_with_reader("Continue?", true, &mut &**answer).expect("confirm");
+            assert!(!result, "input {answer:?} should be accepted as no");
+        }
+    }
+
+    #[test]
+    fn test_should_return_default_on_eof() {
+        let input: &[u8] = b"";
+        let result = confirm_with_reader("Continue?", true, &mut &input[..]).expect("confirm");
+        assert!(result, "EOF should return default=true");
     }
 }
