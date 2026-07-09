@@ -2,7 +2,8 @@
 //!
 //! 通过 `glab auth` CLI 命令实现 [`AuthProvider`] trait，支持登录、
 //! 登出、状态查询及 Token 管理。
-//! 所有方法通过 `tokio::process::Command` 调用 `glab`。
+//! 异步方法通过 [`CommandRunner`] 抽象调用 `glab`，测试可注入自定义 runner
+//! 以模拟成功或失败场景。
 
 use async_trait::async_trait;
 use gitflow_cli_core::{
@@ -11,9 +12,15 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab 认证提供者，通过 `glab` CLI 操作认证。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -23,64 +30,59 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabAuthProvider::new();
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabAuthProvider;
+pub struct GitLabAuthProvider<R: CommandRunner = RealCommandRunner> {
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
+}
 
-impl GitLabAuthProvider {
-    /// 创建新的 GitLab 认证提供者。
+impl GitLabAuthProvider<RealCommandRunner> {
+    /// 创建新的 GitLab 认证提供者，使用真实的进程执行器。
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {
+            runner: RealCommandRunner,
+        }
     }
 }
 
-impl Default for GitLabAuthProvider {
+impl<R: CommandRunner> GitLabAuthProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    #[must_use]
+    pub fn with_runner(runner: R) -> Self {
+        Self { runner }
+    }
+}
+
+impl Default for GitLabAuthProvider<RealCommandRunner> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl AuthProvider for GitLabAuthProvider {
+impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
     async fn login(&self, token: Option<&str>) -> Result<()> {
         debug!("spawning `glab auth login`");
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.arg("auth").arg("login");
-
-        // If token is provided, use non-interactive mode via stdin
-        if let Some(token) = token {
-            cmd.arg("--stdin");
-            cmd.stdin(std::process::Stdio::piped());
-            let mut child = cmd.spawn().map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn glab auth login: {e}"))
-            })?;
-
-            // Write token to stdin
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(token.as_bytes()).await.map_err(|e| {
-                    CoreError::Platform(format!("Failed to write token to stdin: {e}"))
-                })?;
-                // Drop stdin to close the pipe
-                drop(stdin);
-            }
-
-            let status = child.wait().await.map_err(|e| {
-                CoreError::Platform(format!("Failed to wait for glab auth login: {e}"))
-            })?;
-
-            if !status.success() {
-                return Err(CoreError::Platform("glab auth login failed".into()));
-            }
+        // If token is provided, pass it via stdin to avoid exposing it in
+        // process arguments (visible to other users via `ps`).
+        let output = if let Some(token) = token {
+            self.runner
+                .run_with_stdin("glab", &["auth", "login", "--stdin"], token.as_bytes())
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth login: {e}")))?
         } else {
-            // Interactive mode
-            let status = cmd.status().await.map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn glab auth login: {e}"))
-            })?;
+            self.runner
+                .run("glab", &["auth", "login"])
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth login: {e}")))?
+        };
 
-            if !status.success() {
-                return Err(CoreError::Platform("glab auth login failed".into()));
-            }
+        if !output.status.success() {
+            let glab_err = parse_glab_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{glab_err}")));
         }
 
         Ok(())
@@ -89,9 +91,9 @@ impl AuthProvider for GitLabAuthProvider {
     async fn logout(&self) -> Result<()> {
         debug!("spawning `glab auth logout`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["auth", "logout"])
-            .output()
+        let output = self
+            .runner
+            .run("glab", &["auth", "logout"])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth logout: {e}")))?;
 
@@ -106,9 +108,9 @@ impl AuthProvider for GitLabAuthProvider {
     async fn status(&self) -> Result<AuthStatus> {
         debug!("spawning `glab auth status`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["auth", "status"])
-            .output()
+        let output = self
+            .runner
+            .run("glab", &["auth", "status"])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth status: {e}")))?;
 
@@ -116,10 +118,10 @@ impl AuthProvider for GitLabAuthProvider {
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if !output.status.success() {
-            let text = format!("{stdout}{stderr}");
-            if text.to_lowercase().contains("not logged in")
-                || text.to_lowercase().contains("no active account")
-                || text.to_lowercase().contains("not authenticated")
+            let text = format!("{stdout}{stderr}").to_lowercase();
+            if text.contains("not logged in")
+                || text.contains("no active account")
+                || text.contains("not authenticated")
             {
                 return Ok(AuthStatus {
                     logged_in: false,
@@ -146,9 +148,9 @@ impl AuthProvider for GitLabAuthProvider {
     async fn token(&self) -> Result<String> {
         debug!("spawning `glab auth token`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["auth", "token"])
-            .output()
+        let output = self
+            .runner
+            .run("glab", &["auth", "token"])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth token: {e}")))?;
 
@@ -164,7 +166,7 @@ impl AuthProvider for GitLabAuthProvider {
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl gitflow_cli_core::AuthChecker for GitLabAuthProvider {
+impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitLabAuthProvider<R> {
     fn is_authenticated(&self) -> bool {
         if std::env::var("GL_TOKEN").is_ok() {
             return true;
@@ -248,6 +250,7 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitlab_auth_provider() {
@@ -257,7 +260,7 @@ mod tests {
 
     #[test]
     fn test_should_default_gitlab_auth_provider() {
-        let provider = GitLabAuthProvider;
+        let provider = GitLabAuthProvider::default();
         let _ = format!("{provider:?}");
     }
 
@@ -321,5 +324,83 @@ mod tests {
             assert!(result.authenticated);
             assert!(result.reason.is_none());
         });
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_login() {
+        let runner = MockCommandRunner::failure("authentication failed", 256);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("glpat-token")).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_logout() {
+        let runner = MockCommandRunner::failure("not logged in", 256);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.logout().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_logged_out_status_when_glab_reports_not_logged_in() {
+        let runner = MockCommandRunner::failure("not logged in to any GitLab hosts", 256);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let status = provider.status().await.expect("graceful logged-out status");
+
+        assert!(!status.logged_in);
+        assert!(status.user.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_status_fails_unexpectedly() {
+        let runner = MockCommandRunner::failure("internal server error", 256);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.status().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_token() {
+        let runner = MockCommandRunner::failure("no token found", 256);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_empty_token_when_stdout_is_empty() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let token = provider
+            .token()
+            .await
+            .expect("empty stdout yields empty token");
+
+        assert!(token.is_empty());
     }
 }

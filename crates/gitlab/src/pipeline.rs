@@ -2,11 +2,13 @@
 //!
 //! 通过 `glab ci` CLI 命令实现 [`PipelineProvider`] trait，支持 Pipeline
 //! 状态查看、日志获取、任务列表和报告生成。
+//! 所有方法通过 [`CommandRunner`] 抽象调用 `glab`，测试可注入自定义 runner
+//! 以模拟成功或失败场景。
 //!
 //! glab 命令映射：
 //! - `status` → `glab ci list`
 //! - `logs` → `glab ci trace`
-//! - `jobs` → `glab ci list --output json`
+//! - `jobs` → `glab ci view --output json`
 //! - `report` → 调用 `status` 后计算统计
 
 use async_trait::async_trait;
@@ -18,9 +20,15 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab Pipeline 提供者，通过 `glab ci` 操作 CI/CD 管线。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -30,18 +38,37 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabPipelineProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabPipelineProvider {
+pub struct GitLabPipelineProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabPipelineProvider {
-    /// 创建新的 GitLab Pipeline 提供者。
+impl GitLabPipelineProvider<RealCommandRunner> {
+    /// 创建新的 GitLab Pipeline 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabPipelineProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -175,22 +202,21 @@ struct PipelineWithJobs {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl PipelineProvider for GitLabPipelineProvider {
+impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> {
     /// 获取指定分支的 Pipeline 状态列表。
     ///
     /// 调用 `glab ci list --ref <branch> --output json`。
     async fn status(&self, branch: &str) -> Result<Vec<PipelineStatus>> {
         debug!(repo = %self.repo, branch, "spawning `glab ci list`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["ci", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--ref")
-            .arg(branch)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "ci", "list", "--repo", &self.repo, "--ref", branch, "--output", "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci list: {e}")))?;
 
@@ -214,12 +240,10 @@ impl PipelineProvider for GitLabPipelineProvider {
     async fn logs(&self, pipeline_id: u64) -> Result<String> {
         debug!(repo = %self.repo, pipeline_id, "spawning `glab ci trace`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["ci", "trace"])
-            .arg(pipeline_id.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let id_str = pipeline_id.to_string();
+        let output = self
+            .runner
+            .run("glab", &["ci", "trace", &id_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci trace: {e}")))?;
 
@@ -237,14 +261,15 @@ impl PipelineProvider for GitLabPipelineProvider {
     async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
         debug!(repo = %self.repo, pipeline_id, "spawning `glab ci view`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["ci", "view"])
-            .arg(pipeline_id.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let id_str = pipeline_id.to_string();
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "ci", "view", &id_str, "--repo", &self.repo, "--output", "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci view: {e}")))?;
 
@@ -354,6 +379,7 @@ impl PipelineProvider for GitLabPipelineProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitlab_pipeline_provider() {
@@ -521,5 +547,98 @@ mod tests {
         let json = b"[]";
         let list: Vec<JobApiResponse> = serde_json::from_slice(json).expect("valid empty list");
         assert!(list.is_empty());
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_status() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.status("main").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_status() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.status("main").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_logs() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.logs(12345).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_jobs() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.jobs(12345).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_jobs() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.jobs(12345).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_report() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.report("main", 7).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_report() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.report("main", 7).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
     }
 }

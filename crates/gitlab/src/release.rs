@@ -2,7 +2,7 @@
 //!
 //! 通过 `glab release` CLI 实现 [`ReleaseProvider`] trait，支持 Release 的创建、
 //! 列表、查看、编辑、资源上传/下载及删除。
-//! 所有方法通过 `tokio::process::Command` 调用 `glab`，捕获 stdout 并解析 JSON。
+//! 所有方法通过 [`CommandRunner`] 抽象调用 `glab`，捕获 stdout 并解析 JSON。
 //!
 //! `glab` 的 `JSON` 输出使用 `snake_case` 字段名（如 `tag_name`、`created_at`），
 //! 因此使用中间类型 [`ReleaseApiResponse`] 进行反序列化，然后转换为核心类型
@@ -18,9 +18,15 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab Release 提供者，通过 `glab` CLI 操作。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -30,18 +36,37 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabReleaseProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabReleaseProvider {
+pub struct GitLabReleaseProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabReleaseProvider {
-    /// 创建新的 GitLab Release 提供者。
+impl GitLabReleaseProvider<RealCommandRunner> {
+    /// 创建新的 GitLab Release 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabReleaseProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -113,34 +138,39 @@ impl From<ReleaseApiResponse> for ReleaseData {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl ReleaseProvider for GitLabReleaseProvider {
+impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["release", "create"])
-            .arg(&args.tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json");
+        let mut cmd_args: Vec<&str> = vec![
+            "release",
+            "create",
+            &args.tag_name,
+            "--repo",
+            &self.repo,
+            "--output",
+            "json",
+        ];
 
         if let Some(ref name) = args.name {
-            cmd.arg("--name").arg(name);
+            cmd_args.push("--name");
+            cmd_args.push(name);
         }
 
         if let Some(ref body) = args.body {
-            cmd.arg("--notes").arg(body);
+            cmd_args.push("--notes");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         if args.prerelease {
-            cmd.arg("--prerelease");
+            cmd_args.push("--prerelease");
         }
 
         if let Some(ref commitish) = args.target_commitish {
-            cmd.arg("--ref").arg(commitish);
+            cmd_args.push("--ref");
+            cmd_args.push(commitish);
         }
 
         debug!(
@@ -149,8 +179,9 @@ impl ReleaseProvider for GitLabReleaseProvider {
             "spawning `glab release create`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -168,13 +199,12 @@ impl ReleaseProvider for GitLabReleaseProvider {
     async fn list(&self) -> Result<Vec<ReleaseData>> {
         debug!(repo = %self.repo, "spawning `glab release list`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["release", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &["release", "list", "--repo", &self.repo, "--output", "json"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -192,14 +222,14 @@ impl ReleaseProvider for GitLabReleaseProvider {
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
         debug!(repo = %self.repo, tag = %tag_name, "spawning `glab release view`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["release", "view"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "release", "view", tag_name, "--repo", &self.repo, "--output", "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -215,32 +245,31 @@ impl ReleaseProvider for GitLabReleaseProvider {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["release", "edit"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json");
+        let mut cmd_args: Vec<&str> = vec![
+            "release", "edit", tag_name, "--repo", &self.repo, "--output", "json",
+        ];
 
         if let Some(ref name) = args.name {
-            cmd.arg("--name").arg(name);
+            cmd_args.push("--name");
+            cmd_args.push(name);
         }
 
         if let Some(ref body) = args.body {
-            cmd.arg("--notes").arg(body);
+            cmd_args.push("--notes");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         if args.prerelease {
-            cmd.arg("--prerelease");
+            cmd_args.push("--prerelease");
         }
 
         if let Some(ref commitish) = args.target_commitish {
-            cmd.arg("--ref").arg(commitish);
+            cmd_args.push("--ref");
+            cmd_args.push(commitish);
         }
 
         debug!(
@@ -249,8 +278,9 @@ impl ReleaseProvider for GitLabReleaseProvider {
             "spawning `glab release edit`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -273,13 +303,14 @@ impl ReleaseProvider for GitLabReleaseProvider {
             "spawning `glab release upload`"
         );
 
-        let output = tokio::process::Command::new("glab")
-            .args(["release", "upload"])
-            .arg(tag_name)
-            .arg(file_path)
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "release", "upload", tag_name, file_path, "--repo", &self.repo,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -311,17 +342,24 @@ impl ReleaseProvider for GitLabReleaseProvider {
 
         let dest = std::path::PathBuf::from(dest_path);
         let parent = dest.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let parent_str = parent.to_string_lossy();
 
-        let output = tokio::process::Command::new("glab")
-            .args(["release", "download"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--pattern")
-            .arg(asset_name)
-            .arg("--dir")
-            .arg(parent)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "release",
+                    "download",
+                    tag_name,
+                    "--repo",
+                    &self.repo,
+                    "--pattern",
+                    asset_name,
+                    "--dir",
+                    &parent_str,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -345,13 +383,12 @@ impl ReleaseProvider for GitLabReleaseProvider {
     async fn delete(&self, tag_name: &str) -> Result<()> {
         debug!(repo = %self.repo, tag = %tag_name, "spawning `glab release delete`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["release", "delete"])
-            .arg(tag_name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--yes")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &["release", "delete", tag_name, "--repo", &self.repo, "--yes"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -367,6 +404,7 @@ impl ReleaseProvider for GitLabReleaseProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitlab_release_provider() {
@@ -406,7 +444,10 @@ mod tests {
         assert_eq!(release.body.as_deref(), Some("Initial stable release"));
         assert!(!release.draft);
         assert!(!release.prerelease);
-        assert_eq!(release.author.as_ref().unwrap().login, "admin");
+        assert_eq!(
+            release.author.as_ref().expect("author present").login,
+            "admin"
+        );
         assert_eq!(
             release.url,
             "https://gitlab.com/gitlab-org/gitlab/-/releases/v1.0.0"
@@ -456,5 +497,165 @@ mod tests {
         let original = GitLabReleaseProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_create_args() -> CreateReleaseArgs {
+        CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Version 1.0.0".to_string()),
+            body: Some("Release notes".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_create() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Tag exists"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_list() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_view() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view("v1.0.0").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view("v1.0.0").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_edit() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.edit("v1.0.0", sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_edit() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.edit("v1.0.0", sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_delete() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.delete("v1.0.0").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_upload_asset() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Upload failed"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
+            .await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_download_asset() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .download_asset("v1.0.0", "asset.tar.gz", "/tmp/asset.tar.gz")
+            .await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }
