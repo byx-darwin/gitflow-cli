@@ -1,0 +1,13 @@
+[package]
+name = "e2e-github"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[dev-dependencies]
+e2e-core = { path = "../e2e-core" }
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[lints]
+workspace = true
