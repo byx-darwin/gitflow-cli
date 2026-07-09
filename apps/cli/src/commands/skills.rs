@@ -343,53 +343,8 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
         }
     }
 
-    // Co-contribution plan — interactive opt-in (only in interactive mode)
-    if !std::io::stderr().is_terminal() {
-        println!("ℹ️ 非交互模式，已跳过共建计划");
-        return Ok(());
-    }
-
-    println!();
-    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
-    println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
-    println!();
-
-    if !confirm("是否加入共建计划？", true)? {
-        println!("已跳过共建计划。你可以稍后运行 `skills install --force` 重新加入。");
-        return Ok(());
-    }
-
-    // Check GitHub auth
-    let auth_provider = gitflow_cli_github::GitHubAuthProvider::new();
-    if auth_provider.is_authenticated() {
-        merge_co_contribution(args.global, platform)?;
-        println!("✅ 共建计划已激活");
-    } else {
-        println!("⚠️ 未检测到 GitHub 登录。");
-        if confirm("是否现在执行 `gh auth login`？", true)? {
-            let status = std::process::Command::new("gh")
-                .args(["auth", "login"])
-                .stdin(std::process::Stdio::inherit())
-                .stdout(std::process::Stdio::inherit())
-                .stderr(std::process::Stdio::inherit())
-                .status();
-            match status {
-                Ok(s) if s.success() => {
-                    merge_co_contribution(args.global, platform)?;
-                    println!("✅ 共建计划已激活");
-                }
-                _ => {
-                    println!(
-                        "登录失败。请手动运行 `gh auth login`，然后重新 `skills install --force`。"
-                    );
-                }
-            }
-        } else {
-            println!(
-                "请手动运行 `gh auth login`，然后重新 `skills install --force` 激活共建计划。"
-            );
-        }
-    }
+    // Co-contribution plan — interactive opt-in
+    try_enable_co_contribution(args, platform)?;
 
     Ok(())
 }
@@ -747,6 +702,66 @@ fn uninstall_hook(global: bool, platform: AgentPlatform) -> miette::Result<()> {
         serde_json::to_string_pretty(&json).map_err(|e| miette::miette!("JSON: {e}"))?;
     std::fs::write(&settings_path, formatted).map_err(|e| miette::miette!("写入: {e}"))?;
     println!("✅ Hook 已卸载");
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Co-contribution opt-in
+// ---------------------------------------------------------------------------
+
+/// Prompt the user to join the co-contribution plan and verify GitHub auth.
+///
+/// In non-interactive mode, silently skips. In interactive mode, asks the user
+/// whether to join, checks `gh auth status`, and writes the settings.json marker
+/// on success.
+fn try_enable_co_contribution(args: &InstallArgs, platform: AgentPlatform) -> miette::Result<()> {
+    if !std::io::stderr().is_terminal() {
+        println!("ℹ️ 非交互模式，已跳过共建计划");
+        return Ok(());
+    }
+
+    println!();
+    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+    println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
+    println!();
+
+    if !confirm("是否加入共建计划？", true)? {
+        println!("已跳过共建计划。你可以稍后运行 `skills install --force` 重新加入。");
+        return Ok(());
+    }
+
+    // Check GitHub auth
+    let auth_provider = gitflow_cli_github::GitHubAuthProvider::new();
+    if auth_provider.is_authenticated() {
+        merge_co_contribution(args.global, platform)?;
+        println!("✅ 共建计划已激活");
+    } else {
+        println!("⚠️ 未检测到 GitHub 登录。");
+        if confirm("是否现在执行 `gh auth login`？", true)? {
+            let status = std::process::Command::new("gh")
+                .args(["auth", "login"])
+                .stdin(std::process::Stdio::inherit())
+                .stdout(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
+                .status();
+            match status {
+                Ok(s) if s.success() => {
+                    merge_co_contribution(args.global, platform)?;
+                    println!("✅ 共建计划已激活");
+                }
+                _ => {
+                    println!(
+                        "登录失败。请手动运行 `gh auth login`，然后重新 `skills install --force`。"
+                    );
+                }
+            }
+        } else {
+            println!(
+                "请手动运行 `gh auth login`，然后重新 `skills install --force` 激活共建计划。"
+            );
+        }
+    }
 
     Ok(())
 }
