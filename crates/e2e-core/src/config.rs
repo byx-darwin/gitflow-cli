@@ -19,7 +19,7 @@ pub struct TestConfig {
     pub test_repo: String,
     /// GitHub 令牌
     pub github_token: Option<String>,
-    /// GitCode 令牌
+    /// `GitCode` 令牌
     pub gitcode_token: Option<String>,
     /// GitLab 令牌
     pub gitlab_token: Option<String>,
@@ -27,6 +27,10 @@ pub struct TestConfig {
 
 impl TestConfig {
     /// 从环境变量加载配置
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConfigError::MissingEnvVar` if `E2E_TEST_REPO` is not set.
     pub fn from_env() -> Result<Self, ConfigError> {
         let test_repo = std::env::var("E2E_TEST_REPO")
             .map_err(|_| ConfigError::MissingEnvVar("E2E_TEST_REPO".to_string()))?;

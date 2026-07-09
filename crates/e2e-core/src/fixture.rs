@@ -49,6 +49,10 @@ pub struct TestFixture {
 
 impl TestFixture {
     /// 创建新的测试固件
+    ///
+    /// # Errors
+    ///
+    /// Returns `FixtureError::Config` if `E2E_TEST_REPO` is not set.
     pub fn new() -> Result<Self, FixtureError> {
         let config = crate::TestConfig::from_env()?;
         Ok(Self {
@@ -58,6 +62,10 @@ impl TestFixture {
     }
 
     /// 清理所有创建的资源
+    ///
+    /// # Errors
+    ///
+    /// Returns `FixtureError::Tty` if cleanup commands fail.
     pub async fn cleanup(&mut self) -> Result<(), FixtureError> {
         let runner = TtyRunner::new(TtyMode::NonInteractive);
 

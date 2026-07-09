@@ -37,7 +37,7 @@ pub struct CommandOutput {
 /// TTY 测试运行器
 #[derive(Debug)]
 pub struct TtyRunner {
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "Mode reserved for future TTY-specific logic")]
     mode: TtyMode,
     working_dir: PathBuf,
     env_vars: HashMap<String, String>,
@@ -45,6 +45,7 @@ pub struct TtyRunner {
 
 impl TtyRunner {
     /// 创建新的 TTY 运行器
+    #[must_use]
     pub fn new(mode: TtyMode) -> Self {
         Self {
             mode,
@@ -64,6 +65,11 @@ impl TtyRunner {
     }
 
     /// 执行命令并返回输出
+    ///
+    /// # Errors
+    ///
+    /// Returns `TtyError::Io` if the command cannot be executed or if reading
+    /// the output fails.
     pub async fn run(&self, args: &[&str]) -> Result<CommandOutput, TtyError> {
         use tokio::process::Command;
 
