@@ -202,11 +202,14 @@ Full gate definitions: `skills/gitflow-workflow/gates.md`
 
 **Execution Steps:**
 
-1. **[AUTO]** Call `superpowers:writing-plans`
+1. **[AUTO]** Call `superpowers:writing-plans` to create a full plan
    - Input: design doc path (from `phases.1.evidence.design_doc_path`)
    - Output: plan doc path `docs/superpowers/plans/YYYY-MM-DD-<topic>-plan.md`
 
-2. **[AUTO]** Update contract
+2. **[AUTO]** Call `gitflow-quality` gate → ALL CHECKS PASSED
+   - Build check / Test check / Coverage check / Format check / Static check / Pre-commit check
+
+3. **[AUTO]** Update contract
    ```json
    phases.2.evidence = {
      "spec_path": "...",
@@ -215,14 +218,14 @@ Full gate definitions: `skills/gitflow-workflow/gates.md`
    phases.2.status = "complete"
    ```
 
-3. **[PAUSE]** Gate 2→3 check + user approval
+4. **[PAUSE]** Gate 2→3 check + user approval
    - Show user the plan doc path
    - **Pause and wait** for user input:
      - "approved" → `user_approved = true` → **enter Phase 3**
      - "changes requested" → return to modify plan
      - "rejected" → terminate workflow
 
-4. **[ON APPROVAL]** Update contract
+5. **[ON APPROVAL]** Update contract
    ```json
    phases.2.evidence.user_approved = true
    ```
@@ -266,7 +269,7 @@ Full gate definitions: `skills/gitflow-workflow/gates.md`
    - Pass → **AUTO-ADVANCE to Phase 4**
    - Fail → return to TDD cycle to fix
 
-### Phase 4: Delivery (Auto-Trigger)
+### Phase 4: Post-Delivery Checks (Auto-Trigger)
 
 **Entry condition:** Gate 3→4 passed
 **Exit condition:** contract `phases.4.status = complete`
