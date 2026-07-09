@@ -46,18 +46,7 @@ impl TestConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_config_with_env_vars() {
-        // Set test environment variables
-        std::env::set_var("E2E_TEST_REPO", "test/repo");
-        std::env::set_var("E2E_GITHUB_TOKEN", "ghp_test");
-
-        let config = TestConfig::from_env().unwrap();
-        assert_eq!(config.test_repo, "test/repo");
-        assert_eq!(config.github_token, Some("ghp_test".to_string()));
-
-        // Note: Cannot safely clean up env vars in tests due to forbid(unsafe_code)
-    }
+    // Note: Environment variable tests are skipped because `std::env::set_var`
+    // and `std::env::remove_var` are unsafe in Rust 2024, and this crate
+    // forbids unsafe code with `#![forbid(unsafe_code)]`.
 }
