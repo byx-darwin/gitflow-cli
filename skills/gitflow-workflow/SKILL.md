@@ -24,6 +24,26 @@ description: |
 - Issue 标签含 `good-first-issue` → `fast`
 - 无法确定 → **询问用户**
 
+## 模式对比
+
+### 完整模式
+全流程四阶段，必须调用：brainstorming → issue-create/review → writing-plans → subagent-driven-development → TDD → Phase 4
+
+| Phase | Sub-skill | 说明 |
+|-------|-----------|------|
+| 1 | `superpowers:brainstorming` | 需求澄清 |
+| 1 | `gitflow-issue-create` | 创建 Issue |
+| 1 | `gitflow-issue-review` | 审查回贴 |
+| 2 | `superpowers:writing-plans` | 制定计划 |
+| 3 | `superpowers:subagent-driven-development` | 含 TDD + Code Review |
+| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review` | 交付后检查 |
+
+### 快速模式 - 必须调用的 Skills 清单
+Phase 1: gitflow-issue-create(必选), brainstorming(可选)
+Phase 2: writing-plans(可选，可跳过)
+Phase 3: subagent-driven-development(必选，含 TDD + Code Review)
+Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review(必选)
+
 ## 核心模式：合同（Contract）
 
 每次工作流启动时，创建一个合同文件：
@@ -229,8 +249,8 @@ jq '.current_phase, .phases | to_entries[] | select(.value.status == "in_progres
 
 ### 禁止行为
 - ❌ 跳过 Phase 4（任何模式）
-- ❌ fast 模式跳过 TDD
-- ❌ fast 模式跳过 Code Review
+- ❌ 快速模式禁止跳过 TDD
+- ❌ 快速模式禁止跳过 Code Review
 - ❌ 合并多个 Phase 为一步
 - ❌ 门控未通过时进入下一 Phase
 - ❌ 用户要求跳步时妥协（Scenario C 防护）
