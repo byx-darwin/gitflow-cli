@@ -2,7 +2,7 @@
 //!
 //! 通过 `gh` CLI 实现 [`PrProvider`] trait，支持 Pull Request 的创建、列表、查看、
 //! 关闭、合并、检出、草稿状态切换和分支同步。
-//! 所有方法通过 `tokio::process::Command` 调用 `gh`，捕获 stdout 并解析 JSON。
+//! 命令执行通过 [`CommandRunner`] 抽象，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
 use gitflow_cli_core::{
@@ -12,7 +12,10 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gh_error;
+use crate::{
+    error::parse_gh_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// `gh pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str =
@@ -23,6 +26,9 @@ const PR_FIELDS: &str =
 /// 该结构体通过调用 `gh` CLI 实现 [`PrProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitHub Pull Request。
 ///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+///
 /// # Examples
 ///
 /// ```no_run
@@ -31,41 +37,65 @@ const PR_FIELDS: &str =
 /// let provider = GitHubPrProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubPrProvider {
+pub struct GitHubPrProvider<R: CommandRunner = RealCommandRunner> {
     /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitHubPrProvider {
-    /// 创建新的 GitHub Pull Request 提供者。
+impl GitHubPrProvider<RealCommandRunner> {
+    /// 创建新的 GitHub Pull Request 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubPrProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl PrProvider for GitHubPrProvider {
+impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["pr", "create"])
-            .arg("--repo")
-            .arg(args.repo.as_deref().unwrap_or(&self.repo))
-            .arg("--title")
-            .arg(&args.title)
-            .arg("--head")
-            .arg(&args.head)
-            .arg("--base")
-            .arg(&args.base);
+        let repo = args.repo.as_deref().unwrap_or(&self.repo);
+
+        let mut cmd_args: Vec<&str> = vec![
+            "pr",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            &args.title,
+            "--head",
+            &args.head,
+            "--base",
+            &args.base,
+        ];
 
         if let Some(body) = &args.body {
-            cmd.arg("--body").arg(body);
+            cmd_args.push("--body");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         debug!(
@@ -76,8 +106,9 @@ impl PrProvider for GitHubPrProvider {
             "spawning `gh pr create`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -97,28 +128,27 @@ impl PrProvider for GitHubPrProvider {
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["pr", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS);
+        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json", PR_FIELDS];
 
         if let Some(state) = &args.state {
-            cmd.arg("--state").arg(match state {
+            cmd_args.push("--state");
+            cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
             });
         }
 
-        if let Some(limit) = args.limit {
-            cmd.arg("--limit").arg(limit.to_string());
+        let limit_str = args.limit.map(|limit| limit.to_string());
+        if let Some(ref limit) = limit_str {
+            cmd_args.push("--limit");
+            cmd_args.push(limit);
         }
 
         debug!(repo = %self.repo, "spawning `gh pr list`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -136,14 +166,21 @@ impl PrProvider for GitHubPrProvider {
     async fn view(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr view`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "view"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "pr",
+                    "view",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    PR_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -169,12 +206,10 @@ impl PrProvider for GitHubPrProvider {
     async fn close(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr close`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "close"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("gh", &["pr", "close", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -198,12 +233,10 @@ impl PrProvider for GitHubPrProvider {
     async fn reopen(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr reopen`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "reopen"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("gh", &["pr", "reopen", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -228,14 +261,21 @@ impl PrProvider for GitHubPrProvider {
         debug!(repo = %self.repo, number, "spawning `gh pr comment`");
 
         // 1. 执行 gh pr comment 发布评论（不返回 JSON）
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "comment"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "pr",
+                    "comment",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    body,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -250,9 +290,9 @@ impl PrProvider for GitHubPrProvider {
             repo = self.repo,
             number = number
         );
-        let api_output = tokio::process::Command::new("gh")
-            .args(["api", &api_path])
-            .output()
+        let api_output = self
+            .runner
+            .run("gh", &["api", &api_path])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
@@ -287,26 +327,18 @@ impl PrProvider for GitHubPrProvider {
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
         debug!(repo = %self.repo, number, ?strategy, "spawning `gh pr merge`");
 
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["pr", "merge"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo);
+        let number_str = number.to_string();
+        let mut cmd_args: Vec<&str> = vec!["pr", "merge", &number_str, "--repo", &self.repo];
 
         match strategy {
-            Some(MergeStrategy::Squash) => {
-                cmd.arg("--squash");
-            }
-            Some(MergeStrategy::Rebase) => {
-                cmd.arg("--rebase");
-            }
-            Some(MergeStrategy::Merge) | None => {
-                cmd.arg("--merge");
-            }
+            Some(MergeStrategy::Squash) => cmd_args.push("--squash"),
+            Some(MergeStrategy::Rebase) => cmd_args.push("--rebase"),
+            Some(MergeStrategy::Merge) | None => cmd_args.push("--merge"),
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -335,12 +367,10 @@ impl PrProvider for GitHubPrProvider {
     async fn checkout(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gh pr checkout`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "checkout"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("gh", &["pr", "checkout", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -363,12 +393,10 @@ impl PrProvider for GitHubPrProvider {
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr ready`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "ready"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("gh", &["pr", "ready", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -392,12 +420,13 @@ impl PrProvider for GitHubPrProvider {
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
         debug!(repo = %self.repo, number, "spawning `gh pr convert-to-draft`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "convert-to-draft"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &["pr", "convert-to-draft", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -421,12 +450,13 @@ impl PrProvider for GitHubPrProvider {
     async fn sync_branch(&self, number: u64) -> Result<()> {
         debug!(repo = %self.repo, number, "spawning `gh pr update-branch`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["pr", "update-branch"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &["pr", "update-branch", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -458,6 +488,7 @@ fn parse_pr_number_from_url(url: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_github_pr_provider() {
@@ -664,5 +695,231 @@ mod tests {
         let original = GitHubPrProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_create_args() -> CreatePrArgs {
+        CreatePrArgs {
+            title: "Add feature".to_string(),
+            body: Some("Detailed description".to_string()),
+            head: "feature/new".to_string(),
+            base: "main".to_string(),
+            draft: false,
+            repo: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_create() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Validation failed"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_on_url_parse_failure_for_create() {
+        // `create` succeeds but stdout has no parseable PR URL, so URL parsing fails.
+        let runner = MockCommandRunner::success("no pull url here");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_list() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListPrArgs::default()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListPrArgs::default()).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_view() {
+        let runner = MockCommandRunner::failure(r#"{"message": "PR not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(999).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(1).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_close() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_reopen() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_merge() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Merge conflict"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.merge(42, None).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_on_invalid_json_for_merge() {
+        // `gh pr merge` returns human-readable text, so any successful output is a
+        // valid message. A failing exit status is the merge failure path instead.
+        let runner = MockCommandRunner::failure("invalid json", 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.merge(42, Some(MergeStrategy::Squash)).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_checkout() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.checkout(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_sync_branch() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Conflict"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.sync_branch(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_mark_ready() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not a draft"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.mark_ready(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_mark_wip() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Already a draft"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.mark_wip(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_comment() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }
