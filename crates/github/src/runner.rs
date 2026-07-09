@@ -26,6 +26,23 @@ pub trait CommandRunner: std::fmt::Debug + Send + Sync {
     ///
     /// Returns [`std::io::Error`] if the command cannot be spawned.
     async fn run(&self, program: &str, args: &[&str]) -> std::io::Result<CommandOutput>;
+
+    /// Execute a command with the given program and arguments, writing
+    /// `stdin_data` to the child process's standard input.
+    ///
+    /// This avoids exposing sensitive values (such as tokens) in process
+    /// arguments, where they would be visible to other users via `ps`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`std::io::Error`] if the command cannot be spawned or if
+    /// writing to its standard input fails.
+    async fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        stdin_data: &[u8],
+    ) -> std::io::Result<CommandOutput>;
 }
 
 /// Default implementation that spawns real processes via [`tokio::process::Command`].
@@ -39,6 +56,34 @@ impl CommandRunner for RealCommandRunner {
             .args(args)
             .output()
             .await?;
+        Ok(CommandOutput {
+            status: output.status,
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
+    async fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        stdin_data: &[u8],
+    ) -> std::io::Result<CommandOutput> {
+        use tokio::io::AsyncWriteExt;
+
+        let mut child = tokio::process::Command::new(program)
+            .args(args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(stdin_data).await?;
+            drop(stdin);
+        }
+
+        let output = child.wait_with_output().await?;
         Ok(CommandOutput {
             status: output.status,
             stdout: output.stdout,
@@ -121,6 +166,15 @@ impl CommandRunner for MockCommandRunner {
             MockResult::Output(output) => Ok(output.clone()),
             MockResult::Error(kind, message) => Err(std::io::Error::new(*kind, message.clone())),
         }
+    }
+
+    async fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        _stdin_data: &[u8],
+    ) -> std::io::Result<CommandOutput> {
+        self.run(program, args).await
     }
 }
 

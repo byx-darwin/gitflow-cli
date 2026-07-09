@@ -67,7 +67,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
     ///
     /// 调用 `gh auth login`，将子进程的 stdout/stderr 透传给终端。
     /// 如果提供了 token，则通过 `--with-token` 参数进行非交互式登录，
-    /// 使用 shell 管道将 token 传入 stdin。
+    /// 并将 token 写入子进程的标准输入，避免其出现在进程参数中。
     ///
     /// # Errors
     ///
@@ -76,13 +76,10 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
         debug!("spawning `gh auth login`");
 
         if let Some(token) = token {
-            // Non-interactive mode with token via shell pipe
-            // Escape single quotes in token for shell safety
-            let escaped = token.replace('\'', "'\\''");
-            let shell_cmd = format!("printf '%s' '{escaped}' | gh auth login --with-token");
+            // 非交互模式：通过 stdin 传入 token，避免在进程参数中暴露敏感值
             let output = self
                 .runner
-                .run("sh", &["-c", &shell_cmd])
+                .run_with_stdin("gh", &["auth", "login", "--with-token"], token.as_bytes())
                 .await
                 .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth login: {e}")))?;
 
@@ -410,6 +407,30 @@ mod tests {
         let provider = GitHubAuthProvider::with_runner(runner);
 
         let result = provider.login(None).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_login_with_token_via_stdin() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("ghp_secret_token")).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_login_with_token_fails() {
+        let runner = MockCommandRunner::failure("token login failed", 1);
+        let provider = GitHubAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("ghp_secret_token")).await;
 
         assert!(result.is_err());
         assert!(matches!(
