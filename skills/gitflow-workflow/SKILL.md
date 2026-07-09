@@ -155,7 +155,7 @@ Full gate definitions: `skills/gitflow-workflow/gates.md`
 
 1. **[AUTO]** Check if existing Issue exists
    - If user specified an Issue → use that Issue
-   - If not specified → read open issues list for selection
+   - If not specified → run `gitflow-cli issue list --state open` to read open issues list for selection
 
 2. **[CALL]** Call `superpowers:brainstorming`
    - Pass context: Issue description (if exists) or user requirements
