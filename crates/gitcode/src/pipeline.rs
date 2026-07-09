@@ -159,6 +159,36 @@ mod tests {
         assert_eq!(original.repo, cloned.repo);
     }
 
+    // --- Stub behavior: all pipeline operations are unsupported on GitCode ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_for_status() {
+        let provider = GitCodePipelineProvider::new("owner/repo");
+        let result = provider.status("main").await;
+        assert!(matches!(result.unwrap_err(), CoreError::Platform(_)));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_for_logs() {
+        let provider = GitCodePipelineProvider::new("owner/repo");
+        let result = provider.logs(123).await;
+        assert!(matches!(result.unwrap_err(), CoreError::Platform(_)));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_for_jobs() {
+        let provider = GitCodePipelineProvider::new("owner/repo");
+        let result = provider.jobs(123).await;
+        assert!(matches!(result.unwrap_err(), CoreError::Platform(_)));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_for_report() {
+        let provider = GitCodePipelineProvider::new("owner/repo");
+        let result = provider.report("main", 7).await;
+        assert!(matches!(result.unwrap_err(), CoreError::Platform(_)));
+    }
+
     #[test]
     fn test_should_map_gc_status_completed_success() {
         assert_eq!(

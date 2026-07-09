@@ -11,7 +11,10 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gitcode_error;
+use crate::{
+    error::parse_gitcode_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// `gc release` 请求的 JSON 字段列表。
 const RELEASE_FIELDS: &str =
@@ -22,6 +25,9 @@ const RELEASE_FIELDS: &str =
 /// 该结构体通过调用 `gitcode` CLI 实现 [`ReleaseProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitCode Release。
 ///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+///
 /// # Examples
 ///
 /// ```no_run
@@ -30,50 +36,75 @@ const RELEASE_FIELDS: &str =
 /// let provider = GitCodeReleaseProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeReleaseProvider {
+pub struct GitCodeReleaseProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodeReleaseProvider {
+impl GitCodeReleaseProvider<RealCommandRunner> {
     /// 创建新的 GitCode Release 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodeReleaseProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl ReleaseProvider for GitCodeReleaseProvider {
+impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["release", "create"])
-            .arg(&args.tag_name)
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_FIELDS);
+        let binary = crate::gitcode_binary();
+        let mut cmd_args: Vec<&str> = vec![
+            "release",
+            "create",
+            &args.tag_name,
+            "-R",
+            &self.repo,
+            "--json",
+            RELEASE_FIELDS,
+        ];
 
         if let Some(ref name) = args.name {
-            cmd.arg("--title").arg(name);
+            cmd_args.push("--title");
+            cmd_args.push(name);
         }
 
         if let Some(ref body) = args.body {
-            cmd.arg("--notes").arg(body);
+            cmd_args.push("--notes");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         if args.prerelease {
-            cmd.arg("--prerelease");
+            cmd_args.push("--prerelease");
         }
 
         if let Some(ref commitish) = args.target_commitish {
-            cmd.arg("--target").arg(commitish);
+            cmd_args.push("--target");
+            cmd_args.push(commitish);
         }
 
         debug!(
@@ -82,8 +113,9 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             "spawning `gc release create`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -101,15 +133,22 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     }
 
     async fn list(&self) -> Result<Vec<ReleaseData>> {
+        let binary = crate::gitcode_binary();
         debug!(repo = %self.repo, "spawning `gc release list`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["release", "list"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "release",
+                    "list",
+                    "-R",
+                    &self.repo,
+                    "--json",
+                    RELEASE_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -125,15 +164,15 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     }
 
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
+        let binary = crate::gitcode_binary();
         debug!(repo = %self.repo, tag = %tag_name, "spawning `gc release view`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["release", "view"])
-            .arg(tag_name)
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["release", "view", tag_name, "-R", &self.repo, "--json"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -149,28 +188,33 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["release", "edit"])
-            .arg(tag_name)
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(RELEASE_FIELDS);
+        let binary = crate::gitcode_binary();
+        let mut cmd_args: Vec<&str> = vec![
+            "release",
+            "edit",
+            tag_name,
+            "-R",
+            &self.repo,
+            "--json",
+            RELEASE_FIELDS,
+        ];
 
         if let Some(ref name) = args.name {
-            cmd.arg("--title").arg(name);
+            cmd_args.push("--title");
+            cmd_args.push(name);
         }
 
         if let Some(ref body) = args.body {
-            cmd.arg("--notes").arg(body);
+            cmd_args.push("--notes");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         if args.prerelease {
-            cmd.arg("--prerelease");
+            cmd_args.push("--prerelease");
         }
 
         debug!(
@@ -179,8 +223,9 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             "spawning `gc release edit`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -197,14 +242,12 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     }
 
     async fn delete(&self, tag_name: &str) -> Result<()> {
+        let binary = crate::gitcode_binary();
         debug!(repo = %self.repo, tag = %tag_name, "spawning `gc release delete`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["release", "delete"])
-            .arg(tag_name)
-            .arg("-R")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &["release", "delete", tag_name, "-R", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -217,6 +260,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
     }
 
     async fn upload_asset(&self, tag_name: &str, file_path: &str, _asset_name: &str) -> Result<()> {
+        let binary = crate::gitcode_binary();
         debug!(
             repo = %self.repo,
             tag = %tag_name,
@@ -224,13 +268,12 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             "spawning `gc release upload`"
         );
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["release", "upload"])
-            .arg(tag_name)
-            .arg(file_path)
-            .arg("-R")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["release", "upload", tag_name, file_path, "-R", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -248,6 +291,7 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         asset_name: &str,
         output_path: &str,
     ) -> Result<()> {
+        let binary = crate::gitcode_binary();
         debug!(
             repo = %self.repo,
             tag = %tag_name,
@@ -256,16 +300,22 @@ impl ReleaseProvider for GitCodeReleaseProvider {
             "spawning `gc release download`"
         );
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["release", "download"])
-            .arg(tag_name)
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--asset")
-            .arg(asset_name)
-            .arg("--output")
-            .arg(output_path)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "release",
+                    "download",
+                    tag_name,
+                    "-R",
+                    &self.repo,
+                    "--asset",
+                    asset_name,
+                    "--output",
+                    output_path,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -275,5 +325,203 @@ impl ReleaseProvider for GitCodeReleaseProvider {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runner::MockCommandRunner;
+
+    #[test]
+    fn test_should_construct_gitcode_release_provider() {
+        let provider = GitCodeReleaseProvider::new("octocat/hello-world");
+        assert_eq!(provider.repo, "octocat/hello-world");
+    }
+
+    #[test]
+    fn test_should_construct_gitcode_release_provider_from_string() {
+        let repo = String::from("octocat/hello-world");
+        let provider = GitCodeReleaseProvider::new(repo);
+        assert_eq!(provider.repo, "octocat/hello-world");
+    }
+
+    #[test]
+    fn test_should_debug_format_provider() {
+        let provider = GitCodeReleaseProvider::new("octocat/hello-world");
+        let debug = format!("{provider:?}");
+        assert!(debug.contains("GitCodeReleaseProvider"));
+        assert!(debug.contains("octocat/hello-world"));
+    }
+
+    #[test]
+    fn test_should_clone_gitcode_release_provider() {
+        let original = GitCodeReleaseProvider::new("owner/repo");
+        let cloned = original.clone();
+        assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_release_args() -> CreateReleaseArgs {
+        CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Release 1.0.0".to_string()),
+            body: Some("First stable release".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_create() {
+        let runner = MockCommandRunner::failure("tag already exists", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_release_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        // create parses ReleaseData; on failure it falls back to view, which
+        // receives the same non-JSON stdout and fails to deserialize.
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_release_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_list() {
+        let runner = MockCommandRunner::failure("forbidden", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_view() {
+        let runner = MockCommandRunner::failure("release not found", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view("v1.0.0").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view("v1.0.0").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_edit() {
+        let runner = MockCommandRunner::failure("release not found", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.edit("v1.0.0", sample_release_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_edit() {
+        // edit parses ReleaseData; on failure it falls back to view, which
+        // receives the same non-JSON stdout and fails to deserialize.
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.edit("v1.0.0", sample_release_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_delete() {
+        let runner = MockCommandRunner::failure("release not found", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.delete("v1.0.0").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_upload_asset() {
+        let runner = MockCommandRunner::failure("upload failed", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .upload_asset("v1.0.0", "/tmp/artifact.tar.gz", "artifact.tar.gz")
+            .await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_download_asset() {
+        let runner = MockCommandRunner::failure("asset not found", 256);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .download_asset("v1.0.0", "artifact.tar.gz", "/tmp/out.tar.gz")
+            .await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }

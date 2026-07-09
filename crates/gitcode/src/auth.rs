@@ -11,9 +11,15 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gitcode_error;
+use crate::{
+    error::parse_gitcode_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitCode 认证提供者，通过 `gitcode` CLI 操作认证。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 ///
 /// # Examples
 ///
@@ -23,28 +29,43 @@ use crate::error::parse_gitcode_error;
 /// let provider = GitCodeAuthProvider::new();
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeAuthProvider;
+pub struct GitCodeAuthProvider<R: CommandRunner = RealCommandRunner> {
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
+}
 
-impl GitCodeAuthProvider {
+impl GitCodeAuthProvider<RealCommandRunner> {
     /// 创建新的 GitCode 认证提供者。
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {
+            runner: RealCommandRunner,
+        }
     }
 }
 
-impl Default for GitCodeAuthProvider {
+impl<R: CommandRunner> GitCodeAuthProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    #[must_use]
+    pub fn with_runner(runner: R) -> Self {
+        Self { runner }
+    }
+}
+
+impl Default for GitCodeAuthProvider<RealCommandRunner> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl AuthProvider for GitCodeAuthProvider {
-    /// 执行交互式登录。
+impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
+    /// 执行登录。
     ///
-    /// 调用 `gc auth login`，将子进程的 stdout/stderr 透传给终端。
-    /// 如果提供了 token，则通过 `--with-token` 参数进行非交互式登录。
+    /// 调用 `gc auth login`。如果提供了 token，则通过 `--with-token` 参数并将
+    /// token 写入子进程 stdin 进行非交互式登录，避免 token 出现在进程参数中。
     ///
     /// # Errors
     ///
@@ -52,42 +73,30 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn login(&self, token: Option<&str>) -> Result<()> {
         debug!("spawning `gc auth login`");
 
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.arg("auth").arg("login");
-
-        if let Some(token) = token {
-            // Non-interactive mode with token
-            cmd.arg("--with-token");
-            cmd.stdin(std::process::Stdio::piped());
-            let mut child = cmd.spawn().map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}"))
-            })?;
-
-            // Write token to stdin
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(token.as_bytes()).await.map_err(|e| {
-                    CoreError::Platform(format!("Failed to write token to stdin: {e}"))
-                })?;
-                drop(stdin);
-            }
-
-            let status = child.wait().await.map_err(|e| {
-                CoreError::Platform(format!("Failed to wait for gitcode auth login: {e}"))
-            })?;
-
-            if !status.success() {
-                return Err(CoreError::Platform("gitcode auth login failed".into()));
-            }
+        let binary = crate::gitcode_binary();
+        let output = if let Some(token) = token {
+            self.runner
+                .run_with_stdin(
+                    &binary,
+                    &["auth", "login", "--with-token"],
+                    token.as_bytes(),
+                )
+                .await
+                .map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}"))
+                })?
         } else {
-            // Interactive mode
-            let status = cmd.status().await.map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}"))
-            })?;
+            self.runner
+                .run(&binary, &["auth", "login"])
+                .await
+                .map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode auth login: {e}"))
+                })?
+        };
 
-            if !status.success() {
-                return Err(CoreError::Platform("gitcode auth login failed".into()));
-            }
+        if !output.status.success() {
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
         Ok(())
@@ -101,9 +110,10 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn logout(&self) -> Result<()> {
         debug!("spawning `gc auth logout`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["auth", "logout"])
-            .output()
+        let binary = crate::gitcode_binary();
+        let output = self
+            .runner
+            .run(&binary, &["auth", "logout"])
             .await
             .map_err(|e| {
                 CoreError::Platform(format!("Failed to spawn gitcode auth logout: {e}"))
@@ -127,9 +137,10 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn status(&self) -> Result<AuthStatus> {
         debug!("spawning `gc auth status`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["auth", "status"])
-            .output()
+        let binary = crate::gitcode_binary();
+        let output = self
+            .runner
+            .run(&binary, &["auth", "status"])
             .await
             .map_err(|e| {
                 CoreError::Platform(format!("Failed to spawn gitcode auth status: {e}"))
@@ -141,10 +152,10 @@ impl AuthProvider for GitCodeAuthProvider {
         // gitcode auth status 在未登录时会返回非零退出码
         if !output.status.success() {
             // 检查是否为未登录状态
-            let text = format!("{stdout}{stderr}");
-            if text.to_lowercase().contains("not logged in")
-                || text.to_lowercase().contains("no active account")
-                || text.to_lowercase().contains("not authenticated")
+            let text = format!("{stdout}{stderr}").to_lowercase();
+            if text.contains("not logged in")
+                || text.contains("no active account")
+                || text.contains("not authenticated")
             {
                 return Ok(AuthStatus {
                     logged_in: false,
@@ -175,9 +186,10 @@ impl AuthProvider for GitCodeAuthProvider {
     async fn token(&self) -> Result<String> {
         debug!("spawning `gc auth token`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["auth", "token"])
-            .output()
+        let binary = crate::gitcode_binary();
+        let output = self
+            .runner
+            .run(&binary, &["auth", "token"])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode auth token: {e}")))?;
 
@@ -193,7 +205,7 @@ impl AuthProvider for GitCodeAuthProvider {
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl gitflow_cli_core::AuthChecker for GitCodeAuthProvider {
+impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitCodeAuthProvider<R> {
     fn is_authenticated(&self) -> bool {
         // 1. 优先检查环境变量
         if std::env::var("GITCODE_TOKEN").is_ok() {
@@ -304,6 +316,7 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitcode_auth_provider() {
@@ -313,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_should_default_gitcode_auth_provider() {
-        let provider = GitCodeAuthProvider;
+        let provider = GitCodeAuthProvider::default();
         let _ = format!("{provider:?}");
     }
 
@@ -390,5 +403,83 @@ mod tests {
             assert!(result.authenticated);
             assert!(result.reason.is_none());
         });
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_login() {
+        let runner = MockCommandRunner::failure("authentication failed", 256);
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("gco_token")).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_logout() {
+        let runner = MockCommandRunner::failure("not logged in", 256);
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.logout().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_logged_out_status_when_gc_reports_not_logged_in() {
+        let runner = MockCommandRunner::failure("not logged in to any GitCode hosts", 256);
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let status = provider.status().await.expect("graceful logged-out status");
+
+        assert!(!status.logged_in);
+        assert!(status.user.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_status_fails_unexpectedly() {
+        let runner = MockCommandRunner::failure("internal server error", 256);
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.status().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_token() {
+        let runner = MockCommandRunner::failure("no token found", 256);
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_empty_token_when_stdout_is_empty() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let token = provider
+            .token()
+            .await
+            .expect("empty stdout yields empty token");
+
+        assert!(token.is_empty());
     }
 }

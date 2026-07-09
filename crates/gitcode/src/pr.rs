@@ -12,7 +12,10 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gitcode_error;
+use crate::{
+    error::parse_gitcode_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// `gc pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str =
@@ -23,6 +26,9 @@ const PR_FIELDS: &str =
 /// 该结构体通过调用 `gitcode` CLI 实现 [`PrProvider`] trait 的所有方法，
 /// 使上层命令能够以统一的方式操作 GitCode Pull Request。
 ///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+///
 /// # Examples
 ///
 /// ```no_run
@@ -31,43 +37,66 @@ const PR_FIELDS: &str =
 /// let provider = GitCodePrProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodePrProvider {
+pub struct GitCodePrProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodePrProvider {
+impl GitCodePrProvider<RealCommandRunner> {
     /// 创建新的 GitCode Pull Request 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodePrProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl PrProvider for GitCodePrProvider {
+impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["pr", "create"])
-            .arg("--repo")
-            .arg(args.repo.as_deref().unwrap_or(&self.repo))
-            .arg("--title")
-            .arg(&args.title)
-            .arg("--head")
-            .arg(&args.head)
-            .arg("--base")
-            .arg(&args.base)
-            .arg("--json")
-            .arg(PR_FIELDS);
+        let binary = crate::gitcode_binary();
+        let mut cmd_args: Vec<&str> = vec![
+            "pr",
+            "create",
+            "--repo",
+            args.repo.as_deref().unwrap_or(&self.repo),
+            "--title",
+            &args.title,
+            "--head",
+            &args.head,
+            "--base",
+            &args.base,
+            "--json",
+            PR_FIELDS,
+        ];
 
         if let Some(body) = &args.body {
-            cmd.arg("--body").arg(body);
+            cmd_args.push("--body");
+            cmd_args.push(body);
         }
 
         if args.draft {
-            cmd.arg("--draft");
+            cmd_args.push("--draft");
         }
 
         debug!(
@@ -78,8 +107,9 @@ impl PrProvider for GitCodePrProvider {
             "spawning `gc pr create`"
         );
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -95,28 +125,28 @@ impl PrProvider for GitCodePrProvider {
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["pr", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS);
+        let binary = crate::gitcode_binary();
+        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json", PR_FIELDS];
 
         if let Some(state) = &args.state {
-            cmd.arg("--state").arg(match state {
+            cmd_args.push("--state");
+            cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
             });
         }
 
-        if let Some(limit) = args.limit {
-            cmd.arg("--limit").arg(limit.to_string());
+        let limit_str = args.limit.map(|limit| limit.to_string());
+        if let Some(ref limit) = limit_str {
+            cmd_args.push("--limit");
+            cmd_args.push(limit);
         }
 
         debug!(repo = %self.repo, "spawning `gc pr list`");
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -132,16 +162,24 @@ impl PrProvider for GitCodePrProvider {
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr view`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "view"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "pr",
+                    "view",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    PR_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -165,16 +203,24 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、已关闭或 `gitcode` CLI 调用失败时返回错误。
     async fn close(&self, number: u64) -> Result<PrData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr close`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "close"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "pr",
+                    "close",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    PR_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -198,16 +244,24 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、未关闭或 `gitcode` CLI 调用失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<PrData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr reopen`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "reopen"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PR_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "pr",
+                    "reopen",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    PR_FIELDS,
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -231,18 +285,26 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、`body` 为空或 `gitcode` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr comment`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "comment"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .arg("--json")
-            .arg("id,body,author,createdAt")
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "pr",
+                    "comment",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    body,
+                    "--json",
+                    "id,body,author,createdAt",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -275,17 +337,16 @@ impl PrProvider for GitCodePrProvider {
             );
         }
 
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, ?strategy, "spawning `gc pr merge`");
 
-        let mut cmd = tokio::process::Command::new(crate::gitcode_binary());
-        cmd.args(["pr", "merge"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--yes");
-
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["pr", "merge", &number_str, "--repo", &self.repo, "--yes"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -312,14 +373,16 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、本地 git 操作失败或 `gitcode` CLI 调用失败时返回错误。
     async fn checkout(&self, number: u64) -> Result<()> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr checkout`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "checkout"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["pr", "checkout", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -340,14 +403,13 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、不是草稿状态或 `gitcode` CLI 调用失败时返回错误。
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr ready`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "ready"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(&binary, &["pr", "ready", &number_str, "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -369,14 +431,16 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、已是草稿状态或 `gitcode` CLI 调用失败时返回错误。
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr convert-to-draft`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "convert-to-draft"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["pr", "convert-to-draft", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -398,14 +462,16 @@ impl PrProvider for GitCodePrProvider {
     ///
     /// 当 PR 不存在、同步存在冲突或 `gitcode` CLI 调用失败时返回错误。
     async fn sync_branch(&self, number: u64) -> Result<()> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
         debug!(repo = %self.repo, number, "spawning `gc pr update-branch`");
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["pr", "update-branch"])
-            .arg(number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &["pr", "update-branch", &number_str, "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -421,6 +487,7 @@ impl PrProvider for GitCodePrProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitcode_pr_provider() {
@@ -614,5 +681,200 @@ mod tests {
         let original = GitCodePrProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    fn sample_create_args() -> CreatePrArgs {
+        CreatePrArgs {
+            title: "New feature".to_string(),
+            body: Some("Adds a feature".to_string()),
+            head: "feature/x".to_string(),
+            base: "main".to_string(),
+            draft: false,
+            repo: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_create() {
+        let runner = MockCommandRunner::failure("validation failed", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_create() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.create(sample_create_args()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_list() {
+        let runner = MockCommandRunner::failure("forbidden", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListPrArgs::default()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_list() {
+        let runner = MockCommandRunner::success("invalid");
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.list(ListPrArgs::default()).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_view() {
+        let runner = MockCommandRunner::failure("pr not found", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(999).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_view() {
+        let runner = MockCommandRunner::success("not valid json");
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.view(1).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_close() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.close(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_reopen() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.reopen(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_merge() {
+        let runner = MockCommandRunner::failure("merge conflict", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.merge(42, None).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_comment() {
+        let runner = MockCommandRunner::failure("not found", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(42, "a comment").await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_checkout() {
+        let runner = MockCommandRunner::failure("git error", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.checkout(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_sync_branch() {
+        let runner = MockCommandRunner::failure("sync conflict", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.sync_branch(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_mark_ready() {
+        let runner = MockCommandRunner::failure("not a draft", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.mark_ready(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gc_fails_for_mark_wip() {
+        let runner = MockCommandRunner::failure("already a draft", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.mark_wip(42).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
     }
 }
