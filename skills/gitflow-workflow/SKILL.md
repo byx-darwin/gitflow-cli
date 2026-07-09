@@ -36,13 +36,13 @@ Full four-phase pipeline, mandatory: brainstorming → issue-create/review → w
 | 1 | `gitflow-issue-review` | Review & comment |
 | 2 | `superpowers:writing-plans` | Plan creation |
 | 3 | `superpowers:subagent-driven-development` | Includes TDD + Code Review |
-| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review` | Post-delivery checks |
+| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review → dogfooding-checklist` | Post-delivery checks |
 
 ### Fast Mode — Required Skills Checklist
 Phase 1: gitflow-issue-create (required), brainstorming (optional)
 Phase 2: writing-plans (optional, skippable)
 Phase 3: subagent-driven-development (required, includes TDD + Code Review)
-Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review (required)
+Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review → dogfooding-checklist (required)
 
 ## Orchestrator State Machine
 
@@ -288,19 +288,27 @@ Full gate definitions: `skills/gitflow-workflow/gates.md`
    - Generate code review report
    - Output: `review_report_path`
 
-4. **[AUTO]** Update contract
+4. **[AUTO]** Execute Dogfooding Checklist
+   - Reference: `docs/specs/phase4-dogfooding-checklist.md`
+   - Execute each platform's risk-driven checklist items
+   - Record any bugs to `.cache/bug-reports/pending.json` with `source: "dogfooding"`
+   - All items must pass; any failure blocks Phase 4 completion
+   - Output: `dogfooding_passed = true/false`
+
+5. **[AUTO]** Update contract
    ```json
    phases.4.evidence = {
      "pipeline_ok": true,
-     "review_report_path": "..."
+     "review_report_path": "...",
+     "dogfooding_passed": true
    }
    phases.4.status = "complete"
    ```
 
-5. **[AUTO]** Archive contract
+6. **[AUTO]** Archive contract
    - Move: `.cache/workflows/active/<workflow_id>.json` → `.cache/workflows/archive/YYYY-MM/`
 
-6. **[COMPLETE]** Workflow ends
+7. **[COMPLETE]** Workflow ends
 
 ## Contract Operations API
 

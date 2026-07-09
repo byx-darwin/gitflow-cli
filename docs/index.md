@@ -14,6 +14,7 @@
 - [TDD Guide](./tdd.md) — test-driven development workflow with `make test-watch`.
 - [Pre-commit Usage](./pre-commit-usage.md) — how to install and run repository pre-commit hooks.
 - [Release](./release.md) — release checklist, changelog, and distribution packaging.
+- [Phase 4 Dogfooding Checklist](./specs/phase4-dogfooding-checklist.md) — pre-release verification checklist for GitHub/GitLab/GitCode core commands.
 
 ## Reference
 
