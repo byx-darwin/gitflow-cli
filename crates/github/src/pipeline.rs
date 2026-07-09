@@ -10,7 +10,10 @@ use gitflow_cli_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gh_error;
+use crate::{
+    error::parse_gh_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// `gh run list` 请求的 JSON 字段列表。
 const PIPELINE_FIELDS: &str = "databaseId,headBranch,status,conclusion,createdAt,updatedAt,url";
@@ -113,6 +116,12 @@ impl GhJob {
 
 /// GitHub Pipeline 提供者，通过 `gh` CLI 操作 CI/CD 流水线。
 ///
+/// 该结构体通过调用 `gh` CLI 实现 [`PipelineProvider`] trait 的所有方法，
+/// 使上层命令能够以统一的方式查看 GitHub Actions 流水线状态。
+///
+/// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
+/// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+///
 /// # Examples
 ///
 /// ```no_run
@@ -121,37 +130,62 @@ impl GhJob {
 /// let provider = GitHubPipelineProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubPipelineProvider {
+pub struct GitHubPipelineProvider<R: CommandRunner = RealCommandRunner> {
     /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitHubPipelineProvider {
-    /// 创建新的 GitHub Pipeline 提供者。
+impl GitHubPipelineProvider<RealCommandRunner> {
+    /// 创建新的 GitHub Pipeline 提供者，使用真实的进程执行器。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubPipelineProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
 #[async_trait]
-impl PipelineProvider for GitHubPipelineProvider {
+impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> {
     async fn status(&self, branch: &str) -> Result<Vec<PipelineStatus>> {
         debug!(repo = %self.repo, branch = %branch, "spawning `gh run list`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["run", "list"])
-            .arg("--branch")
-            .arg(branch)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(PIPELINE_FIELDS)
-            .arg("--limit")
-            .arg("30")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "run",
+                    "list",
+                    "--branch",
+                    branch,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    PIPELINE_FIELDS,
+                    "--limit",
+                    "30",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -169,13 +203,13 @@ impl PipelineProvider for GitHubPipelineProvider {
     async fn logs(&self, pipeline_id: u64) -> Result<String> {
         debug!(repo = %self.repo, pipeline_id, "spawning `gh run view --log`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["run", "view"])
-            .arg(pipeline_id.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--log")
-            .output()
+        let run_id = pipeline_id.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &["run", "view", &run_id, "--repo", &self.repo, "--log"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -191,14 +225,15 @@ impl PipelineProvider for GitHubPipelineProvider {
     async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
         debug!(repo = %self.repo, pipeline_id, "spawning `gh run view --json jobs`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["run", "view"])
-            .arg(pipeline_id.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg("jobs")
-            .output()
+        let run_id = pipeline_id.to_string();
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "run", "view", &run_id, "--repo", &self.repo, "--json", "jobs",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -230,17 +265,23 @@ impl PipelineProvider for GitHubPipelineProvider {
             "spawning `gh run list` for report"
         );
 
-        let output = tokio::process::Command::new("gh")
-            .args(["run", "list"])
-            .arg("--branch")
-            .arg(branch)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg("conclusion,createdAt,updatedAt")
-            .arg("--limit")
-            .arg("100")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "run",
+                    "list",
+                    "--branch",
+                    branch,
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    "conclusion,createdAt,updatedAt",
+                    "--limit",
+                    "100",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
@@ -327,6 +368,7 @@ impl PipelineProvider for GitHubPipelineProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_github_pipeline_provider() {
@@ -706,5 +748,105 @@ mod tests {
         assert!(top_failures.contains(&"startup_failure".to_string()));
         assert!(top_failures.contains(&"timed_out".to_string()));
         assert_eq!(top_failures.len(), 3);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_status() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.status("main").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_status() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.status("main").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_logs() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.logs(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_jobs() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.jobs(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_jobs() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.jobs(42).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_report() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.report("main", 7).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_serialization_error_on_invalid_json_for_report() {
+        let runner = MockCommandRunner::success("invalid json");
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let result = provider.report("main", 7).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_cli_core::CoreError::Serialization(_)
+        ));
     }
 }
