@@ -1,0 +1,25 @@
+//! GitHub pr 命令 E2E 测试
+
+use e2e_core::{TtyMode, TtyRunner};
+
+#[tokio::test]
+async fn test_pr_list_interactive() {
+    let runner = TtyRunner::new(TtyMode::Interactive);
+    let output = runner
+        .run(&["pr", "list", "--platform", "github"])
+        .await
+        .unwrap();
+
+    assert!(output.status.success());
+}
+
+#[tokio::test]
+async fn test_pr_list_non_interactive() {
+    let runner = TtyRunner::new(TtyMode::NonInteractive);
+    let output = runner
+        .run(&["pr", "list", "--platform", "github"])
+        .await
+        .unwrap();
+
+    assert!(output.status.success());
+}

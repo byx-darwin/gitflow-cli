@@ -1,0 +1,17 @@
+[package]
+name = "e2e-core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tokio = { version = "1", features = ["full"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+
+[lints]
+workspace = true
