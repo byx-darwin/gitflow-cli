@@ -9,8 +9,8 @@ mod common;
 fn test_should_contain_phase3_heading() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("Phase 3: 执行"),
-        "SKILL.md must contain 'Phase 3: 执行' heading"
+        content.contains("Phase 3: Execution"),
+        "SKILL.md must contain 'Phase 3: Execution' heading"
     );
 }
 
@@ -39,8 +39,8 @@ fn test_should_contain_tdd_in_execution() {
 fn test_should_contain_phase4_heading() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("Phase 4: 交付后检查"),
-        "SKILL.md must contain 'Phase 4: 交付后检查' heading"
+        content.contains("Phase 4: Post-Delivery Checks"),
+        "SKILL.md must contain 'Phase 4: Post-Delivery Checks' heading"
     );
 }
 
@@ -76,15 +76,15 @@ fn test_should_contain_all_phase4_outputs() {
     let content = common::load_skill_md();
     // Phase 4 must produce three reports
     assert!(
-        content.contains("流水线分析报告"),
-        "SKILL.md must list '流水线分析报告' as Phase 4 output"
+        content.contains("pipeline analysis report"),
+        "SKILL.md must list 'pipeline analysis report' as Phase 4 output"
     );
     assert!(
-        content.contains("Issue 分类报告"),
-        "SKILL.md must list 'Issue 分类报告' as Phase 4 output"
+        content.contains("Issue triage report"),
+        "SKILL.md must list 'Issue triage report' as Phase 4 output"
     );
     assert!(
-        content.contains("代码审查报告"),
-        "SKILL.md must list '代码审查报告' as Phase 4 output"
+        content.contains("code review report"),
+        "SKILL.md must list 'code review report' as Phase 4 output"
     );
 }

@@ -62,7 +62,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "enum": ["需求澄清", "计划制定", "执行", "交付"]
+          "enum": ["Clarification", "Planning", "Execution", "Delivery"]
         },
         "status": {
           "type": "string",

@@ -6,8 +6,8 @@ mod common;
 fn test_should_contain_phase2_heading() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("Phase 2: 计划制定"),
-        "SKILL.md must contain 'Phase 2: 计划制定' heading"
+        content.contains("Phase 2: Planning"),
+        "SKILL.md must contain 'Phase 2: Planning' heading"
     );
 }
 
@@ -15,8 +15,8 @@ fn test_should_contain_phase2_heading() {
 fn test_should_contain_create_full_plan_step() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("制定完整计划"),
-        "SKILL.md must contain '制定完整计划' step description"
+        content.contains("create a full plan"),
+        "SKILL.md must contain 'create a full plan' step description"
     );
 }
 
@@ -34,12 +34,12 @@ fn test_should_contain_all_six_quality_checks() {
     let content = common::load_skill_md();
     // The 6 quality checks that must be present
     let checks = [
-        ("Build", "Build 检查"),
-        ("Test", "Test 检查"),
-        ("Coverage", "Coverage 检查"),
-        ("Format", "Format 检查"),
-        ("Static", "Static 检查"),
-        ("Pre-commit", "Pre-commit 检查"),
+        ("Build", "Build check"),
+        ("Test", "Test check"),
+        ("Coverage", "Coverage check"),
+        ("Format", "Format check"),
+        ("Static", "Static check"),
+        ("Pre-commit", "Pre-commit check"),
     ];
 
     for (name, pattern) in &checks {

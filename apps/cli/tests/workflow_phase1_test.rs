@@ -6,8 +6,8 @@ mod common;
 fn test_should_contain_phase1_heading() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("Phase 1: 需求澄清"),
-        "SKILL.md must contain 'Phase 1: 需求澄清' heading"
+        content.contains("Phase 1: Clarification"),
+        "SKILL.md must contain 'Phase 1: Clarification' heading"
     );
 }
 
@@ -15,8 +15,8 @@ fn test_should_contain_phase1_heading() {
 fn test_should_contain_read_open_issues_step() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("读取 Open Issues"),
-        "SKILL.md must contain '读取 Open Issues' step description"
+        content.contains("Read Open Issues"),
+        "SKILL.md must contain 'Read Open Issues' step description"
     );
 }
 
@@ -25,12 +25,12 @@ fn test_should_contain_full_and_fast_mode_in_phase1() {
     let content = common::load_skill_md();
     // Phase 1 must reference both working modes
     assert!(
-        content.contains("完整模式"),
-        "SKILL.md must contain '完整模式' (full mode) reference"
+        content.contains("Full Mode"),
+        "SKILL.md must contain 'Full Mode' (full mode) reference"
     );
     assert!(
-        content.contains("快速模式"),
-        "SKILL.md must contain '快速模式' (fast mode) reference"
+        content.contains("Fast Mode"),
+        "SKILL.md must contain 'Fast Mode' (fast mode) reference"
     );
 }
 
