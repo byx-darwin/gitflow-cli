@@ -6,7 +6,7 @@
 
 ### 必需工具
 
-- **Rust 工具链**：参见 `rust-toolchain.toml`（当前要求 1.96.0）
+- **Rust 工具链**：参见 `rust-toolchain.toml`
 - **原生 CLI**（按需安装）：
   - GitHub 平台：`gh` CLI（v2.0.0+）
   - GitLab 平台：`glab` CLI（v1.30.0+）
@@ -38,6 +38,7 @@ make install-tools
 - **TDD（测试驱动开发）**：先写测试 → 确认失败 → 写实现 → 重构
 - **Conventional Commits**：`feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:`
 - **`#![forbid(unsafe_code)]`**：所有 crate 禁止 unsafe 代码
+- **Clippy pedantic**：`cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` 必须无警告
 
 ## TDD 开发循环
 
@@ -83,6 +84,27 @@ gitflow-cli/
 7. **代码审查**：等待审查，根据反馈修改
 8. **合并**：审查通过后合并到 `main`
 
+### PR 检查清单
+
+提交 PR 前请确认:
+
+- [ ] `cargo build` 编译通过
+- [ ] `cargo test` 所有测试通过
+- [ ] `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` 无警告
+- [ ] `cargo fmt` 格式正确
+- [ ] `cargo deny check` 依赖审计通过
+- [ ] `cargo audit` 无安全漏洞
+- [ ] 新增功能包含对应测试(success + failure 路径)
+- [ ] 公共 API 有文档注释(含 `# Errors` / `# Panics` 适用时)
+
+### 审查标准
+
+- **正确性**:实现是否符合需求,边界条件是否覆盖
+- **测试覆盖**:是否有足够的单元测试和集成测试
+- **代码质量**:是否符合 SOLID/DRY/KISS,错误处理是否合理
+- **性能**:是否存在不必要的克隆/分配(尤其热路径)
+- **安全性**:外部输入是否校验,是否有 path traversal/SSRF 风险
+
 ## Issue 标签说明
 
 | 标签 | 用途 |
@@ -99,6 +121,15 @@ gitflow-cli/
 1. `cargo release tag` — 打版本标签
 2. `git cliff` — 生成 CHANGELOG
 3. GitHub Release workflow — 自动构建并上传二进制
+
+## Skill 文档规范
+
+新增或修改 skill 时,遵循 `CLAUDE.md` 中的语言约定:
+
+- **`description:` 字段使用英中双语**(支持中英文触发匹配)
+- **叙述性正文统一使用英文**
+- **`When to Use` / 触发词表格保留中文触发词列**
+- **代码块、命令、工具名、路径保持原文不动**
 
 ## 获取帮助
 
