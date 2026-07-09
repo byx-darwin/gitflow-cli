@@ -56,6 +56,7 @@ use commands::{
     pr::PrCommand,
     release::ReleaseCommand,
     review::ReviewCommand,
+    workflow::WorkflowCommand,
 };
 use is_terminal::IsTerminal;
 
@@ -106,10 +107,13 @@ fn main() -> std::process::ExitCode {
     };
 
     // Resolve platform and repository early so they are available in the
-    // error handler below. Skills and Completions commands don't need
+    // error handler below. Skills, Completions, and Workflow commands don't need
     // platform info, so skip resolve_platform for them (allows running
     // outside a git repository).
-    let platform_needed = !matches!(cli.command, Commands::Skills(_) | Commands::Completions(_));
+    let platform_needed = !matches!(
+        cli.command,
+        Commands::Skills(_) | Commands::Completions(_) | Commands::Workflow(_)
+    );
     let (platform, repo) = if platform_needed {
         match resolve_platform(cli.platform.clone()) {
             Ok(pr) => pr,
@@ -162,8 +166,11 @@ fn report_error_noninteractive(
 /// The `platform` and `repo` are resolved in `main()` before this
 /// function is called so they remain available in the error handler.
 async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> {
-    // Skills/Completions don't need native CLI — skip prerequisite check
-    if !matches!(cli.command, Commands::Skills(_) | Commands::Completions(_)) {
+    // Skills/Completions/Workflow don't need native CLI — skip prerequisite check
+    if !matches!(
+        cli.command,
+        Commands::Skills(_) | Commands::Completions(_) | Commands::Workflow(_)
+    ) {
         commands::prerequisites::check(platform).map_err(|e| miette::miette!("{e}"))?;
     }
 
@@ -199,6 +206,7 @@ async fn router(
         }
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
         Commands::Pipeline(cmd) => commands::pipeline::handle(cmd, platform, repo, output).await,
+        Commands::Workflow(cmd) => commands::workflow::handle(cmd),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd),
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
@@ -442,6 +450,7 @@ impl Cli {
             Commands::Milestone(_) => "milestone",
             Commands::Commit(_) => "commit",
             Commands::Pipeline(_) => "pipeline",
+            Commands::Workflow(_) => "workflow",
         }
         .into()
     }
@@ -485,6 +494,10 @@ enum Commands {
     /// Pipeline operations (status, logs, jobs, report).
     #[command(subcommand)]
     Pipeline(PipelineCommand),
+
+    /// Workflow contract and gate management.
+    #[command(subcommand)]
+    Workflow(WorkflowCommand),
 
     /// Skills management operations (install, list, uninstall).
     #[command(subcommand)]
