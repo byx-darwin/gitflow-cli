@@ -36,3 +36,4 @@ credentials/
 .cache/
 .claude/skills/
 .superpowers/
+.codegraph/
