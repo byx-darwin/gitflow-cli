@@ -436,8 +436,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 为指定 Issue 添加一个或多个标签。
     ///
-    /// 调用 `glab issue edit <number> --repo <repo> --add-label <label>` 逐个添加标签。
-    /// 如果 `labels` 为空，不进行任何调用并返回成功。
+    /// 调用 `glab issue edit <number> --repo <repo> --add-label <labels>` 添加标签，
+    /// 多个标签以逗号连接后一次性提交。
     ///
     /// # Errors
     ///
