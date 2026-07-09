@@ -145,7 +145,7 @@ pub struct InstallArgs {
     pub force: bool,
 
     /// 启用自动 bug 上报（Stop Hook），默认开启
-    #[arg(long, default_value_t = true, action = ArgAction::SetTrue)]
+    #[arg(long = "report-bug", default_value_t = true, action = ArgAction::Set)]
     pub report_bug: bool,
 }
 
@@ -1140,5 +1140,48 @@ mod tests {
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
         assert!(cmd.contains("~/.claude/hooks/auto-report-bug.sh"));
+    }
+
+    #[test]
+    fn test_should_parse_report_bug_false() {
+        use clap::Parser;
+
+        #[derive(Debug, Parser)]
+        struct TestCli {
+            #[command(subcommand)]
+            cmd: TestCmd,
+        }
+
+        #[derive(Debug, Subcommand)]
+        enum TestCmd {
+            Install(InstallArgs),
+        }
+
+        let cli = TestCli::parse_from(["test", "install", "--report-bug=false"]);
+        let TestCmd::Install(args) = cli.cmd;
+        assert!(
+            !args.report_bug,
+            "--report-bug=false must set report_bug to false"
+        );
+    }
+
+    #[test]
+    fn test_should_default_report_bug_to_true() {
+        use clap::Parser;
+
+        #[derive(Debug, Parser)]
+        struct TestCli {
+            #[command(subcommand)]
+            cmd: TestCmd,
+        }
+
+        #[derive(Debug, Subcommand)]
+        enum TestCmd {
+            Install(InstallArgs),
+        }
+
+        let cli = TestCli::parse_from(["test", "install"]);
+        let TestCmd::Install(args) = cli.cmd;
+        assert!(args.report_bug, "report_bug must default to true");
     }
 }
