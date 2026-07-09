@@ -119,9 +119,58 @@ pub(crate) fn maybe_report_error(
     if should_skip_reporting() {
         return Ok(());
     }
+
+    // Only report if user has joined the co-contribution plan
+    if !is_co_contribution_enabled() {
+        return Ok(());
+    }
+
     let report = ErrorReport::from_error(command, platform, error_message, error_code);
     let repo_root = find_repo_root()?;
     report.write_to_disk(&repo_root)
+}
+
+/// Check whether the co-contribution plan is enabled.
+///
+/// Checks two locations in order:
+/// 1. `<repo_root>/.claude/settings.json` (project-level)
+/// 2. `~/.claude/settings.json` (global, from `-g` install)
+///
+/// Returns `true` if either location has `gitflow.co_contribution = true`.
+/// Returns `false` if neither file exists, or the field is missing/false.
+/// Any I/O or parse error silently degrades to `false`.
+fn is_co_contribution_enabled() -> bool {
+    if let Ok(repo_root) = find_repo_root() {
+        let project_settings = repo_root.join(".claude/settings.json");
+        if read_co_contribution_flag(&project_settings) {
+            return true;
+        }
+    }
+
+    if let Some(home) = dirs::home_dir() {
+        let global_settings = home.join(".claude/settings.json");
+        if read_co_contribution_flag(&global_settings) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Read the `gitflow.co_contribution` flag from a specific settings file.
+///
+/// Returns `false` if the file doesn't exist, can't be read, or the field
+/// is missing/not a boolean.
+fn read_co_contribution_flag(path: &Path) -> bool {
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return false;
+    };
+    json.pointer("/gitflow/co_contribution")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
 }
 
 /// Returns `true` when error reporting should be skipped because
@@ -307,5 +356,52 @@ mod tests {
     #[test]
     fn test_should_format_iso8601_day_after_epoch() {
         assert_eq!(unix_secs_to_iso8601(86_400), "1970-01-02T00:00:00Z");
+    }
+
+    #[test]
+    fn test_should_return_false_for_missing_settings_file() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let missing = tmp.path().join("nonexistent.json");
+        assert!(!read_co_contribution_flag(&missing));
+    }
+
+    #[test]
+    fn test_should_return_false_for_settings_without_gitflow() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"hooks": {}}"#).expect("write");
+        assert!(!read_co_contribution_flag(&path));
+    }
+
+    #[test]
+    fn test_should_return_false_for_gitflow_without_co_contribution() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"gitflow": {}}"#).expect("write");
+        assert!(!read_co_contribution_flag(&path));
+    }
+
+    #[test]
+    fn test_should_return_true_for_co_contribution_enabled() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        assert!(read_co_contribution_flag(&path));
+    }
+
+    #[test]
+    fn test_should_return_false_for_co_contribution_disabled() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"gitflow": {"co_contribution": false}}"#).expect("write");
+        assert!(!read_co_contribution_flag(&path));
+    }
+
+    #[test]
+    fn test_should_return_false_for_invalid_json() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, "not json").expect("write");
+        assert!(!read_co_contribution_flag(&path));
     }
 }
