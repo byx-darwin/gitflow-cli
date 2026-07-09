@@ -111,7 +111,7 @@
 |----------|-------|--------|--------|-------|
 | GitHub   | 4     | 4      | 0      | OK    |
 | GitLab   | 5     | 5      | 0      | OK    |
-| GitCode  | 3     | 3      | 0      | OK    |
+| GitCode  | 4     | 4      | 0      | OK    |
 
 **Bugs Found:** 0
 **Release Decision:** APPROVED / BLOCKED
@@ -126,6 +126,6 @@
 
 - Issue #70: `pr merge` 非交互式模式失败（Dogfooding 发现）
 - Issue #73: Phase 4 Dogfooding 常态化
-- Design Spec: `docs/superpowers/specs/2026-07-10-dogfooding-checklist-design.md`
+- Design Spec: [`docs/superpowers/specs/2026-07-10-dogfooding-checklist-design.md`](../../superpowers/specs/2026-07-10-dogfooding-checklist-design.md)
 - Bug Reports: `.cache/bug-reports/pending.json`
-- Phase 4 Coverage TDD: `docs/superpowers/specs/2026-07-09-phase4-coverage-tdd-design.md`
+- Phase 4 Coverage TDD: [`docs/superpowers/specs/2026-07-09-phase4-coverage-tdd-design.md`](../../superpowers/specs/2026-07-09-phase4-coverage-tdd-design.md)
