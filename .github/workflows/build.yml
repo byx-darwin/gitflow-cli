@@ -64,6 +64,12 @@ jobs:
         if: runner.os == 'Linux'
         run: cargo audit
 
+      - name: Build release binary (for e2e tests)
+        run: cargo build --release
+
+      - name: Add to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+
       - name: Execute rust tests
         run: cargo nextest run --all-features
 
