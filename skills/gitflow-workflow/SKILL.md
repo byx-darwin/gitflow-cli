@@ -25,12 +25,29 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
 
 **Before ANY phase executes, the orchestrator MUST:**
 
-1. Run mode auto-detection (full / fast)
-2. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`)
-3. Announce the workflow start with: workflow_id, mode, title
+1. **Check for active contracts** — list `.cache/workflows/active/*.json`
+   - Incomplete workflow exists (`status != "complete"`) → **RESUME** it: read `current_phase`, load context, continue from next step
+   - Multiple exist → ask user which to resume
+   - None exist → proceed to step 2
+2. Run mode auto-detection (full / fast)
+3. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`)
+4. Announce the workflow start with: workflow_id, mode, title
 
 **If no contract exists, no sub-skill may be invoked.** The contract is the
 single source of truth for the workflow's state.
+
+### Cross-Session Resume
+
+When resuming an existing contract, load context based on `current_phase`:
+
+| Phase | Context to Load | Resume From |
+|-------|----------------|-------------|
+| 1 | `design_doc_path` (if exists) | Next uncompleted step in Phase 1 |
+| 2 | `design_doc_path` + `spec_path` | Gate 2→3 pause (await user approval) |
+| 3 | `spec_path` (plan doc) | Next step after last evidence |
+| 4 | `pr_url` + review reports | Next check in Phase 4 |
+
+Full recovery procedure: see `references.md` → Cross-Session Recovery.
 
 ## Sub-Skill Invocation Rules
 
@@ -47,6 +64,7 @@ single source of truth for the workflow's state.
 | Red Flag | Action |
 |----------|--------|
 | About to invoke `brainstorming` without a contract | **STOP** — create contract first |
+| About to create a new contract when an active one exists | **STOP** — resume the existing contract instead |
 | `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, execute `gitflow-issue-create` |
 | About to skip `gitflow-issue-create` or `gitflow-issue-review` | **STOP** — MANDATORY in Phase 1 |
 | About to advance without updating contract evidence | **STOP** — update contract first |
@@ -63,6 +81,8 @@ single source of truth for the workflow's state.
 | "Issue review is optional" | No — `gitflow-issue-review` is MANDATORY in both full and fast modes. |
 | "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Issue list/create/review are separate mandatory steps. |
 | "Requirement is clear, skip to Phase 3" | Scenario C. If `phases.2.evidence.spec_path` is empty, refuse and go to Phase 2. |
+| "New session, start fresh" | No — check `.cache/workflows/active/` first. If incomplete contract exists, resume it. |
+| "Different agent should start over" | No — contract is agent-agnostic. Any agent can resume from `current_phase` + evidence. |
 
 ## When to Use
 
