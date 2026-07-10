@@ -1,108 +1,88 @@
 ---
 name: gitflow-precommit
-description: >
-  Use when the user wants to run pre-commit quality checks (fmt, clippy, test),
-  configure or verify a Git pre-commit hook, or their commit is rejected by a
-  quality gate. 当用户提交前运行格式化/静态分析/测试，或配置/验证 pre-commit
-  hook 时使用。
+description: |
+  Use when the user wants to run pre-commit quality checks, configure or
+  verify a Git pre-commit hook, or their commit is rejected by a quality
+  gate. 当用户提交前运行质量检查、配置/验证 pre-commit hook、或提交被质量
+  关卡拒绝时使用。
 ---
 
-# gitflow-precommit — Pre-commit Quality Gate
+# gitflow-precommit — Language-Agnostic Pre-commit Checks
 
-Run fmt/clippy/test → report → (optional) configure Git hook.
-Full params: docs/references/gitflow-precommit-params.md
+Run language-appropriate fmt/lint/test before commit. Report results. Optionally configure Git hook.
 
-## Overview
+## Step 1: Language Detection
 
-Runs three checks (fmt/clippy/test) and produces a summary report. Optionally configures `.git/hooks/`.
+Same as `gitflow-quality`. Check marker files in project root:
 
-## Trigger Keywords
+| Marker | Language | Reference |
+|--------|----------|-----------|
+| `Cargo.toml` | Rust | `references/rust.md` |
+| `go.mod` | Go | `references/go.md` |
+| `pom.xml` / `build.gradle` | Java | `references/java.md` |
+| `pyproject.toml` / `setup.py` | Python | `references/python.md` |
+| `package.json` | Node.js | `references/node.md` |
 
-CN 提交前检查 pre-commit hook 格式化检查 clippy 检查 测试失败
-EN pre-commit cargo fmt cargo clippy cargo test quality gate
-CLI `gitflow-cli precommit <subcommand>`
+After detection, load the matching `references/<lang>.md` for the specific commands.
+
+## Step 2: Run Checks
+
+Three checks in sequence:
+
+| # | Check | What |
+|---|-------|------|
+| 1 | **format** | Code formatting check |
+| 2 | **lint** | Static analysis / linting |
+| 3 | **test** | Run test suite |
+
+All commands come from the detected language reference. If no project detected, fall back to `pre-commit run --all-files`.
+
+## Step 3: Report
+
+```
+| Check    | Status | Details |
+|----------|--------|---------|
+| format   | ✅/❌ | <files if diff> |
+| lint     | ✅/❌ | <warnings if any> |
+| test     | ✅/❌ | <failures if any> |
+
+Result: ✅ all passed / ❌ <N> check(s) failed
+```
 
 ## Fix vs Report Flow
 
-```mermaid
-flowchart TD
-  U[User request] --> A{Scenario}
-  A -->|checks only| CHECK[Run fmt/clippy/test]
-  A -->|configure hook| CONFIG[Configure pre-commit hook]
-  A -->|fix hook failure| FIX[Fix lint/test failures]
-  CHECK --> REPORT[Emit report]
-  CONFIG --> VERIFY[Verify hook is executable]
-  FIX --> RECHECK[Re-run checks]
-  REPORT --> END[Done]
-  VERIFY --> END
-  RECHECK --> END
-```
+| User request | Action |
+|--------------|--------|
+| "run the checks" | Run all three → summary table |
+| "fmt failed" / "fix format" | Show diff → ask confirmation → auto-fix → re-check |
+| "configure hook" | Write `.git/hooks/` or `pre-commit install` |
+| "fix lint" | Show diff → ask confirmation → fix → re-check |
 
-## Quick Reference
+**Fix operations require explicit user confirmation. Never auto-fix without showing diff first.**
 
-| Check | Command |
-|-------|---------|
-| Format | `cargo fmt -- --check` |
-| Lint | `cargo clippy --all-targets --all-features -- -D warnings` |
-| Test | `cargo test --workspace` |
-| Strict mode | Append `-W clippy::pedantic` |
-| Fix formatting | `cargo fmt` |
-| Fix lints | `cargo clippy --fix --allow-dirty` |
+## Red Flags
 
-Non-Rust: parse `.pre-commit-config.yaml` → `pre-commit run --all-files`.
-
-## Pattern Triplets
-
-| User input | Handling |
-|------------|----------|
-| "run the checks" | Run all three in sequence → summary table ✅/❌ |
-| "fmt failed" | Auto-fix with `cargo fmt` → re-check |
-| "configure hook" | No framework: write `.git/hooks/`; otherwise `pre-commit install` |
-
-## ✅ In Scope / 🚫 Out of Scope
-
-✅ Parse config / run all three checks / summarize report
-🔴 Do not run git add/commit on the user's behalf / auto-configure the hook / auto-run `cargo clippy --fix`
-
-## Red Flags + Defense
-
-- "Auto-fix all lints" → Review the diff first; never fix blindly end-to-end
-- "Use a pre-commit hook in CI" → Inappropriate; CI should use dedicated check targets
+- 🚩 "Auto-fix all lints" → show diff first, confirm before fixing
+- 🚩 "Configure hook while running checks" → hook configuration is a side effect, requires authorization
+- 🚩 "Run clean command to fix build" → never (cargo clean / mvn clean / go clean)
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| Forgetting `--allow-dirty` | Prompt before fixing |
+| Forgetting `--allow-dirty` for fix commands | Prompt before fixing |
 | Hook missing executable permission | `chmod +x .git/hooks/pre-commit` |
-
-## Rationalization
-
-"Configured the hook while I was at it" → Writing to `.git/hooks/` is a side effect and requires authorization
+| Auto-configuring hook without asking | Ask user first |
 
 ## Error Handling
 
 | Error | Handling |
 |-------|----------|
-| `Cargo.toml` not found | Fall back to running `.pre-commit-config.yaml` only |
-| fmt failed | Emit diff → suggest `cargo fmt`, or fix after confirmation |
-| `cargo clean` | Abort immediately (forbidden by CLAUDE.md) |
-
-## Test Scenarios
-
-- **Happy**: "run the checks" → all three pass → `✅ all passed`
-- **Negative**: "commit my code for me" → refuse to commit on the user's behalf
-- **Boundary**: "auto-fix all clippy" → prompt that the diff needs confirmation before `--fix`
-- **Error**: Cargo.toml missing → non-Rust → try `.pre-commit-config.yaml`
-
-## Success Criteria
-
-- All three checks cover fmt + clippy + test
-- Graceful fallback to the pre-commit framework for non-Rust projects
-- Fix operations run only after user confirmation
-- Hook file permissions are correct
+| No project detected | Fall back to `.pre-commit-config.yaml` only |
+| Format check failed | Show diff → suggest fix command → wait for confirmation |
+| Clean command used | Abort immediately (forbidden) |
 
 ## See Also
 
-- gitflow-commit — bridges commit and pre-commit
-- gitflow-quality — 6-gate quality check
+- `gitflow-quality` — full 6-gate quality check (includes pre-commit as Gate 6)
+- `gitflow-commit` — bridges commit and pre-commit
