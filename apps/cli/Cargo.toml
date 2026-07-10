@@ -15,7 +15,7 @@ include = [
     "src/**",
     "build.rs",
     "README.md",
-    "../../hooks/**",
+    "../../../hooks/**",
 ]
 
 [[bin]]
