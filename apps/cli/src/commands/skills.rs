@@ -481,7 +481,7 @@ fn resolve_project_hook_paths(
 /// hook 脚本安装到平台对应的 hooks 目录（Claude 下为 `.claude/hooks/`），
 /// 配置写入平台对应的 settings 文件（Claude 下为 `.claude/settings.json`）。
 fn install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()> {
-    let hook_script = include_bytes!("../../../../hooks/auto-report-bug.sh");
+    let hook_script = include_bytes!("../../hooks/auto-report-bug.sh");
 
     let (hook_dir, settings_path, cmd) = resolve_hook_paths(global, platform)?;
 
