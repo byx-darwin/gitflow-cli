@@ -340,24 +340,33 @@ execute_release() {
     log_info "Executing release v${RELEASE_VERSION}..."
 
     # Step 1: Bump version
-    log_info "Step 1/5: Bumping version..."
+    log_info "Step 1/6: Bumping version..."
     cargo release version "${RELEASE_BUMP}" --execute --workspace --no-confirm
 
     # Step 2: Commit version
-    log_info "Step 2/5: Committing version bump..."
+    log_info "Step 2/6: Committing version bump..."
     cargo release commit --execute --no-confirm
 
     # Step 3: Generate changelog
-    log_info "Step 3/5: Generating CHANGELOG.md..."
+    log_info "Step 3/6: Generating CHANGELOG.md..."
     git cliff -o CHANGELOG.md
 
     # Step 4: Commit changelog
-    log_info "Step 4/5: Committing changelog..."
+    log_info "Step 4/6: Committing changelog..."
     git add CHANGELOG.md
     git commit -m "chore: update CHANGELOG.md for v${RELEASE_VERSION}" || true
 
-    # Step 5: Create tag and push
-    log_info "Step 5/5: Creating tag and pushing..."
+    # Step 5: Publish to crates.io
+    if confirm "Publish to crates.io?"; then
+        log_info "Step 5/6: Publishing to crates.io..."
+        cargo release publish --execute --workspace --no-confirm
+    else
+        log_warn "Skipping crates.io publish"
+        log_info "Step 5/6: Skipped crates.io publish"
+    fi
+
+    # Step 6: Create tag and push
+    log_info "Step 6/6: Creating tag and pushing..."
     cargo release tag --execute --workspace --no-confirm
     git push origin main --tags
 

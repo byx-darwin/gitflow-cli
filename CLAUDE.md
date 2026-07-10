@@ -280,3 +280,33 @@ make release-quick
 - 发布前会显示 changelog 预览供审核
 
 详细文档：`docs/release-workflow.md`
+
+## Crates.io 发布
+
+发布到 crates.io 需要额外配置：
+
+**前置条件**：
+1. 登录 crates.io: `cargo login`
+2. 确保所有 crate metadata 完整
+3. 验证包: `cargo package --list`
+
+**发布流程**：
+```bash
+make release
+# 当提示 "Publish to crates.io?" 时选择 y
+```
+
+**已发布的 crates**：
+- `gitflow-cli` — 主 CLI 应用
+- `gitflow-cli-core` — 核心库
+- `gitflow-cli-github` — GitHub 平台支持
+- `gitflow-cli-gitlab` — GitLab 平台支持
+- `gitflow-cli-gitcode` — GitCode 平台支持
+
+**注意事项**：
+- crates.io 版本一旦发布**不可删除或修改**
+- 只能 yank（隐藏），不能删除
+- 必须发布新版本来修复问题
+- cargo-release 会自动处理依赖顺序
+
+详细文档：`docs/release-workflow.md`

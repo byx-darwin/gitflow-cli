@@ -6,11 +6,23 @@ shared-version = true
 tag-name = "v{{version}}"
 tag-message = "Release v{{version}}"
 
-# GitHub Releases only — do not publish to crates.io
-publish = false
+# Publish to crates.io
+publish = true
 
 # Allow release only from main branch
 allow-branch = ["main"]
 
 # Pre-release commit message (when versions are bumped)
 pre-release-commit-message = "chore: release v{{version}}"
+
+# Pre-release verification
+verify = true
+
+# Tag message
+tag-message = "Release v{{version}}"
+
+# Sign tags (optional, uncomment if needed)
+# sign-tag = true
+
+# Sign commits (optional, uncomment if needed)
+# sign-commit = true
