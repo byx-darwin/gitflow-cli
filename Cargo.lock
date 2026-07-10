@@ -658,7 +658,7 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "e2e-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_cmd",
  "predicates",
@@ -670,7 +670,7 @@ dependencies = [
 
 [[package]]
 name = "e2e-github"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "e2e-core",
  "tokio",
@@ -853,7 +853,7 @@ checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 
 [[package]]
 name = "gitflow-cli"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "assert_cmd",
  "built",
@@ -884,7 +884,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-cli-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -898,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-cli-gitcode"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -914,7 +914,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-cli-github"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -929,7 +929,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-cli-gitlab"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "chrono",
