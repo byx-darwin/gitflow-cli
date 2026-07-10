@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 description = "GitCode platform implementation for gitflow-cli via gc CLI"
 repository.workspace = true
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["cli", "gitcode", "gitflow", "issue", "pr"]
 categories = ["command-line-utilities", "development-tools"]
 

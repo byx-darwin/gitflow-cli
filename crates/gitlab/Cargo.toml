@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 description = "GitLab platform implementation for gitflow-cli via glab CLI"
 repository.workspace = true
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["cli", "gitlab", "gitflow", "issue", "merge-request"]
 categories = ["command-line-utilities", "development-tools"]
 

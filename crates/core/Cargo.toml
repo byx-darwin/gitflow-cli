@@ -10,7 +10,7 @@ license.workspace = true
 documentation.workspace = true
 repository.workspace = true
 homepage.workspace = true
-readme = "../../README.md"
+readme = "README.md"
 
 [dependencies]
 serde.workspace = true
