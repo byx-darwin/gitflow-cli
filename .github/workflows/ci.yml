@@ -45,6 +45,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@cargo-nextest
+      - name: Build release binary (for e2e tests)
+        run: cargo build --release
+      - name: Add to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
       - name: cargo test
         run: cargo nextest run --all-features
 
