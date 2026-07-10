@@ -1,8 +1,9 @@
 ---
 name: gitflow-pr-review
 description: |
-  Use when the user requests an overall code review of a Pull Request — covering 6 dimensions and submitting an approve, request-changes, or comment-only verdict via gitflow-cli.
-  当要求对 PR 进行整体代码审查（6 维度评估）并提交审批/要求修改/评论结论时使用。
+  Use when the user requests an overall code review of a Pull Request
+  and needs to submit a verdict via gitflow-cli.
+  当要求对 PR 进行整体代码审查并提交审查结论时使用。
 ---
 
 # gitflow-pr-review

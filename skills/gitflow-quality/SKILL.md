@@ -1,8 +1,9 @@
 ---
 name: gitflow-quality
 description: |
-  Use when running the 6-gate quality check (build, test, coverage, format, lint, pre-commit) before delivery, verifying a branch is ready for release, or generating a Quality Report.
-  当用户在交付前需运行 build/test/coverage/format/static/pre-commit 6 项质量检查、验证分支可交付或生成 Quality Report 时使用。
+  Use when running pre-delivery quality checks, verifying a branch is
+  ready for release, or generating a Quality Report.
+  当用户在交付前需运行质量检查、验证分支可交付或生成 Quality Report 时使用。
 ---
 
 # gitflow-quality

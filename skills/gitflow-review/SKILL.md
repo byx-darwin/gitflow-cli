@@ -1,8 +1,9 @@
 ---
 name: gitflow-review
 description: |
-  Use when the user wants to submit a formal code review decision (approve, request changes, or comment) on a PR through gitflow-cli — including single-shot verdicts and batched submissions after inline review.
-  当用户希望通过 gitflow-cli 提交正式 PR 审查结论（批准、要求修改或评论）时使用。
+  Use when the user wants to submit a formal code review decision
+  (approve, request changes, or comment) on a PR through gitflow-cli.
+  当用户希望通过 gitflow-cli 提交正式 PR 审查结论时使用。
 ---
 
 # gitflow-review
