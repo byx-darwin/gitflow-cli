@@ -248,3 +248,35 @@ All code should pass `cargo clippy --all-targets --all-features -- -D warnings -
 - Use `.try_into()` for lossy conversions and `.into()` or `as` only for provably lossless ones.
 - Return the inner type when a function always returns `Some` or `Ok`.
 - Prefer one-pass `.filter_map(f)` over `.filter().map()` or `.map().flatten()`.
+
+## Release 工作流
+
+使用改进的 `make release` 进行版本发布：
+
+```bash
+# 交互式发布（推荐）
+make release
+
+# 快速发布（无交互预览）
+make release-quick
+```
+
+**发布流程**：
+1. Pre-flight 检查（测试、clippy、工作区状态）
+2. 智能版本推断（基于 conventional commits）
+3. 交互式版本选择和 changelog 预览
+4. Dry-run 确认
+5. 执行发布（更新版本号、生成 changelog、创建 tag、推送）
+
+**版本推断规则**：
+- `feat!` 或 `BREAKING CHANGE` → Major 版本升级
+- `feat` → Minor 版本升级
+- `fix`/`refactor`/`perf` → Patch 版本升级
+
+**注意事项**：
+- 必须在 `main` 分支执行
+- 工作区必须干净
+- 所有测试必须通过
+- 发布前会显示 changelog 预览供审核
+
+详细文档：`docs/release-workflow.md`
