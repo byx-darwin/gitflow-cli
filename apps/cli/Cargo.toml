@@ -11,6 +11,12 @@ homepage.workspace = true
 documentation.workspace = true
 categories = ["development-tools", "command-line-utilities"]
 keywords = ["gitflow", "git", "cli", "workflow"]
+include = [
+    "src/**",
+    "build.rs",
+    "README.md",
+    "../../hooks/**",
+]
 
 [[bin]]
 name = "gitflow-cli"
