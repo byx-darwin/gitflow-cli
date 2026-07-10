@@ -136,9 +136,13 @@ smoke-test-gitcode: ## Run smoke test for GitCode platform
 smoke-test-write: ## Run smoke test with write commands (help only)
 	@bash scripts/smoke-test.sh --write
 
-release: release-push ## Usage: make release VERSION=patch|minor|major
+release: ## Interactive release with safety checks and version preview
+	@bash scripts/release.sh
 
-release-push: ## Step 1: bump version, commit, generate changelog, tag, push
+release-quick: ## Quick release without interactive previews (for automation)
+	@bash scripts/release.sh --quick
+
+release-push: ## Legacy: Step 1: bump version, commit, generate changelog, tag, push
 ifndef VERSION
 	$(error Usage: make release-push VERSION=patch|minor|major)
 endif
@@ -173,5 +177,5 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync release \
+        update-submodule check-agent-sync release release-quick \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
