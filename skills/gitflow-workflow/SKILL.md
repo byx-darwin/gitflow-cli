@@ -190,7 +190,13 @@ Full definitions: `skills/gitflow-workflow/gates.md`
 
 ## Enforcement Rules
 
-**Forbidden:** ❌ Skip Phase 4 · ❌ Fast mode: skip TDD or Code Review · ❌ Merge phases · ❌ Enter next Phase when gate not passed · ❌ Yield to user skip requests (Scenario C)
+### Forbidden Actions
+
+- ❌ **Skip Phase 4** — Phase 4 is mandatory in all modes
+- ❌ **Fast mode: skip TDD or Code Review** — Fast mode forbids skipping TDD and Code Review
+- ❌ **Merge phases** — Each phase must complete before the next begins
+- ❌ **Enter next Phase when gate not passed** — Gates are non-negotiable
+- ❌ **Yield to user skip requests (Scenario C)** — Do not bypass workflow requirements
 
 **Scenario C Guard:** User says "just write code" → check `phases.2.evidence.spec_path`. Absent → refuse, go to Phase 2. Fast mode exception: allow skip Phase 2.
 
