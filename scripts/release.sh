@@ -335,6 +335,79 @@ dry_run() {
     echo ""
 }
 
+# Check CI status
+check_ci_status() {
+    log_info "Checking GitHub CI status..."
+
+    if ! command -v gh &> /dev/null; then
+        log_warn "gh CLI not found. Skipping CI check."
+        log_warn "Install gh: https://cli.github.com/"
+        if confirm "Continue without CI check?"; then
+            return 0
+        else
+            log_error "Aborted by user"
+            exit 1
+        fi
+    fi
+
+    # Get the latest commit SHA
+    local commit_sha
+    commit_sha=$(git rev-parse HEAD)
+
+    # Check CI status for this commit
+    local ci_status
+    ci_status=$(gh run list --commit "$commit_sha" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "not_found")
+
+    case "$ci_status" in
+        "success")
+            log_success "GitHub CI passed ✓"
+            return 0
+            ;;
+        "failure"|"cancelled"|"timed_out")
+            log_error "GitHub CI failed: $ci_status"
+            log_error "Fix CI issues before releasing"
+            echo ""
+            echo "View CI status:"
+            echo "  gh run list --commit $commit_sha"
+            echo "  https://github.com/$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/actions"
+            exit 1
+            ;;
+        "in_progress"|"queued"|"waiting")
+            log_warn "GitHub CI is still running: $ci_status"
+            log_warn "Please wait for CI to complete"
+            if confirm "Continue anyway?"; then
+                return 0
+            else
+                log_info "Waiting for CI... (press Ctrl+C to abort)"
+                while true; do
+                    sleep 10
+                    ci_status=$(gh run list --commit "$commit_sha" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "not_found")
+                    case "$ci_status" in
+                        "success")
+                            log_success "GitHub CI passed ✓"
+                            return 0
+                            ;;
+                        "failure"|"cancelled"|"timed_out")
+                            log_error "GitHub CI failed: $ci_status"
+                            exit 1
+                            ;;
+                    esac
+                    echo -n "."
+                done
+            fi
+            ;;
+        *)
+            log_warn "CI status unknown: $ci_status"
+            if confirm "Continue without CI check?"; then
+                return 0
+            else
+                log_error "Aborted by user"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
 # Execute release
 execute_release() {
     log_info "Executing release v${RELEASE_VERSION}..."
@@ -356,22 +429,37 @@ execute_release() {
     git add CHANGELOG.md
     git commit -m "chore: update CHANGELOG.md for v${RELEASE_VERSION}" || true
 
-    # Step 5: Publish to crates.io
+    # Step 5: Push and check CI
+    log_info "Step 5/6: Pushing to trigger CI..."
+    git push origin main
+
+    # Wait a moment for CI to start
+    log_info "Waiting for CI to start..."
+    sleep 5
+
+    # Check CI status
+    check_ci_status
+
+    # Step 6: Publish to crates.io
     if confirm "Publish to crates.io?"; then
-        log_info "Step 5/6: Publishing to crates.io..."
-        cargo release publish --execute --workspace --no-confirm
+        log_info "Step 6/6: Publishing to crates.io..."
+        cargo publish --all-features || {
+            log_error "Failed to publish to crates.io"
+            log_warn "You can retry manually: cargo publish --all-features"
+        }
     else
         log_warn "Skipping crates.io publish"
-        log_info "Step 5/6: Skipped crates.io publish"
+        log_info "Step 6/6: Skipped"
     fi
 
-    # Step 6: Create tag and push
-    log_info "Step 6/6: Creating tag and pushing..."
+    # Step 7: Create tag and push
+    log_info "Creating tag and pushing..."
     cargo release tag --execute --workspace --no-confirm
     git push origin main --tags
 
     echo ""
     log_success "Release v${RELEASE_VERSION} completed!"
+    log_info "GitHub Release will be created automatically by CI"
 }
 
 # Post-release info

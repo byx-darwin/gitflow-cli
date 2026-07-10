@@ -216,3 +216,44 @@ jobs:
           git add HomebrewFormula/gitflow-cli.rb
           git diff --cached --quiet || git commit -m "chore: update Homebrew formula to ${{ steps.sha.outputs.tag }}"
           git push origin main
+
+  publish-crates-io:
+    name: Publish to crates.io
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Verify package
+        run: |
+          cargo package --list
+          cargo package --no-verify
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::warning::CARGO_REGISTRY_TOKEN not set, skipping crates.io publish"
+            echo "::warning::To enable crates.io publishing, add CARGO_REGISTRY_TOKEN to repository secrets"
+            exit 0
+          fi
+
+          echo "Publishing to crates.io..."
+          # Publish in dependency order
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-core || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-github || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-gitlab || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-gitcode || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli || true
+          echo "✓ Published to crates.io"
