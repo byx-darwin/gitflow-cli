@@ -1,3 +1,4 @@
+<!-- Issue: #6 -->
 # Phase 5: 完成度提升 实现计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -15,7 +16,7 @@
 - `--output text` 格式化需与现有 JSON 输出共存（通过 `--output` flag 选择）
 - 所有文档使用中文
 
-## Issue 规划
+## GitHub Issue 规划
 
 **Issue 标题:** feat: Phase 5 — 剩余 Skills + Shell 补全增强 + Homebrew + 社区文档
 
