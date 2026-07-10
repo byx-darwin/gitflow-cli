@@ -28,6 +28,8 @@ use clap::{ArgAction, Args, Subcommand, ValueEnum};
 use gitflow_cli_core::AuthChecker;
 use is_terminal::IsTerminal;
 
+use crate::error_reporter::read_co_contribution_flag;
+
 // ---------------------------------------------------------------------------
 // Agent platform
 // ---------------------------------------------------------------------------
@@ -719,6 +721,14 @@ fn try_enable_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
     if !std::io::stderr().is_terminal() {
         println!("ℹ️ 非交互模式，已跳过共建计划");
         return Ok(());
+    }
+
+    // 已加入则不再重复询问（全局 settings 一次性标记）
+    if let Some(home) = dirs::home_dir() {
+        let (_hook_dir, settings_path, _cmd) = resolve_global_hook_paths(&home, platform);
+        if read_co_contribution_flag(&settings_path) {
+            return Ok(());
+        }
     }
 
     println!();
@@ -1632,6 +1642,42 @@ mod tests {
                     .and_then(serde_json::Value::as_str)
                     .is_some(),
                 "joined_at must be set in global settings"
+            );
+        });
+    }
+
+    /// 验证：全局 settings 已存在 `co_contribution=true` 时，`try_enable_co_contribution`
+    /// 应直接返回 Ok 且不触发任何交互/写入。
+    #[cfg(unix)]
+    #[test]
+    fn test_should_skip_prompt_when_co_contribution_already_enabled() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let home = temp.path();
+        let settings_path = home.join(".claude/settings.json");
+        std::fs::create_dir_all(home.join(".claude")).expect("create .claude dir");
+        std::fs::write(
+            &settings_path,
+            r#"{"gitflow": {"co_contribution": true, "joined_at": "2026-07-09T08:30:00Z"}}"#,
+        )
+        .expect("write settings");
+
+        temp_env::with_var("HOME", Some(home), || {
+            // 非交互模式 + 已加入 → 应直接返回 Ok，不报错
+            let result = try_enable_co_contribution(AgentPlatform::Claude);
+            assert!(
+                result.is_ok(),
+                "try_enable_co_contribution should succeed when already joined: {:?}",
+                result.err()
+            );
+
+            // 文件内容应保持不变（未被覆盖）
+            let content = std::fs::read_to_string(&settings_path).expect("read");
+            let json: serde_json::Value = serde_json::from_str(&content).expect("parse");
+            assert_eq!(
+                json.pointer("/gitflow/joined_at")
+                    .and_then(serde_json::Value::as_str),
+                Some("2026-07-09T08:30:00Z"),
+                "joined_at must not be modified when already joined"
             );
         });
     }

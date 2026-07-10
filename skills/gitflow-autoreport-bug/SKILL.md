@@ -1,8 +1,9 @@
 ---
 name: gitflow-autoreport-bug
 description: |
-  Use when a Stop Hook detects `.cache/bug-reports/pending.json` — auto-analyzes CLI errors, checks GitHub auth, deduplicates, creates GitHub/GitLab/GitCode Issues, and logs failures for retry.
-  当 Stop Hook 检测到 pending.json 时自动使用。
+  Use when `.cache/bug-reports/pending.json` exists and needs automated
+  bug report processing (triggered by Stop Hook or manual invocation).
+  当存在待处理的 bug 报告需要自动创建 Issue 时使用。
 ---
 
 # gitflow-autoreport-bug

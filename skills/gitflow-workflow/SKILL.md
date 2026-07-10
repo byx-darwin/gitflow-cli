@@ -1,14 +1,88 @@
 ---
 name: gitflow-workflow
 description: |
-  Contract-driven four-phase gated pipeline. Use when the user wants a
-  mandatory clarify → plan → execute → deliver workflow with JSON contract
-  verification between phases. 当用户需要强制执行的四阶段闸门驱动全流程时使用。
+  Use when the user wants a mandatory four-phase gated workflow with
+  contract verification between phases, or invokes `/gitflow-workflow`.
+  Enforces: clarify → plan → execute → deliver with JSON state tracking.
+  当用户需要强制执行的四阶段闸门驱动全流程时使用。
 ---
 
 # gitflow-workflow — Contract-Driven Four-Phase Gated Orchestrator
 
 Orchestrator commands only; state lives in the contract; gates are never skipped.
+
+> **⚠️ ORCHESTRATOR MANDATE**
+>
+> This skill is an **ORCHESTRATOR**, not a sub-skill. When invoked, it drives a
+> four-phase pipeline end-to-end. The orchestrator **retains control** at all times.
+> Sub-skills (`brainstorming`, `writing-plans`, `subagent-driven-development`, etc.)
+> are **called and return** — they do NOT take over the conversation.
+>
+> **Violating the letter of these rules is violating the spirit of these rules.**
+> No "I'm following the spirit" rationalizations. The rules are explicit for a reason.
+
+## Core Rule: Contract First
+
+**Before ANY phase executes, the orchestrator MUST:**
+
+1. **Check for active contracts** — list `.cache/workflows/active/*.json`
+   - Incomplete workflow exists (`status != "complete"`) → **RESUME** it: read `current_phase`, load context, continue from next step
+   - Multiple exist → ask user which to resume
+   - None exist → proceed to step 2
+2. Run mode auto-detection (full / fast)
+3. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`)
+4. Announce the workflow start with: workflow_id, mode, title
+
+**If no contract exists, no sub-skill may be invoked.** The contract is the
+single source of truth for the workflow's state.
+
+### Cross-Session Resume
+
+When resuming an existing contract, load context based on `current_phase`:
+
+| Phase | Context to Load | Resume From |
+|-------|----------------|-------------|
+| 1 | `design_doc_path` (if exists) | Next uncompleted step in Phase 1 |
+| 2 | `design_doc_path` + `spec_path` | Gate 2→3 pause (await user approval) |
+| 3 | `spec_path` (plan doc) | Next step after last evidence |
+| 4 | `pr_url` + review reports | Next check in Phase 4 |
+
+Full recovery procedure: see `references.md` → Cross-Session Recovery.
+
+## Sub-Skill Invocation Rules
+
+| Rule | Description |
+|------|-------------|
+| **Call and Return** | After invoking a sub-skill, the orchestrator MUST resume at the next step. Sub-skills do NOT chain to other skills. |
+| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the transition to `gitflow-issue-create`. |
+| **Single Active Orchestrator** | Only this workflow's state machine drives the conversation. No other skill may claim orchestration while a contract is active. |
+| **Evidence Before Gate** | A gate check MAY NOT pass until all required evidence fields are populated. |
+| **No Implicit Completion** | A Phase is complete ONLY when the orchestrator sets `status = "complete"` in the contract. Sub-skill completion ≠ Phase completion. |
+
+## Red Flags — STOP and Reassert Control
+
+| Red Flag | Action |
+|----------|--------|
+| About to invoke `brainstorming` without a contract | **STOP** — create contract first |
+| About to create a new contract when an active one exists | **STOP** — resume the existing contract instead |
+| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, execute `gitflow-issue-create` |
+| About to skip `gitflow-issue-create` or `gitflow-issue-review` | **STOP** — MANDATORY in Phase 1 |
+| About to advance without updating contract evidence | **STOP** — update contract first |
+| User says "just write the code" | **CHECK** — Scenario C? If no contract, refuse and start Phase 1 |
+| About to let a sub-skill chain to another | **STOP** — sub-skills return to orchestrator |
+
+## Rationalization Table
+
+| Excuse | Reality |
+|--------|---------|
+| "brainstorming will handle Issue creation" | No — brainstorming chains to `writing-plans`, not Issue creation. Orchestrator must do it. |
+| "Contract can be created later" | No — contract MUST exist before any sub-skill. It is the single source of truth. |
+| "User just wants to discuss" | If they invoked `/gitflow-workflow`, run the workflow. |
+| "Issue review is optional" | No — `gitflow-issue-review` is MANDATORY in both full and fast modes. |
+| "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Issue list/create/review are separate mandatory steps. |
+| "Requirement is clear, skip to Phase 3" | Scenario C. If `phases.2.evidence.spec_path` is empty, refuse and go to Phase 2. |
+| "New session, start fresh" | No — check `.cache/workflows/active/` first. If incomplete contract exists, resume it. |
+| "Different agent should start over" | No — contract is agent-agnostic. Any agent can resume from `current_phase` + evidence. |
 
 ## When to Use
 
@@ -16,468 +90,121 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
 |----|----|
 | full workflow | 全流程（默认） |
 | clarify → plan → execute → deliver | 需求→计划→执行→交付 |
-| contract-driven orchestration | 合同驱动编排 |
 
-**Mode auto-detection** (run before entering Phase 1):
-- Description contains "fix"/"typo"/"hotfix" → `fast`
-- Description contains "new feature"/"architecture"/"refactor" → `full`
-- Issue label contains `good-first-issue` → `fast`
-- Cannot determine → **ask the user**
+**When NOT to Use:** quick fix → `gitflow-commit` · PR review → `gitflow-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
+
+**Mode auto-detection:** "fix"/"typo"/"hotfix" → `fast` · "new feature"/"architecture"/"refactor" → `full` · `good-first-issue` label → `fast` · unclear → **ask user**.
 
 ## Mode Comparison
 
-### Full Mode
-Full four-phase pipeline, mandatory: brainstorming → issue-create/review → writing-plans → subagent-driven-development → TDD → Phase 4
+| Phase | Full Mode | Fast Mode |
+|-------|-----------|-----------|
+| 1 | brainstorming + issue-create + issue-review | issue-create (required), brainstorming (optional) |
+| 2 | writing-plans + quality gate | **skippable** |
+| 3 | subagent-driven-development (TDD + Code Review) | **required** |
+| 4 | pipeline + triage + review + dogfooding | **required** |
 
-| Phase | Sub-skill | Description |
-|-------|-----------|------|
-| 1 | `superpowers:brainstorming` | Clarification |
-| 1 | `gitflow-issue-create` | Create Issue |
-| 1 | `gitflow-issue-review` | Review & comment |
-| 2 | `superpowers:writing-plans` | Plan creation |
-| 3 | `superpowers:subagent-driven-development` | Includes TDD + Code Review |
-| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review → dogfooding-checklist` | Post-delivery checks |
-
-### Fast Mode — Required Skills Checklist
-Phase 1: gitflow-issue-create (required), brainstorming (optional)
-Phase 2: writing-plans (optional, skippable)
-Phase 3: subagent-driven-development (required, includes TDD + Code Review)
-Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review → dogfooding-checklist (required)
-
-## Orchestrator State Machine
-
-The workflow follows a state machine with explicit auto-advance rules:
+## State Machine
 
 ```
-[Start] → Phase 1 → [Gate 1→2] → AUTO → Phase 2 → [Gate 2→3] → PAUSE → Phase 3 → [Gate 3→4] → AUTO → Phase 4 → [Archive] → [Complete]
+[Start] → Bootstrap → Phase 1 → [Gate 1→2] → AUTO → Phase 2 → [Gate 2→3] → PAUSE → Phase 3 → [Gate 3→4] → AUTO → Phase 4 → [Archive] → [Complete]
 ```
 
-### Auto-Advance Rules
-
-| Phase Transition | Trigger | Behavior |
-|-----------------|---------|----------|
-| Phase 1 → Phase 2 | Gate 1→2 passed | **AUTO-ADVANCE** |
-| Phase 2 → Phase 3 | Gate 2→3 passed + user approval | **PAUSE** then **AUTO-ADVANCE** |
-| Phase 3 → Phase 4 | Gate 3→4 passed | **AUTO-ADVANCE** |
-| Phase 4 complete | All checks passed | **Archive contract** |
-
-**Key Constraints:**
-1. After each sub-skill completes, immediately call the next sub-skill (no user confirmation)
-2. **Single pause point:** Gate 2→3 (plan approval)
-3. After each Phase completes, immediately update contract, then check gate
-4. Cross-session recovery via contract + plan doc collaboration
-
-## Core Pattern: Contract
-
-Each workflow run creates a contract file:
-
-```
-.cache/workflows/active/<workflow_id>.json
-```
-
-Contract schema: `skills/gitflow-workflow/contract.schema.json`
-
-### Contract Example
-
-```json
-{
-  "version": "1.0",
-  "workflow_id": "wf-2026-07-09-001",
-  "title": "feat: TOON output format",
-  "mode": "full",
-  "created_at": "2026-07-09T02:59:32Z",
-  "updated_at": "2026-07-09T03:30:00Z",
-  "current_phase": 3,
-  "phases": {
-    "1": {
-      "name": "Clarification",
-      "status": "complete",
-      "started_at": "2026-07-09T02:59:32Z",
-      "completed_at": "2026-07-09T03:10:00Z",
-      "executor": "claude-code-3.7",
-      "evidence": {
-        "issue_url": "https://github.com/.../issues/74",
-        "comment_id": "4921173903"
-      }
-    },
-    "2": {
-      "name": "Planning",
-      "status": "complete",
-      "started_at": "2026-07-09T03:10:00Z",
-      "completed_at": "2026-07-09T03:20:00Z",
-      "executor": "claude-code-3.7",
-      "evidence": {
-        "spec_path": "docs/superpowers/specs/2026-07-09-toon-design.md",
-        "user_approved": true
-      }
-    },
-    "3": {
-      "name": "Execution",
-      "status": "in_progress",
-      "started_at": "2026-07-09T03:20:00Z",
-      "completed_at": null,
-      "executor": "subagent-task-3",
-      "evidence": {}
-    },
-    "4": {
-      "name": "Delivery",
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "executor": null,
-      "evidence": {}
-    }
-  }
-}
-```
+**Single pause point:** Gate 2→3 (plan approval). All other transitions auto-advance.
 
 ## Gate Rules
 
-Full gate definitions: `skills/gitflow-workflow/gates.md`
-
-**Key principle:** Before entering the next Phase, the previous Phase's evidence completeness is verified. On gate failure, **block entry** and return to repair.
+Full definitions: `skills/gitflow-workflow/gates.md`
 
 | Enter Phase | Required evidence | fast-mode exemption |
-|-----------|--------------|--------------|
-| 2 (Planning) | `issue_url` + `comment_id` | `comment_id` optional |
+|-------------|-------------------|---------------------|
+| 2 (Planning) | `issue_url` + `comment_id` + `design_doc_path` | `comment_id` optional |
 | 3 (Execution) | `spec_path` + `user_approved` | ✅ Skippable |
 | 4 (Delivery) | `pr_url` + `tests_passed` | — |
 
-## Phase Execution Flow
+## Phase 1: Clarification (Critical — Issue Interaction)
 
-### Phase 1: Clarification (Auto-Trigger)
+**Entry:** contract MUST exist · **Exit:** `phases.1.status = complete` · **Auto-advance:** yes
 
-**Entry condition:** none
-**Exit condition:** contract `phases.1.status = complete`
-**Auto-advance:** true (on gate pass)
+1. **[AUTO] Bootstrap** — Create contract at `.cache/workflows/active/<workflow_id>.json`
+   - Set `mode`, `title`, `current_phase = 1`, `phases.1.status = "in_progress"`
 
-**Execution Steps:**
+2. **[AUTO] Read Open Issues**
+   - User specified an Issue → use it
+   - Otherwise → `gitflow-cli issue list --state open`
 
-1. **[AUTO]** Read Open Issues - Check if existing Issue exists
-   - If user specified an Issue → use that Issue
-   - If not specified → run `gitflow-cli issue list --state open` to read open issues list for selection
-
-2. **[CALL]** Call `superpowers:brainstorming`
-   - Pass context: Issue description (if exists) or user requirements
-   - **brainstorming internally will:**
-     - Explore project context
-     - Ask clarifying questions (one at a time)
-     - Propose 2-3 approaches
-     - Present design and get user approval
-     - Write design doc to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
-     - User reviews written spec
-     - **Only completes after user approval**
+3. **[CALL] `superpowers:brainstorming`**
+   - Pass: Issue description or user requirements
+   - **⚠️ RETURN RULE:** Terminal state = **RETURN TO ORCHESTRATOR** (not `writing-plans`)
+   - Brainstorming will: explore context → ask questions → propose approaches → present design → write spec → **return control**
    - Output: `design_doc_path`
 
-3. **[AUTO]** Call `gitflow-issue-create`
-   - Create GitHub Issue (or use existing Issue)
-   - Reference design doc path in Issue body
+4. **[AUTO] `gitflow-issue-create`** — **MANDATORY**
+   - Create Issue (or use existing), reference design doc in body
    - Output: `issue_url`
 
-4. **[AUTO]** Call `gitflow-issue-review`
-   - Review Issue quality
-   - Add review comment
+5. **[AUTO] `gitflow-issue-review`** — **MANDATORY**
+   - Review Issue quality, add review comment
    - Output: `comment_id`
 
-5. **[AUTO]** Update contract
-   ```json
-   phases.1.evidence = {
-     "issue_url": "...",
-     "comment_id": "...",
-     "design_doc_path": "..."
-   }
-   phases.1.status = "complete"
-   ```
+6. **[AUTO] Update contract** — `phases.1.evidence = { issue_url, comment_id, design_doc_path }`, `status = "complete"`
 
-6. **[AUTO]** Gate 1→2 check
-   - Conditions: `issue_url` + `comment_id` + `design_doc_path` non-empty
-   - Pass → **AUTO-ADVANCE to Phase 2**
-   - Fail → return to repair
+7. **[AUTO] Gate 1→2** — All evidence non-empty → **AUTO-ADVANCE to Phase 2**
 
-### Phase 2: Planning (Auto-Trigger + Pause at Gate)
+## Phase 2: Planning
 
-**Entry condition:** Gate 1→2 passed
-**Exit condition:** contract `phases.2.status = complete`
-**Auto-advance:** false (PAUSE at gate 2→3)
+**Entry:** Gate 1→2 passed · **Exit:** `phases.2.status = complete` · **Pause:** yes (Gate 2→3)
 
-**Execution Steps:**
+| Step | Action | Output |
+|------|--------|--------|
+| 1 | **[CALL]** `superpowers:writing-plans` (input: `design_doc_path`) — **⚠️ RETURN to orchestrator** | `spec_path` |
+| 2 | **[AUTO]** `gitflow-quality` gate | all checks passed |
+| 3 | **[AUTO]** Update contract: `evidence = { spec_path, user_approved: false }` | — |
+| 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → Phase 3 · "changes" → revise · "rejected" → terminate | `user_approved` |
 
-1. **[AUTO]** Call `superpowers:writing-plans` to create a full plan
-   - Input: design doc path (from `phases.1.evidence.design_doc_path`)
-   - Output: plan doc path `docs/superpowers/plans/YYYY-MM-DD-<topic>-plan.md`
+## Phase 3: Execution
 
-2. **[AUTO]** Call `gitflow-quality` gate → ALL CHECKS PASSED
-   - Build check / Test check / Coverage check / Format check / Static check / Pre-commit check
+**Entry:** Gate 2→3 passed (`user_approved = true`) · **Exit:** `phases.3.status = complete` · **Auto-advance:** yes
 
-3. **[AUTO]** Update contract
-   ```json
-   phases.2.evidence = {
-     "spec_path": "...",
-     "user_approved": false  // initially false
-   }
-   phases.2.status = "complete"
-   ```
+| Step | Action | Output |
+|------|--------|--------|
+| 1 | **[AUTO]** Create worktree: `feat/<issue-number>-<short-description>` | `branch` |
+| 2 | **[AUTO]** `superpowers:subagent-driven-development` (TDD: RED → GREEN → REFACTOR) | implementation |
+| 3 | **[AUTO]** `gitflow-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
+| 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
+| 5 | **[AUTO]** Update contract: `evidence = { branch, pr_url, tests_passed }` | — |
+| 6 | **[AUTO]** Gate 3→4 — `pr_url` + `tests_passed = true` → **AUTO-ADVANCE to Phase 4** | — |
 
-4. **[PAUSE]** Gate 2→3 check + user approval
-   - Show user the plan doc path
-   - **Pause and wait** for user input:
-     - "approved" → `user_approved = true` → **enter Phase 3**
-     - "changes requested" → return to modify plan
-     - "rejected" → terminate workflow
+## Phase 4: Post-Delivery Checks
 
-5. **[ON APPROVAL]** Update contract
-   ```json
-   phases.2.evidence.user_approved = true
-   ```
+**Entry:** Gate 3→4 passed · **Exit:** `phases.4.status = complete` · **Auto-advance:** archive on complete
 
-### Phase 3: Execution (Auto-Trigger)
-
-**Entry condition:** Gate 2→3 passed (user_approved = true)
-**Exit condition:** contract `phases.3.status = complete`
-**Auto-advance:** true (on gate pass)
-
-**Execution Steps:**
-
-1. **[AUTO]** Create worktree
-   - Branch name: `feat/<issue-number>-<short-description>`
-
-2. **[AUTO]** Call `superpowers:subagent-driven-development`
-   - Input: plan doc path (from `phases.2.evidence.spec_path`)
-   - Includes TDD cycle: RED → GREEN → REFACTOR
-   - Output: implementation complete
-
-3. **[AUTO]** Call `gitflow-pr-create`
-   - PR body MUST include `Closes #<issue-number>`
-   - Output: `pr_url`
-
-4. **[AUTO]** Run tests
-   - `make test` or `cargo test`
-   - Output: `tests_passed = true/false`
-
-5. **[AUTO]** Update contract
-   ```json
-   phases.3.evidence = {
-     "branch": "...",
-     "pr_url": "...",
-     "tests_passed": true
-   }
-   phases.3.status = "complete"
-   ```
-
-6. **[AUTO]** Gate 3→4 check
-   - Conditions: `pr_url` + `tests_passed = true`
-   - Pass → **AUTO-ADVANCE to Phase 4**
-   - Fail → return to TDD cycle to fix
-
-### Phase 4: Post-Delivery Checks (Auto-Trigger)
-
-**Entry condition:** Gate 3→4 passed
-**Exit condition:** contract `phases.4.status = complete`
-**Auto-advance:** true (archive on complete)
-
-**Execution Steps:**
-
-1. **[AUTO]** Call `gitflow-pipeline-analyzer`
-   - Generate pipeline analysis report
-   - Output: `pipeline_ok = true/false`
-
-2. **[AUTO]** Call `gitflow-issue-triage`
-   - Generate Issue triage report
-
-3. **[AUTO]** Call `gitflow-review`
-   - Generate code review report
-   - Output: `review_report_path`
-
-4. **[AUTO]** Execute Dogfooding Checklist
-   - Reference: `docs/specs/phase4-dogfooding-checklist.md`
-   - Execute each platform's risk-driven checklist items
-   - Record any bugs to `.cache/bug-reports/pending.json` with `source: "dogfooding"`
-   - All items must pass; any failure blocks Phase 4 completion
-   - Output: `dogfooding_passed = true/false`
-
-5. **[AUTO]** Update contract
-   ```json
-   phases.4.evidence = {
-     "pipeline_ok": true,
-     "review_report_path": "...",
-     "dogfooding_passed": true
-   }
-   phases.4.status = "complete"
-   ```
-
-6. **[AUTO]** Archive contract
-   - Move: `.cache/workflows/active/<workflow_id>.json` → `.cache/workflows/archive/YYYY-MM/`
-
-7. **[COMPLETE]** Workflow ends
-
-## Contract Operations API
-
-### Create Contract
-
-```bash
-# Generate workflow_id (sequential by date)
-DATE=$(date -u +%Y-%m-%d)
-COUNT=$(ls .cache/workflows/active/ 2>/dev/null | grep "wf-${DATE}" | wc -l)
-WORKFLOW_ID="wf-${DATE}-$(printf '%03d' $((COUNT + 1)))"
-
-# Initialize contract
-cat > ".cache/workflows/active/${WORKFLOW_ID}.json" << EOF
-{
-  "version": "1.0",
-  "workflow_id": "${WORKFLOW_ID}",
-  "title": "<issue_title>",
-  "mode": "<full|fast>",
-  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "current_phase": 1,
-  "phases": {
-    "1": { "name": "Clarification", "status": "in_progress", "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "completed_at": null, "executor": null, "evidence": {} },
-    "2": { "name": "Planning", "status": "pending", "started_at": null, "completed_at": null, "executor": null, "evidence": {} },
-    "3": { "name": "Execution", "status": "pending", "started_at": null, "completed_at": null, "executor": null, "evidence": {} },
-    "4": { "name": "Delivery", "status": "pending", "started_at": null, "completed_at": null, "executor": null, "evidence": {} }
-  }
-}
-EOF
-```
-
-### Update Contract (on Phase completion)
-
-```bash
-# Update via jq (or edit manually); temp file named by workflow_id to avoid concurrency clash
-COMPLETED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-jq --arg phase "$PHASE_NUM" \
-   --arg status "complete" \
-   --arg completed_at "$COMPLETED_AT" \
-   --argjson evidence "$EVIDENCE_JSON" \
-  '.phases[$phase].status = $status | .phases[$phase].completed_at = $completed_at | .phases[$phase].evidence = $evidence | .updated_at = $completed_at' \
-  ".cache/workflows/active/${WORKFLOW_ID}.json" > "${WORKFLOW_ID}.tmp" \
-  && mv "${WORKFLOW_ID}.tmp" ".cache/workflows/active/${WORKFLOW_ID}.json"
-```
-
-### Advance to Next Phase (after gate passes)
-
-```bash
-# Increment current_phase and set next Phase to in_progress; temp file named by workflow_id
-jq --arg next "$((PHASE_NUM + 1))" \
-   --arg started_at "$COMPLETED_AT" \
-  '.current_phase = ($next | tonumber) | .phases[$next].status = "in_progress" | .phases[$next].started_at = $started_at | .updated_at = $started_at' \
-  ".cache/workflows/active/${WORKFLOW_ID}.json" > "${WORKFLOW_ID}.tmp" \
-  && mv "${WORKFLOW_ID}.tmp" ".cache/workflows/active/${WORKFLOW_ID}.json"
-```
-
-### Read Contract
-
-```bash
-# Read current contract status
-jq '.current_phase, .phases | to_entries[] | select(.value.status == "in_progress") | .key' \
-  ".cache/workflows/active/${WORKFLOW_ID}.json"
-```
+| Step | Action | Output |
+|------|--------|--------|
+| 1 | **[AUTO]** `gitflow-pipeline-analyzer` | `pipeline_ok` |
+| 2 | **[AUTO]** `gitflow-issue-triage` | — |
+| 3 | **[AUTO]** `gitflow-review` | `review_report_path` |
+| 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) | `dogfooding_passed` |
+| 5 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed }` | — |
+| 6 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
 
 ## Enforcement Rules
 
-### Forbidden Actions
-- ❌ Skip Phase 4 (any mode)
-- ❌ Fast mode forbids skipping TDD
-- ❌ Fast mode forbids skipping Code Review
-- ❌ Merge multiple Phases into one step
-- ❌ Enter next Phase when gate not passed
-- ❌ Yield to user skip requests (Scenario C guard)
+**Forbidden:** ❌ Skip Phase 4 · ❌ Fast mode: skip TDD or Code Review · ❌ Merge phases · ❌ Enter next Phase when gate not passed · ❌ Yield to user skip requests (Scenario C)
 
-### Scenario C Guard
-When the user says "the requirement is clear, just write code":
-1. Recognize this as a **Phase 2→3 skip request**
-2. Check contract: does `phases.2.evidence.spec_path` exist?
-3. **Refuse skip when absent**: return to Phase 2 for planning
-4. **fast-mode exception**: if fast mode was detected, allow skipping Phase 2
+**Scenario C Guard:** User says "just write code" → check `phases.2.evidence.spec_path`. Absent → refuse, go to Phase 2. Fast mode exception: allow skip Phase 2.
 
-## Multi-Workflow Concurrency
+## Error Handling & Common Mistakes
 
-Multiple workflow_ids stored independently, no interference:
-
-```
-.cache/workflows/
-├── active/
-│   ├── wf-2026-07-09-001.json  ← feat: TOON
-│   └── wf-2026-07-09-002.json  ← fix: pr merge
-└── archive/
-    └── 2026-07/
-        └── wf-2026-07-08-001.json
-```
-
-**Isolation principle:** each workflow uses its own worktree, branch, and contract file.
-
-## Cross-Session Recovery
-
-Workflows may be interrupted at any Phase. New sessions can recover state via contract + plan doc collaboration.
-
-### Recovery Mechanism
-
-```
-New Session Starts
-    ↓
-Step 1: Read Contract
-    • List .cache/workflows/active/*.json
-    • Find workflow with status != "complete"
-    • Read current_phase and evidence
-    ↓
-Step 2: Determine Entry Point
-    • current_phase = 1 → Resume from Phase 1
-    • current_phase = 2 → Read design_doc_path
-    • current_phase = 3 → Read spec_path
-    • current_phase = 4 → Read pr_url, tests_passed
-    ↓
-Step 3: Load Context Document
-    • Phase 1: No doc needed (start fresh)
-    • Phase 2: Read design_doc_path
-    • Phase 3: Read spec_path (plan document)
-    • Phase 4: Read pr_url + review reports
-    ↓
-Step 4: Continue Execution
-    • Resume from current_phase
-    • Follow auto-trigger rules
-    • Update contract on completion
-```
-
-### Key Principles
-
-1. **Contract is state machine:** Records `current_phase` and `evidence`
-2. **Plan doc is execution manual:** Contains implementation steps
-3. **Design doc is requirement source:** Phase 2+ reads `design_doc_path`
-4. **No external dependencies:** All state in contract and documents
-
-## Lifecycle Management
-
-| Status | Location | Retention | Cleanup |
-|------|------|--------|---------|
-| active | `.cache/workflows/active/` | In progress | Move to archive on completion |
-| archive | `.cache/workflows/archive/YYYY-MM/` | 90 days | `gitflow workflow cleanup --older-than 90` |
-
-## CLI Integration
-
-```bash
-# List active workflows
-gitflow workflow list
-
-# View contract details
-gitflow workflow status <workflow_id>
-
-# Archive completed workflow
-gitflow workflow archive <workflow_id>
-
-# Clean up expired archives
-gitflow workflow cleanup --older-than 90
-```
-
-## Error Handling
-
-| Error | Recovery |
-|-------|----------|
-| Contract file not found | Create new contract (start from Phase 1) |
-| Contract JSON corrupted | Restore from backup or rebuild |
+| Error / Mistake | Recovery |
+|-----------------|----------|
+| Contract not found | Create new contract (start from Bootstrap) |
+| Sub-skill did not return | Reassert: read contract, resume at next step |
+| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, execute `gitflow-issue-create` |
 | Gate check failed | Return to current Phase to complete evidence |
-| worktree leak | `git worktree remove` + `branch -d` |
-| auth expired | `gitflow-cli auth status` check, re-login |
+| Skip gate / inline sub-skill / advance before contract update / worktree leak | Fix and re-run |
+| **Invoke sub-skill without contract** / **let sub-skill chain** / **skip Issue create/review** | **STOP** — see Red Flags |
 
-## Common Mistakes
+## Reference
 
-❌ Skip gate check · ❌ Inline sub-skill · ❌ Advance to next Phase before contract update · ❌ worktree not cleaned · ❌ Yield to user skip requests
+Contract operations, cross-session recovery, CLI commands, lifecycle management: see `references.md`.

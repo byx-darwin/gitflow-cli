@@ -161,7 +161,7 @@ fn is_co_contribution_enabled() -> bool {
 ///
 /// Returns `false` if the file doesn't exist, can't be read, or the field
 /// is missing/not a boolean.
-fn read_co_contribution_flag(path: &Path) -> bool {
+pub(crate) fn read_co_contribution_flag(path: &Path) -> bool {
     let Ok(content) = std::fs::read_to_string(path) else {
         return false;
     };
