@@ -7,6 +7,82 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(skills)** make --report-bug flag negatable with --report-bug=false - ([73a4cb5](https://github.com/byx-darwin/gitflow-cli/commit/73a4cb55236c7174a02a8026a67861a9ac053d85)) - baoyx
+- **(skills)** fix bundled-counter overwritten dead code in install_single_skill_bundled - ([e76ace7](https://github.com/byx-darwin/gitflow-cli/commit/e76ace7ce79cf83d89cbc684441e2ce5160a3dca)) - baoyx
+- **(skills)** remove outdated comment referencing Task 2 - ([c167583](https://github.com/byx-darwin/gitflow-cli/commit/c167583278b1f21a2d0e4eb0bcd15b1f9f5c808f)) - baoyx
+
+### Documentation
+
+- **(autoreport-bug)** add unauthenticated fallback branch to skill - ([c7cf8cc](https://github.com/byx-darwin/gitflow-cli/commit/c7cf8cce2a8f75d4f988a8209ef7e68c63dac704)) - baoyx
+- **(autoreport-bug)** reconcile SKILL.md sections with new auth flow - ([12468b1](https://github.com/byx-darwin/gitflow-cli/commit/12468b1d0c3c8b56aaf4233e7c5023621df278ab)) - baoyx
+- **(skills)** clarify co_contribution is user-level setting - ([312a2e1](https://github.com/byx-darwin/gitflow-cli/commit/312a2e1034a8c062048a9d082a8f8371aff2db5d)) - baoyx
+- **(workflow)** add dogfooding checklist to Phase 4 (#73) - ([622c90a](https://github.com/byx-darwin/gitflow-cli/commit/622c90ae24735298dec4828a6f54459d5843c38a)) - baoyx
+- update README badges - ([8250826](https://github.com/byx-darwin/gitflow-cli/commit/8250826c34ab74d463a32a85330ba6010198b165)) - baoyx
+- add code of conduct and update contributing guidelines - ([dc85ba8](https://github.com/byx-darwin/gitflow-cli/commit/dc85ba8c2a2c871b168e9d8f15d1758e603d956f)) - baoyx
+- add co-contribution plan design spec - ([5688fa2](https://github.com/byx-darwin/gitflow-cli/commit/5688fa24268e394d8cdd1fc9c92036adc3bb59c1)) - baoyx
+- add co-contribution plan implementation plan - ([0df399c](https://github.com/byx-darwin/gitflow-cli/commit/0df399cfc306def126f4f4979bba5af45a16c432)) - baoyx
+- add design spec for co-contribution global-only marker (#82) - ([e14b819](https://github.com/byx-darwin/gitflow-cli/commit/e14b819a716f08fadb900101b12f9c4f051e17bc)) - baoyx
+- add implementation plan for co-contribution global-only marker (#82) - ([1a294a5](https://github.com/byx-darwin/gitflow-cli/commit/1a294a5fe3ac677114ce315b2d148b14f4cbea03)) - baoyx
+- add Phase 4 dogfooding checklist (#73) - ([851bb9e](https://github.com/byx-darwin/gitflow-cli/commit/851bb9e08605eb18d9c51b5b85197956688316c9)) - baoyx
+- fix dogfooding checklist table count and references (#73) - ([6cef5bc](https://github.com/byx-darwin/gitflow-cli/commit/6cef5bc728139d3a3a69d285b7060bf4ab2dc057)) - baoyx
+- add dogfooding checklist to docs index (#73) - ([bd384f4](https://github.com/byx-darwin/gitflow-cli/commit/bd384f4b51688e729c9e3a0579c1781853416b41)) - baoyx
+- fix dogfooding checklist reference link depth (#73) - ([2e687ac](https://github.com/byx-darwin/gitflow-cli/commit/2e687ac71db4bacd3e16ec43e40a64292b2395d2)) - baoyx
+- add design spec for Phase 4 dogfooding checklist (#73) - ([42c9292](https://github.com/byx-darwin/gitflow-cli/commit/42c9292d4c58c7c1d4914a43ef45f30bc64160f5)) - baoyx
+- fix self-review issues in dogfooding spec (#73) - ([e77248f](https://github.com/byx-darwin/gitflow-cli/commit/e77248f3f059daf687278e15acc46f7d2ba77f5c)) - baoyx
+- add pipeline analysis report for PR #86 - ([3e227e9](https://github.com/byx-darwin/gitflow-cli/commit/3e227e962e5b584bab11f094471c7908f8388bb7)) - baoyx
+- add implementation plan for Phase 4 dogfooding checklist (#73) - ([7ea690a](https://github.com/byx-darwin/gitflow-cli/commit/7ea690a676b7cada1c04bf61cb0e9f6d75d3c66d)) - baoyx
+- add issue triage report for Phase 4 - ([aeaf415](https://github.com/byx-darwin/gitflow-cli/commit/aeaf415d1c2f7a76a947c6d9f6981b80166958e6)) - baoyx
+- add code review report for PR #86 (self-review) - ([0499262](https://github.com/byx-darwin/gitflow-cli/commit/0499262b96b66cd5cc4523b2b8f44730e48e58bd)) - baoyx
+- add release workflow demo script - ([1155376](https://github.com/byx-darwin/gitflow-cli/commit/115537699aef9f42d38a8efdea341c1fd90b085d)) - baoyx
+
+### Features
+
+- **(error-reporter)** gate bug reporting on co-contribution opt-in marker - ([e0f5b9f](https://github.com/byx-darwin/gitflow-cli/commit/e0f5b9f569a69771723b273cf2ca1775a70e40d4)) - baoyx
+- **(hook)** add auth failure fallback with login guide and Issue template - ([707a40d](https://github.com/byx-darwin/gitflow-cli/commit/707a40d2fdff1448e2762dd083ec55fe12f637de)) - baoyx
+- **(skills)** add confirm() helper for interactive Y/n prompts - ([4f29840](https://github.com/byx-darwin/gitflow-cli/commit/4f2984009f9dda6cc358f5a2d3de984202a24d96)) - baoyx
+- **(skills)** add merge_co_contribution() for settings.json marker - ([f18ea3f](https://github.com/byx-darwin/gitflow-cli/commit/f18ea3fed3d7975db249416e2ccb416a332c50d9)) - baoyx
+- **(skills)** add co-contribution plan flow to install_skills() - ([cc731bd](https://github.com/byx-darwin/gitflow-cli/commit/cc731bd24f2a2032b95284c06c77498d9376e26e)) - baoyx
+- **(workflow)** add auto-trigger orchestration for gitflow-workflow (#83) - ([b4f60c1](https://github.com/byx-darwin/gitflow-cli/commit/b4f60c1718443872df5aeeae083f7f88387b9122)) - mc-ai
+- improve release workflow with safety checks and interactive preview - ([c126220](https://github.com/byx-darwin/gitflow-cli/commit/c126220b84a4c11ab0c44cf1557a608e957b71f2)) - baoyx
+
+### Miscellaneous Chores
+
+- update Homebrew formula to v0.7.0 - ([f4fe430](https://github.com/byx-darwin/gitflow-cli/commit/f4fe430c7f5f5eed627892cf0c49dc4c92a3a32c)) - github-actions[bot]
+- unify license to MIT - ([eb79794](https://github.com/byx-darwin/gitflow-cli/commit/eb797940705e3522ac7f04e95aca9c0759b3931e)) - baoyx
+- remove redundant LICENSE.md - ([e87d1a4](https://github.com/byx-darwin/gitflow-cli/commit/e87d1a49f70de026f911f1f392a60d558c08b60d)) - baoyx
+- remove obsolete plan-issue-59.md - ([623546f](https://github.com/byx-darwin/gitflow-cli/commit/623546f52426655e3adfc92c2030240850598476)) - baoyx
+- add .codegraph to gitignore and remove from tracking - ([2b224be](https://github.com/byx-darwin/gitflow-cli/commit/2b224be01f41f72233731d2919f819e5a4416236)) - baoyx
+- remove unused .tokeignore - ([0f1662a](https://github.com/byx-darwin/gitflow-cli/commit/0f1662a7946a5982de5c3c8240ae2603ad1d480e)) - baoyx
+- release v{{version}} - ([0b0e9d7](https://github.com/byx-darwin/gitflow-cli/commit/0b0e9d75274570db05b251c5d57bad7d366f7624)) - baoyx
+
+### Other
+
+- Merge pull request #81 from byx-darwin/feat/co-contribution-plan
+
+feat(skills): add co-contribution plan with GitHub auth verification - ([f1d4eef](https://github.com/byx-darwin/gitflow-cli/commit/f1d4eef9f47d49f45e7bde8ac96c53e78ad5906a)) - mc-ai
+- Merge pull request #84 from byx-darwin/feat/82-co-contribution-global-only
+
+feat(config): force co-contribution marker to global settings (#82) - ([5b73482](https://github.com/byx-darwin/gitflow-cli/commit/5b73482b59e297551e25b580bb670b69eb741063)) - mc-ai
+- Merge pull request #87 from byx-darwin/feat/73-dogfooding-checklist
+
+docs: add Phase 4 dogfooding checklist (#73) - ([8466bbe](https://github.com/byx-darwin/gitflow-cli/commit/8466bbec827ee3d783381802f2991c096affb3e9)) - mc-ai
+
+### Refactoring
+
+- **(skills)** simplify AgentPlatform::detect() to always return Claude - ([feaf3db](https://github.com/byx-darwin/gitflow-cli/commit/feaf3db1cb985e48b52e123ecaab5f3bf9bfcd58)) - baoyx
+- **(skills)** extract co-contribution flow into try_enable_co_contribution() helper - ([ade3aad](https://github.com/byx-darwin/gitflow-cli/commit/ade3aad15ceb60c2899ce10577df38a70c34294a)) - baoyx
+- **(skills)** force global write for co_contribution marker - ([7347178](https://github.com/byx-darwin/gitflow-cli/commit/734717863b9ed3de9445792368dee6e4860e337a)) - baoyx
+
+### Tests
+
+- **(skills)** add failing test for global-only co_contribution write - ([7480016](https://github.com/byx-darwin/gitflow-cli/commit/748001699649a469085e5e7c57ea86aed1ae6f99)) - baoyx
+- add E2E non-interactive test framework (#71) (#86) - ([1413133](https://github.com/byx-darwin/gitflow-cli/commit/1413133fce05be1740afabe3765269ede7e1ebc7)) - mc-ai
+
+---
+## [0.7.0](https://github.com/byx-darwin/gitflow-cli/compare/v0.6.0..v0.7.0) - 2026-07-09
+
+### Bug Fixes
+
 - **(workflow)** remind Closes #N keyword for auto-close - ([937b04a](https://github.com/byx-darwin/gitflow-cli/commit/937b04a5d53b2359c58f2621208b2854b37279d4)) - baoyx
 
 ### Documentation
@@ -22,6 +98,7 @@ All notable changes to this project will be documented in this file. See [conven
 
 - **(skills)** translate all 26 skill bodies to English (#77) - ([874d20f](https://github.com/byx-darwin/gitflow-cli/commit/874d20f240d958368fe46efdb669e72a123428ad)) - mc-ai
 - release v0.7.0 - ([a63937c](https://github.com/byx-darwin/gitflow-cli/commit/a63937cac632ab4aa958ff3866d1169172747754)) - baoyx
+- update CHANGELOG.md - ([3387e71](https://github.com/byx-darwin/gitflow-cli/commit/3387e71d3517b215818405d74d55796241565400)) - baoyx
 
 ---
 ## [0.6.0](https://github.com/byx-darwin/gitflow-cli/compare/v0.5.0..v0.6.0) - 2026-07-08
