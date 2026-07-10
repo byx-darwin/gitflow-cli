@@ -24,12 +24,12 @@ Language Detection → Gate 1 (build) → Gate 2 (test) → Gate 3 (coverage) �
 
 Run detection BEFORE any gate. See `references/detector.md` for full rules.
 
-Quick check:
+Scan root **and 2 levels deep** for marker files (skip `node_modules/`, `target/`, `vendor/`, etc.):
 
 ```bash
-for f in Cargo.toml go.mod pom.xml build.gradle pyproject.toml package.json; do
-  [ -f "$f" ] && echo "DETECTED: $f"
-done
+find . -maxdepth 3 \( -name "Cargo.toml" -o -name "go.mod" -o -name "pom.xml" \
+  -o -name "build.gradle" -o -name "pyproject.toml" -o -name "package.json" \) \
+  -not -path "*/node_modules/*" -not -path "*/target/*" -not -path "*/vendor/*"
 ```
 
 | Detected | Load Reference |
@@ -41,7 +41,26 @@ done
 | `package.json` | `references/node.md` |
 | None | Run Gate 6 only (pre-commit or N/A) |
 
-**Multi-language project** → list all detected, ask user which to check.
+### Single-Language Project
+
+One language detected (possibly in multiple directories) → load that reference, run gates.
+For Rust workspaces: a single `cargo build/test/...` at root covers all members.
+
+### Multi-Language Project
+
+Multiple languages detected → present summary to user:
+
+```
+Detected languages:
+  1. Rust       → ./ (workspace root + crates/* + apps/server)
+  2. Node.js    → ./apps/desktop/ (bun runtime)
+
+Which to check? [1/2/all]
+```
+
+- User selects one → run that language's gates
+- User selects "all" → run each independently (one failure does NOT block others)
+- Generate **aggregate report** at end (see Step 3)
 
 ## Step 2: Run Gates
 
@@ -63,6 +82,8 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 
 ## Step 3: Quality Report
 
+### Single-Language Report
+
 ```markdown
 ## Quality Gate Report
 
@@ -83,6 +104,25 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 - [ ] ALL CHECKS PASSED — ready for PR
 - [ ] WARNINGS — recommend fixing before PR
 - [ ] ERRORS — must fix before PR
+```
+
+### Multi-Language Aggregate Report
+
+```markdown
+## Quality Gate Report (Multi-Language)
+
+| Language | Path | Build | Test | Coverage | Format | Static | Pre-commit | Result |
+|----------|------|-------|------|----------|--------|--------|------------|--------|
+| Rust     | ./   | ✅    | ✅   | ✅ 85%   | ✅     | ✅     | ✅         | PASS   |
+| Node.js  | apps/desktop/ | ✅ | ❌ 2 failed | — | ✅ | ❌ 3 warn | N/A | FAIL |
+
+### Summary
+- Rust (./): ALL CHECKS PASSED
+- Node.js (apps/desktop): 2 test failures, 3 lint warnings
+
+### Actions Required
+- [ ] Fix 2 failing tests in apps/desktop
+- [ ] Address 3 lint warnings in apps/desktop
 ```
 
 **Report only. No auto-fix. No source modifications.**
