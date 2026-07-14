@@ -18,9 +18,6 @@ pre-release-commit-message = "chore: release v{{version}}"
 # Pre-release verification
 verify = true
 
-# Tag message
-tag-message = "Release v{{version}}"
-
 # Sign tags (optional, uncomment if needed)
 # sign-tag = true
 
