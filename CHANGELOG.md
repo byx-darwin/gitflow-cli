@@ -7,6 +7,52 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(core)** add platform serde aliases for State and ReviewState - ([984ef21](https://github.com/byx-darwin/gitflow-cli/commit/984ef2196f3e549fbbe0f60f7aa8ef9552f92a7b)) - baoyx
+- **(core)** add backticks to GitCode in doc comment - ([fbba901](https://github.com/byx-darwin/gitflow-cli/commit/fbba90126cdbb5853cd3afcf8b91b8fe33941b26)) - baoyx
+- **(skills)** harden gitflow-workflow orchestrator and fix SDO violations - ([8a2464d](https://github.com/byx-darwin/gitflow-cli/commit/8a2464d0ae8608c27ffecaaf34683d9bd06152b6)) - baoyx
+- **(skills)** add cross-session recovery to Contract First rule - ([fbb4e33](https://github.com/byx-darwin/gitflow-cli/commit/fbb4e334c11fb80305c11aeb6de8e78d43b4dfc2)) - baoyx
+- **(skills)** add Fast Mode — Required Skills Checklist section - ([c3b07e2](https://github.com/byx-darwin/gitflow-cli/commit/c3b07e2000b6c108104d7094738897255480f295)) - baoyx
+- **(skills)** add Phase 2 quality check details to SKILL.md - ([d2a16a2](https://github.com/byx-darwin/gitflow-cli/commit/d2a16a2805ebc4d37ff50bdfa85f32fdd2f85778)) - baoyx
+- **(skills)** add 'create a full plan' phrase to Phase 2 - ([4c6d366](https://github.com/byx-darwin/gitflow-cli/commit/4c6d36657f2630b86ba056e671f9860cd3e3ba83)) - baoyx
+- **(skills)** add Phase 4 output descriptions to SKILL.md - ([38d229f](https://github.com/byx-darwin/gitflow-cli/commit/38d229feff4baa1c95ab63f393ac8944fa262f3a)) - baoyx
+- include hooks directory in crates.io package - ([b508cf6](https://github.com/byx-darwin/gitflow-cli/commit/b508cf668cb66b373a84727fbbfa820527f4eb4c)) - baoyx
+- correct include path for hooks directory - ([7c7fc52](https://github.com/byx-darwin/gitflow-cli/commit/7c7fc52cfb8cacbd2b8f77bf4882d2aa826d61ae)) - baoyx
+- copy hooks directory to apps/cli for crates.io packaging - ([a7238ad](https://github.com/byx-darwin/gitflow-cli/commit/a7238ad83d12d677ec93d99f5a0148b22199b826)) - baoyx
+- correct include_bytes path for hooks in crates.io packaging - ([dc894db](https://github.com/byx-darwin/gitflow-cli/commit/dc894db74b324573fa945d6897ba21d7437a7476)) - baoyx
+- remove duplicate tag-message key in release.toml - ([6e92434](https://github.com/byx-darwin/gitflow-cli/commit/6e92434de44f99202a3163242fe64ccd36abc214)) - baoyx
+
+### Documentation
+
+- add release workflow section to CLAUDE.md - ([6aff293](https://github.com/byx-darwin/gitflow-cli/commit/6aff29301bac55f85200cbcc7259080d6bbd6e12)) - baoyx
+- add individual README for each crate - ([33793fc](https://github.com/byx-darwin/gitflow-cli/commit/33793fcc09c346140d2dc90ea842d7c484ab0480)) - baoyx
+
+### Features
+
+- **(skills)** language-agnostic quality gate with dynamic detection - ([83272b8](https://github.com/byx-darwin/gitflow-cli/commit/83272b8e2f946839e322ed5bb78f57ffd460d95a)) - baoyx
+- **(skills)** add multi-language project support to quality gate - ([f5070cc](https://github.com/byx-darwin/gitflow-cli/commit/f5070cc769999c8a3a8446bcf850212591ed2e39)) - baoyx
+- add crates.io publishing support - ([6e146fe](https://github.com/byx-darwin/gitflow-cli/commit/6e146fe57cd12e239e35f232c8297b3556ce1bf0)) - baoyx
+- add CI check before crates.io publish - ([e66faa7](https://github.com/byx-darwin/gitflow-cli/commit/e66faa701b934a73fcd969ed493eb692f746861b)) - baoyx
+
+### Miscellaneous Chores
+
+- update Homebrew formula to v0.8.0 - ([c9158ee](https://github.com/byx-darwin/gitflow-cli/commit/c9158ee8194ce3883f2dee27560c8078a91a7ffb)) - github-actions[bot]
+- add version requirements to workspace crates for crates.io publishing - ([73b8bc2](https://github.com/byx-darwin/gitflow-cli/commit/73b8bc24b78bcaf48c663eacf0c07f1f77a2a01f)) - baoyx
+- release v{{version}} - ([9331bfa](https://github.com/byx-darwin/gitflow-cli/commit/9331bfa31d49894eebf7e3247bc2347377d5789c)) - baoyx
+
+### Other
+
+- build gitflow-cli binary before running e2e tests - ([deeac04](https://github.com/byx-darwin/gitflow-cli/commit/deeac04f2149ca1842011d77b4d214d1afe007fa)) - baoyx
+- build gitflow-cli binary before running tests in build workflow - ([bf6a3b7](https://github.com/byx-darwin/gitflow-cli/commit/bf6a3b7ca9bce14ef50852e7a617fcf841f06b82)) - baoyx
+
+### Refactoring
+
+- **(skills)** compress gitflow-workflow SKILL.md by 49% - ([b86c463](https://github.com/byx-darwin/gitflow-cli/commit/b86c46324d6edd7f5afc61b1ec9c6c323e246dd1)) - baoyx
+
+---
+## [0.8.0](https://github.com/byx-darwin/gitflow-cli/compare/v0.7.0..v0.8.0) - 2026-07-10
+
+### Bug Fixes
+
 - **(skills)** make --report-bug flag negatable with --report-bug=false - ([73a4cb5](https://github.com/byx-darwin/gitflow-cli/commit/73a4cb55236c7174a02a8026a67861a9ac053d85)) - baoyx
 - **(skills)** fix bundled-counter overwritten dead code in install_single_skill_bundled - ([e76ace7](https://github.com/byx-darwin/gitflow-cli/commit/e76ace7ce79cf83d89cbc684441e2ce5160a3dca)) - baoyx
 - **(skills)** remove outdated comment referencing Task 2 - ([c167583](https://github.com/byx-darwin/gitflow-cli/commit/c167583278b1f21a2d0e4eb0bcd15b1f9f5c808f)) - baoyx
@@ -54,6 +100,7 @@ All notable changes to this project will be documented in this file. See [conven
 - add .codegraph to gitignore and remove from tracking - ([2b224be](https://github.com/byx-darwin/gitflow-cli/commit/2b224be01f41f72233731d2919f819e5a4416236)) - baoyx
 - remove unused .tokeignore - ([0f1662a](https://github.com/byx-darwin/gitflow-cli/commit/0f1662a7946a5982de5c3c8240ae2603ad1d480e)) - baoyx
 - release v{{version}} - ([0b0e9d7](https://github.com/byx-darwin/gitflow-cli/commit/0b0e9d75274570db05b251c5d57bad7d366f7624)) - baoyx
+- update CHANGELOG.md for v0.8.0 - ([3630a9c](https://github.com/byx-darwin/gitflow-cli/commit/3630a9c0f72e018e50519edd96b0dd53095e82f2)) - baoyx
 
 ### Other
 
