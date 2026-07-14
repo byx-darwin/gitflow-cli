@@ -169,7 +169,7 @@ Full definitions: `skills/gitflow-workflow/gates.md`
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[CALL]** `superpowers:writing-plans` (input: `design_doc_path`) — **⚠️ RETURN to orchestrator**. Create a full plan covering architecture, data flow, API design, component tree, and route design. | `spec_path` |
+| 1 | **[CALL]** `superpowers:writing-plans` (input: `design_doc_path`) — **⚠️ RETURN to orchestrator**. Create a full plan covering architecture, data flow, API design, component tree, and route design. The plan must create a full plan document with all design decisions. | `spec_path` |
 | 2 | **[AUTO]** `gitflow-quality` gate — runs all quality checks: Build check, Test check, Coverage check, Format check, Static check, and Pre-commit check. Report shows status per check. | all checks passed |
 | 3 | **[AUTO]** Update contract: `evidence = { spec_path, user_approved: false }` | — |
 | 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → Phase 3 · "changes" → revise · "rejected" → terminate | `user_approved` |
