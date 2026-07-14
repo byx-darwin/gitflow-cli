@@ -104,6 +104,18 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 | 3 | subagent-driven-development (TDD + Code Review) | **required** |
 | 4 | pipeline + triage + review + dogfooding | **required** |
 
+## Fast Mode — Required Skills Checklist
+
+In fast mode, the following skills are invoked per phase:
+
+**Phase 1:** `gitflow-issue-create` (required), `superpowers:brainstorming` (optional)
+
+**Phase 2:** `superpowers:writing-plans` (optional, skippable)
+
+**Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
+
+**Phase 4:** `gitflow-pipeline-analyzer` → `gitflow-issue-triage` → `gitflow-review` → dogfooding checklist (all required)
+
 ## State Machine
 
 ```
