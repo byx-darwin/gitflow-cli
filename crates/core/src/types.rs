@@ -94,7 +94,7 @@ pub struct UserSummary {
 ///
 /// Uses `snake_case` for serialization (`"open"`/`"closed"`), with
 /// uppercase aliases for GitHub's `gh` CLI output (`"OPEN"`/`"CLOSED"`/`"MERGED"`)
-/// and past-tense alias for GitCode (`"opened"`).
+/// and past-tense alias for `GitCode` (`"opened"`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
