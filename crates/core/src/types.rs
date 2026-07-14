@@ -93,15 +93,16 @@ pub struct UserSummary {
 /// The state of an Issue or Pull Request.
 ///
 /// Uses `snake_case` for serialization (`"open"`/`"closed"`), with
-/// uppercase aliases for GitHub's `gh` CLI output (`"OPEN"`/`"CLOSED"`/`"MERGED"`).
+/// uppercase aliases for GitHub's `gh` CLI output (`"OPEN"`/`"CLOSED"`/`"MERGED"`)
+/// and past-tense alias for GitCode (`"opened"`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
     /// Open and active.
-    #[serde(alias = "OPEN")]
+    #[serde(alias = "OPEN", alias = "opened")]
     Open,
     /// Closed or merged.
-    #[serde(alias = "CLOSED", alias = "MERGED")]
+    #[serde(alias = "CLOSED", alias = "MERGED", alias = "merged")]
     Closed,
 }
 
@@ -193,6 +194,12 @@ mod tests {
 
         let state: State = serde_json::from_str("\"closed\"").expect("deserialize closed");
         assert_eq!(state, State::Closed);
+    }
+
+    #[test]
+    fn test_should_deserialize_state_with_gitcode_opened_alias() {
+        let state: State = serde_json::from_str("\"opened\"").expect("deserialize gitcode opened");
+        assert_eq!(state, State::Open);
     }
 
     #[test]

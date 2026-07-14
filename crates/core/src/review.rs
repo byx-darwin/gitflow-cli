@@ -13,14 +13,20 @@ use crate::{Result, types::UserSummary};
 /// Review 状态枚举。
 ///
 /// 表示一次代码审查的最终结论。
+///
+/// 使用 `snake_case` 进行序列化，并提供 UPPERCASE 别名
+/// 以兼容 GitHub `gh` CLI 的输出格式。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewState {
     /// 审查通过，可以合并。
+    #[serde(alias = "APPROVED")]
     Approved,
     /// 要求修改后才能合并。
+    #[serde(alias = "CHANGES_REQUESTED")]
     ChangesRequested,
     /// 仅发表评论，不表态。
+    #[serde(alias = "COMMENTED")]
     Commented,
 }
 
@@ -256,6 +262,19 @@ mod tests {
         assert_eq!(state, ReviewState::ChangesRequested);
 
         let state: ReviewState = serde_json::from_str("\"commented\"").expect("deserialize");
+        assert_eq!(state, ReviewState::Commented);
+    }
+
+    #[test]
+    fn test_should_deserialize_review_state_from_github_uppercase() {
+        let state: ReviewState = serde_json::from_str("\"APPROVED\"").expect("deserialize");
+        assert_eq!(state, ReviewState::Approved);
+
+        let state: ReviewState =
+            serde_json::from_str("\"CHANGES_REQUESTED\"").expect("deserialize");
+        assert_eq!(state, ReviewState::ChangesRequested);
+
+        let state: ReviewState = serde_json::from_str("\"COMMENTED\"").expect("deserialize");
         assert_eq!(state, ReviewState::Commented);
     }
 
