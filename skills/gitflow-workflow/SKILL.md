@@ -195,9 +195,9 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gitflow-pipeline-analyzer` | `pipeline_ok` |
-| 2 | **[AUTO]** `gitflow-issue-triage` | — |
-| 3 | **[AUTO]** `gitflow-review` | `review_report_path` |
+| 1 | **[AUTO]** `gitflow-pipeline-analyzer` — generates pipeline analysis report | `pipeline_ok` |
+| 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report | — |
+| 3 | **[AUTO]** `gitflow-review` — creates code review report | `review_report_path` |
 | 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) | `dogfooding_passed` |
 | 5 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed }` | — |
 | 6 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
