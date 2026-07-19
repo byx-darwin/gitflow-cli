@@ -71,6 +71,37 @@ impl<R: CommandRunner> GitLabIssueProvider<R> {
             runner,
         }
     }
+
+    /// 创建缺失的标签。
+    ///
+    /// 调用 `glab label create --name <name> --color <color> --repo <repo>`。
+    ///
+    /// # Errors
+    ///
+    /// 当 `glab label create` 调用失败时返回错误。
+    async fn ensure_label_exists(&self, name: &str) -> Result<()> {
+        debug!(repo = %self.repo, name, "auto-creating missing label via `glab label create`");
+
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "label", "create", "--name", name, "--color", "ededed", "--repo", &self.repo,
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label create: {e}")))?;
+
+        if !output.status.success() {
+            let glab_err = parse_glab_error(&output.stderr);
+            return Err(CoreError::Platform(format!(
+                "Failed to auto-create label '{name}': {glab_err}"
+            )));
+        }
+
+        Ok(())
+    }
 }
 
 // ── 中间 API 响应类型 ──────────────────────────────────────────────
@@ -224,6 +255,35 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
+            // `glab issue create` may fail when a requested label doesn't exist.
+            // Auto-create missing labels and retry once.
+            let missing = extract_missing_labels_from_error(&output.stderr);
+            if !missing.is_empty() {
+                debug!(
+                    repo = %self.repo,
+                    missing_count = missing.len(),
+                    "auto-creating missing label(s) before retrying issue create"
+                );
+                for label in &missing {
+                    self.ensure_label_exists(label).await?;
+                }
+
+                let retry_output = self.runner.run("glab", &cmd_args).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn glab on retry: {e}"))
+                })?;
+
+                if !retry_output.status.success() {
+                    let glab_err = parse_glab_error(&retry_output.stderr);
+                    return Err(CoreError::Platform(format!("{glab_err}")));
+                }
+
+                let stdout = String::from_utf8_lossy(&retry_output.stdout);
+                let issue_iid = parse_issue_iid_from_url(&stdout).ok_or_else(|| {
+                    CoreError::Platform(format!("Failed to parse issue URL from output: {stdout}"))
+                })?;
+                return self.view(issue_iid).await;
+            }
+
             let glab_err = parse_glab_error(&output.stderr);
             return Err(CoreError::Platform(format!("{glab_err}")));
         }
@@ -439,9 +499,14 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     /// 调用 `glab issue edit <number> --repo <repo> --add-label <labels>` 添加标签，
     /// 多个标签以逗号连接后一次性提交。
     ///
+    /// # 自动创建缺失标签
+    ///
+    /// 当 `glab issue edit --add-label` 因标签不存在而失败时，本方法会自动调用
+    /// `glab label create` 创建缺失的标签（使用默认颜色 `ededed`），然后重试原操作。
+    ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、标签名无效或 `glab` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、标签创建失败或 `glab` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
         debug!(
             repo = %self.repo,
@@ -452,25 +517,51 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
         let labels_joined = labels.join(",");
         let number_str = number.to_string();
+        let cmd_args: Vec<&str> = vec![
+            "issue",
+            "edit",
+            &number_str,
+            "--repo",
+            &self.repo,
+            "--add-label",
+            &labels_joined,
+        ];
         let output = self
             .runner
-            .run(
-                "glab",
-                &[
-                    "issue",
-                    "edit",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--add-label",
-                    &labels_joined,
-                ],
-            )
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
-        if !output.status.success() {
+        if output.status.success() {
+            return Ok(());
+        }
+
+        // glab issue edit --add-label may fail when a label doesn't exist.
+        // Try to auto-create missing labels and retry once.
+        let missing = extract_missing_labels_from_error(&output.stderr);
+        if missing.is_empty() {
             let glab_err = parse_glab_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{glab_err}")));
+        }
+
+        debug!(
+            repo = %self.repo,
+            missing_count = missing.len(),
+            "auto-creating missing label(s) before retry"
+        );
+
+        for label in &missing {
+            self.ensure_label_exists(label).await?;
+        }
+
+        let retry_output = self
+            .runner
+            .run("glab", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab on retry: {e}")))?;
+
+        if !retry_output.status.success() {
+            let glab_err = parse_glab_error(&retry_output.stderr);
             return Err(CoreError::Platform(format!("{glab_err}")));
         }
 
@@ -514,6 +605,37 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     }
 }
 
+/// 从 `glab issue edit --add-label` 的 stderr 中提取缺失的标签名。
+///
+/// GitLab CLI 的错误格式可能有多种变体，本函数尝试匹配常见的
+/// `'<label>' not found` / `"label not found: <label>"` 模式。
+/// 未匹配时返回空列表，调用方据此判断是否为"标签缺失"错误。
+fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
+    let text = String::from_utf8_lossy(stderr);
+    let mut labels = Vec::new();
+    let mut search_from: usize = 0;
+
+    // 模式 1: '<label>' not found （与 gh/gitcode 一致）
+    while let Some(rel_open) = text[search_from..].find('\'') {
+        let open_pos = search_from + rel_open + 1;
+        let Some(rel_close) = text[open_pos..].find('\'') else {
+            break;
+        };
+        let close_pos = open_pos + rel_close;
+        let after_close = &text[close_pos + 1..];
+
+        if after_close.starts_with(" not found") {
+            let label = text[open_pos..close_pos].to_string();
+            if !label.is_empty() {
+                labels.push(label);
+            }
+        }
+        search_from = close_pos + 1;
+    }
+
+    labels
+}
+
 /// Parse issue IID from GitLab URL.
 ///
 /// Extracts the numeric IID from URLs like:
@@ -536,7 +658,7 @@ fn parse_issue_iid_from_url(url: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitlab_issue_provider() {
@@ -928,5 +1050,62 @@ mod tests {
             result.unwrap_err(),
             gitflow_cli_core::CoreError::Platform(_)
         ));
+    }
+
+    // --- extract_missing_labels_from_error: pure-function tests ---
+
+    #[test]
+    fn test_should_extract_single_missing_label_from_glab_stderr() {
+        let stderr = b"failed to update ...: 'type:enhancement' not found";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert_eq!(missing, vec!["type:enhancement".to_string()]);
+    }
+
+    #[test]
+    fn test_should_return_empty_when_no_label_not_found_in_glab_stderr() {
+        let stderr = b"glab: Not logged in";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert!(missing.is_empty());
+    }
+
+    // --- add_labels: auto-create missing labels ---
+
+    #[tokio::test]
+    async fn test_should_auto_create_label_and_retry_on_add_labels_glab() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (false, "failed to update ...: 'type:enhancement' not found"),
+            (true, "Created label type:enhancement"),
+            (true, ""),
+        ]);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .add_labels(18, &["type:enhancement".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_glab_label_create_fails() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (false, "failed to update ...: 'ghost' not found"),
+            (false, "glab: 403 Forbidden"),
+        ]);
+        let provider = GitLabIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["ghost".to_string()]).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_not_retry_on_non_label_error_glab() {
+        let runner = SequencedMockCommandRunner::from_results(&[(false, "glab: Not logged in")]);
+        let provider = GitLabIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
     }
 }

@@ -114,13 +114,13 @@ enum MockResult {
 #[cfg(test)]
 impl MockCommandRunner {
     #[cfg(unix)]
-    fn make_exit_status(code: i32) -> ExitStatus {
+    pub(crate) fn make_exit_status(code: i32) -> ExitStatus {
         use std::os::unix::process::ExitStatusExt;
         ExitStatus::from_raw(code)
     }
 
     #[cfg(windows)]
-    fn make_exit_status(code: i32) -> ExitStatus {
+    pub(crate) fn make_exit_status(code: i32) -> ExitStatus {
         use std::os::windows::process::ExitStatusExt;
         // Exit codes are conventionally non-negative; clamp negatives to 1.
         let raw = u32::try_from(code).unwrap_or(1);
@@ -168,6 +168,78 @@ impl CommandRunner for MockCommandRunner {
             MockResult::Output(output) => Ok(output.clone()),
             MockResult::Error(kind, message) => Err(std::io::Error::new(*kind, message.clone())),
         }
+    }
+
+    async fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        _stdin_data: &[u8],
+    ) -> std::io::Result<CommandOutput> {
+        self.run(program, args).await
+    }
+}
+
+/// Mock implementation that returns a sequence of preconfigured responses.
+///
+/// Each call to [`CommandRunner::run`] pops the next response from the queue.
+/// Useful for testing retry logic where different commands must succeed or fail
+/// in a specific order (e.g., `add_labels` retries after auto-creating a label).
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct SequencedMockCommandRunner {
+    responses: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<CommandOutput>>>,
+}
+
+#[cfg(test)]
+impl SequencedMockCommandRunner {
+    /// Build a runner that yields `outputs` in order, one per `run` call.
+    #[must_use]
+    pub fn new(outputs: Vec<CommandOutput>) -> Self {
+        Self {
+            responses: std::sync::Arc::new(std::sync::Mutex::new(outputs.into())),
+        }
+    }
+
+    /// Convenience: build a sequence from `(success, stdout_or_stderr)` tuples.
+    ///
+    /// When `success` is `true`, the string is used as stdout with exit code 0.
+    /// When `false`, it is used as stderr with exit code 1.
+    #[must_use]
+    pub fn from_results(results: &[(bool, &str)]) -> Self {
+        let outputs = results
+            .iter()
+            .map(|&(ok, text)| {
+                if ok {
+                    CommandOutput {
+                        status: MockCommandRunner::make_exit_status(0),
+                        stdout: text.as_bytes().to_vec(),
+                        stderr: Vec::new(),
+                    }
+                } else {
+                    CommandOutput {
+                        status: MockCommandRunner::make_exit_status(1),
+                        stdout: Vec::new(),
+                        stderr: text.as_bytes().to_vec(),
+                    }
+                }
+            })
+            .collect();
+        Self::new(outputs)
+    }
+}
+
+#[cfg(test)]
+#[async_trait::async_trait]
+impl CommandRunner for SequencedMockCommandRunner {
+    async fn run(&self, _program: &str, _args: &[&str]) -> std::io::Result<CommandOutput> {
+        let mut guard = self
+            .responses
+            .lock()
+            .expect("SequencedMockCommandRunner mutex poisoned");
+        guard
+            .pop_front()
+            .ok_or_else(|| std::io::Error::other("no more responses"))
     }
 
     async fn run_with_stdin(

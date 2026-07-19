@@ -221,6 +221,38 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
             runner,
         }
     }
+
+    /// 创建缺失的标签（使用 `--force` 保持幂等）。
+    ///
+    /// # Errors
+    ///
+    /// 当 `gitcode label create` 调用失败时返回错误。
+    async fn ensure_label_exists(&self, name: &str) -> Result<()> {
+        let binary = crate::gitcode_binary();
+        debug!(repo = %self.repo, name, "auto-creating missing label via `gc label create`");
+
+        let output = self
+            .runner
+            .run(
+                &binary,
+                &[
+                    "label", "create", name, "--color", "ededed", "-R", &self.repo,
+                ],
+            )
+            .await
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode label create: {e}"))
+            })?;
+
+        if !output.status.success() {
+            let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!(
+                "Failed to auto-create label '{name}': {gitcode_err}"
+            )));
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -257,6 +289,32 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
+            // gc issue create fails when a requested label doesn't exist.
+            // Auto-create missing labels and retry once.
+            let missing = extract_missing_labels_from_error(&output.stderr);
+            if !missing.is_empty() {
+                debug!(
+                    repo = %self.repo,
+                    missing_count = missing.len(),
+                    "auto-creating missing label(s) before retrying issue create"
+                );
+                for label in &missing {
+                    self.ensure_label_exists(label).await?;
+                }
+
+                let retry_output = self.runner.run(&binary, &cmd_args).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode on retry: {e}"))
+                })?;
+                if !retry_output.status.success() {
+                    return Err(CoreError::Platform(
+                        parse_gitcode_error(&retry_output.stderr).to_string(),
+                    ));
+                }
+                return serde_json::from_slice::<IssueApiResponse>(&retry_output.stdout)
+                    .map(IssueData::from)
+                    .map_err(CoreError::Serialization);
+            }
+
             return Err(CoreError::Platform(
                 parse_gitcode_error(&output.stderr).to_string(),
             ));
@@ -436,12 +494,17 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
 
     /// 为指定 Issue 添加一个或多个标签。
     ///
-    /// 调用 `gc issue edit <number> --repo <repo> --add-label <label>` 逐个添加标签。
+    /// 调用 `gc issue edit <number> -R <repo> --add-label <label>` 逐个添加标签。
     /// 如果 `labels` 为空，不进行任何调用并返回成功。
+    ///
+    /// # 自动创建缺失标签
+    ///
+    /// 当 `gc issue edit --add-label` 因标签不存在而失败时，本方法会自动调用
+    /// `gc label create` 创建缺失的标签（使用默认颜色 `ededed`），然后重试原操作。
     ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、标签名无效或 `gitcode` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、标签创建失败或 `gitcode` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
@@ -464,8 +527,35 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
-        if !output.status.success() {
+        if output.status.success() {
+            return Ok(());
+        }
+
+        // gc issue edit --add-label fails when a label doesn't exist.
+        // Auto-create missing labels and retry once.
+        let missing = extract_missing_labels_from_error(&output.stderr);
+        if missing.is_empty() {
             let gitcode_err = parse_gitcode_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gitcode_err}")));
+        }
+
+        debug!(
+            repo = %self.repo,
+            missing_count = missing.len(),
+            "auto-creating missing label(s) before retry"
+        );
+
+        for label in &missing {
+            self.ensure_label_exists(label).await?;
+        }
+
+        let retry_output =
+            self.runner.run(&binary, &cmd_args).await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gitcode on retry: {e}"))
+            })?;
+
+        if !retry_output.status.success() {
+            let gitcode_err = parse_gitcode_error(&retry_output.stderr);
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
@@ -510,12 +600,41 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
     }
 }
 
+/// 从 `gc issue edit --add-label` 的 stderr 中提取缺失的标签名。
+///
+/// GitCode CLI 是 `gh` 的分支，错误格式与 `gh` 一致：
+/// `'<label>' not found`。
+fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
+    let text = String::from_utf8_lossy(stderr);
+    let mut labels = Vec::new();
+    let mut search_from: usize = 0;
+
+    while let Some(rel_open) = text[search_from..].find('\'') {
+        let open_pos = search_from + rel_open + 1;
+        let Some(rel_close) = text[open_pos..].find('\'') else {
+            break;
+        };
+        let close_pos = open_pos + rel_close;
+        let after_close = &text[close_pos + 1..];
+
+        if after_close.starts_with(" not found") {
+            let label = text[open_pos..close_pos].to_string();
+            if !label.is_empty() {
+                labels.push(label);
+            }
+        }
+        search_from = close_pos + 1;
+    }
+
+    labels
+}
+
 #[cfg(test)]
 mod tests {
     use gitflow_cli_core::types::UserSummary;
 
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitcode_issue_provider() {
@@ -817,5 +936,71 @@ mod tests {
             result.unwrap_err(),
             gitflow_cli_core::CoreError::Platform(_)
         ));
+    }
+
+    // --- extract_missing_labels_from_error: pure-function tests ---
+
+    #[test]
+    fn test_should_extract_single_missing_label_from_gc_stderr() {
+        let stderr =
+            b"failed to update https://gitcode.com/owner/repo/issues/18: 'type:enhancement' not found";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert_eq!(missing, vec!["type:enhancement".to_string()]);
+    }
+
+    #[test]
+    fn test_should_return_empty_when_no_label_not_found_in_gc_stderr() {
+        let stderr = b"gitcode: Not logged in";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert!(missing.is_empty());
+    }
+
+    // --- add_labels: auto-create missing labels ---
+
+    #[tokio::test]
+    async fn test_should_auto_create_label_and_retry_on_add_labels() {
+        // Sequence:
+        // 1. `gc issue edit 18 --add-label type:enhancement` → fails
+        // 2. `gc label create type:enhancement --color ededed -R owner/repo` → succeeds
+        // 3. `gc issue edit 18 --add-label type:enhancement` → succeeds (retry)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                false,
+                "failed to update https://gitcode.com/owner/repo/issues/18: 'type:enhancement' \
+                 not found",
+            ),
+            (true, ""),
+            (true, ""),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .add_labels(18, &["type:enhancement".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_gc_label_create_fails() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (false, "failed to update ...: 'ghost' not found"),
+            (false, "gitcode: 403 Forbidden"),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["ghost".to_string()]).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_not_retry_on_non_label_error_gc() {
+        let runner = SequencedMockCommandRunner::from_results(&[(false, "gitcode: Not logged in")]);
+        let provider = GitCodeIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
     }
 }

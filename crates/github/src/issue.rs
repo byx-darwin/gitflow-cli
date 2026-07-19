@@ -69,6 +69,38 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
             runner,
         }
     }
+
+    /// 创建缺失的标签（如已存在则忽略"已存在"错误）。
+    ///
+    /// 调用 `gh label create <name> --color ededed --repo <repo> --force`。
+    /// `--force` 确保在竞态条件（标签被并发创建）下仍保持幂等。
+    ///
+    /// # Errors
+    ///
+    /// 当 `gh label create` 调用失败时返回错误。
+    async fn ensure_label_exists(&self, name: &str) -> Result<()> {
+        debug!(repo = %self.repo, name, "auto-creating missing label via `gh label create`");
+
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "label", "create", name, "--color", "ededed", "--repo", &self.repo, "--force",
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label create: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!(
+                "Failed to auto-create label '{name}': {gh_err}"
+            )));
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -110,6 +142,35 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
+            // `gh issue create` fails when a requested label doesn't exist.
+            // Auto-create missing labels and retry once.
+            let missing = extract_missing_labels_from_error(&output.stderr);
+            if !missing.is_empty() {
+                debug!(
+                    repo = %self.repo,
+                    missing_count = missing.len(),
+                    "auto-creating missing label(s) before retrying issue create"
+                );
+                for label in &missing {
+                    self.ensure_label_exists(label).await?;
+                }
+
+                let retry_output = self.runner.run("gh", &cmd_args).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gh on retry: {e}"))
+                })?;
+
+                if !retry_output.status.success() {
+                    let gh_err = parse_gh_error(&retry_output.stderr);
+                    return Err(CoreError::Platform(format!("{gh_err}")));
+                }
+
+                let stdout = String::from_utf8_lossy(&retry_output.stdout);
+                let issue_number = parse_issue_number_from_url(&stdout).ok_or_else(|| {
+                    CoreError::Platform(format!("Failed to parse issue URL from output: {stdout}"))
+                })?;
+                return self.view(issue_number).await;
+            }
+
             let gh_err = parse_gh_error(&output.stderr);
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
@@ -332,9 +393,15 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
     /// 调用 `gh issue edit <number> --repo <repo> --add-label <label>` 逐个添加标签。
     /// 如果 `labels` 为空，不进行任何调用并返回成功。
     ///
+    /// # 自动创建缺失标签
+    ///
+    /// 当 `gh issue edit --add-label` 因标签不存在而失败时，本方法会自动调用
+    /// `gh label create` 创建缺失的标签（使用默认颜色 `ededed`），然后重试原操作。
+    /// 这避免了手动同步仓库标签列表的繁琐流程。
+    ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、标签名无效或 `gh` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、标签创建失败或 `gh` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
         debug!(
             repo = %self.repo,
@@ -357,8 +424,37 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
-        if !output.status.success() {
+        if output.status.success() {
+            return Ok(());
+        }
+
+        // gh issue edit --add-label fails when a label doesn't exist in the repo.
+        // Auto-create the missing label(s) and retry once.
+        let missing = extract_missing_labels_from_error(&output.stderr);
+        if missing.is_empty() {
             let gh_err = parse_gh_error(&output.stderr);
+            return Err(CoreError::Platform(format!("{gh_err}")));
+        }
+
+        debug!(
+            repo = %self.repo,
+            missing_count = missing.len(),
+            "auto-creating missing label(s) before retry"
+        );
+
+        for label in &missing {
+            self.ensure_label_exists(label).await?;
+        }
+
+        // Retry the original add-label command.
+        let retry_output = self
+            .runner
+            .run("gh", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh on retry: {e}")))?;
+
+        if !retry_output.status.success() {
+            let gh_err = parse_gh_error(&retry_output.stderr);
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
@@ -456,12 +552,51 @@ fn parse_issue_number_from_url(url: &str) -> Option<u64> {
     })
 }
 
+/// 从 `gh issue edit --add-label` 的 stderr 中提取缺失的标签名。
+///
+/// `gh` 对缺失标签的错误格式为：
+/// ```text
+/// failed to update https://github.com/owner/repo/issues/18: 'type:enhancement' not found
+/// ```
+/// 或多个标签缺失时：
+/// ```text
+/// failed to update ...: 'bug' not found, 'priority:high' not found
+/// ```
+///
+/// 本函数扫描所有 `'<label>' not found` 模式并返回标签名列表。
+/// 若 stderr 不含该模式（例如鉴权错误），返回空列表，调用方据此判断
+/// 是否为"标签缺失"错误并决定是否重试。
+fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
+    let text = String::from_utf8_lossy(stderr);
+    let mut labels = Vec::new();
+    let mut search_from: usize = 0;
+
+    while let Some(rel_open) = text[search_from..].find('\'') {
+        let open_pos = search_from + rel_open + 1; // position after opening quote
+        let Some(rel_close) = text[open_pos..].find('\'') else {
+            break; // no matching close quote
+        };
+        let close_pos = open_pos + rel_close;
+        let after_close = &text[close_pos + 1..];
+
+        if after_close.starts_with(" not found") {
+            let label = text[open_pos..close_pos].to_string();
+            if !label.is_empty() {
+                labels.push(label);
+            }
+        }
+        search_from = close_pos + 1;
+    }
+
+    labels
+}
+
 #[cfg(test)]
 mod tests {
     use gitflow_cli_core::types::UserSummary;
 
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_github_issue_provider() {
@@ -905,5 +1040,233 @@ mod tests {
             result.unwrap_err(),
             gitflow_cli_core::CoreError::Platform(_)
         ));
+    }
+
+    // --- extract_missing_labels_from_error: pure-function tests ---
+
+    #[test]
+    fn test_should_extract_single_missing_label_from_gh_stderr() {
+        let stderr = b"failed to update https://github.com/owner/repo/issues/18: 'type:enhancement' not found\nfailed to update 1 issue";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert_eq!(missing, vec!["type:enhancement".to_string()]);
+    }
+
+    #[test]
+    fn test_should_extract_multiple_missing_labels_from_gh_stderr() {
+        let stderr = b"failed to update https://github.com/owner/repo/issues/5: 'bug' not found, 'priority:high' not found\nfailed to update 1 issue";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert_eq!(
+            missing,
+            vec!["bug".to_string(), "priority:high".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_should_return_empty_when_no_label_not_found_in_stderr() {
+        let stderr = b"gh: Not logged in. Please run `gh auth login`";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn test_should_return_empty_for_empty_stderr() {
+        let missing = extract_missing_labels_from_error(b"");
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn test_should_handle_label_with_special_characters() {
+        let stderr = b"failed to update https://github.com/o/r/issues/1: 'type: enhancement / bug' not found";
+        let missing = extract_missing_labels_from_error(stderr);
+        assert_eq!(missing, vec!["type: enhancement / bug".to_string()]);
+    }
+
+    // --- add_labels: auto-create missing labels (RED phase) ---
+
+    #[tokio::test]
+    async fn test_should_auto_create_label_and_retry_on_not_found() {
+        // Sequence:
+        // 1. `gh issue edit 18 --add-label type:enhancement` → fails (label not found)
+        // 2. `gh label create type:enhancement --color ededed --repo owner/repo` → succeeds
+        // 3. `gh issue edit 18 --add-label type:enhancement` → succeeds (retry)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                false,
+                "failed to update https://github.com/owner/repo/issues/18: 'type:enhancement' not \
+                 found\nfailed to update 1 issue",
+            ),
+            (true, "Created label type:enhancement"),
+            (true, ""),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .add_labels(18, &["type:enhancement".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_should_auto_create_multiple_labels_and_retry() {
+        // Sequence:
+        // 1. `gh issue edit 5 --add-label bug --add-label priority:high` → fails (both missing)
+        // 2. `gh label create bug` → succeeds
+        // 3. `gh label create priority:high` → succeeds
+        // 4. `gh issue edit 5 --add-label bug --add-label priority:high` → succeeds (retry)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                false,
+                "failed to update https://github.com/o/r/issues/5: 'bug' not found, \
+                 'priority:high' not found\nfailed to update 1 issue",
+            ),
+            (true, "Created label bug"),
+            (true, "Created label priority:high"),
+            (true, ""),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let result = provider
+            .add_labels(5, &["bug".to_string(), "priority:high".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_label_creation_fails() {
+        // Sequence:
+        // 1. `gh issue edit 1 --add-label ghost` → fails (label not found)
+        // 2. `gh label create ghost` → also fails (permission denied)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                false,
+                "failed to update https://github.com/o/r/issues/1: 'ghost' not found",
+            ),
+            (false, "gh: 403 Forbidden"),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["ghost".to_string()]).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("403") || err.contains("Forbidden"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_not_retry_on_non_label_not_found_error() {
+        // An auth error should propagate directly without any label create calls.
+        // Only one response in the sequence — if the runner tries a second call,
+        // SequencedMockCommandRunner will return an error ("no more responses").
+        let runner = SequencedMockCommandRunner::from_results(&[(
+            false,
+            "gh: Not logged in. Please run `gh auth login`",
+        )]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_retry_error_when_second_add_also_fails() {
+        // Sequence:
+        // 1. `gh issue edit 1 --add-label bug` → fails (label not found)
+        // 2. `gh label create bug` → succeeds
+        // 3. `gh issue edit 1 --add-label bug` → fails again (unrelated error)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                false,
+                "failed to update https://github.com/o/r/issues/1: 'bug' not found",
+            ),
+            (true, "Created label bug"),
+            (false, "gh: 500 Internal Server Error"),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let result = provider.add_labels(1, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("500") || err.contains("Internal"),
+            "unexpected error: {err}"
+        );
+    }
+
+    // --- create: auto-create missing labels (RED phase) ---
+
+    fn create_args_with_labels(labels: Vec<String>) -> CreateIssueArgs {
+        CreateIssueArgs {
+            title: "New feature".to_string(),
+            body: Some("Description".to_string()),
+            labels,
+            assignees: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_auto_create_label_and_retry_on_create_issue() {
+        // Sequence:
+        // 1. `gh issue create` → fails (label not found)
+        // 2. `gh label create type:enhancement` → succeeds
+        // 3. `gh issue create` (retry) → succeeds, returns URL
+        // 4. `gh issue view <number>` → returns issue JSON
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (false, "could not add label: 'type:enhancement' not found"),
+            (true, "Created label type:enhancement"),
+            (true, "https://github.com/owner/repo/issues/42"),
+            (
+                true,
+                r#"{"number":42,"title":"New feature","body":"Description","state":"open","labels":[{"name":"type:enhancement","color":"ededed"}],"author":{"login":"octocat","id":"1"},"assignees":[],"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://github.com/owner/repo/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .create(create_args_with_labels(vec![
+                "type:enhancement".to_string(),
+            ]))
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        let issue = result.expect("already checked");
+        assert_eq!(issue.number, 42);
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_label_create_fails_on_create_issue() {
+        // Sequence:
+        // 1. `gh issue create` → fails (label not found)
+        // 2. `gh label create ghost` → also fails (permission denied)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (false, "could not add label: 'ghost' not found"),
+            (false, "gh: 403 Forbidden"),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let result = provider
+            .create(create_args_with_labels(vec!["ghost".to_string()]))
+            .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_not_retry_create_on_non_label_error() {
+        // Only one response — any extra call will error with "no more responses".
+        let runner = SequencedMockCommandRunner::from_results(&[(false, "gh: Not logged in")]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let result = provider
+            .create(create_args_with_labels(vec!["bug".to_string()]))
+            .await;
+
+        assert!(result.is_err());
     }
 }
