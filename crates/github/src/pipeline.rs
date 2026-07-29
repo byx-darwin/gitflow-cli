@@ -290,8 +290,19 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             return Err(CoreError::Platform(format!("{gh_err}")));
         }
 
-        let runs: Vec<ReportRun> =
+        let all_runs: Vec<ReportRun> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        // Filter to the requested time window
+        let cutoff = chrono::Utc::now() - chrono::Duration::days(i64::from(days));
+        let runs: Vec<ReportRun> = all_runs
+            .into_iter()
+            .filter(|run| {
+                chrono::DateTime::parse_from_rfc3339(&run.created_at)
+                    .map(|dt| dt.with_timezone(&chrono::Utc) >= cutoff)
+                    .unwrap_or(true)
+            })
+            .collect();
 
         let total_runs = runs.len() as u64;
 
