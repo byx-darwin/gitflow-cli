@@ -94,7 +94,23 @@
             "pr_url": { "type": "string" },
             "tests_passed": { "type": "boolean" },
             "pipeline_ok": { "type": "boolean" },
-            "review_report_path": { "type": "string" }
+            "review_report_path": { "type": "string" },
+            "base_branch": {
+              "type": "string",
+              "description": "Branch the worktree was forked from (Phase 3)"
+            },
+            "worktree_path": {
+              "type": "string",
+              "description": "Absolute path to the git worktree created in Phase 3"
+            },
+            "branch_cleaned": {
+              "type": "boolean",
+              "description": "Whether Branch Finish cleanup was executed (Phase 4)"
+            },
+            "dogfooding_passed": {
+              "type": "boolean",
+              "description": "Whether dogfooding checklist passed (Phase 4)"
+            }
           },
           "additionalProperties": false
         }

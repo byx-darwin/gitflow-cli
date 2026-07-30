@@ -108,3 +108,45 @@ gitflow workflow status <workflow_id>      # View contract details
 gitflow workflow archive <workflow_id>     # Archive completed workflow
 gitflow workflow cleanup --older-than 90   # Clean up expired archives
 ```
+
+## Branch Finish Operations
+
+Phase 4 Step 5 commands. All operations are local-only (no push).
+
+### Detect PR Merge Status
+
+```bash
+gitflow-cli pr view  # parse "merged" field from output
+```
+
+### Execute Branch Cleanup (after user confirmation)
+
+```bash
+# Return to main working tree
+MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
+cd "$MAIN_ROOT"
+
+# Switch to base branch and update
+git checkout "$BASE_BRANCH"
+git pull origin "$BASE_BRANCH"
+
+# Delete feature branch (safe: refuses if unmerged)
+git branch -d "$FEATURE_BRANCH"
+
+# Remove worktree
+git worktree remove "$WORKTREE_PATH"
+git worktree prune
+
+# Clean stale remote tracking refs
+git fetch --prune origin
+```
+
+### Skip Conditions
+
+| Condition | Action |
+|-----------|--------|
+| `base_branch` empty/missing | Skip entire Branch Finish |
+| `worktree_path` empty | Skip worktree removal, still attempt branch delete |
+| PR not merged | Skip all cleanup, set `branch_cleaned = false` |
+| `git branch -d` fails | Warn, preserve branch, continue to archive |
+| User declines confirmation | Set `branch_cleaned = false`, continue to archive |
