@@ -182,11 +182,11 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** Create worktree: `feat/<issue-number>-<short-description>` | `branch` |
+| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`, then create worktree: `feat/<issue-number>-<short-description>` | `branch`, `base_branch`, `worktree_path` |
 | 2 | **[AUTO]** `superpowers:subagent-driven-development` (TDD: RED → GREEN → REFACTOR) | implementation |
 | 3 | **[AUTO]** `gitflow-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
-| 5 | **[AUTO]** Update contract: `evidence = { branch, pr_url, tests_passed }` | — |
+| 5 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, pr_url, tests_passed }` | — |
 | 6 | **[AUTO]** Gate 3→4 — `pr_url` + `tests_passed = true` → **AUTO-ADVANCE to Phase 4** | — |
 
 ## Phase 4: Post-Delivery Checks
@@ -199,8 +199,26 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 | 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report | — |
 | 3 | **[AUTO]** `gitflow-review` — creates code review report | `review_report_path` |
 | 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) | `dogfooding_passed` |
-| 5 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed }` | — |
-| 6 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
+| 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (see below) | `branch_cleaned` |
+| 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned }` | — |
+| 7 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
+
+### Phase 4 Step 5: Branch Finish
+
+**Trigger:** After dogfooding passes. **Requires user confirmation.**
+
+1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
+2. Detect PR merge status: `gitflow-cli pr view` (parse merged state)
+3. **PR merged** → present confirmation prompt:
+   - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
+   - `git checkout $base_branch && git pull origin $base_branch`
+   - `git branch -d $branch`
+   - `git worktree remove $worktree_path && git worktree prune`
+   - `git fetch --prune origin`
+   - Set `branch_cleaned = true`
+4. **PR not merged** → output "PR 待合并，分支和 worktree 保留", set `branch_cleaned = false`
+5. **Error tolerance:** if `git branch -d` fails (unmerged local commits), warn and preserve; do not block archive
+6. **Missing fields:** if `base_branch` or `worktree_path` empty (old contract / fast mode), skip cleanup silently
 
 ## Enforcement Rules
 
