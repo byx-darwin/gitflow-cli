@@ -14,7 +14,6 @@ use std::fs;
 use std::path::PathBuf;
 
 /// 全渠道逐字一致的规范一句话定位。
-#[allow(dead_code, reason = "reserved for subsequent guardian tests")]
 const CANONICAL_POSITIONING: &str = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。";
 
 /// 解析仓库根目录（`apps/cli` 的上两级）。
@@ -69,4 +68,38 @@ fn test_should_not_contain_template_placeholders() {
             }
         }
     }
+}
+
+#[test]
+fn test_should_have_valid_geo_files() {
+    let llms = read("website/public/llms.txt");
+    assert!(llms.starts_with("# gitflow-cli"), "llms.txt must start with '# gitflow-cli'");
+    assert!(llms.contains(CANONICAL_POSITIONING), "llms.txt must quote canonical positioning");
+
+    let full = read("website/public/llms-full.txt");
+    assert!(full.len() > 500, "llms-full.txt should be a substantial full-text document");
+    for section in ["命令", "架构", "兼容性", "FAQ"] {
+        assert!(full.contains(section), "llms-full.txt missing section {section}");
+    }
+
+    let robots = read("website/public/robots.txt");
+    assert!(robots.contains("Sitemap:"), "robots.txt must declare Sitemap");
+
+    let matrix: serde_json::Value =
+        serde_json::from_str(&read("docs/compatibility-matrix.json")).expect("compatibility-matrix.json invalid");
+    assert_eq!(matrix["schema_version"].as_i64(), Some(1));
+    let platforms = matrix["platforms"].as_array().expect("platforms must be an array");
+    assert_eq!(platforms.len(), 3, "expected 3 platforms in compatibility matrix");
+
+    let md = read("docs/compatibility-matrix.md");
+    for name in ["GitHub", "GitLab", "GitCode"] {
+        assert!(md.contains(name), "compatibility-matrix.md missing {name}");
+    }
+}
+
+#[test]
+fn test_should_have_demo_asset() {
+    let svg = read("docs/assets/demo.svg");
+    assert!(svg.contains("<svg"), "demo.svg must be a valid SVG document");
+    assert!(svg.contains("</svg>"), "demo.svg must be closed");
 }
