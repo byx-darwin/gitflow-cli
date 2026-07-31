@@ -33,6 +33,8 @@ pub struct CliRequirement {
     pub login_cmd: &'static str,
     /// 非交互式登录命令（从 stdin 读取 token）。
     pub login_with_token: &'static str,
+    /// 相关文档链接。
+    pub doc_link: &'static str,
 }
 
 /// 平台 → CLI 要求映射。
@@ -49,6 +51,7 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
             install_cmd: "brew install gh",
             login_cmd: "gh auth login",
             login_with_token: "echo TOKEN | gh auth login --with-token",
+            doc_link: "https://cli.github.com/manual/",
         }),
         "gitlab" => Some(CliRequirement {
             binary: "glab",
@@ -59,24 +62,26 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
             install_cmd: "brew install glab",
             login_cmd: "glab auth login",
             login_with_token: "glab auth login --token TOKEN",
+            doc_link: "https://gitlab.com/gitlab-org/cli/-/blob/main/docs/",
         }),
         "gitcode" => Some(CliRequirement {
             // 跨平台统一使用 gitcode（gc 在 Windows PowerShell 是 Get-Content 别名）
             binary: "gitcode",
-            min_version: "0.5.9",
+            min_version: "0.6.0",
             install_url: "https://gitcode.com/gitcode-cli/cli",
             install_hint: "# 方式 1 — Wheel 包（推荐，内置全平台二进制）:\n\
-                           pip install https://gitcode.com/gitcode-cli/cli/releases/download/v0.5.9/gitcode_cli-0.5.9-py3-none-any.whl\n\n\
+                           pip install https://gitcode.com/gitcode-cli/cli/releases/download/v0.6.1/gitcode_cli-0.6.1-py3-none-any.whl\n\n\
                            # 方式 2 — PyPI:\n\
                            pip install gitcode-cli\n\n\
                            # 方式 3 — Linux DEB:\n\
-                           sudo dpkg -i gitcode_0.5.9_amd64.deb\n\n\
+                           sudo dpkg -i gitcode_0.6.1_amd64.deb\n\n\
                            # 方式 4 — 源码构建（Go 1.22+）:\n\
                            git clone https://gitcode.com/gitcode-cli/cli.git && cd cli\n\
                            make build && mkdir -p ~/.local/bin && mv bin/gitcode ~/.local/bin/",
             install_cmd: "pip install gitcode-cli",
             login_cmd: "gitcode auth login",
             login_with_token: "echo TOKEN | gitcode auth login --with-token",
+            doc_link: "https://gitcode.com/gitcode-cli/cli/blob/main/README.md",
         }),
         _ => None,
     }
@@ -85,53 +90,96 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
 /// 前置检查失败错误。
 #[derive(Debug, thiserror::Error)]
 pub enum PrerequisiteError {
+    /// 底层 CLI 未安装。
     #[error(
-        "[[PLATFORM]] {binary} is not installed.\n\n📦 Install: {install_cmd}\n\nFull \
-         options:\n{install_hint}\n\n🌐 Official: {install_url}"
+        "[[PLATFORM]] 未检测到 {binary}。\n\n\
+         📦 安装：{install_cmd}\n\
+         📖 文档：{doc_link}\n\n\
+         其他安装方式：\n{install_hint}"
     )]
     NotFound {
+        /// CLI 可执行文件名。
         binary: String,
+        /// 平台标识。
         platform: String,
+        /// 安装选项。
         install_hint: String,
+        /// 官方安装链接。
         install_url: String,
+        /// 一键安装命令。
         install_cmd: String,
+        /// 文档链接。
+        doc_link: String,
     },
 
+    /// 底层 CLI 版本过低。
     #[error(
-        "[[PLATFORM]] {binary} v{found} is too old (need v{required}+).\n\n📦 Upgrade: \
-         {install_cmd}"
+        "[[PLATFORM]] {binary} 版本过低：当前 v{found}，需要 v{required}+。\n\n\
+         📦 升级：{install_cmd}\n\
+         📖 文档：{doc_link}"
     )]
     VersionTooLow {
+        /// CLI 可执行文件名。
         binary: String,
+        /// 平台标识。
         platform: String,
+        /// 当前版本。
         found: String,
+        /// 最低要求版本。
         required: String,
+        /// 升级命令。
         install_cmd: String,
+        /// 文档链接。
+        doc_link: String,
     },
 
+    /// 版本信息解析失败。
     #[error(
-        "[[PLATFORM]] `{binary}` was found but ` --version` output was invalid.\n\n📦 Reinstall: \
-         {install_cmd}"
+        "[[PLATFORM]] {binary} 版本信息解析失败。\n\n\
+         📦 重新安装：{install_cmd}\n\
+         📖 文档：{doc_link}"
     )]
     VersionParseFailed {
+        /// CLI 可执行文件名。
         binary: String,
+        /// 平台标识。
         platform: String,
+        /// 安装命令。
         install_cmd: String,
+        /// 文档链接。
+        doc_link: String,
     },
 
-    #[error("[[PLATFORM]] Not authenticated.\n\n🔍 Reason: {reason}\n\n🔧 Fix: {hint}")]
+    /// 未认证。
+    #[error(
+        "[[PLATFORM]] {binary} 未认证。\n\n\
+         🔍 原因：{reason}\n\
+         🔧 修复：运行 `{hint}` 完成登录"
+    )]
     NotAuthenticated {
+        /// CLI 可执行文件名。
         binary: String,
+        /// 平台标识。
         platform: String,
+        /// 失败原因。
         reason: String,
+        /// 修复命令。
         hint: String,
     },
 
-    #[error("Unsupported platform: {platform}. Supported: github, gitlab, gitcode")]
-    UnsupportedPlatform { platform: String },
+    /// 不支持的平台。
+    #[error("不支持的平台：{platform}。支持的平台：github、gitlab、gitcode")]
+    UnsupportedPlatform {
+        /// 平台标识。
+        platform: String,
+    },
 }
 
 /// 检查原生 CLI 是否可用、版本满足要求且已登录。
+#[allow(
+    clippy::result_large_err,
+    reason = "PrerequisiteError carries structured install hints; boxing would lose ergonomic matching"
+)]
 pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
     let req = requirement_for(platform).ok_or_else(|| PrerequisiteError::UnsupportedPlatform {
         platform: platform.into(),
@@ -147,6 +195,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
             install_hint: req.install_hint.into(),
             install_url: req.install_url.into(),
             install_cmd: req.install_cmd.into(),
+            doc_link: req.doc_link.into(),
         })?;
         let version = get_version(req.binary, platform)?;
         (req.binary, path, version)
@@ -162,6 +211,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
             found: version,
             required: req.min_version.into(),
             install_cmd: req.install_cmd.into(),
+            doc_link: req.doc_link.into(),
         });
     }
 
@@ -179,7 +229,7 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
         return Err(PrerequisiteError::NotAuthenticated {
             binary: binary.into(),
             platform: platform.into(),
-            reason: result.reason.unwrap_or_else(|| "Unknown reason".into()),
+            reason: result.reason.unwrap_or_else(|| "未知原因".into()),
             hint: result.hint.unwrap_or_else(|| req.login_cmd.into()),
         });
     }
@@ -206,6 +256,10 @@ fn create_auth_checker(platform: &str) -> Box<dyn gitflow_cli_core::AuthChecker>
 #[allow(
     clippy::disallowed_methods,
     reason = "binary discovery runs at startup before async runtime is ready"
+)]
+#[allow(
+    clippy::result_large_err,
+    reason = "Same PrerequisiteError size as check()"
 )]
 fn find_gitcode_cli(
     platform: &str,
@@ -246,9 +300,16 @@ fn find_gitcode_cli(
             .map_or("", |r| r.install_url)
             .into(),
         install_cmd: install_cmd.into(),
+        doc_link: requirement_for(platform)
+            .map_or("", |r| r.doc_link)
+            .into(),
     })
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "Same PrerequisiteError size as check()"
+)]
 fn get_version(binary: &str, platform: &str) -> Result<String, PrerequisiteError> {
     let install_cmd = requirement_for(platform).map_or("", |r| r.install_cmd);
 
@@ -269,6 +330,9 @@ fn get_version(binary: &str, platform: &str) -> Result<String, PrerequisiteError
         binary: binary.into(),
         platform: platform.into(),
         install_cmd: install_cmd.into(),
+        doc_link: requirement_for(platform)
+            .map_or("", |r| r.doc_link)
+            .into(),
     })
 }
 
@@ -306,7 +370,7 @@ mod tests {
     fn test_should_return_requirement_for_gitcode() {
         let req = requirement_for("gitcode").expect("gitcode requirement");
         assert_eq!(req.binary, "gitcode");
-        assert_eq!(req.min_version, "0.5.9");
+        assert_eq!(req.min_version, "0.6.0");
         assert_eq!(req.install_cmd, "pip install gitcode-cli");
         assert_eq!(req.login_cmd, "gitcode auth login");
         assert_eq!(
