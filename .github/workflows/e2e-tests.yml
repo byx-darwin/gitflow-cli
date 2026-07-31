@@ -10,7 +10,7 @@ on:
       - 'apps/**'
       - '.github/workflows/e2e-tests.yml'
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * 1'  # 每周一 02:00 UTC 定时回归(真实凭据)
   workflow_dispatch:
 
 concurrency:
@@ -41,13 +41,25 @@ jobs:
       - name: Add to PATH
         run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
 
+      # 模式判定由测试层承担:fork PR 取不到 secrets,
+      # E2E_GITHUB_TOKEN 为空 → 实测自动 skip,无凭据错误路径正常运行。
       - name: Run E2E tests
         env:
-          E2E_TEST_REPO: ${{ secrets.E2E_TEST_REPO }}
           E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
           RUST_LOG: info
         run: |
-          cargo nextest run -p e2e-github --all-features
+          cargo nextest run -p e2e-core -p e2e-github --all-features
+
+      - name: Report run mode
+        if: always()
+        env:
+          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+        run: |
+          if [ -n "$E2E_GITHUB_TOKEN" ]; then
+            echo "E2E mode: authenticated (real-credential scenarios executed)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "E2E mode: unauthenticated (error paths + harness self-tests only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload test results
         if: always()
