@@ -438,8 +438,40 @@ dry_run() {
     echo -e "${CYAN}===============${NC}"
     echo ""
 
-    # Run cargo release dry-run
-    cargo release version "${RELEASE_BUMP}" --dry-run --workspace 2>&1 | head -20 || true
+    # Run cargo release dry-run; capture output and enforce real exit status.
+    local dry_run_log
+    dry_run_log=$(mktemp)
+    set +e
+    cargo release version "${RELEASE_BUMP}" --dry-run --workspace \
+        >"$dry_run_log" 2>&1
+    local dry_run_rc=$?
+    set -e
+    head -20 "$dry_run_log"
+
+    # Fail the rehearsal if cargo release itself errored.
+    if [ "$dry_run_rc" -ne 0 ]; then
+        log_error "cargo release dry-run failed (exit $dry_run_rc). Fix errors before releasing."
+        rm -f "$dry_run_log"
+        exit 1
+    fi
+
+    # Detect template residue in EITHER direction:
+    #   - {{version}} residue (cargo-release too old to substitute double braces)
+    #   - {version} residue  (cargo-release too new / config mismatch with single braces)
+    # Either token in the dry-run output means templates did NOT get substituted.
+    local residue_found=false
+    if grep -qE "$TEMPLATE_RESIDUE_PATTERN" "$dry_run_log"; then
+        residue_found=true
+    fi
+    if grep -qF "{version}" "$dry_run_log"; then
+        residue_found=true
+    fi
+    rm -f "$dry_run_log"
+    if [ "$residue_found" = true ]; then
+        log_error "cargo release dry-run output contains unsubstituted template tokens."
+        log_error "Verify release.toml templates match the installed cargo-release version."
+        exit 1
+    fi
 
     echo ""
 
@@ -542,6 +574,7 @@ execute_release() {
     if ! validate_commit_subject "$commit_subject"; then
         log_error "Release commit validation failed. Rolling back bump commit."
         git reset --hard HEAD~1
+        trap - EXIT
         exit 1
     fi
     log_success "Release commit subject validated"
@@ -558,6 +591,7 @@ execute_release() {
     # Gate: no template residue in the generated changelog
     if ! validate_no_template_residue CHANGELOG.md; then
         log_error "CHANGELOG.md contains unsubstituted template variables. Aborting."
+        trap - EXIT
         exit 1
     fi
     log_success "CHANGELOG.md validated"
@@ -592,9 +626,15 @@ execute_release() {
     # Gate: validate the created tag before pushing it anywhere
     local created_tag
     created_tag=$(git tag --points-at HEAD | head -1)
+    if [ -z "$created_tag" ]; then
+        log_error "No tag found at HEAD after cargo release tag. Aborting."
+        trap - EXIT
+        exit 1
+    fi
     if ! validate_tag_name "$created_tag"; then
         log_error "Tag validation failed. Removing local tag."
         git tag -d "$created_tag"
+        trap - EXIT
         exit 1
     fi
     log_success "Tag $created_tag validated"

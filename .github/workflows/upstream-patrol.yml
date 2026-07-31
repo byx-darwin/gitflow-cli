@@ -25,8 +25,13 @@ jobs:
         run: |
           set -euo pipefail
           # gh: GitHub API(ubuntu runner 预装 gh,公共仓库匿名可读)
-          GH_LATEST=$(gh api repos/cli/cli/releases/latest --jq '.tag_name' | sed 's/^v//')
-          echo "gh=$GH_LATEST" >> "$GITHUB_OUTPUT"
+          GH_LATEST=$(gh api repos/cli/cli/releases/latest --jq '.tag_name' | sed 's/^v//') \
+            || GH_LATEST=""
+          if [ -n "$GH_LATEST" ]; then
+            echo "gh=$GH_LATEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not query latest gh version; skipping gh check"
+          fi
 
           # glab: GitLab 公共 API
           GLAB_LATEST=$(curl -fsSL --max-time 30 \

@@ -673,6 +673,7 @@ name = "e2e-github"
 version = "0.3.0"
 dependencies = [
  "e2e-core",
+ "serde_json",
  "tokio",
 ]
 
