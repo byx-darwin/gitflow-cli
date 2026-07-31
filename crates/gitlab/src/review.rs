@@ -112,8 +112,7 @@ impl ReviewProvider for GitLabReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let note: NoteApiResponse =
@@ -158,8 +157,7 @@ impl ReviewProvider for GitLabReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -208,8 +206,7 @@ impl ReviewProvider for GitLabReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let note: NoteApiResponse =

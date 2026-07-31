@@ -221,8 +221,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci list: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_responses: Vec<PipelineApiResponse> =
@@ -248,8 +247,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci trace: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -274,8 +272,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci view: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         // glab ci view may return the pipeline object with embedded jobs,
@@ -560,7 +557,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -586,7 +583,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -599,7 +596,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -625,7 +622,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 

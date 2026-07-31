@@ -95,8 +95,10 @@ impl<R: CommandRunner> GitLabIssueProvider<R> {
 
         if !output.status.success() {
             let glab_err = parse_glab_error(&output.stderr);
+            tracing::debug!(error = %glab_err, "Failed to auto-create label");
             return Err(CoreError::Platform(format!(
-                "Failed to auto-create label '{name}': {glab_err}"
+                "Failed to auto-create label '{name}': {}",
+                glab_err.user_message
             )));
         }
 
@@ -273,8 +275,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                 })?;
 
                 if !retry_output.status.success() {
-                    let glab_err = parse_glab_error(&retry_output.stderr);
-                    return Err(CoreError::Platform(format!("{glab_err}")));
+                    return Err(parse_glab_error(&retry_output.stderr).into());
                 }
 
                 let stdout = String::from_utf8_lossy(&retry_output.stdout);
@@ -284,8 +285,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                 return self.view(issue_iid).await;
             }
 
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         // Parse the issue URL from stdout (format: https://gitlab.com/.../-/issues/123)
@@ -330,8 +330,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_responses: Vec<IssueApiResponse> =
@@ -362,8 +361,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: IssueApiResponse =
@@ -402,8 +400,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: IssueApiResponse =
@@ -442,8 +439,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: IssueApiResponse =
@@ -484,8 +480,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: CommentApiResponse =
@@ -540,8 +535,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         // Try to auto-create missing labels and retry once.
         let missing = extract_missing_labels_from_error(&output.stderr);
         if missing.is_empty() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         debug!(
@@ -561,8 +555,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab on retry: {e}")))?;
 
         if !retry_output.status.success() {
-            let glab_err = parse_glab_error(&retry_output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&retry_output.stderr).into());
         }
 
         Ok(())
@@ -597,8 +590,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(())
@@ -855,7 +847,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -883,7 +875,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -920,7 +912,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -950,7 +942,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -978,7 +970,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1006,7 +998,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1034,7 +1026,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1048,7 +1040,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
