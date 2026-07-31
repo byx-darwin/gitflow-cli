@@ -1,11 +1,14 @@
 [package]
 name = "gitflow-cli-github"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "GitHub platform implementation for gitflow-cli (Issue/PR providers via gh CLI)"
+description = "gitflow-cli 的 GitHub 适配器，基于 gh CLI 提供 Issue/PR/Release/Review 等能力。GitHub adapter for gitflow-cli via gh CLI."
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/gitflow-cli-github"
 readme = "README.md"
 keywords = ["cli", "github", "gitflow", "issue", "pr"]
 categories = ["command-line-utilities", "development-tools"]

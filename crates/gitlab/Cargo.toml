@@ -1,11 +1,14 @@
 [package]
 name = "gitflow-cli-gitlab"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "GitLab platform implementation for gitflow-cli via glab CLI"
+description = "gitflow-cli 的 GitLab 适配器，基于 glab CLI 提供 Issue/MR/Release/Review 等能力。GitLab adapter for gitflow-cli via glab CLI."
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/gitflow-cli-gitlab"
 readme = "README.md"
 keywords = ["cli", "gitlab", "gitflow", "issue", "merge-request"]
 categories = ["command-line-utilities", "development-tools"]

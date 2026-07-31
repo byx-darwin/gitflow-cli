@@ -1,6 +1,6 @@
 [package]
 name = "gitflow-cli"
-description = "Cross-platform Git engineering workflow orchestration tool"
+description = "跨平台 Git 工程化工作流编排框架 CLI：统一封装 GitHub / GitLab / GitCode，配合 AI Agent Skills 覆盖需求到发布的完整工程循环。Cross-platform Git engineering workflow CLI."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -8,9 +8,9 @@ license.workspace = true
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
-documentation.workspace = true
+documentation = "https://docs.rs/gitflow-cli"
 categories = ["development-tools", "command-line-utilities"]
-keywords = ["gitflow", "git", "cli", "workflow"]
+keywords = ["gitflow", "git", "cli", "workflow", "工作流"]
 include = [
     "src/**",
     "build.rs",
