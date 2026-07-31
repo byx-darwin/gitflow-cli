@@ -1279,7 +1279,7 @@ mod contract_tests {
     use super::*;
     use crate::runner::MockCommandRunner;
 
-    /// 契约测试：验证 gh issue list JSON 输出与 IssueData 反序列化一致。
+    /// 契约测试：验证 gh issue list JSON 输出与 `IssueData` 反序列化一致。
     ///
     /// 夹具来源：gh v2.x `--json` 输出格式。
     #[tokio::test]
