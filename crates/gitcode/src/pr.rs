@@ -64,6 +64,53 @@ struct PrBranchApi {
     branch_ref: String,
 }
 
+/// gitcode CLI 评论响应类型，兼容两种已观测形态：
+/// - v0.6.x：`user` 为对象、`created_at` 为带偏移 RFC3339
+/// - 旧版本：`author` 为纯字符串、`created_at` 为 `YYYY-MM-DD HH:MM:SS`
+#[derive(Debug, Clone, Deserialize)]
+struct PrCommentApiResponse {
+    #[serde(deserialize_with = "gitflow_cli_core::types::deserialize_u64_or_string")]
+    id: u64,
+    #[serde(default)]
+    body: String,
+    #[serde(default)]
+    author: Option<String>,
+    #[serde(default)]
+    user: Option<PrUserApi>,
+    #[serde(default)]
+    created_at: Option<String>,
+}
+
+impl From<PrCommentApiResponse> for CommentData {
+    fn from(api: PrCommentApiResponse) -> Self {
+        let author = api.user.map_or_else(
+            || UserSummary {
+                login: api.author.unwrap_or_else(|| "unknown".into()),
+                id: String::new(),
+            },
+            |u| UserSummary {
+                login: u.login,
+                id: u.id.unwrap_or_default(),
+            },
+        );
+        let created_at = api.created_at.as_deref().map_or_else(Utc::now, |s| {
+            DateTime::parse_from_rfc3339(s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .or_else(|_| {
+                    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
+                        .map(|ndt| ndt.and_utc())
+                })
+                .unwrap_or_else(|_| Utc::now())
+        });
+        Self {
+            id: api.id,
+            body: api.body,
+            author,
+            created_at,
+        }
+    }
+}
+
 impl From<PrApiResponse> for PrData {
     fn from(api: PrApiResponse) -> Self {
         let parse_time = |s: Option<String>| {
@@ -350,7 +397,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 
     /// 在指定 PR 上添加评论。
     ///
-    /// 调用 `gc pr comment <number> --repo <repo> --body "<body>" --json id,body,author,createdAt`
+    /// 调用 `gitcode pr comment <number> --repo <repo> --body "<body>" --json`
     /// 发布评论，并返回新建评论的数据。
     ///
     /// # Errors
@@ -359,7 +406,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
-        debug!(repo = %self.repo, number, "spawning `gc pr comment`");
+        debug!(repo = %self.repo, number, "spawning `gitcode pr comment`");
 
         let output = self
             .runner
@@ -374,7 +421,6 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
                     "--body",
                     body,
                     "--json",
-                    "id,body,author,createdAt",
                 ],
             )
             .await
@@ -385,10 +431,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let comment: CommentData =
+        let api: PrCommentApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(comment)
+        Ok(api.into())
     }
 
     /// 合并指定编号的 PR。
@@ -1142,5 +1188,30 @@ mod tests {
         provider.merge(1, None).await.expect("merge");
 
         assert!(!runner.calls()[0].contains(&"--method".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_not_pass_field_list_to_pr_comment() {
+        let comment_json = r#"{"id": "9001", "body": "LGTM", "user": {"login": "rev", "id": "u9"}, "created_at": "2026-07-30T12:00:00+08:00"}"#;
+        let runner = RecordingMockRunner::success(comment_json);
+        let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+
+        let comment = provider.comment(52, "LGTM").await.expect("comment should parse");
+
+        assert_eq!(comment.id, 9001);
+        assert_eq!(comment.author.login, "rev");
+        assert_eq!(
+            runner.calls()[0],
+            vec!["pr", "comment", "52", "--repo", "o/r", "--body", "LGTM", "--json"]
+        );
+    }
+
+    #[test]
+    fn test_should_parse_comment_with_legacy_string_author() {
+        let json = r#"{"id": "7", "body": "old format", "author": "alice", "created_at": "2026-07-07 10:40:20"}"#;
+        let api: PrCommentApiResponse = serde_json::from_str(json).expect("legacy shape");
+        let comment: CommentData = api.into();
+        assert_eq!(comment.author.login, "alice");
+        assert_eq!(comment.created_at.to_rfc3339(), "2026-07-07T10:40:20+00:00");
     }
 }

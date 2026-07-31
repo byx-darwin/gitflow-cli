@@ -124,31 +124,46 @@ impl From<UserApi> for UserSummary {
     }
 }
 
-/// gitcode CLI `issue comment --json` 的响应类型。
-///
-/// GitCode API 返回格式与 GitHub/GitLab 不同：
-/// - `id` 为 JSON 字符串（如 `"178838115"`）
-/// - `author` 为纯字符串（用户名），不是对象
-/// - `created_at` 格式为 `"2026-07-07 10:40:20"`，不是 RFC3339
+/// gitcode CLI `issue comment --json` 的响应类型，兼容两种已观测形态：
+/// - v0.6.x：`user` 为对象（含 `login`/`id`）、`id` 为数值、`created_at` 为带偏移 RFC3339
+/// - 旧版本：`author` 为纯字符串（用户名）、`id` 为字符串、`created_at` 为 `YYYY-MM-DD HH:MM:SS`
 #[derive(Debug, Clone, Deserialize)]
 struct CommentApiResponse {
-    id: String,
+    #[serde(deserialize_with = "gitflow_cli_core::types::deserialize_u64_or_string")]
+    id: u64,
+    #[serde(default)]
     body: String,
-    author: String,
-    created_at: String,
+    #[serde(default)]
+    author: Option<String>,
+    #[serde(default)]
+    user: Option<UserApi>,
+    #[serde(default)]
+    created_at: Option<String>,
 }
 
 impl From<CommentApiResponse> for CommentData {
     fn from(api: CommentApiResponse) -> Self {
-        Self {
-            id: api.id.parse().unwrap_or(0),
-            body: api.body,
-            author: UserSummary {
-                login: api.author,
+        let author = api.user.map_or_else(
+            || UserSummary {
+                login: api.author.unwrap_or_else(|| "unknown".into()),
                 id: String::new(),
             },
-            created_at: chrono::NaiveDateTime::parse_from_str(&api.created_at, "%Y-%m-%d %H:%M:%S")
-                .map_or_else(|_| Utc::now(), |ndt| ndt.and_utc()),
+            UserSummary::from,
+        );
+        let created_at = api.created_at.as_deref().map_or_else(Utc::now, |s| {
+            DateTime::parse_from_rfc3339(s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .or_else(|_| {
+                    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
+                        .map(|ndt| ndt.and_utc())
+                })
+                .unwrap_or_else(|_| Utc::now())
+        });
+        Self {
+            id: api.id,
+            body: api.body,
+            author,
+            created_at,
         }
     }
 }
@@ -452,8 +467,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
 
     /// 在指定 Issue 上添加评论。
     ///
-    /// 调用 `gc issue comment <number> --repo <repo> --body "<body>" --json
-    /// id,body,author,createdAt` 发布评论，并返回新建评论的数据。
+    /// 调用 `gitcode issue comment <number> -R <repo> --body "<body>" --json`
+    /// 发布评论，并返回新建评论的数据。
     ///
     /// # Errors
     ///
@@ -1056,5 +1071,15 @@ mod tests {
             .add_labels(18, &["type:new".to_string()])
             .await
             .expect("should recover by auto-creating the label");
+    }
+
+    #[test]
+    fn test_should_parse_issue_comment_with_user_object() {
+        let json = r#"{"id": 12, "body": "hi", "user": {"login": "bob", "id": "u2"}, "created_at": "2026-07-30T12:00:00+08:00"}"#;
+        let api: CommentApiResponse = serde_json::from_str(json).expect("user-object shape");
+        let comment: CommentData = api.into();
+        assert_eq!(comment.id, 12);
+        assert_eq!(comment.author.login, "bob");
+        assert_eq!(comment.author.id, "u2");
     }
 }
