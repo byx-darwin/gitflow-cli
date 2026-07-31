@@ -717,59 +717,10 @@ mod tests {
     }
 
     #[test]
-    fn test_should_deserialize_pr_data_from_gc_output() {
-        let gc_json = br#"{
-            "number": 123,
-            "title": "Add new feature",
-            "body": "This PR adds a new feature",
-            "state": "open",
-            "draft": false,
-            "author": {"login": "alice", "id": "2"},
-            "baseBranch": "main",
-            "headBranch": "feature/new-thing",
-            "createdAt": "2026-02-20T14:00:00Z",
-            "updatedAt": "2026-02-21T10:30:00Z",
-            "url": "https://gitcode.com/octocat/hello-world/pull/123"
-        }"#;
-
-        let pr: PrData = serde_json::from_slice(gc_json).expect("valid PrData JSON");
-        assert_eq!(pr.number, 123);
-        assert_eq!(pr.title, "Add new feature");
-        assert_eq!(pr.state, State::Open);
-        assert!(!pr.draft);
-        assert_eq!(pr.author.login, "alice");
-        assert_eq!(pr.base_branch, "main");
-        assert_eq!(pr.head_branch, "feature/new-thing");
-        assert_eq!(pr.url, "https://gitcode.com/octocat/hello-world/pull/123");
-    }
-
-    #[test]
     fn test_should_deserialize_empty_pr_list_from_gc_output() {
         let gc_json = b"[]";
         let prs: Vec<PrData> = serde_json::from_slice(gc_json).expect("valid PrData list");
         assert!(prs.is_empty());
-    }
-
-    #[test]
-    fn test_should_deserialize_draft_pr_from_gc_output() {
-        let gc_json = br#"{
-            "number": 456,
-            "title": "WIP: experiment",
-            "body": null,
-            "state": "open",
-            "draft": true,
-            "author": {"login": "bob", "id": "3"},
-            "baseBranch": "main",
-            "headBranch": "wip/experiment",
-            "createdAt": "2026-03-10T09:00:00Z",
-            "updatedAt": "2026-03-10T09:00:00Z",
-            "url": "https://gitcode.com/octocat/hello-world/pull/456"
-        }"#;
-
-        let pr: PrData = serde_json::from_slice(gc_json).expect("valid PrData JSON");
-        assert!(pr.draft);
-        assert!(pr.body.is_none());
-        assert_eq!(pr.title, "WIP: experiment");
     }
 
     #[test]
@@ -778,48 +729,6 @@ mod tests {
         let debug = format!("{provider:?}");
         assert!(debug.contains("GitCodePrProvider"));
         assert!(debug.contains("octocat/hello-world"));
-    }
-
-    #[test]
-    fn test_should_deserialize_closed_pr_from_gc_close_output() {
-        let gc_json = br#"{
-            "number": 50,
-            "title": "Obsolete change",
-            "body": "Superseded by #55",
-            "state": "closed",
-            "draft": false,
-            "author": {"login": "dev", "id": "10"},
-            "baseBranch": "main",
-            "headBranch": "feature/obsolete",
-            "createdAt": "2026-05-01T08:00:00Z",
-            "updatedAt": "2026-05-02T12:00:00Z",
-            "url": "https://gitcode.com/octocat/hello-world/pull/50"
-        }"#;
-
-        let pr: PrData = serde_json::from_slice(gc_json).expect("valid closed PrData");
-        assert_eq!(pr.number, 50);
-        assert_eq!(pr.state, State::Closed);
-    }
-
-    #[test]
-    fn test_should_deserialize_reopened_pr_from_gc_reopen_output() {
-        let gc_json = br#"{
-            "number": 50,
-            "title": "Obsolete change",
-            "body": "Actually still needed",
-            "state": "open",
-            "draft": false,
-            "author": {"login": "dev", "id": "10"},
-            "baseBranch": "main",
-            "headBranch": "feature/obsolete",
-            "createdAt": "2026-05-01T08:00:00Z",
-            "updatedAt": "2026-05-03T09:00:00Z",
-            "url": "https://gitcode.com/octocat/hello-world/pull/50"
-        }"#;
-
-        let pr: PrData = serde_json::from_slice(gc_json).expect("valid reopened PrData");
-        assert_eq!(pr.number, 50);
-        assert_eq!(pr.state, State::Open);
     }
 
     #[test]
@@ -1213,5 +1122,45 @@ mod tests {
         let comment: CommentData = api.into();
         assert_eq!(comment.author.login, "alice");
         assert_eq!(comment.created_at.to_rfc3339(), "2026-07-07T10:40:20+00:00");
+    }
+}
+
+#[cfg(test)]
+mod contract_tests {
+    //! gitcode CLI v0.6.1 JSON 架构契约测试。
+    //!
+    //! 夹具来源：2026-07-31 对 gitcode CLI v0.6.1
+    //!（commit c20f71f67ead1d748e78391cd9e470c2ea51b887, built 2026-06-05）
+    //! `pr list -R byx-darwin/go-beniofit --json --state all` 的真实捕获。
+    //! 若 gitcode CLI 升级导致这些测试失败，说明上游架构变更，需要更新
+    //! 适配器映射并重新捕获夹具（参见路线图"契约测试 + 兼容性矩阵"单元）。
+
+    use gitflow_cli_core::pr::ListPrArgs;
+
+    use super::*;
+    use crate::runner::MockCommandRunner;
+
+    const PR_LIST_FIXTURE: &str = include_str!("../tests/fixtures/pr_list_gitcode_v0.6.1.json");
+
+    #[tokio::test]
+    async fn test_should_parse_real_gitcode_v061_pr_list_output() {
+        let provider = GitCodePrProvider::with_runner(
+            "byx-darwin/go-beniofit",
+            MockCommandRunner::success(PR_LIST_FIXTURE),
+        );
+
+        let prs = provider
+            .list(ListPrArgs::default())
+            .await
+            .expect("contract fixture must parse");
+
+        assert_eq!(prs.len(), 1);
+        let pr = &prs[0];
+        assert_eq!(pr.number, 52);
+        assert_eq!(pr.state, State::Closed);
+        assert_eq!(pr.author.login, "byx-darwin");
+        assert_eq!(pr.head_branch, "test/88-engine-rule-coverage");
+        assert_eq!(pr.base_branch, "master");
+        assert!(pr.url.starts_with("https://gitcode.com/"));
     }
 }
