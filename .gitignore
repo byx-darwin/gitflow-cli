@@ -1,6 +1,9 @@
 /target/
 .vscode/
 
+# OS-generated files
+.DS_Store
+
 # Ruflo / Claude-flow runtime state
 .claude-flow/
 .swarm/

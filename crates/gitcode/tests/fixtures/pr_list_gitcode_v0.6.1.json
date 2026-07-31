@@ -1,0 +1,47 @@
+[{
+    "id": 8957463,
+    "number": 52,
+    "title": "test(badge): 引擎规则函数测试覆盖",
+    "body": "## Summary\n\nCloses #88",
+    "description": "## Summary\n\nCloses #88",
+    "state": "merged",
+    "html_url": "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52",
+    "diff_url": "",
+    "patch_url": "",
+    "draft": false,
+    "merged": true,
+    "merged_at": "2026-07-30T13:23:13+08:00",
+    "created_at": "2026-07-30T12:40:46+08:00",
+    "updated_at": "2026-07-30T13:23:13+08:00",
+    "user": {
+        "id": "66767cd4096c81780c61bf07",
+        "login": "byx-darwin",
+        "name": "baoyx",
+        "email": "",
+        "avatar_url": "https://cdn-img.gitcode.com/avatar.png",
+        "html_url": "https://gitcode.com/byx-darwin",
+        "created_at": ""
+    },
+    "head": {
+        "label": "test/88-engine-rule-coverage",
+        "ref": "test/88-engine-rule-coverage",
+        "sha": "8f1d3f31d7ee598a16f40fcac55b86154122c93c"
+    },
+    "base": {
+        "label": "master",
+        "ref": "master",
+        "sha": "bba7d724c8c73531acf1dca5f639b2a273c26eae"
+    },
+    "labels": [],
+    "assignees": [],
+    "additions": 120,
+    "deletions": 3,
+    "changed_files": 1,
+    "commits": 2,
+    "comments": 0,
+    "mergeable": true,
+    "mergeable_state": "can_be_merged",
+    "milestone": null,
+    "closed_at": "2026-07-30T13:23:13+08:00",
+    "requested_reviewers": []
+}]

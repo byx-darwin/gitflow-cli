@@ -16,6 +16,10 @@
 - [Release](./release.md) — release checklist, changelog, and distribution packaging.
 - [Phase 4 Dogfooding Checklist](./specs/phase4-dogfooding-checklist.md) — pre-release verification checklist for GitHub/GitLab/GitCode core commands.
 
+## Roadmap
+
+- [多角色项目评估与产品路线图](./superpowers/specs/2026-07-31-product-evaluation-roadmap-design.md) — 五角色现状评估与 2026 下半年路线图（稳定化 → 增长 → 扩张，含官方网站与 GEO/SEO 方案）。
+
 ## Reference
 
 - [CLAUDE.md](../CLAUDE.md) — agent guide with code style, security, and testing rules.

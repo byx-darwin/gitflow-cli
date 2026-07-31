@@ -180,6 +180,78 @@ impl CommandRunner for MockCommandRunner {
     }
 }
 
+/// Mock implementation that records every call's arguments while returning
+/// a preconfigured result.
+///
+/// Used by regression tests that must assert the exact CLI invocation shape
+/// (e.g. which flags the adapter passes to `gitcode`).
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct RecordingMockRunner {
+    inner: MockCommandRunner,
+    calls: std::sync::Arc<std::sync::Mutex<Vec<Vec<String>>>>,
+}
+
+#[cfg(test)]
+impl RecordingMockRunner {
+    /// Create a recording runner that returns success with the given stdout.
+    #[must_use]
+    pub fn success(stdout: &str) -> Self {
+        Self {
+            inner: MockCommandRunner::success(stdout),
+            calls: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Create a recording runner that returns failure with the given stderr.
+    #[must_use]
+    pub fn failure(stderr: &str, code: i32) -> Self {
+        Self {
+            inner: MockCommandRunner::failure(stderr, code),
+            calls: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Snapshot of all recorded calls; each entry is the argv (without program).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal mutex is poisoned (a precedent panic occurred while
+    /// holding the lock).
+    #[must_use]
+    pub fn calls(&self) -> Vec<Vec<String>> {
+        self.calls
+            .lock()
+            .expect("RecordingMockRunner mutex poisoned")
+            .clone()
+    }
+}
+
+#[cfg(test)]
+#[async_trait::async_trait]
+impl CommandRunner for RecordingMockRunner {
+    async fn run(&self, program: &str, args: &[&str]) -> std::io::Result<CommandOutput> {
+        self.calls
+            .lock()
+            .expect("RecordingMockRunner mutex poisoned")
+            .push(args.iter().map(|s| (*s).to_owned()).collect());
+        self.inner.run(program, args).await
+    }
+
+    async fn run_with_stdin(
+        &self,
+        program: &str,
+        args: &[&str],
+        stdin_data: &[u8],
+    ) -> std::io::Result<CommandOutput> {
+        self.calls
+            .lock()
+            .expect("RecordingMockRunner mutex poisoned")
+            .push(args.iter().map(|s| (*s).to_owned()).collect());
+        self.inner.run_with_stdin(program, args, stdin_data).await
+    }
+}
+
 /// Mock implementation that returns a sequence of preconfigured responses.
 ///
 /// Each call to [`CommandRunner::run`] pops the next response from the queue.
@@ -302,5 +374,36 @@ mod tests {
         let cloned = runner.clone();
         let output = cloned.run("gitcode", &[]).await.expect("should succeed");
         assert_eq!(output.stdout, b"cloneable");
+    }
+
+    #[tokio::test]
+    async fn test_should_record_arguments_in_recording_runner() {
+        let runner = RecordingMockRunner::success("{}");
+        let output = runner
+            .run("gitcode", &["pr", "view", "20", "--json"])
+            .await
+            .expect("should succeed");
+        assert!(output.status.success());
+
+        let calls = runner.calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0], vec!["pr", "view", "20", "--json"]);
+    }
+
+    #[tokio::test]
+    async fn test_should_record_multiple_calls_in_order() {
+        let runner = RecordingMockRunner::success("ok");
+        runner
+            .run("gitcode", &["issue", "label", "1", "--add", "bug"])
+            .await
+            .expect("first");
+        runner
+            .run("gitcode", &["issue", "label", "1", "--remove", "bug"])
+            .await
+            .expect("second");
+
+        let calls = runner.calls();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[1], vec!["issue", "label", "1", "--remove", "bug"]);
     }
 }

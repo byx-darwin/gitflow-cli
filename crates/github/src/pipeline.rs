@@ -164,6 +164,65 @@ impl<R: CommandRunner> GitHubPipelineProvider<R> {
     }
 }
 
+/// `gh run list` 的 report 统计所需最小字段集。
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReportRun {
+    conclusion: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
+/// 为 [`GitHubPipelineProvider::report`] 聚合每次运行的指标。
+///
+/// 返回 `(success_count, total_duration_secs, failure_counts, runs_with_duration)`。
+fn aggregate_report_metrics(
+    runs: &[ReportRun],
+) -> (u64, f64, std::collections::HashMap<String, u64>, u64) {
+    let mut success_count: u64 = 0;
+    let mut total_duration_secs: f64 = 0.0;
+    let mut failure_counts: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
+    let mut has_duration: u64 = 0;
+
+    for run in runs {
+        if let Some(ref conclusion) = run.conclusion {
+            if conclusion == "success" {
+                success_count += 1;
+            } else if !matches!(conclusion.as_str(), "cancelled" | "skipped" | "neutral") {
+                // Counts all failure conclusions: "failure", "startup_failure",
+                // "timed_out", and any other non-success/non-neutral conclusion.
+                *failure_counts.entry(conclusion.clone()).or_insert(0) += 1;
+            }
+        }
+
+        if let (Ok(created), Ok(updated)) = (
+            chrono::DateTime::parse_from_rfc3339(&run.created_at),
+            chrono::DateTime::parse_from_rfc3339(&run.updated_at),
+        ) {
+            let duration = (updated.with_timezone(&chrono::Utc)
+                - created.with_timezone(&chrono::Utc))
+            .num_seconds();
+            if duration > 0 {
+                #[allow(
+                    clippy::cast_precision_loss,
+                    reason = "Duration values are small enough to fit in f64 without loss"
+                )]
+                let duration_f64 = duration as f64;
+                total_duration_secs += duration_f64;
+                has_duration += 1;
+            }
+        }
+    }
+
+    (
+        success_count,
+        total_duration_secs,
+        failure_counts,
+        has_duration,
+    )
+}
+
 #[async_trait]
 impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> {
     async fn status(&self, branch: &str) -> Result<Vec<PipelineStatus>> {
@@ -249,15 +308,6 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
     }
 
     async fn report(&self, branch: &str, days: u32) -> Result<PipelineReport> {
-        // 使用最小结构体反序列化 report 所需字段
-        #[derive(Debug, Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct ReportRun {
-            conclusion: Option<String>,
-            created_at: String,
-            updated_at: String,
-        }
-
         debug!(
             repo = %self.repo,
             branch = %branch,
@@ -293,54 +343,21 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
         let all_runs: Vec<ReportRun> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        // Filter to the requested time window
+        // Filter to the requested time window. Unparseable timestamps are kept
+        // (conservative: never drop runs because of a date format surprise).
         let cutoff = chrono::Utc::now() - chrono::Duration::days(i64::from(days));
         let runs: Vec<ReportRun> = all_runs
             .into_iter()
             .filter(|run| {
                 chrono::DateTime::parse_from_rfc3339(&run.created_at)
-                    .map(|dt| dt.with_timezone(&chrono::Utc) >= cutoff)
-                    .unwrap_or(true)
+                    .map_or(true, |dt| dt.with_timezone(&chrono::Utc) >= cutoff)
             })
             .collect();
 
         let total_runs = runs.len() as u64;
 
-        let mut success_count: u64 = 0;
-        let mut total_duration_secs: f64 = 0.0;
-        let mut failure_counts: std::collections::HashMap<String, u64> =
-            std::collections::HashMap::new();
-        let mut has_duration: u64 = 0;
-
-        for run in &runs {
-            if let Some(ref conclusion) = run.conclusion {
-                if conclusion == "success" {
-                    success_count += 1;
-                } else if !matches!(conclusion.as_str(), "cancelled" | "skipped" | "neutral") {
-                    // Counts all failure conclusions: "failure", "startup_failure",
-                    // "timed_out", and any other non-success/non-neutral conclusion.
-                    *failure_counts.entry(conclusion.clone()).or_insert(0) += 1;
-                }
-            }
-
-            if let (Ok(created), Ok(updated)) = (
-                chrono::DateTime::parse_from_rfc3339(&run.created_at),
-                chrono::DateTime::parse_from_rfc3339(&run.updated_at),
-            ) {
-                let duration = (updated.with_timezone(&chrono::Utc)
-                    - created.with_timezone(&chrono::Utc))
-                .num_seconds();
-                if duration > 0 {
-                    #[allow(
-                        clippy::cast_precision_loss,
-                        reason = "Duration values are small enough to fit in f64 without loss"
-                    )]
-                    let duration_f64 = duration as f64;
-                    total_duration_secs += duration_f64;
-                    has_duration += 1;
-                }
-            }
-        }
+        let (success_count, total_duration_secs, failure_counts, has_duration) =
+            aggregate_report_metrics(&runs);
 
         #[allow(
             clippy::cast_precision_loss,
