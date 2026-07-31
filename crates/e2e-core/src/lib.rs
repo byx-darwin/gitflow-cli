@@ -9,6 +9,6 @@ pub mod config;
 pub mod fixture;
 pub mod tty;
 
-pub use config::TestConfig;
+pub use config::{TestConfig, TestMode};
 pub use fixture::{TestFixture, TestResource};
-pub use tty::{CommandOutput, TtyMode, TtyRunner};
+pub use tty::{CommandOutput, TtyError, TtyMode, TtyRunner};

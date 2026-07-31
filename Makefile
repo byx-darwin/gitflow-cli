@@ -142,6 +142,9 @@ release: ## Interactive release with safety checks and version preview
 release-quick: ## Quick release without interactive previews (for automation)
 	@bash scripts/release.sh --quick
 
+release-rehearse: ## Full dry-run release drill (mandatory checklist, no changes)
+	@bash scripts/release.sh --rehearse
+
 release-push: ## Legacy: Step 1: bump version, commit, generate changelog, tag, push
 ifndef VERSION
 	$(error Usage: make release-push VERSION=patch|minor|major)
@@ -177,7 +180,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync release release-quick \
+        update-submodule check-agent-sync release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
