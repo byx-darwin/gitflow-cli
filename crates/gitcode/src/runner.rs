@@ -393,8 +393,14 @@ mod tests {
     #[tokio::test]
     async fn test_should_record_multiple_calls_in_order() {
         let runner = RecordingMockRunner::success("ok");
-        runner.run("gitcode", &["issue", "label", "1", "--add", "bug"]).await.expect("first");
-        runner.run("gitcode", &["issue", "label", "1", "--remove", "bug"]).await.expect("second");
+        runner
+            .run("gitcode", &["issue", "label", "1", "--add", "bug"])
+            .await
+            .expect("first");
+        runner
+            .run("gitcode", &["issue", "label", "1", "--remove", "bug"])
+            .await
+            .expect("second");
 
         let calls = runner.calls();
         assert_eq!(calls.len(), 2);

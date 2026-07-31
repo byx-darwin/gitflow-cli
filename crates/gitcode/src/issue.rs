@@ -536,8 +536,15 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             "spawning `gitcode issue label --add`"
         );
 
-        let cmd_args: Vec<&str> =
-            vec!["issue", "label", &number_str, "--add", &joined, "-R", &self.repo];
+        let cmd_args: Vec<&str> = vec![
+            "issue",
+            "label",
+            &number_str,
+            "--add",
+            &joined,
+            "-R",
+            &self.repo,
+        ];
 
         let output = self
             .runner
@@ -595,7 +602,15 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .runner
             .run(
                 &binary,
-                &["issue", "label", &number_str, "--remove", label, "-R", &self.repo],
+                &[
+                    "issue",
+                    "label",
+                    &number_str,
+                    "--remove",
+                    label,
+                    "-R",
+                    &self.repo,
+                ],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
@@ -1027,7 +1042,15 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(
             calls[0],
-            vec!["issue", "label", "54", "--add", "type:bug,priority:high", "-R", "o/r"],
+            vec![
+                "issue",
+                "label",
+                "54",
+                "--add",
+                "type:bug,priority:high",
+                "-R",
+                "o/r"
+            ],
             r"gitcode v0.6.1 的 issue edit 没有 --add-label flag（Issue #90）"
         );
     }
@@ -1037,7 +1060,10 @@ mod tests {
         let runner = RecordingMockRunner::success("");
         let provider = GitCodeIssueProvider::with_runner("o/r", runner.clone());
 
-        provider.add_labels(1, &[]).await.expect("empty labels is a no-op");
+        provider
+            .add_labels(1, &[])
+            .await
+            .expect("empty labels is a no-op");
 
         assert!(runner.calls().is_empty());
     }
@@ -1047,11 +1073,22 @@ mod tests {
         let runner = RecordingMockRunner::success("");
         let provider = GitCodeIssueProvider::with_runner("o/r", runner.clone());
 
-        provider.remove_label(54, "triage:done").await.expect("remove should succeed");
+        provider
+            .remove_label(54, "triage:done")
+            .await
+            .expect("remove should succeed");
 
         assert_eq!(
             runner.calls()[0],
-            vec!["issue", "label", "54", "--remove", "triage:done", "-R", "o/r"]
+            vec![
+                "issue",
+                "label",
+                "54",
+                "--remove",
+                "triage:done",
+                "-R",
+                "o/r"
+            ]
         );
     }
 

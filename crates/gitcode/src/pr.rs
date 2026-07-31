@@ -2,7 +2,9 @@
 //!
 //! 通过 `gitcode` CLI 实现 [`PrProvider`] trait，支持 Pull Request 的创建、列表、查看、
 //! 关闭、合并、检出、草稿状态切换和分支同步。
-//! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
+//! 所有方法通过 [`CommandRunner`] 调用 `gitcode` CLI，捕获 stdout 并解析 JSON。
+//! gitcode v0.6.x 的 JSON 架构（snake_case、`user` 键、嵌套 `head`/`base`）
+//! 与 `gh` 不同，统一经 `PrApiResponse` 映射为 core 的 [`PrData`]。
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -136,12 +138,8 @@ impl From<PrApiResponse> for PrData {
                     id: u.id.unwrap_or_default(),
                 },
             ),
-            base_branch: api
-                .base
-                .map_or_else(String::new, |b| b.branch_ref),
-            head_branch: api
-                .head
-                .map_or_else(String::new, |h| h.branch_ref),
+            base_branch: api.base.map_or_else(String::new, |b| b.branch_ref),
+            head_branch: api.head.map_or_else(String::new, |h| h.branch_ref),
             created_at: parse_time(api.created_at),
             updated_at: parse_time(api.updated_at),
             url: api.html_url.unwrap_or_default(),
@@ -675,7 +673,10 @@ mod tests {
         assert_eq!(pr.author.id, "66767cd4096c81780c61bf07");
         assert_eq!(pr.base_branch, "master");
         assert_eq!(pr.head_branch, "test/88-engine-rule-coverage");
-        assert_eq!(pr.url, "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52");
+        assert_eq!(
+            pr.url,
+            "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52"
+        );
         assert_eq!(pr.created_at.to_rfc3339(), "2026-07-30T04:40:46+00:00");
     }
 
@@ -1010,14 +1011,24 @@ mod tests {
         let runner = RecordingMockRunner::success(real_gitcode_pr_json());
         let provider = GitCodePrProvider::with_runner("octocat/hello-world", runner.clone());
 
-        let pr = provider.view(20).await.expect("view should parse real schema");
+        let pr = provider
+            .view(20)
+            .await
+            .expect("view should parse real schema");
 
         assert_eq!(pr.number, 52);
         let calls = runner.calls();
         assert_eq!(calls.len(), 1);
         assert_eq!(
             calls[0],
-            vec!["pr", "view", "20", "--repo", "octocat/hello-world", "--json"],
+            vec![
+                "pr",
+                "view",
+                "20",
+                "--repo",
+                "octocat/hello-world",
+                "--json"
+            ],
             "gitcode --json 是布尔标志，不得携带字段列表位置参数"
         );
     }
@@ -1030,11 +1041,14 @@ mod tests {
         provider.close(9).await.expect("close should succeed");
 
         let args = &runner.calls()[0];
-        assert!(args.contains(&"--yes".to_string()), "close 必须跳过确认提示");
         assert!(
-            !args.windows(2).any(|w| {
-                w[0] == "--json" && w[1] != "--yes" && !w[1].starts_with('-')
-            }),
+            args.contains(&"--yes".to_string()),
+            "close 必须跳过确认提示"
+        );
+        assert!(
+            !args
+                .windows(2)
+                .any(|w| { w[0] == "--json" && w[1] != "--yes" && !w[1].starts_with('-') }),
             "--json 后不得跟随字段列表"
         );
     }
@@ -1065,11 +1079,17 @@ mod tests {
         let runner = RecordingMockRunner::success("Merged pull request !52");
         let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
 
-        let result = provider.merge(52, Some(MergeStrategy::Squash)).await.expect("merge");
+        let result = provider
+            .merge(52, Some(MergeStrategy::Squash))
+            .await
+            .expect("merge");
 
         assert!(result.merged);
         let args = &runner.calls()[0];
-        let method_pos = args.iter().position(|a| a == "--method").expect("--method must be passed");
+        let method_pos = args
+            .iter()
+            .position(|a| a == "--method")
+            .expect("--method must be passed");
         assert_eq!(args[method_pos + 1], "squash");
     }
 
@@ -1105,13 +1125,18 @@ mod tests {
         let runner = RecordingMockRunner::success(comment_json);
         let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
 
-        let comment = provider.comment(52, "LGTM").await.expect("comment should parse");
+        let comment = provider
+            .comment(52, "LGTM")
+            .await
+            .expect("comment should parse");
 
         assert_eq!(comment.id, 9001);
         assert_eq!(comment.author.login, "rev");
         assert_eq!(
             runner.calls()[0],
-            vec!["pr", "comment", "52", "--repo", "o/r", "--body", "LGTM", "--json"]
+            vec![
+                "pr", "comment", "52", "--repo", "o/r", "--body", "LGTM", "--json"
+            ]
         );
     }
 
