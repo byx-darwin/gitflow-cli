@@ -393,32 +393,35 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 
     /// 合并指定编号的 PR。
     ///
-    /// 调用 `gc pr merge <number> --repo <repo>` 合并 PR。
-    /// 注意：GitCode CLI 当前不支持通过命令行参数指定合并策略（squash/rebase/merge），
-    /// 因此 `strategy` 参数会被忽略，并使用 GitCode 平台的默认合并策略。
+    /// 调用 `gitcode pr merge <number> --repo <repo> --yes [--method <strategy>]`
+    /// 合并 PR。`strategy` 映射到 gitcode 的 `--method` 参数
+    ///（`merge` / `squash` / `rebase`）；未指定时使用平台默认策略。
     ///
     /// # Errors
     ///
     /// 当 PR 不存在、存在冲突无法合并或 `gitcode` CLI 调用失败时返回错误。
     async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
-        if strategy.is_some() {
-            tracing::warn!(
-                ?strategy,
-                "Merge strategies are not yet supported on GitCode platform; using default merge \
-                 behavior"
-            );
-        }
-
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
-        debug!(repo = %self.repo, number, ?strategy, "spawning `gc pr merge`");
+        let mut cmd_args: Vec<&str> =
+            vec!["pr", "merge", &number_str, "--repo", &self.repo, "--yes"];
+
+        let strategy_value;
+        if let Some(strategy) = strategy {
+            strategy_value = match strategy {
+                MergeStrategy::Merge => "merge",
+                MergeStrategy::Squash => "squash",
+                MergeStrategy::Rebase => "rebase",
+            };
+            cmd_args.push("--method");
+            cmd_args.push(strategy_value);
+        }
+
+        debug!(repo = %self.repo, number, ?strategy, "spawning `gitcode pr merge`");
 
         let output = self
             .runner
-            .run(
-                &binary,
-                &["pr", "merge", &number_str, "--repo", &self.repo, "--yes"],
-            )
+            .run(&binary, &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
@@ -427,7 +430,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        // `gc pr merge` outputs a human-readable message, not JSON.
+        // `gitcode pr merge` outputs a human-readable message, not JSON.
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(MergeResult {
             merged: true,
@@ -1100,5 +1103,44 @@ mod tests {
         assert!(args.contains(&"5".to_string()));
         assert!(args.contains(&"--state".to_string()));
         assert!(args.contains(&"open".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_map_squash_strategy_to_method_flag() {
+        let runner = RecordingMockRunner::success("Merged pull request !52");
+        let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+
+        let result = provider.merge(52, Some(MergeStrategy::Squash)).await.expect("merge");
+
+        assert!(result.merged);
+        let args = &runner.calls()[0];
+        let method_pos = args.iter().position(|a| a == "--method").expect("--method must be passed");
+        assert_eq!(args[method_pos + 1], "squash");
+    }
+
+    #[tokio::test]
+    async fn test_should_map_all_merge_strategies() {
+        for (strategy, expected) in [
+            (MergeStrategy::Merge, "merge"),
+            (MergeStrategy::Squash, "squash"),
+            (MergeStrategy::Rebase, "rebase"),
+        ] {
+            let runner = RecordingMockRunner::success("done");
+            let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+            provider.merge(1, Some(strategy)).await.expect("merge");
+            let args = &runner.calls()[0];
+            let pos = args.iter().position(|a| a == "--method").expect("--method");
+            assert_eq!(args[pos + 1], expected);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_omit_method_flag_when_no_strategy() {
+        let runner = RecordingMockRunner::success("done");
+        let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+
+        provider.merge(1, None).await.expect("merge");
+
+        assert!(!runner.calls()[0].contains(&"--method".to_string()));
     }
 }
