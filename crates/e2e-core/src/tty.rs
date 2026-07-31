@@ -41,6 +41,7 @@ pub struct TtyRunner {
     mode: TtyMode,
     working_dir: PathBuf,
     env_vars: HashMap<String, String>,
+    env_removals: Vec<String>,
 }
 
 impl TtyRunner {
@@ -51,6 +52,7 @@ impl TtyRunner {
             mode,
             working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             env_vars: HashMap::new(),
+            env_removals: Vec::new(),
         }
     }
 
@@ -61,6 +63,15 @@ impl TtyRunner {
         V: Into<String>,
     {
         self.env_vars.insert(key.into(), value.into());
+        self
+    }
+
+    /// 从子进程环境中移除变量(如清除继承的 `GH_TOKEN` 以测试未认证路径)
+    pub fn env_remove<K>(&mut self, key: K) -> &mut Self
+    where
+        K: Into<String>,
+    {
+        self.env_removals.push(key.into());
         self
     }
 
@@ -87,6 +98,10 @@ impl TtyRunner {
             cmd.env(k, v);
         }
 
+        for key in &self.env_removals {
+            cmd.env_remove(key);
+        }
+
         let output = cmd.output().await?;
 
         Ok(CommandOutput {
@@ -106,5 +121,19 @@ mod tests {
         assert_eq!(TtyMode::Interactive, TtyMode::Interactive);
         assert_eq!(TtyMode::NonInteractive, TtyMode::NonInteractive);
         assert_ne!(TtyMode::Interactive, TtyMode::NonInteractive);
+    }
+
+    #[test]
+    fn test_should_record_env_removals_in_order() {
+        let mut runner = TtyRunner::new(TtyMode::NonInteractive);
+        runner
+            .env_remove("GH_TOKEN")
+            .env_remove("GITHUB_TOKEN")
+            .env("E2E_PROBE", "1");
+        assert_eq!(
+            runner.env_removals,
+            vec!["GH_TOKEN".to_string(), "GITHUB_TOKEN".to_string()]
+        );
+        assert_eq!(runner.env_vars.get("E2E_PROBE"), Some(&"1".to_string()));
     }
 }
