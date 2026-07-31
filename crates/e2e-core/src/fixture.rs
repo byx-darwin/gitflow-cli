@@ -48,6 +48,15 @@ pub struct TestFixture {
 }
 
 impl TestFixture {
+    /// 从显式配置创建测试固件(不访问环境变量,便于 hermetic 测试)
+    #[must_use]
+    pub fn with_config(config: &crate::TestConfig) -> Self {
+        Self {
+            repo: config.test_repo.clone(),
+            created_resources: Vec::new(),
+        }
+    }
+
     /// 创建新的测试固件
     ///
     /// # Errors
@@ -55,10 +64,7 @@ impl TestFixture {
     /// Returns `FixtureError::Config` if `E2E_TEST_REPO` is not set.
     pub fn new() -> Result<Self, FixtureError> {
         let config = crate::TestConfig::from_env()?;
-        Ok(Self {
-            repo: config.test_repo,
-            created_resources: Vec::new(),
-        })
+        Ok(Self::with_config(&config))
     }
 
     /// 清理所有创建的资源
@@ -100,5 +106,39 @@ impl Drop for TestFixture {
                 self.created_resources.len()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TestConfig;
+
+    fn offline_config() -> TestConfig {
+        TestConfig {
+            test_repo: "owner/repo".to_string(),
+            github_token: None,
+            gitcode_token: None,
+            gitlab_token: None,
+        }
+    }
+
+    #[test]
+    fn test_should_build_fixture_from_config_without_env_access() {
+        let fixture = TestFixture::with_config(&offline_config());
+        assert_eq!(fixture.repo, "owner/repo");
+        assert!(fixture.created_resources.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_cleanup_empty_fixture_without_side_effects() {
+        let mut fixture = TestFixture::with_config(&offline_config());
+        assert!(fixture.cleanup().await.is_ok());
+    }
+
+    #[test]
+    fn test_should_not_panic_when_dropping_empty_fixture() {
+        let fixture = TestFixture::with_config(&offline_config());
+        drop(fixture);
     }
 }
