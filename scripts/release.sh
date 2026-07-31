@@ -536,6 +536,16 @@ execute_release() {
     log_info "Step 2/6: Committing version bump..."
     cargo release commit --execute --no-confirm
 
+    # Gate: validate the release commit subject (blocks v{{version}}-class incidents)
+    local commit_subject
+    commit_subject=$(git log -1 --pretty=%s)
+    if ! validate_commit_subject "$commit_subject"; then
+        log_error "Release commit validation failed. Rolling back bump commit."
+        git reset --hard HEAD~1
+        exit 1
+    fi
+    log_success "Release commit subject validated"
+
     # Step 3: Generate changelog
     log_info "Step 3/6: Generating CHANGELOG.md..."
     git cliff -o CHANGELOG.md
@@ -544,6 +554,13 @@ execute_release() {
     log_info "Step 4/6: Committing changelog..."
     git add CHANGELOG.md
     git commit -m "chore: update CHANGELOG.md for v${RELEASE_VERSION}" || true
+
+    # Gate: no template residue in the generated changelog
+    if ! validate_no_template_residue CHANGELOG.md; then
+        log_error "CHANGELOG.md contains unsubstituted template variables. Aborting."
+        exit 1
+    fi
+    log_success "CHANGELOG.md validated"
 
     # Step 5: Push and check CI
     log_info "Step 5/6: Pushing to trigger CI..."
@@ -571,6 +588,17 @@ execute_release() {
     # Step 7: Create tag and push
     log_info "Creating tag and pushing..."
     cargo release tag --execute --workspace --no-confirm
+
+    # Gate: validate the created tag before pushing it anywhere
+    local created_tag
+    created_tag=$(git tag --points-at HEAD | head -1)
+    if ! validate_tag_name "$created_tag"; then
+        log_error "Tag validation failed. Removing local tag."
+        git tag -d "$created_tag"
+        exit 1
+    fi
+    log_success "Tag $created_tag validated"
+
     git push origin main --tags
 
     echo ""
@@ -593,6 +621,31 @@ post_release() {
     echo ""
 }
 
+# Rehearsal report (dry-run drill; prints the mandatory checklist)
+print_rehearsal_report() {
+    echo ""
+    echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║   Release Rehearsal Report (dry-run)   ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "  ✅ Prerequisites (cargo / cargo-release / git-cliff)"
+    echo "  ✅ On main branch, working tree clean"
+    echo "  ✅ Tests passed (cargo nextest)"
+    echo "  ✅ Clippy passed"
+    echo "  ✅ Version preview: v${RELEASE_VERSION}"
+    echo "  ✅ cargo release dry-run succeeded"
+    echo "  ✅ Validation self-test:"
+    if run_self_test > /dev/null 2>&1; then
+        echo "     validators green (commit subject / tag / changelog residue)"
+    else
+        log_error "Validation self-test failed during rehearsal"
+        exit 1
+    fi
+    echo ""
+    log_success "Rehearsal passed. No changes were made (dry-run only)."
+    log_info "Run 'bash scripts/release.sh' to perform the actual release."
+}
+
 # Main flow
 main() {
     echo ""
@@ -606,8 +659,12 @@ main() {
     show_version_preview
     preview_changelog
 
-    if ! $QUICK_MODE; then
-        dry_run
+    # dry-run 是强制步骤:--quick 仅跳过交互确认,不跳过 dry-run
+    dry_run
+
+    if $REHEARSE_MODE; then
+        print_rehearsal_report
+        exit 0
     fi
 
     execute_release
