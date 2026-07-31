@@ -1,0 +1,160 @@
+name: Upstream CLI Patrol
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 每天 03:00 UTC 巡检上游 CLI 新版本
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  version-check:
+    name: Version Check (no credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Query upstream latest versions
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # gh: GitHub API(ubuntu runner 预装 gh,公共仓库匿名可读)
+          GH_LATEST=$(gh api repos/cli/cli/releases/latest --jq '.tag_name' | sed 's/^v//')
+          echo "gh=$GH_LATEST" >> "$GITHUB_OUTPUT"
+
+          # glab: GitLab 公共 API
+          GLAB_LATEST=$(curl -fsSL --max-time 30 \
+            "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/repository/tags?per_page=1" \
+            | jq -r '.[0].name' | sed 's/^v//') || GLAB_LATEST=""
+          if [ -n "$GLAB_LATEST" ]; then
+            echo "glab=$GLAB_LATEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not query latest glab version; skipping glab check"
+          fi
+
+          # gitcode: 尽力而为,失败仅告警(访问不稳定)
+          GITCODE_LATEST=$(curl -fsSL --max-time 20 \
+            "https://gitcode.com/api/v5/repos/gitcode-cli/cli/releases/latest" \
+            | jq -r '.tag_name' | sed 's/^v//') || GITCODE_LATEST=""
+          if [ -n "$GITCODE_LATEST" ]; then
+            echo "gitcode=$GITCODE_LATEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not query latest gitcode version; skipping gitcode check"
+          fi
+
+      - name: Compare against compatibility matrix and alert
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MATRIX="docs/compatibility-matrix.json"
+          ALERT_FOUND=false
+
+          check_platform() {
+            local binary="$1" latest="$2"
+            [ -z "$latest" ] && return 0
+            local tested_max
+            tested_max=$(jq -r --arg b "$binary" \
+              '.platforms[] | select(.cli_binary == $b) | .tested_versions | sort_by(split(".") | map(tonumber)) | last' \
+              "$MATRIX")
+            # 若 latest 比 tested_max 新,则有漂移
+            local newest
+            newest=$(printf '%s\n' "$tested_max" "$latest" | sort -V | tail -1)
+            if [ "$newest" != "$tested_max" ]; then
+              ALERT_FOUND=true
+              local title="upstream CLI 新版本: ${binary} ${latest}"
+              local existing
+              existing=$(gh issue list --label upstream-drift --state open \
+                --search "in:title upstream CLI ${binary}" --json number --jq '.[0].number // empty')
+              local body_file
+              body_file=$(mktemp)
+              {
+                printf '巡检发现 %s 发布了新版本。\n\n' "$binary"
+                printf -- '- **最新版本**: %s\n' "$latest"
+                printf -- '- **兼容性矩阵 tested_versions 上限**: %s\n' "$tested_max"
+                printf -- '- **矩阵文件**: `%s`\n\n' "$MATRIX"
+                printf '## 建议动作\n\n'
+                printf '1. 本地安装 %s %s,运行 `make smoke-test` 与契约测试验证\n' "$binary" "$latest"
+                printf '2. 若验证通过,更新 `%s` 的 `tested_versions`\n' "$MATRIX"
+                printf '3. 若存在破坏性变更,评估是否提升 `min_version` 并补充契约 fixture\n'
+              } > "$body_file"
+              if [ -n "$existing" ]; then
+                gh issue comment "$existing" --body "巡检复核(${binary} ${latest} 仍为最新): $(date -u +%F)"
+              else
+                gh issue create --title "$title" --label upstream-drift --body-file "$body_file"
+              fi
+              rm -f "$body_file"
+            fi
+          }
+
+          check_platform "gh" "${{ steps.latest.outputs.gh }}"
+          check_platform "glab" "${{ steps.latest.outputs.glab }}"
+          check_platform "gitcode" "${{ steps.latest.outputs.gitcode }}"
+
+          if [ "$ALERT_FOUND" = true ]; then
+            echo "Drift detected — issue(s) created or updated."
+          else
+            echo "All platforms within tested versions. No alert needed."
+          fi
+
+  github-live-check:
+    name: GitHub Live Smoke (latest gh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ secrets.E2E_GITHUB_TOKEN != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install latest gh
+        run: |
+          set -euo pipefail
+          LATEST=$(gh api repos/cli/cli/releases/latest --jq '.tag_name' | sed 's/^v//')
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${LATEST}/gh_${LATEST}_linux_amd64.tar.gz" -o gh.tar.gz
+          tar -xzf gh.tar.gz
+          sudo cp "gh_${LATEST}_linux_amd64/bin/gh" /usr/local/bin/gh
+          gh --version
+
+      - name: Build gitflow-cli
+        run: cargo build --release
+
+      - name: Run read-only smoke test against latest gh
+        id: smoke
+        env:
+          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+        run: |
+          if bash scripts/smoke-test.sh --platform github --read-only; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Alert on breakage
+        if: steps.smoke.outputs.result == 'fail'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          GH_VERSION=$(gh --version | head -1)
+          TITLE="upstream CLI 破坏: gh (${GH_VERSION}) smoke 失败"
+          EXISTING=$(gh issue list --label upstream-drift --state open \
+            --search "in:title upstream CLI 破坏 gh" --json number --jq '.[0].number // empty')
+          BODY="nightly live smoke 在最新 gh(\`${GH_VERSION}\`)上失败,疑似上游破坏性变更。
+
+          请查看本次 workflow run 日志定位失败命令,并评估:
+          1. 修复适配器或锁定行为
+          2. 必要时提升 \`docs/compatibility-matrix.json\` 的 \`min_version\`"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "live smoke 复核仍失败(${GH_VERSION}): $(date -u +%F)"
+          else
+            gh issue create --title "$TITLE" --label upstream-drift --body "$BODY"
+          fi
