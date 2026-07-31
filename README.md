@@ -5,124 +5,11 @@
 [![Rust 2024](https://img.shields.io/badge/Rust-2024-orange?logo=rust)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-多平台 Git 锻造 CLI + Superpowers Skills 集合，覆盖从需求到交付的完整 AI 编程工程循环。
+**跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。**
 
-## 架构
+![gitflow-cli 演示](docs/assets/demo.svg)
 
-```
-Phase 1: 需求澄清         Phase 2: 计划制定          Phase 3: 执行              Phase 4: 交付后检查
-(远端 + Superpowers)      (Superpowers)              (Superpowers)               (gitflow-cli)
-    │                         │                        │                          │
-    ├─ brainstorming          ├─ writing-plans         ├─ TDD (内嵌)              ├─ pipeline-analyzer
-    ├─ issue-create           └─ 完整计划文档           ├─ subagent-dev            ├─ issue-triage
-    ├─ issue-review             (含质量关卡)            └─ quality (内嵌)          └─ review
-    └─ 需求分析报告                                      ↓
-                                                       PR → 合并 → 发布
-            ↑                         ↑                    ↑                          ↑
-            └─────────────── gitflow-workflow（编排层）──────────────────────────────┘
-```
-
-- **Superpowers**：需求澄清 / 原子任务拆解 / TDD / 子代理隔离 / 任务审查 / 收尾
-- **gitflow-cli skills**：Issue 管理 / PR 创建审查 / 跨平台命令 / 安全审计 / Release 发布
-- **`gitflow-workflow`**：四阶段编排层 — 需求澄清 → 计划制定 → 执行 → 交付后检查
-
-## 平台支持
-
-### Git 平台
-
-`gitflow-cli` CLI 统一封装了三大 Git 平台的差异，通过 `--platform` 自动检测或手动指定：
-
-| 平台 | CLI 依赖 | 特性 |
-|------|---------|------|
-| **GitHub** | `gh` (v2.0.0+) | Issue / PR / Release / Review / Pipeline / Repo（含 Enterprise） |
-| **GitLab** | `glab` (v1.30.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo（含自建实例） |
-| **GitCode** | `gitcode` (v0.6.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
-
-```bash
-# 自动检测（基于 git remote，支持 gitlab.com 及自建 GitLab 实例）
-gitflow-cli issue list
-
-# 手动指定平台
-gitflow-cli issue list --platform gitlab --output text
-```
-
-### Agent 平台
-
-Skills 可安装到任意支持的 AI Agent 平台，通过 `--agent` 指定目标 agent；不指定则自动检测。
-安装位置分两级：
-
-- **项目级（默认）**：装到当前 git 仓库根目录下（`.claude/` / `.codex/` 等），跟随仓库，适合团队共享。
-- **全局级（`-g`）**：装到 `~/` 用户目录，跨项目生效。
-
-| Agent | 项目级目录 | 全局级目录 | Stop Hook 支持 |
-|-------|-----------|-----------|----------------|
-| **Claude Code** | `.claude/skills/` | `~/.claude/skills/` | ✅ |
-| **Codex** (OpenAI) | `.codex/skills/` | `~/.codex/skills/` | ✅ |
-| **OpenCode** | `.opencode/skills/` | `~/.opencode/skills/` | ❌ 跳过 |
-| **Gemini CLI** | `.gemini/skills/` | `~/.gemini/skills/` | ❌ 跳过 |
-| **Copilot CLI** | `.copilot/skills/` | `~/.copilot/skills/` | ❌ 跳过 |
-
-**自动检测规则**：未指定 `--agent` 时，按 Claude → Codex → OpenCode → Gemini → Copilot 优先级检查 `~/<agent>/skills/` 是否已存在，返回首个命中的平台；全未命中则 fallback 到 Claude。
-
-**Hook 能力矩阵**：`auto-report-bug` Stop Hook（写入 `<agent>/settings.json` 的 `hooks.Stop`）仅 Claude Code 与 Codex 支持。OpenCode / Gemini / Copilot 安装时会自动跳过 hook 写入，并在 stdout 打印 `⚠ Agent <name> 不支持 Stop hook，已跳过 hook 安装`，避免污染这些平台的配置文件。
-
-```bash
-# 项目级安装（默认，推荐）
-gitflow-cli skills install --agent codex
-# → skills/hooks/settings 全部写到 .codex/
-
-# 全局安装
-gitflow-cli skills install -g --agent gemini
-# → 仅装 skills 到 ~/.gemini/skills/；不写 hook（Gemini 不支持）
-```
-
-## Skill 矩阵
-
-### 编排
-
-| Skill | 做什么 |
-|-------|--------|
-| `gitflow-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查。支持完整模式（默认）和快速模式（bug fix 可跳 brainstorming/writing-plans） |
-| `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit，支持 Rust/Node.js/Python/Go/Java 自动检测 |
-
-### Issue 流水线
-
-| Skill | 时机 | 做什么 |
-|-------|------|--------|
-| `gitflow-issue-create` | 提交前 | 引导填 issue → 模板填充 → 创建 |
-| `gitflow-issue-review` | 开发前 | 需求分析 → 完整性检查 → 改进建议 → 回写评论 |
-| `gitflow-issue-triage` | 提交后 | 分类 → 标签 → 优先级 → 分流 |
-
-### PR 流水线
-
-| Skill | 时机 | 做什么 |
-|-------|------|--------|
-| `gitflow-pr-create` | 提交时 | 检查变更 → PR 标题描述 → 提交 |
-| `gitflow-pr-review` | 提交后 | 6 维审查 → 审查结论 → 提交 |
-| `gitflow-pr-inline-review` | 审查时 | 逐文件逐行评论 → 逻辑/安全/命名/边界 |
-| `gitflow-pr-apply-feedback` | 审查后 | 获取反馈 → 逐条本地应用 → 标记 resolved |
-
-### 交付
-
-| Skill | 时机 | 做什么 |
-|-------|------|--------|
-| `gitflow-release-helper` | 发布时 | 分析变更 → 生成 Release Note → 创建 Release |
-| `gitflow-label-stats` | 发布前 | 标签统计 → 优先级分布 → 未分类识别 |
-| `gitflow-pipeline-analyzer` | 发布前 | 流水线健康 → 成功率/失败模式 → 改进建议 |
-
-### 辅助
-
-| Skill | 时机 | 做什么 |
-|-------|------|--------|
-| `gitflow-security-check` | 审查时 | 代码安全审计：凭证/注入/认证/依赖/加密 |
-| `gitflow-precommit` | 提交前 | fmt → clippy → test → 配置 pre-commit hook |
-| `gitflow-regression` | 验证时 | 冒烟测试 → 解析结果 → 失败自动上报 |
-| `gitflow-repo-onboarding` | 入门时 | 仓库结构 → 构建 → 测试 → 贡献流程 |
-| `gitflow-autoreport-bug` | 出错时 | 错误捕获 → 去重 → 自动创建 Issue |
-
-## 快速开始
-
-### Step 1：安装 gitflow-cli
+## 安装
 
 ```bash
 # Homebrew (macOS)
@@ -133,53 +20,61 @@ brew install gitflow-cli
 cargo install gitflow-cli
 ```
 
-### Step 2：安装 Skills
+## 30 秒上手
 
 ```bash
-# 项目级（推荐 — 跟随仓库）
+# 1. 安装 Skills（项目级，跟随仓库）
 gitflow-cli skills install
 
-# 全局（所有项目可用）
-gitflow-cli skills install -g
+# 2. 验证
+gitflow-cli skills list     # 应看到 26 个 gitflow-* skills
+gitflow-cli --version
+
+# 3. 在 Agent 平台中进入四阶段工作流
+/gitflow-workflow 我要做 X
 ```
 
-### Step 3：验证
+## 平台支持
+
+### Git 平台
+
+`gitflow-cli` 统一封装三大 Git 平台差异，`--platform` 自动检测或手动指定：
+
+| 平台 | CLI 依赖 | 特性 |
+|------|---------|------|
+| **GitHub** | `gh` (v2.0.0+) | Issue / PR / Release / Review / Pipeline / Repo（含 Enterprise） |
+| **GitLab** | `glab` (v1.30.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo（含自建实例） |
+| **GitCode** | `gitcode` (v0.6.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
 
 ```bash
-gitflow-cli skills list
-# 应看到 26 个 gitflow-* skills
-
-gitflow-cli --version
-# gitflow-cli 0.5.0
+gitflow-cli issue list                                  # 自动检测（基于 git remote）
+gitflow-cli issue list --platform gitlab --output text  # 手动指定平台
 ```
 
-### Step 4：开始开发
+详见官网[兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/)。
 
-```
-/开发工作流，我要做 X
-```
+### Agent 平台
 
-## gitflow-workflow 工作模式
+Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（不指定则自动检测）。安装位置分项目级（默认，装到当前仓库 `.claude/` 等）与全局级（`-g`，装到 `~/`）。
 
-**完整模式**（默认）：适用于新功能开发、重大重构
-```
-/gitflow-workflow
-```
+| Agent | 项目级目录 | 全局级目录 | Stop Hook 支持 |
+|-------|-----------|-----------|----------------|
+| **Claude Code** | `.claude/skills/` | `~/.claude/skills/` | ✅ |
+| **Codex** (OpenAI) | `.codex/skills/` | `~/.codex/skills/` | ✅ |
+| **OpenCode** | `.opencode/skills/` | `~/.opencode/skills/` | ❌ 跳过 |
+| **Gemini CLI** | `.gemini/skills/` | `~/.gemini/skills/` | ❌ 跳过 |
+| **Copilot CLI** | `.copilot/skills/` | `~/.copilot/skills/` | ❌ 跳过 |
 
-**快速模式**：适用于 bug 修复、小优化。无需 flag，AI agent 根据上下文（如已知 bug 根因、单文件改动）自动判断是否跳过多阶段。
-```
-/gitflow-workflow 修个 typo
-# 或直接在请求中说明是快速修复
-```
+## Skill 矩阵
 
-## 典型工作流
-
-```
-Phase 1 需求澄清    Phase 2 计划制定    Phase 3 执行              Phase 4 交付后检查
-brainstorming  →  writing-plans  →  TDD + subagent-dev  →  pipeline-analyzer
-issue-create       完整计划文档        quality (6 项检查)      issue-triage
-issue-review       (含质量关卡)        PR → 合并 → 发布        review
-```
+| 层 | Skill | 做什么 |
+|----|-------|--------|
+| 编排 | `gitflow-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查 |
+| 编排 | `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit |
+| Issue | `gitflow-issue-create` / `gitflow-issue-review` / `gitflow-issue-triage` | 创建 / 需求审查 / 分类分流 |
+| PR | `gitflow-pr-create` / `gitflow-pr-review` / `gitflow-pr-inline-review` / `gitflow-pr-apply-feedback` | 创建 / 6 维审查 / 逐行评论 / 应用反馈 |
+| 交付 | `gitflow-release-helper` / `gitflow-label-stats` / `gitflow-pipeline-analyzer` | Release Note / 标签统计 / 流水线健康 |
+| 辅助 | `gitflow-security-check` / `gitflow-precommit` / `gitflow-regression` / `gitflow-repo-onboarding` / `gitflow-autoreport-bug` | 安全审计 / 预提交 / 回归 / 入门 / 自动报障 |
 
 ## CLI 命令一览
 
@@ -197,15 +92,24 @@ issue-review       (含质量关卡)        PR → 合并 → 发布        revi
 | `gitflow-cli skills {install,list,uninstall}` | Skills 管理 |
 | `gitflow-cli completions {bash,zsh,fish}` | Shell 补全 |
 
-支持 `--platform github|gitlab|gitcode` 和 `--output json|text`。
+支持 `--platform github|gitlab|gitcode` 与 `--output json|text|toon|auto`。
+
+## 文档与官网
+
+官方网站：<https://byx-darwin.github.io/gitflow-cli>
+
+- [5 分钟快速上手](https://byx-darwin.github.io/gitflow-cli/quickstart/)
+- [兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/)
+- [更新日志](https://byx-darwin.github.io/gitflow-cli/changelog/)
+- 仓库内文档：[`docs/`](docs/index.md)
 
 ## 设计原则
 
-- **步骤化工作流**：每个 skill 有明确的步骤顺序，不跳步
-- **先验证再行动**：PR 创建前检查分支和变更；Issue 创建前引导填写模板
-- **生态互补**：本地开发循环 (Superpowers) + 远端协作 (gitflow-cli) 明确分工
-- **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot
-- **质量门闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付，支持多语言自动检测
+- **步骤化工作流**：每个 skill 有明确步骤顺序，不跳步。
+- **先验证再行动**：PR 创建前检查分支与变更；Issue 创建前引导填写模板。
+- **生态互补**：本地开发循环（Superpowers）+ 远端协作（gitflow-cli）明确分工。
+- **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot。
+- **质量门闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付。
 
 ## 贡献
 
