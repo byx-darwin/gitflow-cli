@@ -64,7 +64,7 @@ pub mod runner;
 
 pub use auth::GitCodeAuthProvider;
 pub use commit::GitCodeCommitProvider;
-pub use error::GitcodeError;
+pub use error::parse_gitcode_error;
 pub use issue::GitCodeIssueProvider;
 pub use label::{GitCodeLabelProvider, GitCodeMilestoneProvider};
 pub use pipeline::GitCodePipelineProvider;

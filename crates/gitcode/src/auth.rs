@@ -95,8 +95,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
         };
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -120,8 +119,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -164,8 +162,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
                 });
             }
 
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // 解析登录用户：查找 "Logged in to gitcode.com as <username>" 行
@@ -194,8 +191,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode auth token: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let token = String::from_utf8_lossy(&output.stdout);
@@ -416,7 +412,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -429,7 +425,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -453,7 +449,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -466,7 +462,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 

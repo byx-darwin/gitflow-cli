@@ -74,8 +74,7 @@ impl LabelProvider for GitCodeLabelProvider {
         })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let label: LabelData =
@@ -98,8 +97,7 @@ impl LabelProvider for GitCodeLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label list: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let labels: Vec<LabelData> =
@@ -130,8 +128,7 @@ impl LabelProvider for GitCodeLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label edit: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // Try to parse JSON response, fallback to fetch if not available
@@ -158,8 +155,7 @@ impl LabelProvider for GitCodeLabelProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -181,8 +177,7 @@ impl GitCodeLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label view: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let label: LabelData =
@@ -280,8 +275,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
         })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -305,8 +299,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let milestones: Vec<MilestoneApiResponse> =
@@ -341,8 +334,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
         })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -367,8 +359,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -393,8 +384,7 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
