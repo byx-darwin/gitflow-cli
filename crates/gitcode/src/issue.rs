@@ -494,32 +494,35 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
 
     /// 为指定 Issue 添加一个或多个标签。
     ///
-    /// 调用 `gc issue edit <number> -R <repo> --add-label <label>` 逐个添加标签。
-    /// 如果 `labels` 为空，不进行任何调用并返回成功。
+    /// 调用 `gitcode issue label <number> --add <labels> -R <repo>` 添加标签
+    ///（逗号分隔的 `--add` 是 gitcode v0.6.x 的专用标签子命令；`issue edit`
+    /// 不支持 gh 风格的 `--add-label` flag）。`labels` 为空时不进行任何调用。
     ///
     /// # 自动创建缺失标签
     ///
-    /// 当 `gc issue edit --add-label` 因标签不存在而失败时，本方法会自动调用
-    /// `gc label create` 创建缺失的标签（使用默认颜色 `ededed`），然后重试原操作。
+    /// 当添加因标签不存在而失败时，本方法会自动调用 `gitcode label create`
+    /// 创建缺失的标签（默认颜色 `ededed`），然后重试一次。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在、标签创建失败或 `gitcode` CLI 调用失败时返回错误。
     async fn add_labels(&self, number: u64, labels: &[String]) -> Result<()> {
+        if labels.is_empty() {
+            return Ok(());
+        }
+
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
+        let joined = labels.join(",");
         debug!(
             repo = %self.repo,
             number,
             label_count = labels.len(),
-            "spawning `gc issue edit --add-label`"
+            "spawning `gitcode issue label --add`"
         );
 
-        let mut cmd_args: Vec<&str> = vec!["issue", "edit", &number_str, "-R", &self.repo];
-        for label in labels {
-            cmd_args.push("--add-label");
-            cmd_args.push(label);
-        }
+        let cmd_args: Vec<&str> =
+            vec!["issue", "label", &number_str, "--add", &joined, "-R", &self.repo];
 
         let output = self
             .runner
@@ -531,7 +534,6 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             return Ok(());
         }
 
-        // gc issue edit --add-label fails when a label doesn't exist.
         // Auto-create missing labels and retry once.
         let missing = extract_missing_labels_from_error(&output.stderr);
         if missing.is_empty() {
@@ -564,7 +566,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
 
     /// 从指定 Issue 移除一个标签。
     ///
-    /// 调用 `gc issue edit <number> --repo <repo> --remove-label <label>` 移除标签。
+    /// 调用 `gitcode issue label <number> --remove <label> -R <repo>` 移除标签。
     ///
     /// # Errors
     ///
@@ -572,21 +574,13 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
-        debug!(repo = %self.repo, number, label, "spawning `gc issue edit --remove-label`");
+        debug!(repo = %self.repo, number, label, "spawning `gitcode issue label --remove`");
 
         let output = self
             .runner
             .run(
                 &binary,
-                &[
-                    "issue",
-                    "edit",
-                    &number_str,
-                    "-R",
-                    &self.repo,
-                    "--remove-label",
-                    label,
-                ],
+                &["issue", "label", &number_str, "--remove", label, "-R", &self.repo],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
@@ -600,7 +594,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
     }
 }
 
-/// 从 `gc issue edit --add-label` 的 stderr 中提取缺失的标签名。
+/// 从 `gc issue label --add` 的 stderr 中提取缺失的标签名。
 ///
 /// GitCode CLI 是 `gh` 的分支，错误格式与 `gh` 一致：
 /// `'<label>' not found`。
@@ -634,7 +628,7 @@ mod tests {
     use gitflow_cli_core::types::UserSummary;
 
     use super::*;
-    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
+    use crate::runner::{MockCommandRunner, RecordingMockRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitcode_issue_provider() {
@@ -1002,5 +996,65 @@ mod tests {
         let result = provider.add_labels(1, &["bug".to_string()]).await;
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_invoke_issue_label_subcommand_for_add_labels() {
+        let runner = RecordingMockRunner::success("");
+        let provider = GitCodeIssueProvider::with_runner("o/r", runner.clone());
+
+        provider
+            .add_labels(54, &["type:bug".to_string(), "priority:high".to_string()])
+            .await
+            .expect("add_labels should succeed");
+
+        let calls = runner.calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(
+            calls[0],
+            vec!["issue", "label", "54", "--add", "type:bug,priority:high", "-R", "o/r"],
+            r"gitcode v0.6.1 的 issue edit 没有 --add-label flag（Issue #90）"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_ok_without_any_call_for_empty_labels() {
+        let runner = RecordingMockRunner::success("");
+        let provider = GitCodeIssueProvider::with_runner("o/r", runner.clone());
+
+        provider.add_labels(1, &[]).await.expect("empty labels is a no-op");
+
+        assert!(runner.calls().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_invoke_issue_label_subcommand_for_remove_label() {
+        let runner = RecordingMockRunner::success("");
+        let provider = GitCodeIssueProvider::with_runner("o/r", runner.clone());
+
+        provider.remove_label(54, "triage:done").await.expect("remove should succeed");
+
+        assert_eq!(
+            runner.calls()[0],
+            vec!["issue", "label", "54", "--remove", "triage:done", "-R", "o/r"]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_auto_create_missing_label_and_retry_via_issue_label() {
+        // 1. issue label --add 失败，报告标签缺失
+        // 2. label create 成功（自动创建）
+        // 3. issue label --add 重试成功
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (false, "HTTP 404: 'type:new' not found"),
+            (true, r#"{"name": "type:new", "color": "ededed"}"#),
+            (true, ""),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("o/r", runner);
+
+        provider
+            .add_labels(18, &["type:new".to_string()])
+            .await
+            .expect("should recover by auto-creating the label");
     }
 }
