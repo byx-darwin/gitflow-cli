@@ -64,8 +64,7 @@ impl ReviewProvider for GitHubReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let review: ReviewData =
@@ -96,8 +95,7 @@ impl ReviewProvider for GitHubReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let review: ReviewData =
@@ -124,8 +122,7 @@ impl ReviewProvider for GitHubReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let review: ReviewData =
@@ -172,8 +169,7 @@ impl ReviewProvider for GitHubReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let review: ReviewData =

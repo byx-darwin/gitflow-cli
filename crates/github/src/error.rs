@@ -1,79 +1,56 @@
-//! `gh` CLI 错误解析模块。
-//!
-//! 提供 [`parse_gh_error`] 函数，用于将 `gh` CLI 的 stderr 输出
-//! 解析为结构化的 [`GhError`]。优先尝试 JSON 解析 gh 的标准错误格式，
-//! 失败时回退到文本前三行。
+//! GitHub CLI 错误解析。
 
-use std::fmt;
+use gitflow_cli_core::platform::Platform;
+use gitflow_cli_core::PlatformCliError;
 
-/// `gh` CLI 错误。
+/// 解析 `gh` CLI 的 stderr 输出为统一的 [`PlatformCliError`]。
 ///
-/// 由 [`parse_gh_error`] 生成，包含从 stderr 解析出的错误信息。
-/// 当 gh 返回非零退出码时，其 stderr 可能为 JSON 格式或纯文本，
-/// 本结构体统一封装这两种情况。
-#[derive(Debug, Clone)]
-pub struct GhError {
-    /// 错误主信息。
-    pub message: String,
-    /// 可选的错误代码（仅当 gh 输出为 JSON 且包含 `code` 字段时存在）。
-    pub code: Option<String>,
-    /// 可选的修复提示。
-    pub hint: Option<String>,
-}
-
-impl fmt::Display for GhError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "gh: {}", self.message)?;
-        if let Some(ref code) = self.code {
-            write!(f, " [{code}]")?;
-        }
-        if let Some(ref hint) = self.hint {
-            write!(f, "\nHint: {hint}")?;
-        }
-        Ok(())
-    }
-}
-
-/// 解析 `gh` CLI 的 stderr 输出为结构化错误。
-///
-/// 解析策略：
-/// 1. 优先尝试将 stderr 解析为 JSON，提取 `message` 与 `code` 字段。
-/// 2. 若 JSON 解析失败或不包含 `message`，则回退为取 stderr 文本的前三行。
-///
-/// # Examples
-///
-/// ```
-/// use gitflow_cli_github::error::parse_gh_error;
-///
-/// let stderr = b"gh: Not logged in";
-/// let err = parse_gh_error(stderr);
-/// assert_eq!(err.message, "gh: Not logged in");
-/// assert!(err.hint.is_some());
-/// ```
+/// 优先尝试 JSON 格式解析（`gh` 在 API 错误时输出 JSON），
+/// 回退到纯文本模式（取前三行作为内部详情）。
+/// 用户可见消息为中文。
 #[must_use]
-pub fn parse_gh_error(stderr: &[u8]) -> GhError {
+pub fn parse_gh_error(stderr: &[u8]) -> PlatformCliError {
     let text = String::from_utf8_lossy(stderr);
 
     // 尝试解析 gh 的 JSON 错误格式
     if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr)
         && let Some(msg) = json.get("message").and_then(serde_json::Value::as_str)
     {
-        return GhError {
-            message: msg.into(),
-            code: json
-                .get("code")
-                .and_then(serde_json::Value::as_str)
-                .map(String::from),
-            hint: None,
+        let code = json
+            .get("code")
+            .and_then(serde_json::Value::as_str)
+            .map(String::from);
+
+        let user_message = match code.as_deref() {
+            Some("NOT_FOUND") => "资源不存在".into(),
+            Some("FORBIDDEN") => "权限不足".into(),
+            _ => format!("GitHub 操作失败：{msg}"),
+        };
+
+        return PlatformCliError {
+            user_message,
+            raw_stderr: text.into_owned(),
+            hint: Some("运行 `gh auth status` 检查认证状态".into()),
+            doc_link: Some("https://cli.github.com/manual/".into()),
+            code,
+            platform: Platform::GitHub,
         };
     }
 
-    // 回退：取 stderr 文本的前三行
-    let message = text.lines().take(3).collect::<Vec<_>>().join("\n");
-    GhError {
-        message,
+    // 回退：纯文本解析
+    let user_message = if text.contains("Not logged in") || text.contains("auth") {
+        "未登录 GitHub".into()
+    } else {
+        "GitHub CLI 执行失败".into()
+    };
+
+    PlatformCliError {
+        user_message,
+        raw_stderr: text.into_owned(),
+        hint: Some("运行 `gh auth login` 完成登录".into()),
+        doc_link: Some("https://cli.github.com/manual/".into()),
         code: None,
-        hint: Some("Run 'gh auth status' to verify authentication.".into()),
+        platform: Platform::GitHub,
     }
 }
 
@@ -82,73 +59,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_should_parse_gh_error_from_json_stderr() {
+    fn test_should_parse_gh_json_error_to_platform_cli_error() {
         let json = br#"{"message": "GraphQL: Could not resolve to a user with the login 'nobody'.", "code": "NOT_FOUND"}"#;
         let err = parse_gh_error(json);
-
-        assert_eq!(
-            err.message,
-            "GraphQL: Could not resolve to a user with the login 'nobody'."
-        );
         assert_eq!(err.code.as_deref(), Some("NOT_FOUND"));
-        assert!(err.hint.is_none());
+        assert_eq!(err.platform, Platform::GitHub);
+        assert!(!err.user_message.is_empty());
+        assert!(!err.raw_stderr.is_empty());
     }
 
     #[test]
-    fn test_should_parse_gh_error_from_plain_text_stderr() {
-        let stderr = b"gh: Not logged in. Please run `gh auth login` to authenticate.\nSecond line.\nThird line.\nFourth line should be dropped.";
+    fn test_should_parse_gh_plain_text_error() {
+        let stderr = b"gh: Not logged in. Please run `gh auth login` to authenticate.";
         let err = parse_gh_error(stderr);
-
-        assert_eq!(
-            err.message,
-            "gh: Not logged in. Please run `gh auth login` to authenticate.\nSecond line.\nThird \
-             line."
-        );
-        assert!(err.code.is_none());
-        assert_eq!(
-            err.hint.as_deref(),
-            Some("Run 'gh auth status' to verify authentication.")
-        );
-    }
-
-    #[test]
-    fn test_should_display_gh_error_with_code() {
-        let err = GhError {
-            message: "not found".into(),
-            code: Some("NOT_FOUND".into()),
-            hint: None,
-        };
-        assert_eq!(format!("{err}"), "gh: not found [NOT_FOUND]");
-    }
-
-    #[test]
-    fn test_should_display_gh_error_with_hint() {
-        let err = GhError {
-            message: "auth failed".into(),
-            code: None,
-            hint: Some("run gh auth login".into()),
-        };
-        let display = format!("{err}");
-        assert!(display.contains("gh: auth failed"));
-        assert!(display.contains("Hint: run gh auth login"));
-    }
-
-    #[test]
-    fn test_should_fallback_when_json_has_no_message() {
-        let json = br#"{"error": "something else"}"#;
-        let err = parse_gh_error(json);
-
-        // 无 `message` 字段 → 回退到文本解析
-        assert_eq!(err.message, r#"{"error": "something else"}"#);
-        assert!(err.code.is_none());
+        assert!(err.user_message.contains("认证") || err.user_message.contains("登录"));
         assert!(err.hint.is_some());
+        assert_eq!(err.platform, Platform::GitHub);
+        assert!(err.raw_stderr.contains("Not logged in"));
+    }
+
+    #[test]
+    fn test_should_not_leak_raw_stderr_in_display() {
+        let stderr = b"internal gh debug trace line";
+        let err = parse_gh_error(stderr);
+        let display = err.to_string();
+        assert!(!display.contains("internal gh debug trace"));
     }
 
     #[test]
     fn test_should_handle_empty_stderr() {
         let err = parse_gh_error(b"");
-        assert!(err.message.is_empty());
-        assert!(err.code.is_none());
+        assert!(!err.user_message.is_empty());
         assert!(err.hint.is_some());
     }
 }

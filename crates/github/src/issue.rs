@@ -93,10 +93,10 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label create: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!(
-                "Failed to auto-create label '{name}': {gh_err}"
-            )));
+            let mut gh_err = parse_gh_error(&output.stderr);
+            gh_err.user_message =
+                format!("自动创建标签 '{name}' 失败：{}", gh_err.user_message);
+            return Err(gh_err.into());
         }
 
         Ok(())
@@ -160,8 +160,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
                 })?;
 
                 if !retry_output.status.success() {
-                    let gh_err = parse_gh_error(&retry_output.stderr);
-                    return Err(CoreError::Platform(format!("{gh_err}")));
+                    return Err(parse_gh_error(&retry_output.stderr).into());
                 }
 
                 let stdout = String::from_utf8_lossy(&retry_output.stdout);
@@ -171,8 +170,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
                 return self.view(issue_number).await;
             }
 
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // Parse the issue URL from stdout (format: https://github.com/owner/repo/issues/123)
@@ -223,8 +221,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let issues: Vec<IssueData> =
@@ -255,8 +252,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let issue: IssueData =
@@ -284,8 +280,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // Fetch updated issue details
@@ -314,8 +309,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // Fetch updated issue details
@@ -353,8 +347,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // 2. 使用 gh api 获取该 issue 的最新评论
@@ -432,8 +425,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         // Auto-create the missing label(s) and retry once.
         let missing = extract_missing_labels_from_error(&output.stderr);
         if missing.is_empty() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         debug!(
@@ -454,8 +446,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh on retry: {e}")))?;
 
         if !retry_output.status.success() {
-            let gh_err = parse_gh_error(&retry_output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&retry_output.stderr).into());
         }
 
         Ok(())
@@ -490,8 +481,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(())
@@ -841,7 +831,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -869,7 +859,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -906,7 +896,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -936,7 +926,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -965,7 +955,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -994,7 +984,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1024,7 +1014,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1038,7 +1028,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1150,11 +1140,18 @@ mod tests {
         let result = provider.add_labels(1, &["ghost".to_string()]).await;
 
         assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
+        let err = result.unwrap_err();
         assert!(
-            err.contains("403") || err.contains("Forbidden"),
-            "unexpected error: {err}"
+            matches!(err, gitflow_cli_core::CoreError::Cli(_)),
+            "expected CoreError::Cli, got: {err:?}"
         );
+        if let gitflow_cli_core::CoreError::Cli(boxed) = err {
+            assert!(
+                boxed.raw_stderr.contains("403") || boxed.raw_stderr.contains("Forbidden"),
+                "unexpected raw_stderr: {}",
+                boxed.raw_stderr
+            );
+        }
     }
 
     #[tokio::test]
@@ -1192,11 +1189,18 @@ mod tests {
         let result = provider.add_labels(1, &["bug".to_string()]).await;
 
         assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
+        let err = result.unwrap_err();
         assert!(
-            err.contains("500") || err.contains("Internal"),
-            "unexpected error: {err}"
+            matches!(err, gitflow_cli_core::CoreError::Cli(_)),
+            "expected CoreError::Cli, got: {err:?}"
         );
+        if let gitflow_cli_core::CoreError::Cli(boxed) = err {
+            assert!(
+                boxed.raw_stderr.contains("500") || boxed.raw_stderr.contains("Internal"),
+                "unexpected raw_stderr: {}",
+                boxed.raw_stderr
+            );
+        }
     }
 
     // --- create: auto-create missing labels (RED phase) ---

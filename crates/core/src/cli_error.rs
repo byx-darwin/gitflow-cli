@@ -12,7 +12,6 @@ use crate::platform::Platform;
 /// 用户可见信息（`user_message`、`hint`）为中文主导；
 /// `raw_stderr` 仅用于 `tracing::debug!`，不展示给用户。
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct PlatformCliError {
     /// 用户可见的错误消息（中文主导）。
     pub user_message: String,
