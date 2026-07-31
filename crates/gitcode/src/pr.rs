@@ -5,11 +5,13 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use gitflow_cli_core::{
     CoreError, Result,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
-    types::{CommentData, MergeResult, MergeStrategy, State},
+    types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
+use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
@@ -20,6 +22,89 @@ use crate::{
 /// `gc pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str =
     "number,title,body,state,draft,author,baseBranch,headBranch,createdAt,updatedAt,url";
+
+/// gitcode CLI v0.6.x `pr list/view/create --json` 的响应类型。
+///
+/// 字段命名与 `gh pr` 不同：snake_case、`user` 而非 `author`、
+/// 分支信息嵌套在 `head`/`base` 对象的 `ref` 字段、URL 为 `html_url`。
+/// 通过 [`From<PrApiResponse> for PrData`] 映射为 core 统一类型。
+#[derive(Debug, Clone, Deserialize)]
+struct PrApiResponse {
+    number: u64,
+    title: String,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default)]
+    state: Option<String>,
+    #[serde(default)]
+    draft: bool,
+    #[serde(default)]
+    user: Option<PrUserApi>,
+    #[serde(default)]
+    head: Option<PrBranchApi>,
+    #[serde(default)]
+    base: Option<PrBranchApi>,
+    #[serde(default)]
+    created_at: Option<String>,
+    #[serde(default)]
+    updated_at: Option<String>,
+    #[serde(default)]
+    html_url: Option<String>,
+}
+
+/// gitcode PR JSON 中 `user` 对象的最小字段集。
+#[derive(Debug, Clone, Deserialize)]
+struct PrUserApi {
+    #[serde(default)]
+    login: String,
+    #[serde(default)]
+    id: Option<String>,
+}
+
+/// gitcode PR JSON 中 `head`/`base` 对象的最小字段集。
+#[derive(Debug, Clone, Deserialize)]
+struct PrBranchApi {
+    #[serde(default, rename = "ref")]
+    branch_ref: String,
+}
+
+impl From<PrApiResponse> for PrData {
+    fn from(api: PrApiResponse) -> Self {
+        let parse_time = |s: Option<String>| {
+            s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
+                .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
+        };
+        Self {
+            number: api.number,
+            title: api.title,
+            body: api.body,
+            state: match api.state.as_deref() {
+                Some("closed" | "merged") => State::Closed,
+                _ => State::Open,
+            },
+            draft: api.draft,
+            author: api.user.map_or(
+                UserSummary {
+                    login: "unknown".into(),
+                    id: String::new(),
+                },
+                |u| UserSummary {
+                    login: u.login,
+                    id: u.id.unwrap_or_default(),
+                },
+            ),
+            base_branch: api
+                .base
+                .map_or_else(String::new, |b| b.branch_ref),
+            head_branch: api
+                .head
+                .map_or_else(String::new, |h| h.branch_ref),
+            created_at: parse_time(api.created_at),
+            updated_at: parse_time(api.updated_at),
+            url: api.html_url.unwrap_or_default(),
+        }
+    }
+}
 
 /// GitCode Pull Request 提供者，通过 `gitcode` CLI 操作。
 ///
@@ -488,6 +573,99 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 mod tests {
     use super::*;
     use crate::runner::MockCommandRunner;
+
+    /// gitcode CLI v0.6.1 `pr list/view --json` 的真实输出结构（2026-07-31 实测捕获，已精简）。
+    fn real_gitcode_pr_json() -> &'static str {
+        r###"{
+            "id": 8957463,
+            "number": 52,
+            "title": "test(badge): 引擎规则函数测试覆盖",
+            "body": "## Summary\n\nCloses #88",
+            "description": "## Summary\n\nCloses #88",
+            "state": "merged",
+            "html_url": "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52",
+            "diff_url": "",
+            "patch_url": "",
+            "draft": false,
+            "merged": true,
+            "merged_at": "2026-07-30T13:23:13+08:00",
+            "created_at": "2026-07-30T12:40:46+08:00",
+            "updated_at": "2026-07-30T13:23:13+08:00",
+            "user": {
+                "id": "66767cd4096c81780c61bf07",
+                "login": "byx-darwin",
+                "name": "baoyx",
+                "email": "",
+                "avatar_url": "https://cdn-img.gitcode.com/avatar.png",
+                "html_url": "https://gitcode.com/byx-darwin",
+                "created_at": ""
+            },
+            "head": {
+                "label": "test/88-engine-rule-coverage",
+                "ref": "test/88-engine-rule-coverage",
+                "sha": "8f1d3f31d7ee598a16f40fcac55b86154122c93c"
+            },
+            "base": {
+                "label": "master",
+                "ref": "master",
+                "sha": "bba7d724c8c73531acf1dca5f639b2a273c26eae"
+            },
+            "labels": [],
+            "assignees": [],
+            "additions": 120,
+            "deletions": 3,
+            "changed_files": 1,
+            "commits": 2,
+            "comments": 0,
+            "mergeable": true,
+            "mergeable_state": "can_be_merged",
+            "milestone": null,
+            "closed_at": "2026-07-30T13:23:13+08:00",
+            "requested_reviewers": []
+        }"###
+    }
+
+    #[test]
+    fn test_should_map_real_gitcode_pr_response_to_pr_data() {
+        let api: PrApiResponse =
+            serde_json::from_str(real_gitcode_pr_json()).expect(r"valid gitcode v0.6.1 PR JSON");
+        let pr: PrData = api.into();
+
+        assert_eq!(pr.number, 52);
+        assert_eq!(pr.title, r"test(badge): 引擎规则函数测试覆盖");
+        assert_eq!(pr.state, State::Closed, r"merged 必须映射为 Closed");
+        assert!(!pr.draft);
+        assert_eq!(pr.author.login, "byx-darwin");
+        assert_eq!(pr.author.id, "66767cd4096c81780c61bf07");
+        assert_eq!(pr.base_branch, "master");
+        assert_eq!(pr.head_branch, "test/88-engine-rule-coverage");
+        assert_eq!(pr.url, "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52");
+        assert_eq!(pr.created_at.to_rfc3339(), "2026-07-30T04:40:46+00:00");
+    }
+
+    #[test]
+    fn test_should_map_open_pr_with_minimal_gitcode_fields() {
+        let json = r#"{
+            "id": 1,
+            "number": 7,
+            "title": "New work",
+            "state": "open",
+            "html_url": "https://gitcode.com/o/r/merge_requests/7",
+            "draft": true,
+            "user": {"id": "u1", "login": "dev"},
+            "head": {"ref": "feature/x"},
+            "base": {"ref": "main"}
+        }"#;
+        let api: PrApiResponse = serde_json::from_str(json).expect(r"minimal gitcode PR JSON");
+        let pr: PrData = api.into();
+
+        assert_eq!(pr.state, State::Open);
+        assert!(pr.draft);
+        assert_eq!(pr.body, None);
+        assert_eq!(pr.head_branch, "feature/x");
+        assert_eq!(pr.base_branch, "main");
+        assert_eq!(pr.author.login, "dev");
+    }
 
     #[test]
     fn test_should_construct_gitcode_pr_provider() {
