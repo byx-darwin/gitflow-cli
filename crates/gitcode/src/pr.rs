@@ -1154,7 +1154,7 @@ mod contract_tests {
     use super::*;
     use crate::runner::MockCommandRunner;
 
-    const PR_LIST_FIXTURE: &str = include_str!("../tests/fixtures/pr_list_gitcode_v0.6.1.json");
+    const PR_LIST_FIXTURE: &str = include_str!("../tests/fixtures/pr_list_gitcode_v0.6.json");
 
     #[tokio::test]
     async fn test_should_parse_real_gitcode_v061_pr_list_output() {

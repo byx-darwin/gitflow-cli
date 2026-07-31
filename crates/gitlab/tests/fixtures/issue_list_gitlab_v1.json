@@ -1,0 +1,12 @@
+[{
+  "iid": 10,
+  "title": "fix(pipeline): filter by date window",
+  "description": "## Summary\n\nFixes date filtering",
+  "state": "opened",
+  "labels": ["bug"],
+  "author": {"username": "test-user", "id": 100},
+  "assignees": [{"username": "reviewer", "id": 200}],
+  "created_at": "2026-07-29T08:00:00Z",
+  "updated_at": "2026-07-29T09:30:00Z",
+  "web_url": "https://gitlab.com/test-group/test-project/-/issues/10"
+}]
