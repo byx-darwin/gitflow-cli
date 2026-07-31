@@ -339,7 +339,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
         let all_runs: Vec<ReportRun> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        // Filter to the requested time window. Unparseable timestamps are kept
+        // Filter to the requested time window. Unparsable timestamps are kept
         // (conservative: never drop runs because of a date format surprise).
         let cutoff = chrono::Utc::now() - chrono::Duration::days(i64::from(days));
         let runs: Vec<ReportRun> = all_runs
