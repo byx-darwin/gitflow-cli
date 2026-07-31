@@ -27,6 +27,7 @@ pub mod auth;
 pub mod auth_checker;
 pub mod cli_error;
 pub mod commit;
+pub mod compatibility;
 pub mod issue;
 pub mod label;
 pub mod output;
@@ -41,6 +42,7 @@ pub mod types;
 // Re-export types at the crate root for convenience.
 pub use auth_checker::{AuthCheckResult, AuthChecker};
 pub use cli_error::PlatformCliError;
+pub use compatibility::{PlatformCompat, platform_compatibility, platform_requirement};
 pub use output::{CliError, CliOutput};
 
 /// Application error type.
