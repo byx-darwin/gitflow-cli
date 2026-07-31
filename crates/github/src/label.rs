@@ -74,8 +74,7 @@ impl LabelProvider for GitHubLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label create: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // gh label create doesn't return JSON, construct the response manually
@@ -100,8 +99,7 @@ impl LabelProvider for GitHubLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label list: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let labels: Vec<LabelData> =
@@ -131,8 +129,7 @@ impl LabelProvider for GitHubLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label edit: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // gh label edit 不返回 JSON，重新 fetch 获取最新数据
@@ -153,8 +150,7 @@ impl LabelProvider for GitHubLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label delete: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(())
@@ -176,8 +172,7 @@ impl GitHubLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label view: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let label: LabelData =
@@ -275,8 +270,7 @@ impl MilestoneProvider for GitHubMilestoneProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api milestones: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -297,8 +291,7 @@ impl MilestoneProvider for GitHubMilestoneProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api milestones: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let milestones: Vec<MilestoneApiResponse> =
@@ -330,8 +323,7 @@ impl MilestoneProvider for GitHubMilestoneProvider {
         })?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -354,8 +346,7 @@ impl MilestoneProvider for GitHubMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -378,8 +369,7 @@ impl MilestoneProvider for GitHubMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =

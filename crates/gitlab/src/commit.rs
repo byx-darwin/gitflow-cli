@@ -227,8 +227,7 @@ impl CommitProvider for GitLabCommitProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: CommitApiResponse =
@@ -252,8 +251,7 @@ impl CommitProvider for GitLabCommitProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         // GitLab returns a JSON array of diff objects
@@ -288,8 +286,7 @@ impl CommitProvider for GitLabCommitProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -314,8 +311,7 @@ impl CommitProvider for GitLabCommitProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(())

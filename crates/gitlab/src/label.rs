@@ -95,8 +95,7 @@ impl LabelProvider for GitLabLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label create: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: LabelApiResponse =
@@ -119,8 +118,7 @@ impl LabelProvider for GitLabLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label list: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_responses: Vec<LabelApiResponse> =
@@ -153,8 +151,7 @@ impl LabelProvider for GitLabLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label edit: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: LabelApiResponse =
@@ -177,8 +174,7 @@ impl LabelProvider for GitLabLabelProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label delete: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(())
@@ -298,8 +294,7 @@ impl MilestoneProvider for GitLabMilestoneProvider {
         })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -324,8 +319,7 @@ impl MilestoneProvider for GitLabMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_responses: Vec<MilestoneApiResponse> =
@@ -361,8 +355,7 @@ impl MilestoneProvider for GitLabMilestoneProvider {
         })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -388,8 +381,7 @@ impl MilestoneProvider for GitLabMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =
@@ -415,8 +407,7 @@ impl MilestoneProvider for GitLabMilestoneProvider {
             })?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let api_response: MilestoneApiResponse =

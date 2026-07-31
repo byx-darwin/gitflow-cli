@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-07-31",
+  "gitflow_cli_version": "0.9.0",
+  "platforms": [
+    {
+      "name": "GitHub",
+      "identifier": "github",
+      "cli_binary": "gh",
+      "min_version": "2.0.0",
+      "tested_versions": ["2.62.0"],
+      "install_url": "https://github.com/cli/cli#installation",
+      "doc_link": "https://cli.github.com/manual/",
+      "features": {
+        "issue": true,
+        "pr": true,
+        "label": true,
+        "milestone": true,
+        "release": true,
+        "pipeline": true,
+        "review": true,
+        "auth": true
+      }
+    },
+    {
+      "name": "GitLab",
+      "identifier": "gitlab",
+      "cli_binary": "glab",
+      "min_version": "1.30.0",
+      "tested_versions": ["1.46.1"],
+      "install_url": "https://gitlab.com/gitlab-org/cli#installation",
+      "doc_link": "https://gitlab.com/gitlab-org/cli/-/blob/main/docs/",
+      "features": {
+        "issue": true,
+        "pr": true,
+        "label": true,
+        "milestone": true,
+        "release": true,
+        "pipeline": true,
+        "review": true,
+        "auth": true
+      }
+    },
+    {
+      "name": "GitCode",
+      "identifier": "gitcode",
+      "cli_binary": "gitcode",
+      "min_version": "0.6.0",
+      "tested_versions": ["0.6.1"],
+      "install_url": "https://gitcode.com/gitcode-cli/cli",
+      "doc_link": "https://gitcode.com/gitcode-cli/cli/blob/main/README.md",
+      "features": {
+        "issue": true,
+        "pr": true,
+        "label": true,
+        "milestone": true,
+        "release": true,
+        "pipeline": true,
+        "review": true,
+        "auth": true
+      }
+    }
+  ]
+}

@@ -249,8 +249,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let runs: Vec<GhRun> =
@@ -273,8 +272,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         String::from_utf8(output.stdout)
@@ -297,8 +295,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let resp: JobsResponse =
@@ -336,8 +333,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let all_runs: Vec<ReportRun> =
@@ -790,7 +786,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -818,7 +814,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -832,7 +828,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -860,7 +856,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 

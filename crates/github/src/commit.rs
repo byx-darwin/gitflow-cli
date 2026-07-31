@@ -184,8 +184,7 @@ impl CommitProvider for GitHubCommitProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api commit view: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let api_response: CommitApiResponse =
@@ -208,8 +207,7 @@ impl CommitProvider for GitHubCommitProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api commit diff: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -231,8 +229,7 @@ impl CommitProvider for GitHubCommitProvider {
             })?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -259,8 +256,7 @@ impl CommitProvider for GitHubCommitProvider {
         })?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(())

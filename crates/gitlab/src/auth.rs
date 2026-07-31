@@ -81,8 +81,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
         };
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(())
@@ -98,8 +97,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth logout: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         Ok(())
@@ -130,8 +128,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
                 });
             }
 
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         // glab auth status outputs to stderr, not stdout
@@ -155,8 +152,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth token: {e}")))?;
 
         if !output.status.success() {
-            let glab_err = parse_glab_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{glab_err}")));
+            return Err(parse_glab_error(&output.stderr).into());
         }
 
         let token = String::from_utf8_lossy(&output.stdout);
@@ -337,7 +333,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -350,7 +346,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -374,7 +370,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -387,7 +383,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 

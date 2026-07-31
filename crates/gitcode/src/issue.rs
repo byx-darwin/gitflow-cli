@@ -261,8 +261,10 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
 
         if !output.status.success() {
             let gitcode_err = parse_gitcode_error(&output.stderr);
+            tracing::debug!(error = %gitcode_err, "Failed to auto-create label");
             return Err(CoreError::Platform(format!(
-                "Failed to auto-create label '{name}': {gitcode_err}"
+                "Failed to auto-create label '{name}': {}",
+                gitcode_err.user_message
             )));
         }
 
@@ -321,18 +323,14 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
                     CoreError::Platform(format!("Failed to spawn gitcode on retry: {e}"))
                 })?;
                 if !retry_output.status.success() {
-                    return Err(CoreError::Platform(
-                        parse_gitcode_error(&retry_output.stderr).to_string(),
-                    ));
+                    return Err(parse_gitcode_error(&retry_output.stderr).into());
                 }
                 return serde_json::from_slice::<IssueApiResponse>(&retry_output.stdout)
                     .map(IssueData::from)
                     .map_err(CoreError::Serialization);
             }
 
-            return Err(CoreError::Platform(
-                parse_gitcode_error(&output.stderr).to_string(),
-            ));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
             .map(IssueData::from)
@@ -371,9 +369,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .await
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
         if !output.status.success() {
-            return Err(CoreError::Platform(
-                parse_gitcode_error(&output.stderr).to_string(),
-            ));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
         let issues: Vec<IssueApiResponse> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
@@ -394,9 +390,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
         if !output.status.success() {
-            return Err(CoreError::Platform(
-                parse_gitcode_error(&output.stderr).to_string(),
-            ));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
         serde_json::from_slice::<IssueApiResponse>(&output.stdout)
             .map(IssueData::from)
@@ -425,9 +419,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
         if !output.status.success() {
-            return Err(CoreError::Platform(
-                parse_gitcode_error(&output.stderr).to_string(),
-            ));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
         serde_json::from_slice::<CloseApiResponse>(&output.stdout)
             .map(IssueData::from)
@@ -456,9 +448,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("{e}")))?;
 
         if !output.status.success() {
-            return Err(CoreError::Platform(
-                parse_gitcode_error(&output.stderr).to_string(),
-            ));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
         serde_json::from_slice::<CloseApiResponse>(&output.stdout)
             .map(IssueData::from)
@@ -497,8 +487,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api: CommentApiResponse =
@@ -559,8 +548,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         // Auto-create missing labels and retry once.
         let missing = extract_missing_labels_from_error(&output.stderr);
         if missing.is_empty() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         debug!(
@@ -579,8 +567,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             })?;
 
         if !retry_output.status.success() {
-            let gitcode_err = parse_gitcode_error(&retry_output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&retry_output.stderr).into());
         }
 
         Ok(())
@@ -616,8 +603,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -828,7 +814,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -854,7 +840,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -880,7 +866,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -906,7 +892,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -919,7 +905,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -932,7 +918,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -945,7 +931,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -958,7 +944,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1118,5 +1104,32 @@ mod tests {
         assert_eq!(comment.id, 12);
         assert_eq!(comment.author.login, "bob");
         assert_eq!(comment.author.id, "u2");
+    }
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use crate::runner::MockCommandRunner;
+
+    /// 契约测试：验证 gitcode issue list JSON 输出与反序列化一致。
+    ///
+    /// 夹具来源：gitcode v0.6.x 真实 CLI 输出。
+    #[tokio::test]
+    async fn test_contract_issue_list_gitcode_v0_6() {
+        let fixture = include_str!("../tests/fixtures/issue_list_gitcode_v0.6.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let issues = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("contract fixture must parse");
+
+        assert_eq!(issues.len(), 1);
+        let issue = &issues[0];
+        assert_eq!(issue.number, 15);
+        assert!(!issue.title.is_empty());
+        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
     }
 }

@@ -117,8 +117,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth logout: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(())
@@ -163,8 +162,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
                 });
             }
 
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // 解析登录用户：查找 "Logged in to github.com as <username>" 行
@@ -192,8 +190,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh auth token: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let token = String::from_utf8_lossy(&output.stdout);
@@ -449,7 +446,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -477,7 +474,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 

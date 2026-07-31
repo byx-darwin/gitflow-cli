@@ -239,8 +239,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api: PrApiResponse =
@@ -276,8 +275,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let apis: Vec<PrApiResponse> =
@@ -301,8 +299,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api: PrApiResponse =
@@ -342,8 +339,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api: PrApiResponse =
@@ -383,8 +379,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api: PrApiResponse =
@@ -425,8 +420,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api: PrCommentApiResponse =
@@ -470,8 +464,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // `gitcode pr merge` outputs a human-readable message, not JSON.
@@ -506,8 +499,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -533,8 +525,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // `gc pr ready` does not return JSON; re-fetch the PR to get updated data.
@@ -564,8 +555,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // `gc pr convert-to-draft` does not return JSON; re-fetch the PR.
@@ -595,8 +585,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -829,7 +818,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -855,7 +844,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -881,7 +870,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -907,7 +896,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -920,7 +909,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -933,7 +922,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -946,7 +935,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -959,7 +948,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -972,7 +961,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -985,7 +974,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -998,7 +987,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -1165,7 +1154,7 @@ mod contract_tests {
     use super::*;
     use crate::runner::MockCommandRunner;
 
-    const PR_LIST_FIXTURE: &str = include_str!("../tests/fixtures/pr_list_gitcode_v0.6.1.json");
+    const PR_LIST_FIXTURE: &str = include_str!("../tests/fixtures/pr_list_gitcode_v0.6.json");
 
     #[tokio::test]
     async fn test_should_parse_real_gitcode_v061_pr_list_output() {

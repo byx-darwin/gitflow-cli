@@ -25,7 +25,9 @@ use thiserror::Error;
 
 pub mod auth;
 pub mod auth_checker;
+pub mod cli_error;
 pub mod commit;
+pub mod compatibility;
 pub mod issue;
 pub mod label;
 pub mod output;
@@ -39,6 +41,8 @@ pub mod types;
 
 // Re-export types at the crate root for convenience.
 pub use auth_checker::{AuthCheckResult, AuthChecker};
+pub use cli_error::PlatformCliError;
+pub use compatibility::{PlatformCompat, platform_compatibility, platform_requirement};
 pub use output::{CliError, CliOutput};
 
 /// Application error type.
@@ -72,6 +76,22 @@ pub enum CoreError {
     /// A platform operation error (CLI execution failure, parse error, auth failure, etc.).
     #[error("platform error: {0}")]
     Platform(String),
+
+    /// 底层平台 CLI 执行错误（结构化）。
+    ///
+    /// 包含中文用户消息和修复建议，原始 stderr 仅用于调试。
+    #[error(transparent)]
+    Cli(#[from] Box<PlatformCliError>),
+}
+
+/// Ergonomic conversion from [`PlatformCliError`] into [`CoreError::Cli`].
+///
+/// `thiserror`'s `#[from]` on `Box<T>` generates `From<Box<T>>`; this manual
+/// impl lets callers write `Err(platform_err.into())` without explicitly boxing.
+impl From<PlatformCliError> for CoreError {
+    fn from(err: PlatformCliError) -> Self {
+        Self::Cli(Box::new(err))
+    }
 }
 
 /// Core result type alias.
@@ -499,5 +519,23 @@ mod tests {
         let msg = format!("{err}");
         assert!(msg.contains("platform error"));
         assert!(msg.contains("gh not found"));
+    }
+
+    #[test]
+    fn test_cli_error_from_platform_cli_error() {
+        let platform_err = PlatformCliError {
+            user_message: "认证失败".into(),
+            raw_stderr: "raw".into(),
+            hint: None,
+            doc_link: None,
+            code: None,
+            platform: platform::Platform::GitHub,
+        };
+        // `#[from]` should auto-convert PlatformCliError → CoreError (boxed).
+        let core_err: CoreError = platform_err.into();
+        assert!(matches!(core_err, CoreError::Cli(_)));
+        // `#[error(transparent)]` should delegate Display to the inner message.
+        let msg = format!("{core_err}");
+        assert!(msg.contains("认证失败"));
     }
 }

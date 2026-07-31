@@ -113,8 +113,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // Parse the PR URL from stdout (format: https://github.com/owner/repo/pull/123)
@@ -153,8 +152,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let prs: Vec<PrData> =
@@ -185,8 +183,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         let pr: PrData =
@@ -214,8 +211,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // Fetch updated PR details
@@ -241,8 +237,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // Fetch updated PR details
@@ -280,8 +275,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // 2. 使用 gh api 获取该 PR 的最新评论
@@ -343,8 +337,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // `gh pr merge` outputs a human-readable message, not JSON.
@@ -375,8 +368,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(())
@@ -401,8 +393,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // `gh pr ready` does not return JSON; re-fetch the PR to get updated data.
@@ -431,8 +422,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         // `gh pr convert-to-draft` does not return JSON; re-fetch the PR.
@@ -461,8 +451,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            let gh_err = parse_gh_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gh_err}")));
+            return Err(parse_gh_error(&output.stderr).into());
         }
 
         Ok(())
@@ -720,7 +709,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -749,7 +738,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -777,7 +766,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -805,7 +794,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -819,7 +808,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -833,7 +822,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -849,7 +838,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -863,7 +852,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -877,7 +866,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -891,7 +880,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -905,7 +894,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -919,7 +908,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 }

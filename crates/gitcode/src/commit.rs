@@ -182,8 +182,7 @@ impl CommitProvider for GitCodeCommitProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let api_response: CommitApiResponse =
@@ -207,8 +206,7 @@ impl CommitProvider for GitCodeCommitProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -229,8 +227,7 @@ impl CommitProvider for GitCodeCommitProvider {
             })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -257,8 +254,7 @@ impl CommitProvider for GitCodeCommitProvider {
         })?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())

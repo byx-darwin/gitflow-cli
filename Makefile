@@ -179,3 +179,7 @@ package: ## Build and package current platform binary into dist/
         watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release release-quick \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
+
+.PHONY: compatibility-matrix
+compatibility-matrix: ## 从 JSON 生成兼容性矩阵 Markdown
+	cargo run -p gitflow-cli-core --example gen_compat_matrix

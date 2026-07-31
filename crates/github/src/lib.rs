@@ -19,7 +19,7 @@
 //! # 错误处理
 //!
 //! 所有平台调用失败时，`gh` 的 stderr 会通过 [`error::parse_gh_error`] 解析，
-//! 并统一映射为 [`CoreError::Platform`]。
+//! 并统一映射为 [`CoreError::Cli`]（携带 [`PlatformCliError`]）。
 //!
 //! [`IssueProvider`]: gitflow_cli_core::issue::IssueProvider
 //! [`PrProvider`]: gitflow_cli_core::pr::PrProvider
@@ -29,7 +29,8 @@
 //! [`LabelProvider`]: gitflow_cli_core::label::LabelProvider
 //! [`MilestoneProvider`]: gitflow_cli_core::label::MilestoneProvider
 //! [`CommitProvider`]: gitflow_cli_core::commit::CommitProvider
-//! [`CoreError::Platform`]: gitflow_cli_core::CoreError::Platform
+//! [`CoreError::Cli`]: gitflow_cli_core::CoreError::Cli
+//! [`PlatformCliError`]: gitflow_cli_core::PlatformCliError
 
 #![forbid(unsafe_code)]
 
@@ -46,7 +47,6 @@ pub mod runner;
 
 pub use auth::GitHubAuthProvider;
 pub use commit::GitHubCommitProvider;
-pub use error::GhError;
 pub use issue::GitHubIssueProvider;
 pub use label::{GitHubLabelProvider, GitHubMilestoneProvider};
 pub use pipeline::GitHubPipelineProvider;

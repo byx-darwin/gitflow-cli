@@ -64,8 +64,7 @@ impl ReviewProvider for GitCodeReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let review: ReviewData =
@@ -96,8 +95,7 @@ impl ReviewProvider for GitCodeReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let review: ReviewData =
@@ -124,8 +122,7 @@ impl ReviewProvider for GitCodeReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let review: ReviewData =
@@ -172,8 +169,7 @@ impl ReviewProvider for GitCodeReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let review: ReviewData =

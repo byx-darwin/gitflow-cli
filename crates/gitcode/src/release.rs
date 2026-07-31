@@ -120,8 +120,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // If JSON parsing fails, the release was still created successfully
@@ -153,8 +152,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let releases: Vec<ReleaseData> =
@@ -177,8 +175,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         let release: ReleaseData =
@@ -230,8 +227,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         // If JSON parsing fails, try to fetch the edited release
@@ -252,8 +248,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -278,8 +273,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -320,8 +314,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
         if !output.status.success() {
-            let gitcode_err = parse_gitcode_error(&output.stderr);
-            return Err(CoreError::Platform(format!("{gitcode_err}")));
+            return Err(parse_gitcode_error(&output.stderr).into());
         }
 
         Ok(())
@@ -383,7 +376,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -411,7 +404,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -437,7 +430,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -463,7 +456,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -491,7 +484,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -506,7 +499,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 
@@ -521,7 +514,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gitflow_cli_core::CoreError::Cli(_)
         ));
     }
 }

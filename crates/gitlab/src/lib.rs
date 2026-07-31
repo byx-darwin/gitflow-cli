@@ -45,7 +45,7 @@ pub mod runner;
 
 pub use auth::GitLabAuthProvider;
 pub use commit::GitLabCommitProvider;
-pub use error::GlabError;
+pub use error::parse_glab_error;
 pub use issue::GitLabIssueProvider;
 pub use label::{GitLabLabelProvider, GitLabMilestoneProvider};
 pub use mr::GitLabMrProvider;
