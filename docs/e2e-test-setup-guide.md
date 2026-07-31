@@ -31,6 +31,20 @@
 
 ---
 
+## 1.5 运行模式与触发路径
+
+e2e-tests.yml 的模式判定完全由测试层承担:
+
+| 触发路径 | secrets 可用性 | 实际运行的测试 |
+|----------|----------------|----------------|
+| schedule(每周一 02:00 UTC)/ push main / workflow_dispatch | 有 | 真实凭据实测 + 无凭据错误路径 + harness 自测 |
+| pull_request(含 fork PR) | 无 | 无凭据错误路径 + harness 自测(实测自动 skip) |
+
+本地运行实测:`cargo build --release && export PATH="$PWD/target/release:$PATH" &&
+E2E_GITHUB_TOKEN="$(gh auth token)" cargo nextest run -p e2e-core -p e2e-github`。
+
+---
+
 ## 2. 创建 GitHub 访问令牌
 
 ### 步骤
@@ -72,10 +86,12 @@
    - 点击 "New repository secret"
    - 添加以下 Secrets：
 
-   | Name | Value |
-   |------|-------|
-   | `E2E_TEST_REPO` | `byx-darwin/e2e-test-repo` |
-   | `E2E_GITHUB_TOKEN` | `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`（上一步生成的令牌） |
+   | Name | Value | 用途 |
+   |------|-------|------|
+   | `E2E_GITHUB_TOKEN` | `ghp_xxxx`(上一步生成的令牌) | 每周定时回归的真实凭据实测(auth/issue/pr) |
+
+   > **注**:`E2E_TEST_REPO` 已不再被 e2e 测试引用(Issue #96 起实测对当前仓库运行,
+   > 严格校验 JSON schema)。旧 secret 可保留,不影响运行。
 
 3. **验证配置**
    - 确认 Secrets 已添加（值会被隐藏）

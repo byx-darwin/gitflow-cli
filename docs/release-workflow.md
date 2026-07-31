@@ -253,3 +253,34 @@ After publishing:
 - docs.rs will auto-generate documentation
 - May take 10-30 minutes to appear
 - Check: https://docs.rs/gitflow-cli/
+
+## 事故复盘:`v{{version}}` 模板未替换
+
+**现象**:历史提交 `9331bfa`/`0b0e9d7` 的提交主题字面为 `chore: release v{{version}}`。
+
+**根因**:`release.toml` 使用 cargo-release 旧版双括号语法 `{{version}}`;
+cargo-release ≥ 0.25 只替换单括号 `{version}`,旧写法被原样保留进提交主题与 tag 消息。
+
+**修复**:`release.toml` 改为 `v{version}` 单括号语法(Issue #96)。
+
+**防复发闸门**(`scripts/release.sh`):
+
+| 闸门 | 位置 | 失败动作 |
+|------|------|----------|
+| 提交主题校验 | `cargo release commit` 后 | `git reset --hard HEAD~1` + 中止 |
+| CHANGELOG 残留校验 | `git cliff` 后 | 中止 |
+| tag 名校验 | `cargo release tag` 后、push 前 | `git tag -d` + 中止 |
+
+校验器为纯函数,`bash scripts/release.sh --self-test` 可随时自测。
+
+**强制 dry-run**:`--quick` 不再跳过 dry-run,仅跳过交互确认。
+
+## 发布演练(1.0 发布前必做)
+
+```bash
+make release-rehearse
+```
+
+完整 dry 链路:前置检查 → main/干净工作区 → 测试 → clippy → 版本预览 →
+`cargo release --dry-run` → 校验器自检。输出 ✅ 清单报告;任一失败退出码非 0;
+绝不产生变更。演练输出摘录应附在对应发布 Issue 中作为证据。
