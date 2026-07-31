@@ -109,7 +109,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 - **先验证再行动**：PR 创建前检查分支与变更；Issue 创建前引导填写模板。
 - **生态互补**：本地开发循环（Superpowers）+ 远端协作（gitflow-cli）明确分工。
 - **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot。
-- **质量门闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付。
+- **质量闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付。
 
 ## 贡献
 
