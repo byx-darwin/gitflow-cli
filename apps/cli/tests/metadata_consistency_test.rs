@@ -103,3 +103,38 @@ fn test_should_have_demo_asset() {
     assert!(svg.contains("<svg"), "demo.svg must be a valid SVG document");
     assert!(svg.contains("</svg>"), "demo.svg must be closed");
 }
+
+#[test]
+fn test_should_keep_entity_consistency() {
+    let readme = read("README.md");
+    assert!(readme.contains(CANONICAL_POSITIONING), "README.md missing canonical positioning");
+
+    let llms = read("website/public/llms.txt");
+    assert!(llms.contains(CANONICAL_POSITIONING), "llms.txt missing canonical positioning");
+
+    let base = read("website/src/layouts/Base.astro");
+    assert!(base.contains(CANONICAL_POSITIONING), "Base.astro missing canonical positioning");
+}
+
+#[test]
+fn test_should_have_valid_jsonld() {
+    let base = read("website/src/layouts/Base.astro");
+    let marker = base.find("application/ld+json").expect("Base.astro missing JSON-LD script");
+    let after = &base[marker..];
+    let json_start = after.find('>').expect("malformed JSON-LD open tag") + 1;
+    let json_end = after.find("</script>").expect("JSON-LD not closed");
+    let json_text = &after[json_start..json_end];
+    let v: serde_json::Value = serde_json::from_str(json_text).expect("JSON-LD is not valid JSON");
+
+    assert_eq!(v["@type"].as_str(), Some("SoftwareApplication"));
+    assert_eq!(v["name"].as_str(), Some("gitflow-cli"));
+    assert!(
+        v["description"].as_str().is_some_and(|d| d.contains("跨平台 Git 工程化工作流编排框架")),
+        "JSON-LD description missing positioning"
+    );
+    assert!(v["applicationCategory"].as_str().is_some(), "applicationCategory required");
+    assert!(
+        v["sameAs"].as_array().is_some_and(|a| !a.is_empty()),
+        "sameAs must be a non-empty array"
+    );
+}
