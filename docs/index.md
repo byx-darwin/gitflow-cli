@@ -20,6 +20,13 @@
 
 - [多角色项目评估与产品路线图](./superpowers/specs/2026-07-31-product-evaluation-roadmap-design.md) — 五角色现状评估与 2026 下半年路线图（稳定化 → 增长 → 扩张，含官方网站与 GEO/SEO 方案）。
 
+## 官网与 GEO
+
+- 官方网站：<https://byx-darwin.github.io/gitflow-cli>（源码见 `website/`）
+- GEO 地基：`website/public/llms.txt`、`website/public/llms-full.txt`、`website/public/robots.txt`、`website/src/layouts/Base.astro`（JSON-LD）
+- 演示资产：`docs/assets/demo.svg`（生成脚本 `scripts/gen-demo-svg.sh`）
+- 设计文档：`docs/superpowers/specs/2026-07-31-v1.0-metadata-website-geo-design.md`
+
 ## Reference
 
 - [CLAUDE.md](../CLAUDE.md) — agent guide with code style, security, and testing rules.
