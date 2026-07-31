@@ -1,7 +1,6 @@
 //! GitHub CLI 错误解析。
 
-use gitflow_cli_core::platform::Platform;
-use gitflow_cli_core::PlatformCliError;
+use gitflow_cli_core::{PlatformCliError, platform::Platform};
 
 /// 解析 `gh` CLI 的 stderr 输出为统一的 [`PlatformCliError`]。
 ///

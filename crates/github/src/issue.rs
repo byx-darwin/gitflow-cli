@@ -94,8 +94,7 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
 
         if !output.status.success() {
             let mut gh_err = parse_gh_error(&output.stderr);
-            gh_err.user_message =
-                format!("自动创建标签 '{name}' 失败：{}", gh_err.user_message);
+            gh_err.user_message = format!("自动创建标签 '{name}' 失败：{}", gh_err.user_message);
             return Err(gh_err.into());
         }
 

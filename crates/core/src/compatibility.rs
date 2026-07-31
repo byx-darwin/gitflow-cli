@@ -12,13 +12,22 @@ const MATRIX_JSON: &str = include_str!("../../../docs/compatibility-matrix.json"
 #[derive(Debug, Deserialize)]
 struct MatrixRoot {
     /// 矩阵 schema 版本。
-    #[allow(dead_code, reason = "Deserialized for validation, not yet used at runtime")]
+    #[allow(
+        dead_code,
+        reason = "Deserialized for validation, not yet used at runtime"
+    )]
     schema_version: u32,
     /// 最后更新日期。
-    #[allow(dead_code, reason = "Deserialized for validation, not yet used at runtime")]
+    #[allow(
+        dead_code,
+        reason = "Deserialized for validation, not yet used at runtime"
+    )]
     updated_at: String,
     /// gitflow-cli 版本。
-    #[allow(dead_code, reason = "Deserialized for validation, not yet used at runtime")]
+    #[allow(
+        dead_code,
+        reason = "Deserialized for validation, not yet used at runtime"
+    )]
     gitflow_cli_version: String,
     /// 平台列表。
     platforms: Vec<PlatformCompat>,
@@ -54,8 +63,8 @@ pub struct PlatformCompat {
     reason = "Embedded JSON is compile-time data; parse failure means corrupted build artifacts"
 )]
 pub fn platform_compatibility() -> Vec<PlatformCompat> {
-    let root: MatrixRoot = serde_json::from_str(MATRIX_JSON)
-        .expect("embedded compatibility-matrix.json is invalid");
+    let root: MatrixRoot =
+        serde_json::from_str(MATRIX_JSON).expect("embedded compatibility-matrix.json is invalid");
     root.platforms
 }
 

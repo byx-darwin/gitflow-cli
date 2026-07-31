@@ -9,8 +9,7 @@
     reason = "Example binary: panics are acceptable for build-time tooling"
 )]
 
-use std::collections::BTreeMap;
-use std::fs;
+use std::{collections::BTreeMap, fs};
 
 use serde::Deserialize;
 
@@ -49,8 +48,8 @@ fn main() {
     let mut md = String::new();
     md.push_str("# 兼容性矩阵\n\n");
     md.push_str(&format!(
-        "> 自动生成，请勿手动编辑。数据源：`docs/compatibility-matrix.json`\n\
-         > 更新时间：{} · gitflow-cli v{}\n\n",
+        "> 自动生成，请勿手动编辑。数据源：`docs/compatibility-matrix.json`\n> 更新时间：{} · \
+         gitflow-cli v{}\n\n",
         root.updated_at, root.gitflow_cli_version
     ));
     md.push_str("| 平台 | CLI 工具 | 最低版本 | 已测试版本 | 功能覆盖 |\n");

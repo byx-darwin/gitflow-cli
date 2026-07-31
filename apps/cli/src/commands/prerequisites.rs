@@ -92,10 +92,8 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
 pub enum PrerequisiteError {
     /// 底层 CLI 未安装。
     #[error(
-        "[[PLATFORM]] 未检测到 {binary}。\n\n\
-         📦 安装：{install_cmd}\n\
-         📖 文档：{doc_link}\n\n\
-         其他安装方式：\n{install_hint}"
+        "[[PLATFORM]] 未检测到 {binary}。\n\n📦 安装：{install_cmd}\n📖 \
+         文档：{doc_link}\n\n其他安装方式：\n{install_hint}"
     )]
     NotFound {
         /// CLI 可执行文件名。
@@ -114,9 +112,8 @@ pub enum PrerequisiteError {
 
     /// 底层 CLI 版本过低。
     #[error(
-        "[[PLATFORM]] {binary} 版本过低：当前 v{found}，需要 v{required}+。\n\n\
-         📦 升级：{install_cmd}\n\
-         📖 文档：{doc_link}"
+        "[[PLATFORM]] {binary} 版本过低：当前 v{found}，需要 v{required}+。\n\n📦 \
+         升级：{install_cmd}\n📖 文档：{doc_link}"
     )]
     VersionTooLow {
         /// CLI 可执行文件名。
@@ -135,9 +132,8 @@ pub enum PrerequisiteError {
 
     /// 版本信息解析失败。
     #[error(
-        "[[PLATFORM]] {binary} 版本信息解析失败。\n\n\
-         📦 重新安装：{install_cmd}\n\
-         📖 文档：{doc_link}"
+        "[[PLATFORM]] {binary} 版本信息解析失败。\n\n📦 重新安装：{install_cmd}\n📖 \
+         文档：{doc_link}"
     )]
     VersionParseFailed {
         /// CLI 可执行文件名。
@@ -151,11 +147,7 @@ pub enum PrerequisiteError {
     },
 
     /// 未认证。
-    #[error(
-        "[[PLATFORM]] {binary} 未认证。\n\n\
-         🔍 原因：{reason}\n\
-         🔧 修复：运行 `{hint}` 完成登录"
-    )]
+    #[error("[[PLATFORM]] {binary} 未认证。\n\n🔍 原因：{reason}\n🔧 修复：运行 `{hint}` 完成登录")]
     NotAuthenticated {
         /// CLI 可执行文件名。
         binary: String,
@@ -178,7 +170,8 @@ pub enum PrerequisiteError {
 /// 检查原生 CLI 是否可用、版本满足要求且已登录。
 #[allow(
     clippy::result_large_err,
-    reason = "PrerequisiteError carries structured install hints; boxing would lose ergonomic matching"
+    reason = "PrerequisiteError carries structured install hints; boxing would lose ergonomic \
+              matching"
 )]
 pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
     let req = requirement_for(platform).ok_or_else(|| PrerequisiteError::UnsupportedPlatform {
@@ -300,9 +293,7 @@ fn find_gitcode_cli(
             .map_or("", |r| r.install_url)
             .into(),
         install_cmd: install_cmd.into(),
-        doc_link: requirement_for(platform)
-            .map_or("", |r| r.doc_link)
-            .into(),
+        doc_link: requirement_for(platform).map_or("", |r| r.doc_link).into(),
     })
 }
 
@@ -330,9 +321,7 @@ fn get_version(binary: &str, platform: &str) -> Result<String, PrerequisiteError
         binary: binary.into(),
         platform: platform.into(),
         install_cmd: install_cmd.into(),
-        doc_link: requirement_for(platform)
-            .map_or("", |r| r.doc_link)
-            .into(),
+        doc_link: requirement_for(platform).map_or("", |r| r.doc_link).into(),
     })
 }
 
