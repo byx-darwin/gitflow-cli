@@ -21,37 +21,30 @@ pub fn parse_gh_error(stderr: &[u8]) -> PlatformCliError {
             .and_then(serde_json::Value::as_str)
             .map(String::from);
 
-        let user_message = match code.as_deref() {
+        let user_message: String = match code.as_deref() {
             Some("NOT_FOUND") => "资源不存在".into(),
             Some("FORBIDDEN") => "权限不足".into(),
             _ => format!("GitHub 操作失败：{msg}"),
         };
 
-        return PlatformCliError {
-            user_message,
-            raw_stderr: text.into_owned(),
-            hint: Some("运行 `gh auth status` 检查认证状态".into()),
-            doc_link: Some("https://cli.github.com/manual/".into()),
-            code,
-            platform: Platform::GitHub,
-        };
+        let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitHub);
+        err.hint = Some("运行 `gh auth status` 检查认证状态".into());
+        err.doc_link = Some("https://cli.github.com/manual/".into());
+        err.code = code;
+        return err;
     }
 
     // 回退：纯文本解析
-    let user_message = if text.contains("Not logged in") || text.contains("auth") {
+    let user_message: String = if text.contains("Not logged in") || text.contains("auth") {
         "未登录 GitHub".into()
     } else {
         "GitHub CLI 执行失败".into()
     };
 
-    PlatformCliError {
-        user_message,
-        raw_stderr: text.into_owned(),
-        hint: Some("运行 `gh auth login` 完成登录".into()),
-        doc_link: Some("https://cli.github.com/manual/".into()),
-        code: None,
-        platform: Platform::GitHub,
-    }
+    let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitHub);
+    err.hint = Some("运行 `gh auth login` 完成登录".into());
+    err.doc_link = Some("https://cli.github.com/manual/".into());
+    err
 }
 
 #[cfg(test)]
