@@ -1106,3 +1106,30 @@ mod tests {
         assert_eq!(comment.author.id, "u2");
     }
 }
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use crate::runner::MockCommandRunner;
+
+    /// 契约测试：验证 gitcode issue list JSON 输出与反序列化一致。
+    ///
+    /// 夹具来源：gitcode v0.6.x 真实 CLI 输出。
+    #[tokio::test]
+    async fn test_contract_issue_list_gitcode_v0_6() {
+        let fixture = include_str!("../tests/fixtures/issue_list_gitcode_v0.6.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let issues = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("contract fixture must parse");
+
+        assert_eq!(issues.len(), 1);
+        let issue = &issues[0];
+        assert_eq!(issue.number, 15);
+        assert!(!issue.title.is_empty());
+        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
+    }
+}

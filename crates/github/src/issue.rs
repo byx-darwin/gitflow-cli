@@ -1274,3 +1274,31 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use crate::runner::MockCommandRunner;
+
+    /// 契约测试：验证 gh issue list JSON 输出与 IssueData 反序列化一致。
+    ///
+    /// 夹具来源：gh v2.x `--json` 输出格式。
+    #[tokio::test]
+    async fn test_contract_issue_list_github_v2() {
+        let fixture = include_str!("../tests/fixtures/issue_list_github_v2.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let issues = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("contract fixture must parse");
+
+        assert_eq!(issues.len(), 1);
+        let issue = &issues[0];
+        assert_eq!(issue.number, 42);
+        assert!(!issue.title.is_empty());
+        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
+        assert_eq!(issue.author.login, "test-user");
+    }
+}

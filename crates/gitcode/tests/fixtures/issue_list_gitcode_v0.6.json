@@ -1,10 +1,10 @@
 [{
-  "number": 15,
+  "number": "15",
   "title": "feat: add contract tests",
   "body": "## Summary\n\nTest fixture",
   "state": "open",
   "labels": [],
-  "author": {"login": "test-user", "name": "Test", "id": "abc123", "avatar_url": "", "html_url": "", "email": ""},
+  "user": {"login": "test-user", "id": "abc123"},
   "assignees": [],
   "created_at": "2026-07-30T10:00:00+08:00",
   "updated_at": "2026-07-30T12:00:00+08:00",

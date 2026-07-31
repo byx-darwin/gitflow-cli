@@ -1101,3 +1101,30 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use crate::runner::MockCommandRunner;
+
+    /// 契约测试：验证 glab issue list JSON 输出与反序列化一致。
+    ///
+    /// 夹具来源：glab v1.x `--output json` 格式。
+    #[tokio::test]
+    async fn test_contract_issue_list_gitlab_v1() {
+        let fixture = include_str!("../tests/fixtures/issue_list_gitlab_v1.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitLabIssueProvider::with_runner("group/project", runner);
+
+        let issues = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("contract fixture must parse");
+
+        assert_eq!(issues.len(), 1);
+        let issue = &issues[0];
+        assert_eq!(issue.number, 10);
+        assert!(!issue.title.is_empty());
+        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
+    }
+}
