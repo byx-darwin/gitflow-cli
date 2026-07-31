@@ -112,15 +112,30 @@ jobs:
     name: GitHub Live Smoke (latest gh)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: ${{ secrets.E2E_GITHUB_TOKEN != '' }}
 
     steps:
+      - name: Check credentials
+        id: creds
+        env:
+          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+        run: |
+          if [ -n "$E2E_GITHUB_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_GITHUB_TOKEN not configured; live check skipped"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.creds.outputs.available == 'true'
 
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.creds.outputs.available == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: steps.creds.outputs.available == 'true'
 
       - name: Install latest gh
+        if: steps.creds.outputs.available == 'true'
         run: |
           set -euo pipefail
           LATEST=$(gh api repos/cli/cli/releases/latest --jq '.tag_name' | sed 's/^v//')
@@ -130,9 +145,11 @@ jobs:
           gh --version
 
       - name: Build gitflow-cli
+        if: steps.creds.outputs.available == 'true'
         run: cargo build --release
 
       - name: Run read-only smoke test against latest gh
+        if: steps.creds.outputs.available == 'true'
         id: smoke
         env:
           GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
@@ -144,7 +161,7 @@ jobs:
           fi
 
       - name: Alert on breakage
-        if: steps.smoke.outputs.result == 'fail'
+        if: steps.creds.outputs.available == 'true' && steps.smoke.outputs.result == 'fail'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
