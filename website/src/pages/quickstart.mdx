@@ -1,0 +1,38 @@
+---
+layout: ../layouts/Base.astro
+title: 5 分钟快速上手 — gitflow-cli
+---
+
+# 5 分钟快速上手
+
+## 1. 安装 gitflow-cli
+
+```bash
+brew tap byx-darwin/gitflow-cli && brew install gitflow-cli
+# 或
+cargo install gitflow-cli
+```
+
+## 2. 安装 Skills
+
+```bash
+gitflow-cli skills install        # 项目级（推荐，跟随仓库）
+gitflow-cli skills install -g     # 全局（所有项目可用）
+```
+
+## 3. 验证
+
+```bash
+gitflow-cli skills list           # 应看到 26 个 gitflow-* skills
+gitflow-cli --version
+```
+
+## 4. 开始开发
+
+在支持的 Agent 平台中输入：
+
+```
+/gitflow-workflow 我要做 X
+```
+
+即可进入四阶段编排：需求澄清 → 计划制定 → 执行 → 交付后检查。

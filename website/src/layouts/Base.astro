@@ -1,0 +1,47 @@
+---
+import "../styles/global.css";
+
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={Astro.url.href} />
+    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
+    <script type="application/ld+json" is:inline>
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "gitflow-cli",
+  "description": "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Linux, Windows",
+  "url": "https://byx-darwin.github.io/gitflow-cli/",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "sameAs": [
+    "https://github.com/byx-darwin/gitflow-cli",
+    "https://crates.io/crates/gitflow-cli"
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <slot />
+    <footer>
+      <p>gitflow-cli · MIT License · <a href="https://github.com/byx-darwin/gitflow-cli">GitHub</a> · <a href="https://crates.io/crates/gitflow-cli">crates.io</a></p>
+    </footer>
+  </body>
+</html>
