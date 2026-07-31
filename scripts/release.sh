@@ -11,11 +11,22 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Quick mode flag
+# Mode flags
 QUICK_MODE=false
-if [[ "${1:-}" == "--quick" ]]; then
-    QUICK_MODE=true
-fi
+REHEARSE_MODE=false
+case "${1:-}" in
+    --quick) QUICK_MODE=true ;;
+    --rehearse) REHEARSE_MODE=true; QUICK_MODE=true ;;
+    --self-test)
+        # self-test 无需发布前置,直接运行并退出
+        QUICK_MODE=true
+        ;;
+    "") ;;
+    *)
+        echo "Usage: bash scripts/release.sh [--quick|--rehearse|--self-test]" >&2
+        exit 2
+        ;;
+esac
 
 # Helper functions
 log_info() {
@@ -60,6 +71,111 @@ cleanup_on_error() {
 }
 
 trap cleanup_on_error EXIT
+
+# ---------------------------------------------------------------------------
+# Release artifact validation (pure functions; testable via --self-test)
+# ---------------------------------------------------------------------------
+
+# 未被替换的模板变量,如 {{version}}
+TEMPLATE_RESIDUE_PATTERN='\{\{[a-zA-Z_]+\}\}'
+# 合法 tag:vX.Y.Z 或 vX.Y.Z-<prerelease>
+VERSION_TAG_PATTERN='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+# 合法发布提交主题
+RELEASE_COMMIT_PATTERN='^chore: release v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+
+validate_commit_subject() {
+    local subject="$1"
+    if [[ "$subject" =~ $TEMPLATE_RESIDUE_PATTERN ]]; then
+        log_error "Template residue in commit subject: $subject"
+        return 1
+    fi
+    if [[ ! "$subject" =~ $RELEASE_COMMIT_PATTERN ]]; then
+        log_error "Malformed release commit subject: $subject"
+        return 1
+    fi
+    return 0
+}
+
+validate_tag_name() {
+    local tag="$1"
+    if [[ "$tag" =~ $TEMPLATE_RESIDUE_PATTERN ]]; then
+        log_error "Template residue in tag name: $tag"
+        return 1
+    fi
+    if [[ ! "$tag" =~ $VERSION_TAG_PATTERN ]]; then
+        log_error "Malformed tag name: $tag"
+        return 1
+    fi
+    return 0
+}
+
+validate_no_template_residue() {
+    local file="$1"
+    if grep -qE "$TEMPLATE_RESIDUE_PATTERN" "$file"; then
+        log_error "Template residue found in $file:"
+        grep -nE "$TEMPLATE_RESIDUE_PATTERN" "$file" | head -5
+        return 1
+    fi
+    return 0
+}
+
+run_self_test() {
+    local failures=0
+
+    expect_pass() {
+        local desc="$1"; shift
+        if "$@" >/dev/null 2>&1; then
+            log_success "$desc"
+        else
+            log_error "$desc (expected pass, got fail)"
+            failures=$((failures + 1))
+        fi
+    }
+
+    expect_fail() {
+        local desc="$1"; shift
+        if "$@" >/dev/null 2>&1; then
+            log_error "$desc (expected fail, got pass)"
+            failures=$((failures + 1))
+        else
+            log_success "$desc"
+        fi
+    }
+
+    echo ""
+    log_info "Running release validation self-test..."
+
+    expect_pass "commit subject: well-formed" validate_commit_subject "chore: release v1.0.0"
+    expect_pass "commit subject: prerelease" validate_commit_subject "chore: release v1.0.0-rc.1"
+    expect_fail "commit subject: template residue" validate_commit_subject "chore: release v{{version}}"
+    expect_fail "commit subject: malformed" validate_commit_subject "release 1.0.0"
+
+    expect_pass "tag: well-formed" validate_tag_name "v1.0.0"
+    expect_pass "tag: prerelease" validate_tag_name "v1.0.0-rc.1"
+    expect_fail "tag: template residue" validate_tag_name "v{{version}}"
+    expect_fail "tag: missing v prefix" validate_tag_name "1.0.0"
+
+    local tmp
+    tmp=$(mktemp)
+    printf '## v{{version}}\n' > "$tmp"
+    expect_fail "changelog: template residue" validate_no_template_residue "$tmp"
+    printf '## 1.0.0 - 2026-07-31\n' > "$tmp"
+    expect_pass "changelog: clean" validate_no_template_residue "$tmp"
+    rm -f "$tmp"
+
+    echo ""
+    if [ "$failures" -eq 0 ]; then
+        log_success "Self-test passed"
+        return 0
+    fi
+    log_error "Self-test failed: $failures case(s)"
+    return 1
+}
+
+if [[ "${1:-}" == "--self-test" ]]; then
+    trap - EXIT
+    if run_self_test; then exit 0; else exit 1; fi
+fi
 
 # Check prerequisites
 check_prerequisites() {
