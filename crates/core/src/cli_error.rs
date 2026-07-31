@@ -12,6 +12,7 @@ use crate::platform::Platform;
 /// 用户可见信息（`user_message`、`hint`）为中文主导；
 /// `raw_stderr` 仅用于 `tracing::debug!`，不展示给用户。
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct PlatformCliError {
     /// 用户可见的错误消息（中文主导）。
     pub user_message: String,
@@ -25,6 +26,27 @@ pub struct PlatformCliError {
     pub code: Option<String>,
     /// 来源平台。
     pub platform: Platform,
+}
+
+impl PlatformCliError {
+    /// 创建一个新的平台 CLI 错误。
+    ///
+    /// `hint`、`doc_link`、`code` 默认为 `None`，可通过公开字段直接设置。
+    #[must_use]
+    pub fn new(
+        user_message: impl Into<String>,
+        raw_stderr: impl Into<String>,
+        platform: Platform,
+    ) -> Self {
+        Self {
+            user_message: user_message.into(),
+            raw_stderr: raw_stderr.into(),
+            hint: None,
+            doc_link: None,
+            code: None,
+            platform,
+        }
+    }
 }
 
 impl fmt::Display for PlatformCliError {
