@@ -19,10 +19,6 @@ use crate::{
     runner::{CommandRunner, RealCommandRunner},
 };
 
-/// `gc pr` 请求的 JSON 字段列表。
-const PR_FIELDS: &str =
-    "number,title,body,state,draft,author,baseBranch,headBranch,createdAt,updatedAt,url";
-
 /// gitcode CLI v0.6.x `pr list/view/create --json` 的响应类型。
 ///
 /// 字段命名与 `gh pr` 不同：snake_case、`user` 而非 `author`、
@@ -172,7 +168,6 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             "--base",
             &args.base,
             "--json",
-            PR_FIELDS,
         ];
 
         if let Some(body) = &args.body {
@@ -189,7 +184,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             title = %args.title,
             head = %args.head,
             base = %args.base,
-            "spawning `gc pr create`"
+            "spawning `gitcode pr create`"
         );
 
         let output = self
@@ -203,15 +198,15 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let pr: PrData =
+        let api: PrApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(pr)
+        Ok(api.into())
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
         let binary = crate::gitcode_binary();
-        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json", PR_FIELDS];
+        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json"];
 
         if let Some(state) = &args.state {
             cmd_args.push("--state");
@@ -227,7 +222,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             cmd_args.push(limit);
         }
 
-        debug!(repo = %self.repo, "spawning `gc pr list`");
+        debug!(repo = %self.repo, "spawning `gitcode pr list`");
 
         let output = self
             .runner
@@ -240,30 +235,22 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let prs: Vec<PrData> =
+        let apis: Vec<PrApiResponse> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(prs)
+        Ok(apis.into_iter().map(PrData::from).collect())
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
-        debug!(repo = %self.repo, number, "spawning `gc pr view`");
+        debug!(repo = %self.repo, number, "spawning `gitcode pr view`");
 
         let output = self
             .runner
             .run(
                 &binary,
-                &[
-                    "pr",
-                    "view",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--json",
-                    PR_FIELDS,
-                ],
+                &["pr", "view", &number_str, "--repo", &self.repo, "--json"],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
@@ -273,15 +260,15 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let pr: PrData =
+        let api: PrApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(pr)
+        Ok(api.into())
     }
 
     /// 关闭指定编号的 PR。
     ///
-    /// 调用 `gc pr close <number> --repo <repo> --json <fields>` 关闭 PR，
+    /// 调用 `gitcode pr close <number> --repo <repo> --yes --json` 关闭 PR，
     /// 并返回更新后的完整 PR 数据。
     ///
     /// # Errors
@@ -290,7 +277,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
     async fn close(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
-        debug!(repo = %self.repo, number, "spawning `gc pr close`");
+        debug!(repo = %self.repo, number, "spawning `gitcode pr close`");
 
         let output = self
             .runner
@@ -302,8 +289,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
                     &number_str,
                     "--repo",
                     &self.repo,
+                    "--yes",
                     "--json",
-                    PR_FIELDS,
                 ],
             )
             .await
@@ -314,15 +301,15 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let pr: PrData =
+        let api: PrApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(pr)
+        Ok(api.into())
     }
 
     /// 重新打开指定编号的 PR。
     ///
-    /// 调用 `gc pr reopen <number> --repo <repo> --json <fields>` 重新打开已关闭的 PR，
+    /// 调用 `gitcode pr reopen <number> --repo <repo> --yes --json` 重新打开已关闭的 PR，
     /// 并返回更新后的完整 PR 数据。
     ///
     /// # Errors
@@ -331,7 +318,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
     async fn reopen(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
-        debug!(repo = %self.repo, number, "spawning `gc pr reopen`");
+        debug!(repo = %self.repo, number, "spawning `gitcode pr reopen`");
 
         let output = self
             .runner
@@ -343,8 +330,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
                     &number_str,
                     "--repo",
                     &self.repo,
+                    "--yes",
                     "--json",
-                    PR_FIELDS,
                 ],
             )
             .await
@@ -355,10 +342,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(CoreError::Platform(format!("{gitcode_err}")));
         }
 
-        let pr: PrData =
+        let api: PrApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(pr)
+        Ok(api.into())
     }
 
     /// 在指定 PR 上添加评论。
@@ -1054,5 +1041,64 @@ mod tests {
             result.unwrap_err(),
             gitflow_cli_core::CoreError::Platform(_)
         ));
+    }
+
+    // --- Call-shape regression tests (Issue #90) ---
+
+    use crate::runner::RecordingMockRunner;
+
+    #[tokio::test]
+    async fn test_should_not_pass_field_list_to_pr_view() {
+        let runner = RecordingMockRunner::success(real_gitcode_pr_json());
+        let provider = GitCodePrProvider::with_runner("octocat/hello-world", runner.clone());
+
+        let pr = provider.view(20).await.expect("view should parse real schema");
+
+        assert_eq!(pr.number, 52);
+        let calls = runner.calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(
+            calls[0],
+            vec!["pr", "view", "20", "--repo", "octocat/hello-world", "--json"],
+            "gitcode --json 是布尔标志，不得携带字段列表位置参数"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_yes_flag_to_pr_close() {
+        let runner = RecordingMockRunner::success(real_gitcode_pr_json());
+        let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+
+        provider.close(9).await.expect("close should succeed");
+
+        let args = &runner.calls()[0];
+        assert!(args.contains(&"--yes".to_string()), "close 必须跳过确认提示");
+        assert!(
+            !args.windows(2).any(|w| {
+                w[0] == "--json" && w[1] != "--yes" && !w[1].starts_with('-')
+            }),
+            "--json 后不得跟随字段列表"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_limit_flag_to_pr_list() {
+        let runner = RecordingMockRunner::success(&format!("[{}]", real_gitcode_pr_json()));
+        let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+
+        let prs = provider
+            .list(ListPrArgs {
+                state: Some(State::Open),
+                limit: Some(5),
+            })
+            .await
+            .expect("list should succeed");
+
+        assert_eq!(prs.len(), 1);
+        let args = &runner.calls()[0];
+        assert!(args.contains(&"--limit".to_string()));
+        assert!(args.contains(&"5".to_string()));
+        assert!(args.contains(&"--state".to_string()));
+        assert!(args.contains(&"open".to_string()));
     }
 }
