@@ -3,8 +3,8 @@
 
 # Single version tag for the entire workspace
 shared-version = true
-tag-name = "v{{version}}"
-tag-message = "Release v{{version}}"
+tag-name = "v{version}"
+tag-message = "Release v{version}"
 
 # Publish to crates.io
 publish = true
@@ -13,7 +13,7 @@ publish = true
 allow-branch = ["main"]
 
 # Pre-release commit message (when versions are bumped)
-pre-release-commit-message = "chore: release v{{version}}"
+pre-release-commit-message = "chore: release v{version}"
 
 # Pre-release verification
 verify = true
