@@ -82,11 +82,18 @@ where
 ///
 /// Note: `id` is a `String` because GitHub's `gh` CLI returns GraphQL
 /// node IDs (e.g. `"U_kgDOCfuwhg"`), while GitLab/GitCode use numeric IDs.
+///
+/// Note: `id` may be empty for bot actors — `gh` 2.94 returns bot authors
+/// as `{"is_bot": true, "login": "app/..."}` without an `id` field, so
+/// `#[serde(default)]` is applied and the missing value becomes `""`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSummary {
     /// The user's login name.
     pub login: String,
     /// The user's platform ID (GraphQL node ID on GitHub, numeric on GitLab/GitCode).
+    ///
+    /// Empty string when the actor is a bot and `gh` omits the field.
+    #[serde(default)]
     pub id: String,
 }
 

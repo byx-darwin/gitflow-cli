@@ -136,6 +136,8 @@ jobs:
 
       - name: Install latest gh
         if: steps.creds.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           LATEST=$(gh api repos/cli/cli/releases/latest --jq '.tag_name' | sed 's/^v//')

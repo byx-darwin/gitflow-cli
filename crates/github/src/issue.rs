@@ -1279,6 +1279,29 @@ mod contract_tests {
     use super::*;
     use crate::runner::MockCommandRunner;
 
+    /// 契约测试：验证 gh v2.94 对 bot author 省略 `id` 字段时仍可反序列化。
+    ///
+    /// gh 2.94 对 bot-authored issue 返回 `{"is_bot": true, "login": "app/github-actions"}`
+    /// 而非人类的 `{"id": "...", "login": "..."}`。`UserSummary::id` 使用 `#[serde(default)]`
+    /// 兼容该差异,此处用真实 fixture 守护契约。
+    #[tokio::test]
+    async fn test_contract_issue_list_github_v294_bot_author() {
+        let fixture = include_str!("../tests/fixtures/issue_list_github_v294_bot_author.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let issues = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("gh v2.94 bot-author fixture must parse");
+
+        assert_eq!(issues.len(), 2);
+        assert_eq!(issues[0].number, 107);
+        assert_eq!(issues[0].author.login, "app/github-actions");
+        assert_eq!(issues[1].number, 42);
+        assert_eq!(issues[1].author.login, "test-user");
+    }
+
     /// 契约测试：验证 gh issue list JSON 输出与 `IssueData` 反序列化一致。
     ///
     /// 夹具来源：gh v2.x `--json` 输出格式。

@@ -1,0 +1,26 @@
+[
+  {
+    "number": 107,
+    "title": "upstream CLI 新版本: gh 2.94.0",
+    "body": "## Summary\n\nPatrol detected upstream drift.",
+    "state": "OPEN",
+    "labels": [{"name": "upstream-drift", "color": "ededed", "description": null}],
+    "author": {"is_bot": true, "login": "app/github-actions"},
+    "assignees": [],
+    "createdAt": "2026-07-31T03:00:00Z",
+    "updatedAt": "2026-07-31T03:00:00Z",
+    "url": "https://github.com/test-owner/test-repo/issues/107"
+  },
+  {
+    "number": 42,
+    "title": "feat(core): add unified error type",
+    "body": "## Summary\n\nCloses #41",
+    "state": "OPEN",
+    "labels": [{"name": "enhancement", "color": "a2eeef", "description": "New feature"}],
+    "author": {"login": "test-user", "id": "12345"},
+    "assignees": [{"login": "reviewer", "id": "67890"}],
+    "createdAt": "2026-07-30T10:00:00Z",
+    "updatedAt": "2026-07-30T12:00:00Z",
+    "url": "https://github.com/test-owner/test-repo/issues/42"
+  }
+]
