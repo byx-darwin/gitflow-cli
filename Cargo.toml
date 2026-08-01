@@ -4,13 +4,12 @@ resolver = "3"
 
 [workspace.package]
 version = "0.9.0"
-authors = ["Your Name <YourName@yourdomain.com>"]
+authors = ["byx-darwin <baoyx19870908@gmail.com>"]
 edition = "2024"
 rust-version = "1.96.0"
 license = "MIT"
-documentation = "https://docs.rs/"
 repository = "https://github.com/byx-darwin/gitflow-cli"
-homepage = "https://github.com/byx-darwin/gitflow-cli"
+homepage = "https://byx-darwin.github.io/gitflow-cli"
 readme = "README.md"
 
 [workspace.dependencies]
