@@ -4,24 +4,39 @@ import matrix from "../../../docs/compatibility-matrix.json";
 ---
 
 <Base title="兼容性矩阵 — gitflow-cli">
-  <main>
-    <h1>兼容性矩阵</h1>
-    <p>数据源：<code>docs/compatibility-matrix.json</code> · 更新时间：{matrix.updated_at} · gitflow-cli v{matrix.gitflow_cli_version}</p>
-    <table>
+  <main class="narrow page">
+    <h1 class="page-title">兼容性矩阵</h1>
+    <p class="page-lede">
+      数据源：<code style="font-family:var(--font-mono);color:var(--gf-teal)">docs/compatibility-matrix.json</code>
+      （自动生成）· 更新时间 {matrix.updated_at} · gitflow-cli v{matrix.gitflow_cli_version}
+    </p>
+    <table class="matrix-table">
       <thead>
         <tr><th>平台</th><th>CLI 工具</th><th>最低版本</th><th>已测试版本</th><th>功能覆盖</th></tr>
       </thead>
       <tbody>
-        {matrix.platforms.map((p) => (
-          <tr>
-            <td>{p.name}</td>
-            <td><code>{p.cli_binary}</code></td>
-            <td>≥ {p.min_version}</td>
-            <td>{p.tested_versions.join(", ")}</td>
-            <td>{Object.entries(p.features).filter(([, ok]) => ok).map(([k]) => `${k} ✅`).join(" ")}</td>
-          </tr>
-        ))}
+        {
+          matrix.platforms.map((p) => (
+            <tr>
+              <td class="matrix-platform">{p.name}</td>
+              <td>
+                <code>{p.cli_binary}</code>
+              </td>
+              <td>≥ {p.min_version}</td>
+              <td>{p.tested_versions.join(", ")}</td>
+              <td class="matrix-ok">
+                {Object.entries(p.features)
+                  .filter(([, ok]) => ok)
+                  .map(([k]) => `${k} ✓`)
+                  .join("  ")}
+              </td>
+            </tr>
+          ))
+        }
       </tbody>
     </table>
+    <p style="color:var(--gf-text-dim);font-size:14px;margin-top:24px">
+      启动时会校验底层 CLI 版本，不满足时给出修复指引。版本矩阵由契约测试与每周定时 e2e 回归守护。
+    </p>
   </main>
 </Base>

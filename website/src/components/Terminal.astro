@@ -1,0 +1,49 @@
+---
+export interface TermLine {
+  /** 行类型：cmd 命令 / out 普通输出 / success 成功 / hl 高亮 */
+  type: "cmd" | "out" | "success" | "hl";
+  text: string;
+}
+
+export interface Props {
+  title?: string;
+  lines: TermLine[];
+}
+
+const { title = "gitflow-cli", lines } = Astro.props;
+---
+
+<div class="terminal">
+  <div class="terminal-bar">
+    <span class="terminal-dot terminal-dot-r"></span>
+    <span class="terminal-dot terminal-dot-y"></span>
+    <span class="terminal-dot terminal-dot-g"></span>
+    <span class="terminal-title">{title}</span>
+  </div>
+  <div class="terminal-body">
+    {
+      lines.map((line) =>
+        line.type === "cmd" ? (
+          <div class="term-line">
+            <span class="term-prompt">❯</span> <span class="term-command">{line.text}</span>
+          </div>
+        ) : line.type === "success" ? (
+          <div class="term-line">
+            <span class="term-success">{line.text}</span>
+          </div>
+        ) : line.type === "hl" ? (
+          <div class="term-line">
+            <span class="term-highlight">{line.text}</span>
+          </div>
+        ) : (
+          <div class="term-line">
+            <span class="term-output">{line.text}</span>
+          </div>
+        ),
+      )
+    }
+    <div class="term-line">
+      <span class="term-prompt">❯</span> <span class="term-caret" aria-hidden="true"></span>
+    </div>
+  </div>
+</div>

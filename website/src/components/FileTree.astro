@@ -1,0 +1,24 @@
+---
+export interface TreeRow {
+  text: string;
+  /** 标记为 AI 资产（琥珀色 + AI 徽章） */
+  ai?: boolean;
+}
+
+export interface Props {
+  rows: TreeRow[];
+}
+
+const { rows } = Astro.props;
+---
+
+<div class="filetree">
+  {
+    rows.map((row) => (
+      <div class:list={["filetree-row", { "filetree-ai": row.ai }]}>
+        <span class="filetree-text">{row.text}</span>
+        {row.ai && <span class="filetree-badge">AI</span>}
+      </div>
+    ))
+  }
+</div>

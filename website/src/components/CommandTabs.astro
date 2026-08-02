@@ -1,0 +1,45 @@
+---
+export interface TabLine {
+  cmd: string;
+  desc?: string;
+}
+
+export interface Tab {
+  label: string;
+  lines: TabLine[];
+}
+
+export interface Props {
+  tabs: Tab[];
+}
+
+const { tabs } = Astro.props;
+---
+
+<div class="command-tabs">
+  <div class="command-tabs-list" role="tablist">
+    {
+      tabs.map((tab, i) => (
+        <button
+          type="button"
+          role="tab"
+          class:list={["command-tab", { "command-tab-active": i === 0 }]}
+        >
+          {tab.label}
+        </button>
+      ))
+    }
+  </div>
+  {
+    tabs.map((tab, i) => (
+      <div role="tabpanel" class:list={["command-panel", { "command-panel-active": i === 0 }]}>
+        {tab.lines.map((line) => (
+          <div>
+            <span class="cp-cmd"><span class="cp-prompt">❯</span>{line.cmd}</span>
+            {line.desc && <span class="cp-desc">  # {line.desc}</span>}
+          </div>
+        ))}
+      </div>
+    ))
+  }
+</div>

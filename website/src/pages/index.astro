@@ -1,23 +1,214 @@
 ---
 import Base from "../layouts/Base.astro";
+import Terminal from "../components/Terminal.astro";
+import type { TermLine } from "../components/Terminal.astro";
+import FileTree from "../components/FileTree.astro";
+import type { TreeRow } from "../components/FileTree.astro";
+import CopyCommand from "../components/CopyCommand.astro";
+import CommandTabs from "../components/CommandTabs.astro";
+import type { Tab } from "../components/CommandTabs.astro";
+
+const base = import.meta.env.BASE_URL;
+
+const heroTerminal: TermLine[] = [
+  { type: "cmd", text: "gitflow-cli skills install" },
+  { type: "success", text: "✔ 已安装 26 个 gitflow-* skills（.claude/skills/）" },
+  { type: "cmd", text: "gitflow-cli issue list --output toon" },
+  { type: "out", text: "platform: github · 3 open issues" },
+  { type: "cmd", text: "gitflow-cli --version" },
+  { type: "out", text: "gitflow-cli 0.9.0" },
+  { type: "hl", text: "需求澄清 → 计划制定 → 执行 → 交付检查" },
+];
+
+const heroTree: TreeRow[] = [
+  { text: ".claude/skills/" },
+  { text: "├── gitflow-workflow/", ai: true },
+  { text: "├── gitflow-quality/", ai: true },
+  { text: "├── gitflow-pr-review/" },
+  { text: "├── gitflow-issue-triage/" },
+  { text: "└── … 共 26 个 skills" },
+];
+
+const workflow = [
+  { title: "需求澄清", body: "brainstorming 探索上下文，创建并审查 Issue，产出设计文档。" },
+  { title: "计划制定", body: "writing-plans 生成完整实施计划，质量门禁层层把关。" },
+  { title: "执行", body: "TDD 红绿循环 + 子代理隔离开发，自动创建 PR。" },
+  { title: "交付检查", body: "流水线分析、Issue 分流、代码审查与 dogfooding。" },
+];
+
+const commandTabs: Tab[] = [
+  {
+    label: "issue",
+    lines: [
+      { cmd: "gitflow-cli issue list", desc: "自动检测平台" },
+      { cmd: 'gitflow-cli issue create --title "feat: …"', desc: "创建 Issue" },
+      { cmd: "gitflow-cli issue view 97", desc: "查看详情" },
+    ],
+  },
+  {
+    label: "pr",
+    lines: [
+      { cmd: "gitflow-cli pr create", desc: "创建 PR" },
+      { cmd: "gitflow-cli pr list --state open", desc: "列出 PR" },
+      { cmd: "gitflow-cli pr merge 112", desc: "合并" },
+    ],
+  },
+  {
+    label: "release",
+    lines: [
+      { cmd: "gitflow-cli release create v1.0.0", desc: "创建发布" },
+      { cmd: "gitflow-cli release list", desc: "发布列表" },
+    ],
+  },
+  {
+    label: "review",
+    lines: [
+      { cmd: "gitflow-cli review approve 112", desc: "批准" },
+      { cmd: "gitflow-cli review comment 112", desc: "评论" },
+    ],
+  },
+  {
+    label: "workflow",
+    lines: [
+      { cmd: "/gitflow-workflow", desc: "四阶段全流程编排" },
+      { cmd: "/gitflow-quality", desc: "本地质量门禁" },
+    ],
+  },
+];
+
+const infraBadges = [
+  "Claude Code",
+  "Codex",
+  "Gemini CLI",
+  "Copilot",
+  "OpenCode",
+  "gh",
+  "glab",
+  "gitcode",
+  "Rust 2024",
+  "toon",
+  "MIT",
+];
 ---
 
 <Base title="gitflow-cli — 跨平台 Git 工程化工作流编排框架">
-  <main>
-    <h1>gitflow-cli</h1>
-    <p class="tagline">
-      跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent
-      Skills，覆盖从需求到发布的完整工程循环。
-    </p>
-    <img src={`${import.meta.env.BASE_URL}/demo.svg`} alt="gitflow-cli 演示" class="demo" />
-    <pre class="install"><code>brew tap byx-darwin/gitflow-cli && brew install gitflow-cli
-# 或
-cargo install gitflow-cli</code></pre>
-    <nav class="cta">
-      <a href={`${import.meta.env.BASE_URL}/quickstart/`}>5 分钟快速上手</a>
-      <a href={`${import.meta.env.BASE_URL}/compatibility/`}>兼容性矩阵</a>
-      <a href={`${import.meta.env.BASE_URL}/docs/`}>文档</a>
-      <a href="https://github.com/byx-darwin/gitflow-cli">GitHub</a>
-    </nav>
+  <main class="landing">
+    <!-- Hero：左文案 + 右活终端/目录树 -->
+    <section class="hero-split">
+      <div class="hero-copy">
+        <span class="hero-kicker">AI 编程工程循环编排器</span>
+        <h1 class="hero-title">给 AI 编程，<br /><span class="accent">上工程纪律。</span></h1>
+        <p class="hero-sub">
+          跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent
+          Skills，覆盖从需求到发布的完整工程循环。
+        </p>
+        <CopyCommand command="cargo install gitflow-cli" />
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手</a>
+          <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli">GitHub →</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <Terminal lines={heroTerminal} title="gitflow-cli — workflow" />
+        <FileTree rows={heroTree} />
+      </div>
+    </section>
+
+    <!-- 四阶段工作流横轴 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">一个命令，跑完整个工程循环</h2></div>
+      <ol class="workflow">
+        {
+          workflow.map((step, i) => (
+            <div class="reveal" style={`transition-delay:${i * 90}ms`}>
+              <li class="workflow-step">
+                <span class="workflow-num">{String(i + 1).padStart(2, "0")}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            </div>
+          ))
+        }
+      </ol>
+    </section>
+
+    <!-- 不对称 Bento 特性 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">为什么是 gitflow-cli</h2></div>
+      <div class="bento">
+        <div class="reveal bento-big">
+          <div class="bento-card">
+            <h3>三大平台，一个命令面</h3>
+            <p>
+              统一封装 GitHub、GitLab、GitCode 的平台差异——同一条 <code style="font-family:var(--font-mono);color:var(--gf-teal)">gitflow-cli issue list</code>
+              在三个平台上行为一致。自动检测 git remote，也可 <code style="font-family:var(--font-mono);color:var(--gf-teal)">--platform</code> 手动指定。
+            </p>
+            <div class="badge-row">
+              <span class="bento-badge">GitHub · gh</span>
+              <span class="bento-badge">GitLab · glab</span>
+              <span class="bento-badge">GitCode · gitcode</span>
+            </div>
+          </div>
+        </div>
+        <div class="reveal" style="transition-delay:70ms">
+          <div class="bento-card">
+            <h3>26 个 Skills</h3>
+            <p>从 Issue 创建、PR 审查到 Release 发布的全流程技能矩阵，装进你的 Agent。</p>
+          </div>
+        </div>
+        <div class="reveal" style="transition-delay:140ms">
+          <div class="bento-card">
+            <h3>多 Agent 平台</h3>
+            <p>Claude Code / Codex / Gemini / Copilot / OpenCode，一键安装、自动检测。</p>
+          </div>
+        </div>
+        <div class="reveal" style="transition-delay:210ms">
+          <div class="bento-card">
+            <h3>质量门禁</h3>
+            <p>build → test → coverage → fmt → static → pre-commit，全绿才能交付。</p>
+          </div>
+        </div>
+        <div class="reveal" style="transition-delay:280ms">
+          <div class="bento-card">
+            <h3>toon 输出</h3>
+            <p>面向 Agent 消费的 token 优化输出格式，省 60–90% token。</p>
+          </div>
+        </div>
+        <div class="reveal" style="transition-delay:350ms">
+          <div class="bento-card">
+            <h3>Dogfooding</h3>
+            <p>用 gitflow-cli 开发 gitflow-cli——它自己的工作流就是最好的案例。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Agent 平台 / 底层 CLI 横滚带 -->
+    <section class="section marquee-band" aria-label="支持的 Agent 平台与底层 CLI">
+      <div class="marquee">
+        <div class="marquee-track">
+          {[...infraBadges, ...infraBadges].map((badge) => (
+            <span class="marquee-badge">{badge}</span>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- 命令速览 Tabs -->
+    <section class="section narrow" style="padding-left:24px;padding-right:24px">
+      <div class="reveal"><h2 class="section-heading">命令速览</h2></div>
+      <div class="reveal" style="transition-delay:100ms">
+        <CommandTabs tabs={commandTabs} />
+      </div>
+    </section>
+
+    <!-- 安装 CTA -->
+    <section class="section cta-band">
+      <div class="reveal">
+        <h2 class="cta-heading">现在，给你的 AI 编程加上工程纪律。</h2>
+        <CopyCommand command="brew tap byx-darwin/gitflow-cli && brew install gitflow-cli" />
+        <p class="cta-note">MIT License · Rust 2024 · 支持 GitHub / GitLab / GitCode 三大平台</p>
+      </div>
+    </section>
   </main>
 </Base>
