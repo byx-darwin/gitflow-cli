@@ -10,17 +10,20 @@ const {
   title,
   description = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。",
 } = Astro.props;
+
+const base = import.meta.env.BASE_URL;
 ---
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="no-js">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={Astro.url.href} />
-    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}/favicon.svg`} />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <script is:inline>document.documentElement.classList.remove("no-js");</script>
     <script type="application/ld+json" is:inline>
 {
   "@context": "https://schema.org",
@@ -39,9 +42,85 @@ const {
     </script>
   </head>
   <body>
+    <nav class="nav">
+      <a class="nav-brand" href={`${base}/`}><span class="brand-mark">❯_</span> gitflow-cli</a>
+      <div class="nav-links">
+        <a href={`${base}/docs/`}>文档</a>
+        <a href={`${base}/quickstart/`}>快速上手</a>
+        <a href={`${base}/compatibility/`}>兼容性</a>
+        <a href={`${base}/changelog/`}>更新日志</a>
+        <a class="nav-cta" href="https://github.com/byx-darwin/gitflow-cli">GitHub</a>
+      </div>
+    </nav>
+
     <slot />
-    <footer>
-      <p>gitflow-cli · MIT License · <a href="https://github.com/byx-darwin/gitflow-cli">GitHub</a> · <a href="https://crates.io/crates/gitflow-cli">crates.io</a></p>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <span class="footer-brand"><span style="color:var(--gf-orange)">❯_</span> gitflow-cli</span>
+        <span>MIT License · Rust 2024 · 跨平台 Git 工程化工作流编排框架</span>
+        <div class="footer-links">
+          <a href="https://github.com/byx-darwin/gitflow-cli">GitHub</a>
+          <a href="https://crates.io/crates/gitflow-cli">crates.io</a>
+          <a href={`${base}/llms.txt`}>llms.txt</a>
+        </div>
+      </div>
     </footer>
+
+    <script>
+      // 滚动浮现
+      const revealEls = document.querySelectorAll(".reveal");
+      if ("IntersectionObserver" in window && revealEls.length) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("reveal-in");
+                entry.target.classList.remove("reveal-hidden");
+                io.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.12 },
+        );
+        revealEls.forEach((el) => {
+          el.classList.add("reveal-hidden");
+          io.observe(el);
+        });
+      }
+
+      // 复制命令
+      document.querySelectorAll<HTMLButtonElement>(".copy-command-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const target = btn.getAttribute("data-copy");
+          if (!target) return;
+          try {
+            await navigator.clipboard.writeText(target);
+            const prev = btn.textContent;
+            btn.textContent = "✓";
+            setTimeout(() => {
+              btn.textContent = prev;
+            }, 1400);
+          } catch {
+            /* clipboard unavailable */
+          }
+        });
+      });
+
+      // 命令 Tabs
+      document.querySelectorAll<HTMLElement>(".command-tabs").forEach((group) => {
+        const tabs = group.querySelectorAll<HTMLButtonElement>(".command-tab");
+        const panels = group.querySelectorAll<HTMLElement>(".command-panel");
+        tabs.forEach((tab, i) => {
+          tab.addEventListener("click", () => {
+            tabs.forEach((t) => t.classList.remove("command-tab-active"));
+            panels.forEach((p) => p.classList.remove("command-panel-active"));
+            tab.classList.add("command-tab-active");
+            const panel = panels[i];
+            if (panel) panel.classList.add("command-panel-active");
+          });
+        });
+      });
+    </script>
   </body>
 </html>

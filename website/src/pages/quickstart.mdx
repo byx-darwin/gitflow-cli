@@ -3,6 +3,9 @@ layout: ../layouts/Base.astro
 title: 5 分钟快速上手 — gitflow-cli
 ---
 
+<main class="narrow page">
+  <div class="prose">
+
 # 5 分钟快速上手
 
 ## 1. 安装 gitflow-cli
@@ -20,6 +23,8 @@ gitflow-cli skills install        # 项目级（推荐，跟随仓库）
 gitflow-cli skills install -g     # 全局（所有项目可用）
 ```
 
+不指定 `--agent` 时自动检测目标 Agent 平台（Claude Code / Codex / OpenCode / Gemini / Copilot）。
+
 ## 3. 验证
 
 ```bash
@@ -35,4 +40,9 @@ gitflow-cli --version
 /gitflow-workflow 我要做 X
 ```
 
-即可进入四阶段编排：需求澄清 → 计划制定 → 执行 → 交付后检查。
+即可进入四阶段编排：**需求澄清 → 计划制定 → 执行 → 交付后检查**。
+
+> 平台会基于 git remote 自动检测（GitHub / GitLab / GitCode），也可用 `--platform` 手动指定。
+
+  </div>
+</main>

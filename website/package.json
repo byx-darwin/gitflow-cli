@@ -11,6 +11,10 @@
   "dependencies": {
     "@astrojs/mdx": "^4.0.0",
     "@astrojs/sitemap": "^3.2.0",
-    "astro": "^5.1.0"
+    "@fontsource/chakra-petch": "^5.2.5",
+    "@fontsource/ibm-plex-sans": "^5.2.5",
+    "@fontsource/jetbrains-mono": "^5.2.5",
+    "astro": "^5.1.0",
+    "marked": "^15.0.0"
   }
 }

@@ -1,16 +1,33 @@
 ---
 import Base from "../layouts/Base.astro";
+
+const base = import.meta.env.BASE_URL;
+
+const docs = [
+  { title: "5 分钟快速上手", href: `${base}/quickstart/`, desc: "安装、装 Skills、验证，到跑起第一个四阶段工作流。" },
+  { title: "兼容性矩阵", href: `${base}/compatibility/`, desc: "三大平台底层 CLI 的最低版本、已测试版本与功能覆盖。" },
+  { title: "更新日志", href: `${base}/changelog/`, desc: "gitflow-cli 各版本的变更记录。" },
+  { title: "架构设计", href: "https://github.com/byx-darwin/gitflow-cli/blob/main/docs/architecture.md", desc: "Platform trait 抽象与单向依赖流动。" },
+  { title: "发布工作流", href: "https://github.com/byx-darwin/gitflow-cli/blob/main/docs/release-workflow.md", desc: "make release 的版本推断与发布流程。" },
+  { title: "仓库内 docs/", href: "https://github.com/byx-darwin/gitflow-cli/tree/main/docs", desc: "120+ 篇设计文档、指南与研究报告。" },
+];
 ---
 
 <Base title="文档 — gitflow-cli">
-  <main>
-    <h1>文档</h1>
-    <p>gitflow-cli 的文档与指南。骨架阶段先提供入口，完整文档站随增长期建设。</p>
-    <ul>
-      <li><a href={`${import.meta.env.BASE_URL}/quickstart/`}>5 分钟快速上手</a></li>
-      <li><a href={`${import.meta.env.BASE_URL}/compatibility/`}>兼容性矩阵</a></li>
-      <li><a href={`${import.meta.env.BASE_URL}/changelog/`}>更新日志</a></li>
-      <li><a href="https://github.com/byx-darwin/gitflow-cli/tree/main/docs">仓库内 docs/ 目录</a></li>
-    </ul>
+  <main class="narrow page">
+    <h1 class="page-title">文档</h1>
+    <p class="page-lede">gitflow-cli 的文档与指南。骨架阶段先提供入口，完整文档站随增长期建设。</p>
+    <div class="doc-grid">
+      {
+        docs.map((doc) => (
+          <a class="doc-card" href={doc.href}>
+            <h3>
+              {doc.title} <span class="doc-arrow">→</span>
+            </h3>
+            <p>{doc.desc}</p>
+          </a>
+        ))
+      }
+    </div>
   </main>
 </Base>
