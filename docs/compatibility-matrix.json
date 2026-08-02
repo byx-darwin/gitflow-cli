@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-07-31",
+  "updated_at": "2026-08-02",
   "gitflow_cli_version": "0.9.0",
   "platforms": [
     {
@@ -8,7 +8,7 @@
       "identifier": "github",
       "cli_binary": "gh",
       "min_version": "2.0.0",
-      "tested_versions": ["2.62.0"],
+      "tested_versions": ["2.97.0"],
       "install_url": "https://github.com/cli/cli#installation",
       "doc_link": "https://cli.github.com/manual/",
       "features": {
@@ -27,7 +27,7 @@
       "identifier": "gitlab",
       "cli_binary": "glab",
       "min_version": "1.30.0",
-      "tested_versions": ["1.46.1"],
+      "tested_versions": ["1.111.0"],
       "install_url": "https://gitlab.com/gitlab-org/cli#installation",
       "doc_link": "https://gitlab.com/gitlab-org/cli/-/blob/main/docs/",
       "features": {
