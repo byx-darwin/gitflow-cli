@@ -10,7 +10,7 @@
 | 2 | test | `cargo test --workspace --quiet` | all pass |
 | 3 | coverage | `cargo tarpaulin --workspace 2>&1 \| tail -3` | > `COV_THRESHOLD` (default 80%) |
 | 4 | format | `cargo +nightly fmt -- --check` | exit 0, no diff |
-| 5 | static | `cargo clippy --workspace --all-targets -- -D warnings` | exit 0, no warnings |
+| 5 | static | `cargo clippy --workspace --all-targets --all-features -- -D warnings -W clippy::pedantic` | exit 0, no warnings |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A if no `.pre-commit-config.yaml`) |
 
 ## Tool Installation
@@ -34,10 +34,15 @@ If a tool is missing, **warn the user and recommend install** — do NOT auto-in
 - ❌ Never auto-fix with `cargo clippy --fix` — report only
 - ❌ Never auto-fix with `cargo fmt` (without `--check`) — report only
 
-## Strict Mode (Optional)
+## Makefile-First Rule
 
-Append `-W clippy::pedantic` to Gate 5 for stricter linting:
+If project root contains a `Makefile` with matching targets, prefer `make` commands over direct tool invocations:
 
-```bash
-cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic
-```
+| Gate | Preferred Command | Fallback |
+|------|-------------------|----------|
+| build | `make build` | `cargo build --workspace --quiet` |
+| test | `make test` | `cargo test --workspace --quiet` |
+| format | `make fmt` | `cargo +nightly fmt -- --check` |
+| static | `make clippy` | `cargo clippy --workspace --all-targets --all-features -- -D warnings -W clippy::pedantic` |
+
+Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
