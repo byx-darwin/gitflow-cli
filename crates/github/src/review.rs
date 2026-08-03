@@ -11,8 +11,7 @@ use gitflow_cli_core::{
 };
 use tracing::debug;
 
-use crate::error::parse_gh_error;
-use crate::issue::GitHubUser;
+use crate::{error::parse_gh_error, issue::GitHubUser};
 
 /// GitHub Review 提供者，通过 `gh` CLI 操作。
 ///
@@ -91,7 +90,10 @@ impl ReviewProvider for GitHubReviewProvider {
         if !output.status.success() {
             let gh_err = parse_gh_error(&output.stderr);
             // 检测 "approve your own pull request" 错误
-            if gh_err.user_message.contains("approve your own pull request") {
+            if gh_err
+                .user_message
+                .contains("approve your own pull request")
+            {
                 return Err(CoreError::Platform(
                     "GitHub 不允许批准自己的 PR。可以请求其他维护者审查。".to_string(),
                 ));
@@ -163,7 +165,10 @@ impl ReviewProvider for GitHubReviewProvider {
 
         if !output.status.success() {
             let gh_err = parse_gh_error(&output.stderr);
-            if gh_err.user_message.contains("approve your own pull request") {
+            if gh_err
+                .user_message
+                .contains("approve your own pull request")
+            {
                 return Err(CoreError::Platform(
                     "GitHub 不允许批准自己的 PR。可以请求其他维护者审查。".to_string(),
                 ));
