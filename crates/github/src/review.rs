@@ -12,6 +12,7 @@ use gitflow_cli_core::{
 use tracing::debug;
 
 use crate::error::parse_gh_error;
+use crate::issue::GitHubUser;
 
 /// `gh pr review` 请求的 JSON 字段列表。
 const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
@@ -179,6 +180,46 @@ impl ReviewProvider for GitHubReviewProvider {
     }
 }
 
+/// GitHub API Review 响应结构。
+///
+/// 用于解析 `gh api repos/{owner}/{repo}/pulls/{number}/reviews` 的返回数据。
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct GitHubReviewApiResponse {
+    /// Review 的 numeric ID。
+    pub id: u64,
+    /// Review 的状态（APPROVED, CHANGES_REQUESTED, COMMENTED 等）。
+    pub state: String,
+    /// Review 正文（Markdown，可选）。
+    #[serde(default)]
+    pub body: Option<String>,
+    /// 审查人。
+    pub user: GitHubUser,
+    /// 提交时间（UTC，ISO 8601 格式）。
+    pub submitted_at: String,
+}
+
+impl From<GitHubReviewApiResponse> for ReviewData {
+    fn from(api: GitHubReviewApiResponse) -> Self {
+        Self {
+            id: api.id,
+            state: match api.state.as_str() {
+                "APPROVED" => ReviewState::Approved,
+                "CHANGES_REQUESTED" => ReviewState::ChangesRequested,
+                "COMMENTED" | _ => ReviewState::Commented,
+            },
+            body: api.body,
+            author: gitflow_cli_core::types::UserSummary {
+                login: api.user.login,
+                id: api.user.id.to_string(),
+            },
+            submitted_at: api
+                .submitted_at
+                .parse()
+                .unwrap_or_else(|_| chrono::Utc::now()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -269,5 +310,72 @@ mod tests {
         let original = GitHubReviewProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    #[test]
+    fn test_should_deserialize_github_review_api_response() {
+        let json = r#"{
+            "id": 12345,
+            "state": "APPROVED",
+            "body": "LGTM",
+            "user": {"login": "octocat", "id": 1},
+            "submitted_at": "2026-08-03T10:00:00Z"
+        }"#;
+
+        let response: GitHubReviewApiResponse = serde_json::from_str(json).expect("valid response");
+
+        assert_eq!(response.id, 12345);
+        assert_eq!(response.state, "APPROVED");
+        assert_eq!(response.body, Some("LGTM".to_string()));
+        assert_eq!(response.user.login, "octocat");
+        assert_eq!(response.user.id, 1);
+        assert_eq!(response.submitted_at, "2026-08-03T10:00:00Z");
+    }
+
+    #[test]
+    fn test_should_convert_github_review_api_response_to_review_data() {
+        let api_response = GitHubReviewApiResponse {
+            id: 12345,
+            state: "APPROVED".to_string(),
+            body: Some("LGTM".to_string()),
+            user: GitHubUser {
+                login: "octocat".to_string(),
+                id: 1,
+            },
+            submitted_at: "2026-08-03T10:00:00Z".to_string(),
+        };
+
+        let review_data: ReviewData = api_response.into();
+
+        assert_eq!(review_data.id, 12345);
+        assert_eq!(review_data.state, ReviewState::Approved);
+        assert_eq!(review_data.body, Some("LGTM".to_string()));
+        assert_eq!(review_data.author.login, "octocat");
+        assert_eq!(review_data.author.id, "1");
+    }
+
+    #[test]
+    fn test_should_convert_all_review_states() {
+        let states = vec![
+            ("APPROVED", ReviewState::Approved),
+            ("CHANGES_REQUESTED", ReviewState::ChangesRequested),
+            ("COMMENTED", ReviewState::Commented),
+        ];
+
+        for (state_str, expected_state) in states {
+            let api_response = GitHubReviewApiResponse {
+                id: 1,
+                state: state_str.to_string(),
+                body: None,
+                user: GitHubUser {
+                    login: "test".to_string(),
+                    id: 1,
+                },
+                submitted_at: "2026-08-03T10:00:00Z".to_string(),
+            };
+
+            let review_data: ReviewData = api_response.into();
+            assert_eq!(review_data.state, expected_state);
+        }
     }
 }
