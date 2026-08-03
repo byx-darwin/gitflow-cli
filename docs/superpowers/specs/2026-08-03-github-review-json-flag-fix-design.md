@@ -1,8 +1,8 @@
 # GitHub Review `--json` 标志修复设计文档
 
-**日期**: 2026-08-03  
-**Issue**: #119  
-**优先级**: High  
+**日期**: 2026-08-03
+**Issue**: #119
+**优先级**: High
 **类型**: Bug Fix
 
 ## 问题描述
@@ -100,15 +100,15 @@ impl From<GitHubReviewApiResponse> for ReviewData {
 1. **`comment`** - 发表评论
    - 移除 `--json` 标志
    - 添加 `gh api` 调用获取最新 review
-   
+
 2. **`approve`** - 批准 PR
    - 移除 `--json` 标志
    - 添加 `gh api` 调用获取最新 review
-   
+
 3. **`request_changes`** - 要求修改
    - 移除 `--json` 标志
    - 添加 `gh api` 调用获取最新 review
-   
+
 4. **`submit_review`** - 提交审查（通用方法）
    - 移除 `--json` 标志
    - 添加 `gh api` 调用获取最新 review
@@ -170,9 +170,9 @@ fn test_should_convert_github_review_api_response_to_review_data() {
         },
         submitted_at: "2026-08-03T10:00:00Z".to_string(),
     };
-    
+
     let review_data: ReviewData = api_response.into();
-    
+
     assert_eq!(review_data.id, 12345);
     assert_eq!(review_data.state, ReviewState::Approved);
     assert_eq!(review_data.body, Some("LGTM".to_string()));
@@ -184,11 +184,11 @@ fn test_should_handle_own_pr_approval_error() {
     // 模拟 gh pr review 返回错误
     let mock_runner = MockCommandRunner::new()
         .with_stderr("Review Can not approve your own pull request");
-    
+
     let provider = GitHubReviewProvider::with_runner("owner/repo", mock_runner);
-    
+
     let result = provider.approve(123, Some("LGTM")).await;
-    
+
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("不允许批准自己的 PR"));
 }
@@ -260,5 +260,5 @@ fn test_should_handle_own_pr_approval_error() {
 
 ---
 
-**文档状态**: 待用户审查  
+**文档状态**: 待用户审查
 **下一步**: 用户审查通过后，调用 `writing-plans` 生成实施计划

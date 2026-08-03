@@ -42,9 +42,9 @@ fn test_should_deserialize_github_review_api_response() {
         "user": {"login": "octocat", "id": 1},
         "submitted_at": "2026-08-03T10:00:00Z"
     }"#;
-    
+
     let response: GitHubReviewApiResponse = serde_json::from_str(json).unwrap();
-    
+
     assert_eq!(response.id, 12345);
     assert_eq!(response.state, "APPROVED");
     assert_eq!(response.body, Some("LGTM".to_string()));
@@ -118,9 +118,9 @@ fn test_should_convert_github_review_api_response_to_review_data() {
         },
         submitted_at: "2026-08-03T10:00:00Z".to_string(),
     };
-    
+
     let review_data: ReviewData = api_response.into();
-    
+
     assert_eq!(review_data.id, 12345);
     assert_eq!(review_data.state, ReviewState::Approved);
     assert_eq!(review_data.body, Some("LGTM".to_string()));
@@ -178,7 +178,7 @@ fn test_should_convert_all_review_states() {
         ("CHANGES_REQUESTED", ReviewState::ChangesRequested),
         ("COMMENTED", ReviewState::Commented),
     ];
-    
+
     for (state_str, expected_state) in states {
         let api_response = GitHubReviewApiResponse {
             id: 1,
@@ -190,7 +190,7 @@ fn test_should_convert_all_review_states() {
             },
             submitted_at: "2026-08-03T10:00:00Z".to_string(),
         };
-        
+
         let review_data: ReviewData = api_response.into();
         assert_eq!(review_data.state, expected_state);
     }
@@ -311,10 +311,10 @@ async fn test_should_comment_on_pr_using_gh_api() {
             }]"#,
             ""
         );
-    
+
     let provider = GitHubReviewProvider::with_runner("owner/repo", mock_runner);
     let result = provider.comment(123, "test comment").await.unwrap();
-    
+
     assert_eq!(result.id, 999);
     assert_eq!(result.state, ReviewState::Commented);
     assert_eq!(result.body, Some("test comment".to_string()));
@@ -441,10 +441,10 @@ async fn test_should_approve_pr_using_gh_api() {
             }]"#,
             ""
         );
-    
+
     let provider = GitHubReviewProvider::with_runner("owner/repo", mock_runner);
     let result = provider.approve(123, Some("LGTM")).await.unwrap();
-    
+
     assert_eq!(result.id, 1000);
     assert_eq!(result.state, ReviewState::Approved);
     assert_eq!(result.body, Some("LGTM".to_string()));
@@ -466,10 +466,10 @@ cargo test --package gitflow-cli-github test_should_approve_pr_using_gh_api
 async fn test_should_handle_own_pr_approval_error() {
     let mock_runner = MockCommandRunner::new()
         .with_failure("Review Can not approve your own pull request", "");
-    
+
     let provider = GitHubReviewProvider::with_runner("owner/repo", mock_runner);
     let result = provider.approve(123, Some("LGTM")).await;
-    
+
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("不允许批准自己的 PR") || err_msg.contains("approve your own pull request"));
@@ -603,10 +603,10 @@ async fn test_should_request_changes_using_gh_api() {
             }]"#,
             ""
         );
-    
+
     let provider = GitHubReviewProvider::with_runner("owner/repo", mock_runner);
     let result = provider.request_changes(123, "Please fix this").await.unwrap();
-    
+
     assert_eq!(result.id, 1001);
     assert_eq!(result.state, ReviewState::ChangesRequested);
     assert_eq!(result.body, Some("Please fix this".to_string()));
@@ -726,13 +726,13 @@ async fn test_should_submit_review_using_gh_api() {
             }]"#,
             ""
         );
-    
+
     let provider = GitHubReviewProvider::with_runner("owner/repo", mock_runner);
     let result = provider
         .submit_review(123, ReviewState::Approved, Some("Looks good"))
         .await
         .unwrap();
-    
+
     assert_eq!(result.id, 1002);
     assert_eq!(result.state, ReviewState::Approved);
 }
@@ -957,7 +957,7 @@ gh pr create --title "fix(github): remove unsupported --json flag from review co
 
 ## Summary
 
-Fix all 4 review methods (comment, approve, request_changes, submit_review) 
+Fix all 4 review methods (comment, approve, request_changes, submit_review)
 that were failing with 'gh: unknown flag: --json' error.
 
 ## Changes
@@ -990,5 +990,5 @@ Refs #119"
 
 ---
 
-**计划状态**: 待执行  
+**计划状态**: 待执行
 **下一步**: 使用 superpowers:subagent-driven-development 或 superpowers:executing-plans 执行此计划
