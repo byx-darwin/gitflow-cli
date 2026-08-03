@@ -224,7 +224,7 @@ impl GitHubReviewProvider {
 pub struct GitHubReviewApiResponse {
     /// Review 的 numeric ID。
     pub id: u64,
-    /// Review 的状态（APPROVED, CHANGES_REQUESTED, COMMENTED 等）。
+    /// Review 的状态（`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED` 等）。
     pub state: String,
     /// Review 正文（Markdown，可选）。
     #[serde(default)]
