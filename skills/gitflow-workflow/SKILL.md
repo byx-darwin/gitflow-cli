@@ -29,7 +29,7 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
    - Incomplete workflow exists (`status != "complete"`) → **RESUME** it: read `current_phase`, load context, continue from next step
    - Multiple exist → ask user which to resume
    - None exist → proceed to step 2
-2. Run mode auto-detection (full / fast)
+2. Run mode auto-detection (full / standard / fast)
 3. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`)
 4. Announce the workflow start with: workflow_id, mode, title
 
@@ -58,6 +58,57 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 | **Single Active Orchestrator** | Only this workflow's state machine drives the conversation. No other skill may claim orchestration while a contract is active. |
 | **Evidence Before Gate** | A gate check MAY NOT pass until all required evidence fields are populated. |
 | **No Implicit Completion** | A Phase is complete ONLY when the orchestrator sets `status = "complete"` in the contract. Sub-skill completion ≠ Phase completion. |
+
+## Smart Subagent Batching
+
+### Complexity Scoring
+
+```python
+def classify_task_complexity(task):
+    score = 0
+    score += len(task.files_changed) * 1
+    score += 3 if task.crosses_module_boundary else 0
+    score += 2 if task.changes_public_api else 0
+    score += 1 if task.requires_migration else 0
+
+    if score <= 2:
+        return "simple"    # batch
+    elif score <= 6:
+        return "medium"    # independent subagent
+    else:
+        return "complex"   # independent subagent + extra review
+```
+
+### Execution by Complexity
+
+| Complexity | Method | Description |
+|-----------|--------|-------------|
+| Simple (score ≤ 2) | Batch in main agent | Implement all tasks in main agent, single review pass |
+| Medium (score 3-6) | Independent subagent | One subagent per task + TDD + review |
+| Complex (score > 6) | Independent subagent + extra review | One subagent per task + TDD + review + extra scrutiny |
+
+### Batch Execution Flow (Simple Tasks)
+
+```
+Phase A: Batch Implement (main agent)
+  ├── task_1: RED → GREEN
+  ├── task_2: RED → GREEN
+  └── task_3: RED → GREEN
+
+Phase B: Batch Review (single subagent reviews all changes)
+
+Phase C: Fix (if needed, main agent addresses findings)
+```
+
+### Mode-Batch Defaults
+
+| Mode | Default Behavior |
+|------|------------------|
+| fast | Lean toward batch (changes usually simple) |
+| standard | Score-based decision |
+| full | Lean toward independent subagent (changes usually complex) |
+
+User can override batching strategy during plan phase.
 
 ## Red Flags — STOP and Reassert Control
 
@@ -93,16 +144,41 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 
 **When NOT to Use:** quick fix → `gitflow-commit` · PR review → `gitflow-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
 
-**Mode auto-detection:** "fix"/"typo"/"hotfix" → `fast` · "new feature"/"architecture"/"refactor" → `full` · `good-first-issue` label → `fast` · unclear → **ask user**.
+**Mode auto-detection:** "fix"/"typo"/"hotfix"/"docs"/"chore" → `fast` · "refactor: small"/"fix: bug" → `standard` · "feat"/"refactor: large"/breaking → `full` · `good-first-issue` label → `fast` · unclear → `standard` (default). User can override with `--mode <mode>`.
 
 ## Mode Comparison
 
-| Phase | Full Mode | Fast Mode |
-|-------|-----------|-----------|
-| 1 | brainstorming + issue-create + issue-review | issue-create (required), brainstorming (optional) |
-| 2 | writing-plans + quality gate | **skippable** |
-| 3 | subagent-driven-development (TDD + Code Review) | **required** |
-| 4 | pipeline + triage + review + dogfooding | **required** |
+| Phase | Full Mode | Standard Mode | Fast Mode |
+|-------|-----------|---------------|-----------|
+| 1 | brainstorming + issue-create + issue-review | brainstorming + issue-create + issue-review | issue-create (required), brainstorming (optional) |
+| 2 | writing-plans + quality gate | writing-plans + quality gate | **skippable** |
+| 3 | subagent-driven-development (TDD + Code Review) | subagent-driven-development (TDD + Code Review) | **required** |
+| 4 | pipeline + triage + review + dogfooding | pipeline + review | pipeline + branch-finish |
+
+## Mode Auto-Detection
+
+Detection priority (highest to lowest):
+
+1. **User explicit override** → `--mode fast` / `--mode standard` / `--mode full`
+2. **Issue labels** → `good-first-issue` / `kind/typo` → fast; `kind/feature` → full
+3. **Issue title prefix** → conventional commit format:
+   - `fix: typo`, `docs:`, `chore:`, `hotfix` → **fast**
+   - `fix:`, `refactor:`, `perf:` (single file/module) → **standard**
+   - `feat:`, `refactor:` (cross-module), `!` (breaking change) → **full**
+4. **Default** → **standard** (balanced safety vs efficiency)
+
+### Confirmation Flow
+
+```
+检测到 `refactor(skills)` 前缀 → 建议 standard 模式
+自动检测结果：standard
+是否确认？[Y/n/override]
+```
+
+User input:
+- `Y` / Enter → accept suggested mode
+- `n` → enter mode selection menu (fast/standard/full)
+- `fast` / `standard` / `full` → direct override
 
 ## Fast Mode — Required Skills Checklist
 
@@ -115,6 +191,18 @@ In fast mode, the following skills are invoked per phase:
 **Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
 
 **Phase 4:** `gitflow-pipeline-analyzer` → `gitflow-issue-triage` → `gitflow-review` → dogfooding checklist (all required)
+
+## Standard Mode — Required Skills Checklist
+
+In standard mode, the following skills are invoked per phase:
+
+**Phase 1:** `superpowers:brainstorming` (required), `gitflow-issue-create` (required), `gitflow-issue-review` (required)
+
+**Phase 2:** `superpowers:writing-plans` (required) + `gitflow-quality` gate (required)
+
+**Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
+
+**Phase 4:** `gitflow-pipeline-analyzer` → `gitflow-review` → Branch Finish (all required)
 
 ## State Machine
 
@@ -193,14 +281,30 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 **Entry:** Gate 3→4 passed · **Exit:** `phases.4.status = complete` · **Auto-advance:** archive on complete
 
+### Phase 4 Step Matrix by Mode
+
+| # | Step | Full | Standard | Fast |
+|---|------|------|----------|------|
+| 1 | Pipeline analysis | ✅ | ✅ | ✅ |
+| 2 | Issue triage | ✅ | ❌ | ❌ |
+| 3 | Code review report | ✅ | ✅ | ❌ |
+| 4 | Dogfooding checklist | ✅ | ❌ | ❌ |
+| 5 | Branch Finish | ✅ | ✅ | ✅ |
+
+### Execution Flow by Mode
+
+- **Full:** Pipeline → Triage → Review → Dogfooding → Branch Finish → Archive
+- **Standard:** Pipeline → Review → Branch Finish → Archive
+- **Fast:** Pipeline → Branch Finish → Archive
+
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gitflow-pipeline-analyzer` — generates pipeline analysis report | `pipeline_ok` |
-| 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report | — |
-| 3 | **[AUTO]** `gitflow-review` — creates code review report | `review_report_path` |
-| 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) | `dogfooding_passed` |
-| 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (see below) | `branch_cleaned` |
-| 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned }` | — |
+| 1 | **[AUTO]** `gitflow-pipeline-analyzer` — generates pipeline analysis report (all modes) | `pipeline_ok` |
+| 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report (full mode only) | — |
+| 3 | **[AUTO]** `gitflow-review` — creates code review report (full + standard modes) | `review_report_path` |
+| 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) (full mode only) | `dogfooding_passed` |
+| 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
+| 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` | — |
 | 7 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
 
 ### Phase 4 Step 5: Branch Finish
