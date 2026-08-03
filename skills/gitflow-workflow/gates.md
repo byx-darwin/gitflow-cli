@@ -16,6 +16,8 @@
 - `comment_id` 可省略（issue-review 可选）
 - `design_doc_path` 可省略（brainstorming 可选）
 
+**standard 模式:** 无豁免（与 full 模式相同）
+
 **失败处理:** 阻止进入 Phase 2，返回 Phase 1 执行
 
 **自动流转:** Gate 1→2 通过后，**自动进入 Phase 2**（无需用户确认）
@@ -28,6 +30,8 @@
 - `phases.2.evidence.user_approved` 为 `true`
 
 **fast 模式豁免:** `spec_path` 和 `user_approved` 可省略（writing-plans 可选）
+
+**standard 模式:** 无豁免（与 full 模式相同，writing-plans 必选）
 
 **失败处理:** 阻止进入 Phase 3，返回 Phase 2 修改计划
 
@@ -53,29 +57,53 @@
 
 ```python
 def check_gate(contract, target_phase):
+    mode = contract["mode"]
+
     if target_phase == 2:
         evidence = contract["phases"]["1"]["evidence"]
-        if contract["mode"] == "fast":
+        if mode == "fast":
             # fast 模式豁免 comment_id 和 design_doc_path
             return contract["phases"]["1"]["status"] == "complete" \
                    and evidence.get("issue_url")
+        # standard 和 full: 所有证据必须
         return contract["phases"]["1"]["status"] == "complete" \
                and evidence.get("issue_url") \
                and evidence.get("comment_id") \
                and evidence.get("design_doc_path")
+
     elif target_phase == 3:
-        if contract["mode"] == "fast":
+        if mode == "fast":
             return True  # fast 模式跳过计划
+        # standard 和 full: spec + 批准必须
         evidence = contract["phases"]["2"]["evidence"]
         return contract["phases"]["2"]["status"] == "complete" \
                and evidence.get("spec_path") \
                and evidence.get("user_approved")
+
     elif target_phase == 4:
         evidence = contract["phases"]["3"]["evidence"]
         return contract["phases"]["3"]["status"] == "complete" \
                and evidence.get("pr_url") \
                and evidence.get("tests_passed")
+
     return False
+```
+
+### Phase 4 步骤选择
+
+```python
+def get_phase4_steps(mode):
+    """根据模式返回需要执行的 Phase 4 步骤列表。"""
+    steps = ["pipeline", "branch_finish"]  # 所有模式必选
+
+    if mode in ("full", "standard"):
+        steps.insert(1, "review")
+
+    if mode == "full":
+        steps.insert(1, "triage")
+        steps.insert(3, "dogfooding")
+
+    return steps
 ```
 
 ## 自动流转规则
