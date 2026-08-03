@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use gitflow_cli_core::{
     CoreError, Result,
     issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
-    types::{CommentData, State},
+    types::{CommentData, Label, State, UserSummary},
 };
 use tracing::debug;
 
@@ -262,57 +262,82 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
 
     /// 关闭指定编号的 Issue。
     ///
-    /// 调用 `gh issue close <number> --repo <repo>` 关闭 Issue，
-    /// 并返回更新后的完整 Issue 数据。
+    /// 通过单次 `gh api repos/{owner}/{repo}/issues/{number} -X PATCH -f state=closed`
+    /// 调用更新状态，并直接解析 REST 响应获得更新后的完整 Issue 数据。
+    /// 该调用幂等：对已关闭的 Issue 再次关闭将成功返回其当前数据。
+    ///
+    /// # 设计说明（issue #117）
+    ///
+    /// 早期实现先调用 `gh issue close`，再用 `gh issue view --json` 重新获取详情。
+    /// 该双调用设计有两个缺陷：
+    ///
+    /// 1. `--json` 输出来自 `gh` 的 GraphQL 导出层，字段形状随 `gh` 版本漂移 （如 gh 2.94+ 的 bot
+    ///    author 省略 `id`），导致反序列化失败；
+    /// 2. 关闭操作已经成功时，二次获取的解析失败仍被误报为"关闭失败"。
+    ///
+    /// 改为单次 REST 调用后，变更与数据在同一响应中返回，两个缺陷同时消除。
+    /// REST 响应形状是 GitHub API 的稳定契约，bot 用户同样携带数字 `id`。
     ///
     /// # Errors
     ///
-    /// 当 Issue 不存在、已关闭或 `gh` CLI 调用失败时返回错误。
+    /// 当 Issue 不存在、`gh` CLI 调用失败或响应解析失败时返回错误。
     async fn close(&self, number: u64) -> Result<IssueData> {
-        debug!(repo = %self.repo, number, "spawning `gh issue close`");
+        debug!(repo = %self.repo, number, "spawning `gh api issues PATCH state=closed`");
 
-        let number_str = number.to_string();
-        let output = self
-            .runner
-            .run("gh", &["issue", "close", &number_str, "--repo", &self.repo])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
-
-        // Fetch updated issue details
-        self.view(number).await
-    }
-
-    /// 重新打开指定编号的 Issue。
-    ///
-    /// 调用 `gh issue reopen <number> --repo <repo>` 重新打开已关闭的 Issue，
-    /// 并返回更新后的完整 Issue 数据。
-    ///
-    /// # Errors
-    ///
-    /// 当 Issue 不存在、未关闭或 `gh` CLI 调用失败时返回错误。
-    async fn reopen(&self, number: u64) -> Result<IssueData> {
-        debug!(repo = %self.repo, number, "spawning `gh issue reopen`");
-
-        let number_str = number.to_string();
+        let api_path = format!("repos/{repo}/issues/{number}", repo = self.repo);
         let output = self
             .runner
             .run(
                 "gh",
-                &["issue", "reopen", &number_str, "--repo", &self.repo],
+                &["api", &api_path, "-X", "PATCH", "-f", "state=closed"],
             )
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api issue close: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_gh_error(&output.stderr).into());
         }
 
-        // Fetch updated issue details
-        self.view(number).await
+        let api_response: GitHubIssueApiResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(api_response.into())
+    }
+
+    /// 重新打开指定编号的 Issue。
+    ///
+    /// 通过单次 `gh api repos/{owner}/{repo}/issues/{number} -X PATCH -f state=open`
+    /// 调用更新状态，并直接解析 REST 响应获得更新后的完整 Issue 数据。
+    /// 该调用幂等：对未关闭的 Issue 再次打开将成功返回其当前数据。
+    ///
+    /// # 设计说明（issue #117）
+    ///
+    /// 与 [`close`](Self::close) 相同，改为单次 REST 调用以消除双调用的
+    /// 反序列化漂移与误报失败问题。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在、`gh` CLI 调用失败或响应解析失败时返回错误。
+    async fn reopen(&self, number: u64) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `gh api issues PATCH state=open`");
+
+        let api_path = format!("repos/{repo}/issues/{number}", repo = self.repo);
+        let output = self
+            .runner
+            .run("gh", &["api", &api_path, "-X", "PATCH", "-f", "state=open"])
+            .await
+            .map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gh api issue reopen: {e}"))
+            })?;
+
+        if !output.status.success() {
+            return Err(parse_gh_error(&output.stderr).into());
+        }
+
+        let api_response: GitHubIssueApiResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(api_response.into())
     }
 
     /// 在指定 Issue 上添加评论。
@@ -498,6 +523,43 @@ pub struct GitHubCommentApiResponse {
     pub created_at: String,
 }
 
+/// GitHub API 标签响应结构（REST 形状）。
+///
+/// 用于解析 `gh api` 返回的 Issue 对象中的标签。REST 标签的 `description`
+/// 在无描述时为 `null`，`color` 为不带 `#` 前缀的十六进制字符串。
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct GitHubLabelApiResponse {
+    pub name: String,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// GitHub API Issue 响应结构（REST 形状）。
+///
+/// 用于解析 `gh api repos/{owner}/{repo}/issues/{number} -X PATCH` 的返回数据。
+///
+/// 与 `gh issue view --json` 的 GraphQL 导出格式不同，REST 形状是 GitHub API
+/// 的稳定契约，不随 `gh` CLI 版本漂移：bot 用户同样携带数字 `id`，
+/// 也不存在 GraphQL 导出层新增/省略字段的问题（issue #117）。
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct GitHubIssueApiResponse {
+    pub number: u64,
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    pub state: State,
+    #[serde(default)]
+    pub labels: Vec<GitHubLabelApiResponse>,
+    pub user: GitHubUser,
+    #[serde(default)]
+    pub assignees: Vec<GitHubUser>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub html_url: String,
+}
+
 /// GitHub API 用户结构。
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct GitHubUser {
@@ -514,12 +576,55 @@ impl From<GitHubCommentApiResponse> for CommentData {
                 login: api.user.login,
                 id: api.user.id.to_string(),
             },
-            created_at: api.created_at.parse().unwrap_or_else(|_| {
-                tracing::warn!(created_at = %api.created_at, "Failed to parse comment created_at, using epoch");
-                chrono::DateTime::UNIX_EPOCH
-            }),
+            created_at: parse_api_datetime(&api.created_at),
         }
     }
+}
+
+impl From<GitHubLabelApiResponse> for Label {
+    fn from(api: GitHubLabelApiResponse) -> Self {
+        Self {
+            name: api.name,
+            color: api.color,
+            description: api.description,
+        }
+    }
+}
+
+impl From<GitHubUser> for UserSummary {
+    fn from(user: GitHubUser) -> Self {
+        Self {
+            login: user.login,
+            id: user.id.to_string(),
+        }
+    }
+}
+
+impl From<GitHubIssueApiResponse> for IssueData {
+    fn from(api: GitHubIssueApiResponse) -> Self {
+        Self {
+            number: api.number,
+            title: api.title,
+            body: api.body,
+            state: api.state,
+            labels: api.labels.into_iter().map(Label::from).collect(),
+            author: api.user.into(),
+            assignees: api.assignees.into_iter().map(UserSummary::from).collect(),
+            created_at: parse_api_datetime(&api.created_at),
+            updated_at: parse_api_datetime(&api.updated_at),
+            url: api.html_url,
+        }
+    }
+}
+
+/// 解析 GitHub REST API 的 RFC 3339 时间戳。
+///
+/// 格式非法时记录警告并回退到 Unix 纪元，避免时间戳异常阻断主流程。
+fn parse_api_datetime(value: &str) -> chrono::DateTime<chrono::Utc> {
+    value.parse().unwrap_or_else(|_| {
+        tracing::warn!(value, "Failed to parse GitHub API timestamp, using epoch");
+        chrono::DateTime::UNIX_EPOCH
+    })
 }
 
 /// Parse issue number from GitHub URL.
@@ -766,6 +871,46 @@ mod tests {
         assert_eq!(comment_data.created_at, chrono::DateTime::UNIX_EPOCH);
     }
 
+    // --- GitHubIssueApiResponse conversion tests ---
+
+    fn sample_rest_issue_response() -> GitHubIssueApiResponse {
+        serde_json::from_str(REST_CLOSED_ISSUE_JSON).expect("fixture must deserialize")
+    }
+
+    #[test]
+    fn test_should_convert_rest_issue_response_to_issue_data() {
+        let issue: IssueData = sample_rest_issue_response().into();
+
+        assert_eq!(issue.number, 107);
+        assert_eq!(issue.title, "upstream CLI 新版本: glab 1.111.0");
+        assert_eq!(issue.body, None);
+        assert_eq!(issue.state, State::Closed);
+        assert_eq!(issue.author.login, "github-actions[bot]");
+        assert_eq!(issue.author.id, "41898282");
+        assert_eq!(issue.labels.len(), 1);
+        assert_eq!(issue.labels[0].name, "upstream-drift");
+        assert_eq!(
+            issue.labels[0].color.as_deref(),
+            Some("ededed"),
+            "REST label colors must keep the API-provided hex value"
+        );
+        assert_eq!(issue.labels[0].description, None);
+        assert!(issue.assignees.is_empty());
+        assert_eq!(issue.url, "https://github.com/o/r/issues/107");
+    }
+
+    #[test]
+    fn test_should_fall_back_to_epoch_for_invalid_rest_issue_dates() {
+        let mut api_response = sample_rest_issue_response();
+        api_response.created_at = "invalid-date".to_string();
+        api_response.updated_at = "also-invalid".to_string();
+
+        let issue: IssueData = api_response.into();
+
+        assert_eq!(issue.created_at, chrono::DateTime::UNIX_EPOCH);
+        assert_eq!(issue.updated_at, chrono::DateTime::UNIX_EPOCH);
+    }
+
     // --- add_labels / remove_label: unit tests for provider ---
 
     #[test]
@@ -931,7 +1076,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_return_serialization_error_on_invalid_json_for_close() {
-        // `close` succeeds, then `view` fails to deserialize the non-JSON stdout.
+        // The single `gh api PATCH` call succeeds but its stdout is not JSON.
         let runner = MockCommandRunner::success("invalid");
         let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
 
@@ -942,6 +1087,101 @@ mod tests {
             result.unwrap_err(),
             gitflow_cli_core::CoreError::Serialization(_)
         ));
+    }
+
+    /// 模拟 `gh api repos/{owner}/{repo}/issues/{number} -X PATCH -f state=closed`
+    /// 返回的 GitHub REST issue 对象（bot user、null body、含 null description 的 label）。
+    const REST_CLOSED_ISSUE_JSON: &str = r#"{
+        "id": 5123456789,
+        "node_id": "I_kwDOXYZ",
+        "number": 107,
+        "title": "upstream CLI 新版本: glab 1.111.0",
+        "body": null,
+        "state": "closed",
+        "labels": [
+            {
+                "id": 7301464236,
+                "node_id": "LA_kwDOXYZ",
+                "url": "https://api.github.com/repos/o/r/labels/upstream-drift",
+                "name": "upstream-drift",
+                "color": "ededed",
+                "description": null,
+                "default": false
+            }
+        ],
+        "user": {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"},
+        "assignees": [],
+        "created_at": "2026-07-31T02:00:00Z",
+        "updated_at": "2026-08-03T09:31:29Z",
+        "closed_at": "2026-08-03T09:31:29Z",
+        "html_url": "https://github.com/o/r/issues/107"
+    }"#;
+
+    const REST_OPEN_ISSUE_JSON: &str = r#"{
+        "id": 5123456790,
+        "node_id": "I_kwDOXYZ2",
+        "number": 108,
+        "title": "upstream CLI 新版本: gitcode 0.8.0",
+        "body": "patrol report",
+        "state": "open",
+        "labels": [],
+        "user": {"login": "github-actions[bot]", "id": 41898282, "type": "Bot"},
+        "assignees": [{"login": "octocat", "id": 583231}],
+        "created_at": "2026-07-31T02:00:00Z",
+        "updated_at": "2026-08-03T06:20:18Z",
+        "closed_at": null,
+        "html_url": "https://github.com/o/r/issues/108"
+    }"#;
+
+    // --- close/reopen: single-call PATCH redesign (issue #117) ---
+    //
+    // The old flow ran `gh issue close` and then re-fetched via `gh issue view`;
+    // a parse failure on the re-fetch misreported an already-successful close as
+    // a failure. The new flow performs ONE `gh api PATCH` call whose response is
+    // the authoritative REST issue object — mutation and data in one round trip.
+
+    #[tokio::test]
+    async fn test_should_close_issue_via_single_api_patch_call() {
+        // Exactly one response: if `close` makes a second call (the old
+        // `gh issue view` re-fetch), the sequenced runner errors out.
+        let runner = SequencedMockCommandRunner::from_results(&[(true, REST_CLOSED_ISSUE_JSON)]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let issue = provider
+            .close(107)
+            .await
+            .expect("close must succeed with a single PATCH call");
+
+        assert_eq!(issue.number, 107);
+        assert_eq!(issue.state, State::Closed);
+        assert_eq!(issue.title, "upstream CLI 新版本: glab 1.111.0");
+        assert_eq!(issue.body, None);
+        assert_eq!(issue.author.login, "github-actions[bot]");
+        assert_eq!(issue.author.id, "41898282");
+        assert_eq!(issue.labels.len(), 1);
+        assert_eq!(issue.labels[0].name, "upstream-drift");
+        assert_eq!(issue.labels[0].description, None);
+        assert_eq!(issue.url, "https://github.com/o/r/issues/107");
+        assert_eq!(issue.updated_at.to_rfc3339(), "2026-08-03T09:31:29+00:00");
+    }
+
+    #[tokio::test]
+    async fn test_should_reopen_issue_via_single_api_patch_call() {
+        let runner = SequencedMockCommandRunner::from_results(&[(true, REST_OPEN_ISSUE_JSON)]);
+        let provider = GitHubIssueProvider::with_runner("o/r", runner);
+
+        let issue = provider
+            .reopen(108)
+            .await
+            .expect("reopen must succeed with a single PATCH call");
+
+        assert_eq!(issue.number, 108);
+        assert_eq!(issue.state, State::Open);
+        assert_eq!(issue.body.as_deref(), Some("patrol report"));
+        assert_eq!(issue.assignees.len(), 1);
+        assert_eq!(issue.assignees[0].login, "octocat");
+        assert_eq!(issue.assignees[0].id, "583231");
+        assert_eq!(issue.url, "https://github.com/o/r/issues/108");
     }
 
     #[tokio::test]
@@ -960,7 +1200,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_return_serialization_error_on_invalid_json_for_reopen() {
-        // `reopen` succeeds, then `view` fails to deserialize the non-JSON stdout.
+        // The single `gh api PATCH` call succeeds but its stdout is not JSON.
         let runner = MockCommandRunner::success("invalid");
         let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
 
@@ -1322,5 +1562,57 @@ mod contract_tests {
         assert!(!issue.title.is_empty());
         assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
         assert_eq!(issue.author.login, "test-user");
+    }
+
+    /// 契约测试：验证 gh v2.97 混合 author 形状（bot 无 `id` + human 新增 `name`）可反序列化。
+    ///
+    /// gh 2.97.0 对 bot author 返回 `{"is_bot": true, "login": "app/github-actions"}`
+    /// （无 `id`），对 human author 返回
+    /// `{"id": "...", "is_bot": false, "login": "...", "name": "..."}`（新增 `name` 字段）。
+    /// `UserSummary::id` 的 `#[serde(default)]` 兜底 bot 缺 `id`，`name` 作为未知字段被忽略。
+    /// 夹具为 2026-08-03 从 gh 2.97.0 真实捕获（issue #108/#117）并截断 body。
+    /// 守护 issue #117：修复前该形状触发 `missing field 'id'` 反序列化错误。
+    #[tokio::test]
+    async fn test_contract_issue_list_github_v297_mixed_authors() {
+        let fixture = include_str!("../tests/fixtures/issue_list_github_v297_mixed_authors.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let issues = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("gh v2.97 mixed-author fixture must parse");
+
+        assert_eq!(issues.len(), 2);
+        // bot-authored issue: id omitted by gh → defaults to empty string
+        assert_eq!(issues[0].number, 108);
+        assert_eq!(issues[0].author.login, "app/github-actions");
+        assert_eq!(issues[0].author.id, "");
+        // human-authored issue: id present, extra `name` field ignored
+        assert_eq!(issues[1].number, 117);
+        assert_eq!(issues[1].author.login, "byx-darwin");
+        assert!(!issues[1].author.id.is_empty());
+    }
+
+    /// 契约测试：验证 gh v2.97 `issue view` 对 bot-authored issue 的输出可反序列化。
+    ///
+    /// 夹具为 2026-08-03 从 gh 2.97.0 真实捕获（issue #108，author 为
+    /// `app/github-actions`）并截断 body。守护 issue #117 的 `close`/`view`
+    /// 路径：bot-authored issue 的 author 对象缺少 `id` 字段。
+    #[tokio::test]
+    async fn test_contract_issue_view_github_v297_bot_author() {
+        let fixture = include_str!("../tests/fixtures/issue_view_github_v297_bot_author.json");
+        let runner = MockCommandRunner::success(fixture);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let issue = provider
+            .view(108)
+            .await
+            .expect("gh v2.97 bot-author view fixture must parse");
+
+        assert_eq!(issue.number, 108);
+        assert_eq!(issue.author.login, "app/github-actions");
+        assert_eq!(issue.author.id, "");
+        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
     }
 }

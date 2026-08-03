@@ -1,0 +1,40 @@
+{
+  "assignees": [],
+  "author": {
+    "is_bot": true,
+    "login": "app/github-actions"
+  },
+  "body": "巡检发现 gitcode 发布了新版本。\n\n- **最新版本**: 0.8.0\n- **兼容性矩阵 tested_versions 上限**: 0.6.1\n- **矩阵文件**: `docs/compatibility-matrix.json`\n\n## 建议动作\n\n1. 本地安装 gitcode 0.8.0,运行 `make smoke-test` 与契约测试验证\n2. 若验证通过,更新 `doc…",
+  "createdAt": "2026-07-31T11:21:16Z",
+  "labels": [
+    {
+      "id": "LA_kwDOTKUPJ88AAAACrCKmLQ",
+      "name": "type:enhancement",
+      "description": "Enhancement",
+      "color": "a2eeef"
+    },
+    {
+      "id": "LA_kwDOTKUPJ88AAAACrCKnAQ",
+      "name": "priority:medium",
+      "description": "Medium priority",
+      "color": "0e8a16"
+    },
+    {
+      "id": "LA_kwDOTKUPJ88AAAACrCKnZw",
+      "name": "triage:done",
+      "description": "Triage completed",
+      "color": "006b75"
+    },
+    {
+      "id": "LA_kwDOTKUPJ88AAAACuHOBDg",
+      "name": "upstream-drift",
+      "description": "",
+      "color": "FBCA04"
+    }
+  ],
+  "number": 108,
+  "state": "OPEN",
+  "title": "upstream CLI 新版本: gitcode 0.8.0",
+  "updatedAt": "2026-08-03T06:20:20Z",
+  "url": "https://github.com/byx-darwin/gitflow-cli/issues/108"
+}
