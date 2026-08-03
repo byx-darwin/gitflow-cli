@@ -14,9 +14,6 @@ use tracing::debug;
 use crate::error::parse_gh_error;
 use crate::issue::GitHubUser;
 
-/// `gh pr review` 请求的 JSON 字段列表。
-const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
-
 /// GitHub Review 提供者，通过 `gh` CLI 操作。
 ///
 /// 该结构体通过调用 `gh` CLI 实现 [`ReviewProvider`] trait 的所有方法，
@@ -50,16 +47,16 @@ impl ReviewProvider for GitHubReviewProvider {
     async fn comment(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, "spawning `gh pr review --comment`");
 
+        // 1. 执行 gh pr review --comment（不返回 JSON）
+        let number_str = pr_number.to_string();
         let output = tokio::process::Command::new("gh")
             .args(["pr", "review"])
-            .arg(pr_number.to_string())
+            .arg(&number_str)
             .arg("--comment")
             .arg("--body")
             .arg(body)
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(REVIEW_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -68,10 +65,8 @@ impl ReviewProvider for GitHubReviewProvider {
             return Err(parse_gh_error(&output.stderr).into());
         }
 
-        let review: ReviewData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(review)
+        // 2. 使用 gh api 获取该 PR 的最新 review
+        self.fetch_latest_review(pr_number).await
     }
 
     async fn approve(&self, pr_number: u64, body: Option<&str>) -> Result<ReviewData> {
@@ -82,9 +77,7 @@ impl ReviewProvider for GitHubReviewProvider {
             .arg(pr_number.to_string())
             .arg("--approve")
             .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(REVIEW_FIELDS);
+            .arg(&self.repo);
 
         if let Some(b) = body {
             cmd.arg("--body").arg(b);
@@ -96,13 +89,18 @@ impl ReviewProvider for GitHubReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
+            let gh_err = parse_gh_error(&output.stderr);
+            // 检测 "approve your own pull request" 错误
+            if gh_err.user_message.contains("approve your own pull request") {
+                return Err(CoreError::Platform(
+                    "GitHub 不允许批准自己的 PR。可以请求其他维护者审查。".to_string(),
+                ));
+            }
+            return Err(gh_err.into());
         }
 
-        let review: ReviewData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(review)
+        // 使用 gh api 获取该 PR 的最新 review
+        self.fetch_latest_review(pr_number).await
     }
 
     async fn request_changes(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
@@ -116,8 +114,6 @@ impl ReviewProvider for GitHubReviewProvider {
             .arg(body)
             .arg("--repo")
             .arg(&self.repo)
-            .arg("--json")
-            .arg(REVIEW_FIELDS)
             .output()
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
@@ -126,10 +122,8 @@ impl ReviewProvider for GitHubReviewProvider {
             return Err(parse_gh_error(&output.stderr).into());
         }
 
-        let review: ReviewData =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(review)
+        // 使用 gh api 获取该 PR 的最新 review
+        self.fetch_latest_review(pr_number).await
     }
 
     async fn submit_review(
@@ -144,9 +138,7 @@ impl ReviewProvider for GitHubReviewProvider {
         cmd.args(["pr", "review"])
             .arg(pr_number.to_string())
             .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(REVIEW_FIELDS);
+            .arg(&self.repo);
 
         match event {
             ReviewState::Approved => {
@@ -170,13 +162,53 @@ impl ReviewProvider for GitHubReviewProvider {
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
+            let gh_err = parse_gh_error(&output.stderr);
+            if gh_err.user_message.contains("approve your own pull request") {
+                return Err(CoreError::Platform(
+                    "GitHub 不允许批准自己的 PR。可以请求其他维护者审查。".to_string(),
+                ));
+            }
+            return Err(gh_err.into());
         }
 
-        let review: ReviewData =
+        // 使用 gh api 获取该 PR 的最新 review
+        self.fetch_latest_review(pr_number).await
+    }
+}
+
+impl GitHubReviewProvider {
+    /// 使用 gh api 获取指定 PR 的最新 review。
+    ///
+    /// 在提交 review 后调用，以获取完整的 review 数据（ID、状态、时间戳等）。
+    async fn fetch_latest_review(&self, pr_number: u64) -> Result<ReviewData> {
+        let api_path = format!(
+            "repos/{repo}/pulls/{number}/reviews?per_page=1",
+            repo = self.repo,
+            number = pr_number
+        );
+
+        let output = tokio::process::Command::new("gh")
+            .args(["api", &api_path])
+            .output()
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
+
+        if !output.status.success() {
+            let gh_err = String::from_utf8_lossy(&output.stderr);
+            return Err(CoreError::Platform(format!(
+                "Failed to fetch review via gh api: {gh_err}"
+            )));
+        }
+
+        let reviews: Vec<GitHubReviewApiResponse> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(review)
+        let review = reviews
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::Platform("No review returned from gh api".to_string()))?;
+
+        Ok(review.into())
     }
 }
 
@@ -205,7 +237,7 @@ impl From<GitHubReviewApiResponse> for ReviewData {
             state: match api.state.as_str() {
                 "APPROVED" => ReviewState::Approved,
                 "CHANGES_REQUESTED" => ReviewState::ChangesRequested,
-                "COMMENTED" | _ => ReviewState::Commented,
+                _ => ReviewState::Commented,
             },
             body: api.body,
             author: gitflow_cli_core::types::UserSummary {
