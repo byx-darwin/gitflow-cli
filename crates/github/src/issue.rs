@@ -342,65 +342,34 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
 
     /// 在指定 Issue 上添加评论。
     ///
-    /// 调用 `gh issue comment <number> --repo <repo> --body "<body>"` 发布评论，
-    /// 然后通过 `gh api` 获取最新评论数据。
+    /// 调用 `gh api repos/{repo}/issues/{number}/comments -X POST` 创建评论，
+    /// 直接从 POST 响应中解析新创建的评论数据。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在、`body` 为空或 `gh` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
-        debug!(repo = %self.repo, number, "spawning `gh issue comment`");
+        debug!(repo = %self.repo, number, "spawning `gh api` POST to create issue comment");
 
-        // 1. 执行 gh issue comment 发布评论（不返回 JSON）
-        let number_str = number.to_string();
+        let api_path = format!(
+            "repos/{repo}/issues/{number}/comments",
+            repo = self.repo,
+            number = number
+        );
+
+        let body_field = format!("body={body}");
         let output = self
             .runner
-            .run(
-                "gh",
-                &[
-                    "issue",
-                    "comment",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--body",
-                    body,
-                ],
-            )
+            .run("gh", &["api", &api_path, "-X", "POST", "-f", &body_field])
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_gh_error(&output.stderr).into());
         }
 
-        // 2. 使用 gh api 获取该 issue 的最新评论
-        let api_path = format!(
-            "repos/{repo}/issues/{number}/comments?per_page=1",
-            repo = self.repo,
-            number = number
-        );
-        let api_output = self
-            .runner
-            .run("gh", &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
-
-        if !api_output.status.success() {
-            let gh_err = String::from_utf8_lossy(&api_output.stderr);
-            return Err(CoreError::Platform(format!(
-                "Failed to fetch comment via gh api: {gh_err}"
-            )));
-        }
-
-        // 3. 解析 API 响应（返回的是数组，取最后一个）
-        let comments: Vec<GitHubCommentApiResponse> =
-            serde_json::from_slice(&api_output.stdout).map_err(CoreError::Serialization)?;
-
-        let comment = comments
-            .into_iter()
-            .next()
-            .ok_or_else(|| CoreError::Platform("No comment returned from gh api".to_string()))?;
+        let comment: GitHubCommentApiResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
         Ok(comment.into())
     }
@@ -1241,6 +1210,54 @@ mod tests {
             result.unwrap_err(),
             gitflow_cli_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_newly_created_comment_not_stale() {
+        use crate::runner::MockCommandRunner;
+
+        // Mock `gh api POST` response — the comment just created
+        let post_response_json = r#"{
+            "id": 9999999999,
+            "body": "This is the NEW comment",
+            "user": {"login": "testuser", "id": 42},
+            "created_at": "2026-08-04T12:00:00Z"
+        }"#;
+
+        let runner = MockCommandRunner::success(post_response_json);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .comment(42, "This is the NEW comment")
+            .await
+            .unwrap();
+
+        // The returned id must be the NEW comment's id, not a stale one
+        assert_eq!(result.id, 9_999_999_999);
+        assert_eq!(result.body, "This is the NEW comment");
+        assert_eq!(result.author.login, "testuser");
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_gh_api_post_fails() {
+        use crate::runner::MockCommandRunner;
+
+        let runner = MockCommandRunner::failure(
+            r#"{"message": "Issue not found", "documentation_url": "https://docs.github.com"}"#,
+            1,
+        );
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider.comment(999, "test").await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        // `parse_gh_error` returns `PlatformCliError`, which converts to
+        // `CoreError::Cli` (matching the existing comment error-path test).
+        assert!(
+            matches!(err, CoreError::Cli(_)),
+            "expected Cli error, got: {err:?}"
+        );
     }
 
     #[tokio::test]
