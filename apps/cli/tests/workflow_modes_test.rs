@@ -67,8 +67,8 @@ fn test_should_reference_all_four_phases_in_complete_mode() {
 fn test_should_contain_issue_create_in_complete_mode() {
     let md = skill_md();
     assert!(
-        md.contains("gitflow-issue-create"),
-        "Complete mode must include gitflow-issue-create"
+        md.contains("gf-issue-create"),
+        "Complete mode must include gf-issue-create"
     );
 }
 
@@ -76,8 +76,8 @@ fn test_should_contain_issue_create_in_complete_mode() {
 fn test_should_contain_issue_review_in_complete_mode() {
     let md = skill_md();
     assert!(
-        md.contains("gitflow-issue-review"),
-        "Complete mode must include gitflow-issue-review"
+        md.contains("gf-issue-review"),
+        "Complete mode must include gf-issue-review"
     );
 }
 
@@ -160,16 +160,16 @@ fn test_should_include_mandatory_phase4_skills_in_fast_mode() {
     };
     let phase4_area = fast_section.split("Phase 4").nth(1).unwrap_or("");
     assert!(
-        phase4_area.contains("gitflow-pipeline-analyzer"),
-        "Fast mode Phase 4 must include gitflow-pipeline-analyzer"
+        phase4_area.contains("gf-pipeline-analyzer"),
+        "Fast mode Phase 4 must include gf-pipeline-analyzer"
     );
     assert!(
-        phase4_area.contains("gitflow-issue-triage"),
-        "Fast mode Phase 4 must include gitflow-issue-triage"
+        phase4_area.contains("gf-issue-triage"),
+        "Fast mode Phase 4 must include gf-issue-triage"
     );
     assert!(
-        phase4_area.contains("gitflow-review"),
-        "Fast mode Phase 4 must include gitflow-review"
+        phase4_area.contains("gf-review"),
+        "Fast mode Phase 4 must include gf-review"
     );
 }
 

@@ -48,8 +48,8 @@ fn test_should_contain_phase4_heading() {
 fn test_should_contain_pipeline_analyzer_reference() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("gitflow-pipeline-analyzer"),
-        "SKILL.md must reference 'gitflow-pipeline-analyzer' skill in Phase 4"
+        content.contains("gf-pipeline-analyzer"),
+        "SKILL.md must reference 'gf-pipeline-analyzer' skill in Phase 4"
     );
 }
 
@@ -57,8 +57,8 @@ fn test_should_contain_pipeline_analyzer_reference() {
 fn test_should_contain_issue_triage_reference() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("gitflow-issue-triage"),
-        "SKILL.md must reference 'gitflow-issue-triage' skill in Phase 4"
+        content.contains("gf-issue-triage"),
+        "SKILL.md must reference 'gf-issue-triage' skill in Phase 4"
     );
 }
 
@@ -66,8 +66,8 @@ fn test_should_contain_issue_triage_reference() {
 fn test_should_contain_gitflow_review_reference() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("gitflow-review"),
-        "SKILL.md must reference 'gitflow-review' skill in Phase 4"
+        content.contains("gf-review"),
+        "SKILL.md must reference 'gf-review' skill in Phase 4"
     );
 }
 

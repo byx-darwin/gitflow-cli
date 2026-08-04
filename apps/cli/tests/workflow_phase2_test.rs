@@ -24,8 +24,8 @@ fn test_should_contain_create_full_plan_step() {
 fn test_should_contain_gitflow_quality_reference() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("gitflow-quality"),
-        "SKILL.md must reference 'gitflow-quality' skill for quality gate"
+        content.contains("gf-quality"),
+        "SKILL.md must reference 'gf-quality' skill for quality gate"
     );
 }
 
