@@ -5,14 +5,14 @@
 //! Phase 1 仅支持 JSON 输出。
 
 use clap::Subcommand;
-use gitflow_cli_core::{
+use gf_core::{
     CliOutput,
     pr::{CreatePrArgs, ListPrArgs, PrProvider},
     types::{MergeStrategy, State},
 };
-use gitflow_cli_gitcode::GitCodePrProvider;
-use gitflow_cli_github::GitHubPrProvider;
-use gitflow_cli_gitlab::GitLabMrProvider;
+use gf_gitcode::GitCodePrProvider;
+use gf_github::GitHubPrProvider;
+use gf_gitlab::GitLabMrProvider;
 
 use crate::OutputFormat;
 

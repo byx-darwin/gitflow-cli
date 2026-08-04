@@ -3,7 +3,7 @@
 //! 通过 `gh run list` / `gh run view` CLI 实现 [`PipelineProvider`] trait。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     pipeline::{JobData, PipelineProvider, PipelineReport, PipelineStatus, PipelineStatusEnum},
 };
@@ -125,13 +125,13 @@ impl GhJob {
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_github::GitHubPipelineProvider;
+/// use gf_github::GitHubPipelineProvider;
 ///
 /// let provider = GitHubPipelineProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitHubPipelineProvider<R: CommandRunner = RealCommandRunner> {
-    /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
+    /// GitHub `owner/repo`，如 `"byx-darwin/gf"`。
     repo: String,
     /// 用于执行 `gh` CLI 命令的 runner。
     runner: R,
@@ -786,7 +786,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -800,7 +800,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -814,7 +814,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -828,7 +828,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -842,7 +842,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -856,7 +856,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -870,7 +870,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 }

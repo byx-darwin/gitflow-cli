@@ -1,6 +1,6 @@
 ---
 layout: ../layouts/Base.astro
-title: 5 分钟快速上手 — gitflow-cli
+title: 5 分钟快速上手 — gf
 ---
 
 <main class="narrow page">
@@ -8,7 +8,7 @@ title: 5 分钟快速上手 — gitflow-cli
 
 # 5 分钟快速上手
 
-## 1. 安装 gitflow-cli
+## 1. 安装 gf
 
 ```bash
 brew tap byx-darwin/gitflow-cli && brew install gitflow-cli
@@ -19,8 +19,8 @@ cargo install gitflow-cli
 ## 2. 安装 Skills
 
 ```bash
-gitflow-cli skills install        # 项目级（推荐，跟随仓库）
-gitflow-cli skills install -g     # 全局（所有项目可用）
+gf skills install        # 项目级（推荐，跟随仓库）
+gf skills install -g     # 全局（所有项目可用）
 ```
 
 不指定 `--agent` 时自动检测目标 Agent 平台（Claude Code / Codex / OpenCode / Gemini / Copilot）。
@@ -28,8 +28,8 @@ gitflow-cli skills install -g     # 全局（所有项目可用）
 ## 3. 验证
 
 ```bash
-gitflow-cli skills list           # 应看到 26 个 gitflow-* skills
-gitflow-cli --version
+gf skills list           # 应看到 26 个 gitflow-* skills
+gf --version
 ```
 
 ## 4. 开始开发

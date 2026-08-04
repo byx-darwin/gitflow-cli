@@ -8,7 +8,7 @@
 @import "@fontsource/jetbrains-mono/600.css";
 
 :root {
-  /* 品牌色 —— gitflow-cli：Git/Rust 橙 */
+  /* 品牌色 —— gf：Git/Rust 橙 */
   --gf-orange: #ff7a3d;
   --gf-orange-soft: rgba(255, 122, 61, 0.14);
   --gf-teal: #2dd4bf; /* 终端提示符 */

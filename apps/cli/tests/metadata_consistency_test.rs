@@ -98,8 +98,8 @@ fn test_should_not_contain_template_placeholders() {
 fn test_should_have_valid_geo_files() {
     let llms = read("website/public/llms.txt");
     assert!(
-        llms.starts_with("# gitflow-cli"),
-        "llms.txt must start with '# gitflow-cli'"
+        llms.starts_with("# gf"),
+        "llms.txt must start with '# gf'"
     );
     assert!(
         llms.contains(CANONICAL_POSITIONING),
@@ -186,7 +186,7 @@ fn test_should_have_valid_jsonld() {
     let v: serde_json::Value = serde_json::from_str(json_text).expect("JSON-LD is not valid JSON");
 
     assert_eq!(v["@type"].as_str(), Some("SoftwareApplication"));
-    assert_eq!(v["name"].as_str(), Some("gitflow-cli"));
+    assert_eq!(v["name"].as_str(), Some("gf"));
     assert!(
         v["description"]
             .as_str()

@@ -11,7 +11,7 @@ use clap::Args;
 #[derive(Debug, Args)]
 pub struct RunArgs {
     /// Override the configuration name (defaults to the name from
-    /// the layered config or `"gitflow-cli"`).
+    /// the layered config or `"gf"`).
     #[arg(short, long)]
     pub name: Option<String>,
 }

@@ -11,12 +11,12 @@ import type { Tab } from "../components/CommandTabs.astro";
 const base = import.meta.env.BASE_URL;
 
 const heroTerminal: TermLine[] = [
-  { type: "cmd", text: "gitflow-cli skills install" },
+  { type: "cmd", text: "gf skills install" },
   { type: "success", text: "✔ 已安装 26 个 gitflow-* skills（.claude/skills/）" },
-  { type: "cmd", text: "gitflow-cli issue list --output toon" },
+  { type: "cmd", text: "gf issue list --output toon" },
   { type: "out", text: "platform: github · 3 open issues" },
-  { type: "cmd", text: "gitflow-cli --version" },
-  { type: "out", text: "gitflow-cli 0.9.0" },
+  { type: "cmd", text: "gf --version" },
+  { type: "out", text: "gf 0.9.0" },
   { type: "hl", text: "需求澄清 → 计划制定 → 执行 → 交付检查" },
 ];
 
@@ -40,31 +40,31 @@ const commandTabs: Tab[] = [
   {
     label: "issue",
     lines: [
-      { cmd: "gitflow-cli issue list", desc: "自动检测平台" },
-      { cmd: 'gitflow-cli issue create --title "feat: …"', desc: "创建 Issue" },
-      { cmd: "gitflow-cli issue view 97", desc: "查看详情" },
+      { cmd: "gf issue list", desc: "自动检测平台" },
+      { cmd: 'gf issue create --title "feat: …"', desc: "创建 Issue" },
+      { cmd: "gf issue view 97", desc: "查看详情" },
     ],
   },
   {
     label: "pr",
     lines: [
-      { cmd: "gitflow-cli pr create", desc: "创建 PR" },
-      { cmd: "gitflow-cli pr list --state open", desc: "列出 PR" },
-      { cmd: "gitflow-cli pr merge 112", desc: "合并" },
+      { cmd: "gf pr create", desc: "创建 PR" },
+      { cmd: "gf pr list --state open", desc: "列出 PR" },
+      { cmd: "gf pr merge 112", desc: "合并" },
     ],
   },
   {
     label: "release",
     lines: [
-      { cmd: "gitflow-cli release create v1.0.0", desc: "创建发布" },
-      { cmd: "gitflow-cli release list", desc: "发布列表" },
+      { cmd: "gf release create v1.0.0", desc: "创建发布" },
+      { cmd: "gf release list", desc: "发布列表" },
     ],
   },
   {
     label: "review",
     lines: [
-      { cmd: "gitflow-cli review approve 112", desc: "批准" },
-      { cmd: "gitflow-cli review comment 112", desc: "评论" },
+      { cmd: "gf review approve 112", desc: "批准" },
+      { cmd: "gf review comment 112", desc: "评论" },
     ],
   },
   {
@@ -91,7 +91,7 @@ const infraBadges = [
 ];
 ---
 
-<Base title="gitflow-cli — 跨平台 Git 工程化工作流编排框架">
+<Base title="gf — 跨平台 Git 工程化工作流编排框架">
   <main class="landing">
     <!-- Hero：左文案 + 右活终端/目录树 -->
     <section class="hero-split">
@@ -109,7 +109,7 @@ const infraBadges = [
         </div>
       </div>
       <div class="hero-visual">
-        <Terminal lines={heroTerminal} title="gitflow-cli — workflow" />
+        <Terminal lines={heroTerminal} title="gf — workflow" />
         <FileTree rows={heroTree} />
       </div>
     </section>
@@ -134,13 +134,13 @@ const infraBadges = [
 
     <!-- 不对称 Bento 特性 -->
     <section class="section">
-      <div class="reveal"><h2 class="section-heading">为什么是 gitflow-cli</h2></div>
+      <div class="reveal"><h2 class="section-heading">为什么是 gf</h2></div>
       <div class="bento">
         <div class="reveal bento-big">
           <div class="bento-card">
             <h3>三大平台，一个命令面</h3>
             <p>
-              统一封装 GitHub、GitLab、GitCode 的平台差异——同一条 <code style="font-family:var(--font-mono);color:var(--gf-teal)">gitflow-cli issue list</code>
+              统一封装 GitHub、GitLab、GitCode 的平台差异——同一条 <code style="font-family:var(--font-mono);color:var(--gf-teal)">gf issue list</code>
               在三个平台上行为一致。自动检测 git remote，也可 <code style="font-family:var(--font-mono);color:var(--gf-teal)">--platform</code> 手动指定。
             </p>
             <div class="badge-row">
@@ -177,7 +177,7 @@ const infraBadges = [
         <div class="reveal" style="transition-delay:350ms">
           <div class="bento-card">
             <h3>Dogfooding</h3>
-            <p>用 gitflow-cli 开发 gitflow-cli——它自己的工作流就是最好的案例。</p>
+            <p>用 gf 开发 gf——它自己的工作流就是最好的案例。</p>
           </div>
         </div>
       </div>

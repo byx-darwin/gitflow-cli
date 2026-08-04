@@ -231,7 +231,7 @@ Full definitions: `skills/gitflow-workflow/gates.md`
 
 2. **[AUTO] Read Open Issues**
    - User specified an Issue → use it
-   - Otherwise → `gitflow-cli issue list --state open`
+   - Otherwise → `gf issue list --state open`
 
 3. **[CALL] `superpowers:brainstorming`**
    - Pass: Issue description or user requirements
@@ -312,7 +312,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 **Trigger:** After dogfooding passes. **Requires user confirmation.**
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
-2. Detect PR merge status: `gitflow-cli pr view` (parse merged state)
+2. Detect PR merge status: `gf pr view` (parse merged state)
 3. **PR merged** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
    - `git checkout $base_branch && git pull origin $base_branch`

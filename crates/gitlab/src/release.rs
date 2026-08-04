@@ -10,7 +10,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
     types::UserSummary,
@@ -31,7 +31,7 @@ use crate::{
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitlab::GitLabReleaseProvider;
+/// use gf_gitlab::GitLabReleaseProvider;
 ///
 /// let provider = GitLabReleaseProvider::new("gitlab-org/gitlab");
 /// ```
@@ -514,7 +514,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -527,7 +527,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -540,7 +540,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -553,7 +553,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -566,7 +566,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -579,7 +579,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -592,7 +592,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -605,7 +605,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -618,7 +618,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -633,7 +633,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -648,7 +648,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 }

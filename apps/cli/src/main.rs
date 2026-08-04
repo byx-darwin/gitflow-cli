@@ -1,4 +1,4 @@
-//! gitflow-cli CLI entrypoint.
+//! gf CLI entrypoint.
 //!
 //! Provides a subcommand-based CLI with:
 //! - TTY-aware tracing (human-readable for terminals, JSON for pipes)
@@ -259,7 +259,7 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
         }
         .to_string()
     } else {
-        let detected = gitflow_cli_core::platform::Platform::detect_from_remote_url(&remote_url)
+        let detected = gf_core::platform::Platform::detect_from_remote_url(&remote_url)
             .ok_or_else(|| {
                 miette::miette!(
                     "Unable to detect platform from remote URL: {remote_url}\nUse --platform to \
@@ -414,9 +414,9 @@ pub enum OutputFormat {
     Auto,
 }
 
-/// gitflow-cli command-line interface.
+/// gf command-line interface.
 #[derive(Debug, Parser)]
-#[command(name = "gitflow-cli", about = "gitflow-cli CLI tool", author)]
+#[command(name = "gf", about = "gf CLI tool", author)]
 struct Cli {
     /// Override platform auto-detection.
     #[arg(long, global = true)]

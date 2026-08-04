@@ -11,7 +11,7 @@ use predicates::prelude::*;
 
 #[test]
 fn test_should_accept_output_toon_flag() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary exists");
+    let mut cmd = Command::cargo_bin("gf").expect("binary exists");
     cmd.args(["--help"]);
     cmd.assert()
         .success()
@@ -20,7 +20,7 @@ fn test_should_accept_output_toon_flag() {
 
 #[test]
 fn test_should_accept_output_auto_flag() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary exists");
+    let mut cmd = Command::cargo_bin("gf").expect("binary exists");
     cmd.args(["--help"]);
     cmd.assert()
         .success()

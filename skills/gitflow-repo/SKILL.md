@@ -1,15 +1,15 @@
 ---
 name: gitflow-repo
 description: |
-  Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gitflow-cli.
-  当用户需要通过 gitflow-cli 列出、克隆、创建、同步或查看仓库时使用。
+  Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gf.
+  当用户需要通过 gf 列出、克隆、创建、同步或查看仓库时使用。
 ---
 
 # gitflow-repo
 
 ## Overview
 
-Encapsulates read and write operations for `gitflow-cli repo`. Covers `clone/list/stats/view` (read-only) and `create/sync` (write operations require confirmation).
+Encapsulates read and write operations for `gf repo`. Covers `clone/list/stats/view` (read-only) and `create/sync` (write operations require confirmation).
 
 ## When to Use
 
@@ -27,32 +27,32 @@ Encapsulates read and write operations for `gitflow-cli repo`. Covers `clone/lis
 
 ```bash
 # read-only
-gitflow-cli repo clone <owner>/<repo> [--dir <d>] [--branch <b>]
-gitflow-cli repo list [--org <org>] [--visibility public|private] [--language <l>]
-gitflow-cli repo stats
-gitflow-cli repo view [<owner>/<repo>]
+gf repo clone <owner>/<repo> [--dir <d>] [--branch <b>]
+gf repo list [--org <org>] [--visibility public|private] [--language <l>]
+gf repo stats
+gf repo view [<owner>/<repo>]
 
 # write
-gitflow-cli repo create --name <n> --visibility public|private [--init]
-gitflow-cli repo sync
+gf repo create --name <n> --visibility public|private [--init]
+gf repo sync
 ```
 
 ## Quick Reference
 
 | Goal | Command | Note |
 |------|---------|------|
-| Clone | `gitflow-cli repo clone <owner>/<repo>` | `--dir`, `--branch` |
-| List | `gitflow-cli repo list` | `--org`, `--visibility`, `--language` |
-| Stats | `gitflow-cli repo stats` | requires `gh` |
-| View | `gitflow-cli repo view [<owner>/<repo>]` | current dir if empty |
-| Create | `gitflow-cli repo create --name <n> --visibility <v> [--init]` | **write** |
-| Sync | `gitflow-cli repo sync` | requires `upstream` |
+| Clone | `gf repo clone <owner>/<repo>` | `--dir`, `--branch` |
+| List | `gf repo list` | `--org`, `--visibility`, `--language` |
+| Stats | `gf repo stats` | requires `gh` |
+| View | `gf repo view [<owner>/<repo>]` | current dir if empty |
+| Create | `gf repo create --name <n> --visibility <v> [--init]` | **write** |
+| Sync | `gf repo sync` | requires `upstream` |
 
 ## Preconditions
 
 ```bash
-command -v gitflow-cli                        # CLI installed
-gitflow-cli auth status --platform github     # Authenticated
+command -v gf                        # CLI installed
+gf auth status --platform github     # Authenticated
 test -d .git && git rev-parse --show-toplevel # Inside repo (sync/view/stats)
 ```
 
@@ -83,7 +83,7 @@ test -d .git && git rev-parse --show-toplevel # Inside repo (sync/view/stats)
 | Error | Recovery |
 |-------|----------|
 | `gh` missing for `stats` | Omit stats, warn user to install GitHub CLI |
-| Unauthenticated | Prompt `gitflow-cli auth login` |
+| Unauthenticated | Prompt `gf auth login` |
 | Not in git repo (sync/view) | Switch to repo dir or clone first |
 | `upstream` remote missing (sync) | Prompt user for upstream URL before fetch |
 | Clone — repo not found | Report exit code, suggest typo check |

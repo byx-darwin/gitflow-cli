@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
 };
@@ -31,13 +31,13 @@ const RELEASE_FIELDS: &str =
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitcode::GitCodeReleaseProvider;
+/// use gf_gitcode::GitCodeReleaseProvider;
 ///
 /// let provider = GitCodeReleaseProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitCodeReleaseProvider<R: CommandRunner = RealCommandRunner> {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
+    /// GitCode `owner/repo`，如 `"byx-darwin/gf"`。
     repo: String,
     /// 用于执行 `gitcode` CLI 命令的 runner。
     runner: R,
@@ -376,7 +376,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -391,7 +391,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -404,7 +404,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -417,7 +417,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -430,7 +430,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -443,7 +443,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -456,7 +456,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -471,7 +471,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -484,7 +484,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -499,7 +499,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -514,7 +514,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 }

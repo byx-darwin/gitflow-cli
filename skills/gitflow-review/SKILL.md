@@ -2,13 +2,13 @@
 name: gitflow-review
 description: |
   Use when the user wants to submit a formal code review decision
-  (approve, request changes, or comment) on a PR through gitflow-cli.
-  当用户希望通过 gitflow-cli 提交正式 PR 审查结论时使用。
+  (approve, request changes, or comment) on a PR through gf.
+  当用户希望通过 gf 提交正式 PR 审查结论时使用。
 ---
 
 # gitflow-review
 
-Submits review verdicts via `gitflow-cli review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gitflow-pr-review` or `/gitflow-pr-inline-review` first to form verdict, or supply verdict explicitly.
+Submits review verdicts via `gf review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gitflow-pr-review` or `/gitflow-pr-inline-review` first to form verdict, or supply verdict explicitly.
 
 ## When to Use
 
@@ -25,18 +25,18 @@ Submits review verdicts via `gitflow-cli review`. Read-only skill — does not a
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <n>   # verify open
-gitflow-cli review <verdict> <n> --body "<c>"
+gf pr view <n>   # verify open
+gf review <verdict> <n> --body "<c>"
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Comment | `gitflow-cli review comment <n> --body "<c>"` |
-| Approve | `gitflow-cli review approve <n> --body "<c>"` |
-| Request changes | `gitflow-cli review request-changes <n> --body "<c>"` |
-| Submit (after inline) | `gitflow-cli review submit <n> --event <approved|changes_requested|commented> --body "<c>"` |
+| Comment | `gf review comment <n> --body "<c>"` |
+| Approve | `gf review approve <n> --body "<c>"` |
+| Request changes | `gf review request-changes <n> --body "<c>"` |
+| Submit (after inline) | `gf review submit <n> --event <approved|changes_requested|commented> --body "<c>"` |
 
 **Decision rule:** single verdict → `approve/request-changes`; after inline comments → `submit`; neutral only → `comment`.
 
@@ -63,16 +63,16 @@ flowchart TD
 
 ### Preconditions
 
-- PR `<n>` open — `gitflow-cli pr view <n>`
+- PR `<n>` open — `gf pr view <n>`
 - Verdict justified by prior analysis (`/gitflow-pr-review` or `/gitflow-pr-inline-review`) or explicit user statement
-- Auth valid — `gitflow-cli auth status`
+- Auth valid — `gf auth status`
 
 ### Steps
 
-1. **Verify** — `gitflow-cli pr view <n>`. Confirm open, not draft/merged, no blocking CI. 404 → stop.
+1. **Verify** — `gf pr view <n>`. Confirm open, not draft/merged, no blocking CI. 404 → stop.
 2. **Form verdict** — skill does NOT choose; user or prior skill supplies.
 3. **Confirm** — present verdict + `--body` to user; require explicit OK before invoking CLI.
-4. **Invoke** — `gitflow-cli review <verdict> <n> --body "<c>"`.
+4. **Invoke** — `gf review <verdict> <n> --body "<c>"`.
 5. **Output** — show review URL + next-step guidance.
 
 ### Error Handling

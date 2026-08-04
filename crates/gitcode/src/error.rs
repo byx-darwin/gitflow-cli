@@ -1,6 +1,6 @@
 //! GitCode CLI 错误解析。
 
-use gitflow_cli_core::{PlatformCliError, platform::Platform};
+use gf_core::{PlatformCliError, platform::Platform};
 
 /// 解析 `gitcode` CLI 的 stderr 输出为统一的 [`PlatformCliError`]。
 ///

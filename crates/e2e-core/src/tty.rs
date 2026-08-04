@@ -84,7 +84,7 @@ impl TtyRunner {
     pub async fn run(&self, args: &[&str]) -> Result<CommandOutput, TtyError> {
         use tokio::process::Command;
 
-        let mut cmd = Command::new("gitflow-cli");
+        let mut cmd = Command::new("gf");
         cmd.args(args);
         cmd.current_dir(&self.working_dir);
 

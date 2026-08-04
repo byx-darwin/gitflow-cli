@@ -8,7 +8,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
@@ -71,7 +71,7 @@ struct PrBranchApi {
 /// - 旧版本：`author` 为纯字符串、`created_at` 为 `YYYY-MM-DD HH:MM:SS`
 #[derive(Debug, Clone, Deserialize)]
 struct PrCommentApiResponse {
-    #[serde(deserialize_with = "gitflow_cli_core::types::deserialize_u64_or_string")]
+    #[serde(deserialize_with = "gf_core::types::deserialize_u64_or_string")]
     id: u64,
     #[serde(default)]
     body: String,
@@ -158,13 +158,13 @@ impl From<PrApiResponse> for PrData {
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitcode::GitCodePrProvider;
+/// use gf_gitcode::GitCodePrProvider;
 ///
 /// let provider = GitCodePrProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitCodePrProvider<R: CommandRunner = RealCommandRunner> {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
+    /// GitCode `owner/repo`，如 `"byx-darwin/gf"`。
     repo: String,
     /// 用于执行 `gitcode` CLI 命令的 runner。
     runner: R,
@@ -818,7 +818,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -831,7 +831,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -844,7 +844,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -857,7 +857,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -870,7 +870,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -883,7 +883,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -896,7 +896,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -909,7 +909,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -922,7 +922,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -935,7 +935,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -948,7 +948,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -961,7 +961,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -974,7 +974,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -987,7 +987,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -1149,7 +1149,7 @@ mod contract_tests {
     //! 若 gitcode CLI 升级导致这些测试失败，说明上游架构变更，需要更新
     //! 适配器映射并重新捕获夹具（参见路线图"契约测试 + 兼容性矩阵"单元）。
 
-    use gitflow_cli_core::pr::ListPrArgs;
+    use gf_core::pr::ListPrArgs;
 
     use super::*;
     use crate::runner::MockCommandRunner;

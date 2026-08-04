@@ -109,13 +109,13 @@ impl Shell {
         Ok(dir)
     }
 
-    /// Return the conventional completion-file name for `gitflow-cli` in this shell.
+    /// Return the conventional completion-file name for `gf` in this shell.
     #[must_use]
     pub fn completion_filename(self) -> &'static str {
         match self {
-            Shell::Bash => "gitflow-cli.bash",
-            Shell::Zsh => "_gitflow-cli",
-            Shell::Fish => "gitflow-cli.fish",
+            Shell::Bash => "gf.bash",
+            Shell::Zsh => "_gf",
+            Shell::Fish => "gf.fish",
         }
     }
 }
@@ -309,53 +309,53 @@ mod tests {
 
     #[test]
     fn test_should_return_correct_bash_filename() {
-        assert_eq!(Shell::Bash.completion_filename(), "gitflow-cli.bash");
+        assert_eq!(Shell::Bash.completion_filename(), "gf.bash");
     }
 
     #[test]
     fn test_should_return_correct_zsh_filename() {
-        assert_eq!(Shell::Zsh.completion_filename(), "_gitflow-cli");
+        assert_eq!(Shell::Zsh.completion_filename(), "_gf");
     }
 
     #[test]
     fn test_should_return_correct_fish_filename() {
-        assert_eq!(Shell::Fish.completion_filename(), "gitflow-cli.fish");
+        assert_eq!(Shell::Fish.completion_filename(), "gf.fish");
     }
 
     #[test]
     fn test_should_return_correct_bash_install_dir() {
-        let home = std::path::Path::new("/tmp/gitflow-cli-test-home");
+        let home = std::path::Path::new("/tmp/gf-test-home");
         let dir = Shell::Bash
             .install_dir(Some(home))
             .expect("override provided");
         assert_eq!(
             dir,
-            PathBuf::from("/tmp/gitflow-cli-test-home/.local/share/bash-completion/completions")
+            PathBuf::from("/tmp/gf-test-home/.local/share/bash-completion/completions")
         );
     }
 
     #[test]
     fn test_should_return_correct_zsh_install_dir() {
-        let home = std::path::Path::new("/tmp/gitflow-cli-test-home");
+        let home = std::path::Path::new("/tmp/gf-test-home");
         let dir = Shell::Zsh
             .install_dir(Some(home))
             .expect("override provided");
         // /usr/local 在测试环境中不存在，回退到用户目录
         assert_eq!(
             dir,
-            PathBuf::from("/tmp/gitflow-cli-test-home/.local/share/zsh/site-functions")
+            PathBuf::from("/tmp/gf-test-home/.local/share/zsh/site-functions")
         );
     }
 
     #[test]
     fn test_should_return_correct_fish_install_dir() {
-        let home = std::path::Path::new("/tmp/gitflow-cli-test-home");
+        let home = std::path::Path::new("/tmp/gf-test-home");
         let dir = Shell::Fish
             .install_dir(Some(home))
             .expect("override provided");
         assert_eq!(
             dir,
-            PathBuf::from("/tmp/gitflow-cli-test-home/.config/fish/completions")
+            PathBuf::from("/tmp/gf-test-home/.config/fish/completions")
         );
     }
 
@@ -363,7 +363,7 @@ mod tests {
     fn test_should_generate_bash_completion_contains_function() {
         let mut cmd = crate::Cli::command();
         let mut output = Vec::new();
-        write_completion(&mut cmd, Shell::Bash, "gitflow-cli", &mut output);
+        write_completion(&mut cmd, Shell::Bash, "gf", &mut output);
         let output = String::from_utf8(output).expect("completion should be valid UTF-8");
         assert!(
             output.contains("complete -F"),
@@ -375,7 +375,7 @@ mod tests {
     fn test_should_generate_zsh_completion_contains_compdef() {
         let mut cmd = crate::Cli::command();
         let mut output = Vec::new();
-        write_completion(&mut cmd, Shell::Zsh, "gitflow-cli", &mut output);
+        write_completion(&mut cmd, Shell::Zsh, "gf", &mut output);
         let output = String::from_utf8(output).expect("completion should be valid UTF-8");
         assert!(
             output.contains("#compdef"),
@@ -387,7 +387,7 @@ mod tests {
     fn test_should_generate_fish_completion_contains_complete() {
         let mut cmd = crate::Cli::command();
         let mut output = Vec::new();
-        write_completion(&mut cmd, Shell::Fish, "gitflow-cli", &mut output);
+        write_completion(&mut cmd, Shell::Fish, "gf", &mut output);
         let output = String::from_utf8(output).expect("completion should be valid UTF-8");
         assert!(
             output.contains("complete -c"),
@@ -400,7 +400,7 @@ mod tests {
         for shell in [Shell::Bash, Shell::Zsh, Shell::Fish] {
             let mut cmd = crate::Cli::command();
             let mut output = Vec::new();
-            write_completion(&mut cmd, shell, "gitflow-cli", &mut output);
+            write_completion(&mut cmd, shell, "gf", &mut output);
             assert!(
                 !output.is_empty(),
                 "completion for {shell:?} should not be empty"
@@ -412,11 +412,11 @@ mod tests {
     fn test_should_produce_different_output_per_shell() {
         let mut cmd_bash = crate::Cli::command();
         let mut bash_out = Vec::new();
-        write_completion(&mut cmd_bash, Shell::Bash, "gitflow-cli", &mut bash_out);
+        write_completion(&mut cmd_bash, Shell::Bash, "gf", &mut bash_out);
 
         let mut cmd_zsh = crate::Cli::command();
         let mut zsh_out = Vec::new();
-        write_completion(&mut cmd_zsh, Shell::Zsh, "gitflow-cli", &mut zsh_out);
+        write_completion(&mut cmd_zsh, Shell::Zsh, "gf", &mut zsh_out);
 
         assert_ne!(bash_out, zsh_out, "bash and zsh completions should differ");
     }

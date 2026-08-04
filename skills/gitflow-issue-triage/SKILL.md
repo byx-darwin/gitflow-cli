@@ -22,17 +22,17 @@ Batch classification of all open Issues — assigns one `type:*` label and one `
 ## Core Pattern
 
 ```bash
-gitflow-cli issue list --state open [--since <date>]
-gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
+gf issue list --state open [--since <date>]
+gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| List open | `gitflow-cli issue list --state open [--since <date>]` |
-| Add label | `gitflow-cli issue label <n> --label "<l>"` |
-| Filter by label | `gitflow-cli issue list --label "<l>" --state open` |
+| List open | `gf issue list --state open [--since <date>]` |
+| Add label | `gf issue label <n> --label "<l>"` |
+| Filter by label | `gf issue list --label "<l>" --state open` |
 
 **Type labels:** `type:bug` · `type:feature` · `type:enhancement` · `type:docs` · `type:question`
 **Priority labels:** `priority:urgent` · `priority:high` · `priority:medium` · `priority:low`
@@ -41,7 +41,7 @@ gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "t
 
 ### Preconditions
 
-- `gitflow-cli` authenticated
+- `gf` authenticated
 - Sufficient scope to label Issues
 - Single type label per Issue; single priority label per Issue
 
@@ -73,7 +73,7 @@ Reference: core user path · affected user count · workaround · milestone prox
 ### Step 4: Apply labels
 
 ```bash
-gitflow-cli issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
+gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
 ### Step 5: Output report — priority-ranked (🔴 urgent → 🟢 low) with count + percentage tables.

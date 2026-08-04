@@ -1,8 +1,8 @@
-# gitflow-cli
+# gf
 
 > 跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。
 
-gitflow-cli 是一个 Rust 编写的命令行工具，统一封装 GitHub（gh）、GitLab（glab）、GitCode（gitcode）三大平台的差异，并配套可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot 的 Skills 集合，提供从需求澄清到代码发布的完整 AI 编程工程循环。
+gf 是一个 Rust 编写的命令行工具，统一封装 GitHub（gh）、GitLab（glab）、GitCode（gitcode）三大平台的差异，并配套可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot 的 Skills 集合，提供从需求澄清到代码发布的完整 AI 编程工程循环。
 
 ## Docs
 

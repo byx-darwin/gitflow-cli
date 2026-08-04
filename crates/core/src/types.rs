@@ -1,4 +1,4 @@
-//! Shared domain types for gitflow-cli.
+//! Shared domain types for gf.
 //!
 //! These are pure data structures used across platform implementations
 //! for representing users, states, labels, comments, and merge results.

@@ -1,4 +1,4 @@
-//! Integration tests for the `gitflow-cli completions` subcommand.
+//! Integration tests for the `gf completions` subcommand.
 //!
 //! These tests exercise the compiled binary via `assert_cmd` to verify
 //! end-to-end behaviour of the completion generator, install, and
@@ -20,7 +20,7 @@ use predicates::prelude::*;
 /// `gitflow completions bash` emits a bash completion script to stdout.
 #[test]
 fn test_should_generate_bash_completion_to_stdout() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "bash"]);
     cmd.assert()
         .success()
@@ -30,7 +30,7 @@ fn test_should_generate_bash_completion_to_stdout() {
 /// `gitflow completions zsh` emits a zsh completion script to stdout.
 #[test]
 fn test_should_generate_zsh_completion_to_stdout() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "zsh"]);
     cmd.assert()
         .success()
@@ -40,7 +40,7 @@ fn test_should_generate_zsh_completion_to_stdout() {
 /// `gitflow completions fish` emits a fish completion script to stdout.
 #[test]
 fn test_should_generate_fish_completion_to_stdout() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "fish"]);
     cmd.assert()
         .success()
@@ -50,7 +50,7 @@ fn test_should_generate_fish_completion_to_stdout() {
 /// `gitflow completions` (no args) should fail — shell is required without flags.
 #[test]
 fn test_should_require_shell_without_flags() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.arg("completions");
     cmd.assert()
         .failure()
@@ -60,7 +60,7 @@ fn test_should_require_shell_without_flags() {
 /// `gitflow completions --install --uninstall` should fail — flags are mutually exclusive.
 #[test]
 fn test_should_reject_install_and_uninstall_together() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--install", "--uninstall"]);
     cmd.assert()
         .failure()
@@ -75,7 +75,7 @@ fn test_should_install_completion_for_explicit_shell() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
     let tmp_home_path = tmp_home.path();
 
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--install", "bash"])
         .env("HOME", tmp_home_path);
 
@@ -83,7 +83,7 @@ fn test_should_install_completion_for_explicit_shell() {
         .success()
         .stdout(predicate::str::contains("Completion installed for bash"));
 
-    let installed = tmp_home_path.join(".local/share/bash-completion/completions/gitflow-cli.bash");
+    let installed = tmp_home_path.join(".local/share/bash-completion/completions/gf.bash");
     assert!(
         installed.exists(),
         "completion file should exist at {installed:?}"
@@ -107,14 +107,14 @@ fn test_should_uninstall_existing_completion() {
     // Install first.
     let completion_dir = tmp_home_path.join(".local/share/bash-completion/completions");
     std::fs::create_dir_all(&completion_dir).expect("create_dir_all should succeed");
-    let file_path = completion_dir.join("gitflow-cli.bash");
+    let file_path = completion_dir.join("gf.bash");
     std::fs::write(&file_path, "# fake completion").expect("write should succeed");
     assert!(
         file_path.exists(),
         "fixture file should exist before uninstall"
     );
 
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--uninstall", "bash"])
         .env("HOME", tmp_home_path);
 
@@ -135,7 +135,7 @@ fn test_should_fail_uninstall_when_file_missing() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
     let tmp_home_path = tmp_home.path();
 
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--uninstall", "bash"])
         .env("HOME", tmp_home_path);
 
@@ -151,7 +151,7 @@ fn test_should_auto_detect_shell_from_env() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
     let tmp_home_path = tmp_home.path();
 
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--install"])
         .env("HOME", tmp_home_path)
         .env("SHELL", "/usr/bin/fish");
@@ -160,7 +160,7 @@ fn test_should_auto_detect_shell_from_env() {
         .success()
         .stdout(predicate::str::contains("Completion installed for fish"));
 
-    let installed = tmp_home_path.join(".config/fish/completions/gitflow-cli.fish");
+    let installed = tmp_home_path.join(".config/fish/completions/gf.fish");
     assert!(
         installed.exists(),
         "fish completion file should be created at {installed:?}"
@@ -173,7 +173,7 @@ fn test_should_auto_detect_shell_from_env() {
 fn test_should_reject_unsupported_shell_from_env() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
 
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--install"])
         .env("HOME", tmp_home.path())
         .env("SHELL", "/bin/tcsh");
@@ -188,7 +188,7 @@ fn test_should_reject_unsupported_shell_from_env() {
 fn test_should_fail_when_shell_env_is_missing() {
     let tmp_home = tempfile::tempdir().expect("tempdir should succeed");
 
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary should build");
+    let mut cmd = Command::cargo_bin("gf").expect("binary should build");
     cmd.args(["completions", "--install"])
         .env("HOME", tmp_home.path())
         .env_remove("SHELL");

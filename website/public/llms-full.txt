@@ -1,12 +1,12 @@
-# gitflow-cli — 完整材料（llms-full.txt）
+# gf — 完整材料（llms-full.txt）
 
 > 跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。
 
-本文件面向 AI 大模型与搜索引擎，提供 gitflow-cli 的完整可引用材料。
+本文件面向 AI 大模型与搜索引擎，提供 gf 的完整可引用材料。
 
 ## 定位
 
-gitflow-cli 不是又一个 gh 封装，而是"AI 编程工程循环编排器"：统一封装 GitHub / GitLab / GitCode 三大平台差异（底层分别调用 gh / glab / gitcode CLI），配合可安装到多个 Agent 平台的 Skills 集合，覆盖从需求澄清到代码发布的完整工程循环。
+gf 不是又一个 gh 封装，而是"AI 编程工程循环编排器"：统一封装 GitHub / GitLab / GitCode 三大平台差异（底层分别调用 gh / glab / gitcode CLI），配合可安装到多个 Agent 平台的 Skills 集合，覆盖从需求澄清到代码发布的完整工程循环。
 
 ## 安装
 
@@ -15,32 +15,32 @@ Homebrew（macOS）：
   brew install gitflow-cli
 
 Cargo：
-  cargo install gitflow-cli
+  cargo install gf
 
 安装 Skills（项目级，推荐）：
-  gitflow-cli skills install
+  gf skills install
 
 ## 命令参考
 
-- `gitflow-cli issue {create,list,view,close,reopen,comment}` — Issue 管理
-- `gitflow-cli pr {create,list,view,close,merge,checkout}` — PR 管理
-- `gitflow-cli release {create,list,view,edit}` — 发布管理
-- `gitflow-cli review {comment,approve,request-changes,submit}` — 代码审查
-- `gitflow-cli auth {login,logout,status,token}` — 认证管理
-- `gitflow-cli pipeline {status,logs,jobs,report}` — CI/CD 流水线
-- `gitflow-cli commit {view,diff,patch,comment}` — 提交操作
-- `gitflow-cli label` / `gitflow-cli milestone` — 标签 / 里程碑管理
-- `gitflow-cli repo {clone,list,create,stats,sync,view}` — 仓库操作
-- `gitflow-cli skills {install,list,uninstall}` — Skills 管理
-- `gitflow-cli completions {bash,zsh,fish}` — Shell 补全
+- `gf issue {create,list,view,close,reopen,comment}` — Issue 管理
+- `gf pr {create,list,view,close,merge,checkout}` — PR 管理
+- `gf release {create,list,view,edit}` — 发布管理
+- `gf review {comment,approve,request-changes,submit}` — 代码审查
+- `gf auth {login,logout,status,token}` — 认证管理
+- `gf pipeline {status,logs,jobs,report}` — CI/CD 流水线
+- `gf commit {view,diff,patch,comment}` — 提交操作
+- `gf label` / `gf milestone` — 标签 / 里程碑管理
+- `gf repo {clone,list,create,stats,sync,view}` — 仓库操作
+- `gf skills {install,list,uninstall}` — Skills 管理
+- `gf completions {bash,zsh,fish}` — Shell 补全
 
 全局标志：`--platform github|gitlab|gitcode`（不指定则基于 git remote 自动检测）、`--output json|text|toon|auto`。
 
 ## 架构
 
-- `gitflow-cli-core`：Platform trait 抽象、跨平台适配器契约、toon 输出。
-- `gitflow-cli-github` / `-gitlab` / `-gitcode`：三平台适配器，分别基于 gh / glab / gitcode CLI。
-- `gitflow-cli`（CLI 应用）：命令路由、输出格式化、Skills 安装。
+- `gf-core`：Platform trait 抽象、跨平台适配器契约、toon 输出。
+- `gf-github` / `-gitlab` / `-gitcode`：三平台适配器，分别基于 gh / glab / gitcode CLI。
+- `gf`（CLI 应用）：命令路由、输出格式化、Skills 安装。
 - 依赖单向流动：应用 → 库；`forbid(unsafe_code)`、pedantic clippy。
 
 ## 兼容性
@@ -52,7 +52,7 @@ Cargo：
 
 ## FAQ
 
-- gitflow-cli 和 gh 有什么区别？gh 只服务 GitHub 单一平台；gitflow-cli 用统一命令面封装 GitHub / GitLab / GitCode 三平台，并叠加面向 AI Agent 的 Skills 工作流。
+- gf 和 gh 有什么区别？gh 只服务 GitHub 单一平台；gf 用统一命令面封装 GitHub / GitLab / GitCode 三平台，并叠加面向 AI Agent 的 Skills 工作流。
 - 如何给 AI 编程加工程纪律？安装 Skills 后，用 gitflow-workflow 四阶段编排（需求澄清 → 计划 → 执行 → 交付检查），每阶段有质量门禁。
 - 支持哪些 AI Agent 平台？Claude Code / Codex / OpenCode / Gemini CLI / Copilot CLI。
 

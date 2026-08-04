@@ -28,10 +28,10 @@ flowchart TD
 
 ## Auth 失败处理
 
-当 `gitflow-cli auth status` 返回未登录时，不要尝试创建 Issue。改为：
+当 `gf auth status` 返回未登录时，不要尝试创建 Issue。改为：
 
 1. 输出登录提示：`gh auth login`
-2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`
+2. 输出手动 Issue URL：`https://github.com/byx-darwin/gf/issues/new`
 3. 格式化 `pending.json` 内容为可复制的 Issue 模板：
    - **命令**: `{command}`
    - **平台**: `{platform}`
@@ -67,16 +67,16 @@ User must manually run `/gitflow-workflow --fast` or explicitly request fix.
 
 ## Target Repository
 
-**All auto-reports → fixed repo:** `byx-darwin/gitflow-cli`
+**All auto-reports → fixed repo:** `byx-darwin/gf`
 
-Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
+Always use `--repo byx-darwin/gf` for dedup and issue creation.
 
 ## Workflow
 
-1. **Read & Validate** — `.cache/bug-reports/pending.json`. Required: `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop. Pre-check: `command -v gitflow-cli`.
-2. **Auth Check** — `gitflow-cli auth status --platform {platform}`. Pass → proceed. Fail → output login prompt + Issue template, keep `pending.json`, stop.
-3. **Dedup** — `gitflow-cli issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
-4. **Create Issue** — Analyze root cause, fix direction, severity. Create Issue via `gitflow-cli issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gitflow {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+1. **Read & Validate** — `.cache/bug-reports/pending.json`. Required: `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop. Pre-check: `command -v gf`.
+2. **Auth Check** — `gf auth status --platform {platform}`. Pass → proceed. Fail → output login prompt + Issue template, keep `pending.json`, stop.
+3. **Dedup** — `gf issue list --repo byx-darwin/gf --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
+4. **Create Issue** — Analyze root cause, fix direction, severity. Create Issue via `gf issue create --repo byx-darwin/gf --title "[auto-report] gitflow {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
 5. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
 
 ## Error Handling
@@ -95,4 +95,4 @@ For Schema and failed.log format, see `docs/references/gitflow-autoreport-bug-pa
 
 - ❌ **Attempting to fix the bug** — this skill reports only; fixes require user-initiated workflow
 - ❌ **Skipping dedup** — always search before creating to avoid duplicate Issues
-- ❌ **Missing --repo** — always use `--repo byx-darwin/gitflow-cli`
+- ❌ **Missing --repo** — always use `--repo byx-darwin/gf`

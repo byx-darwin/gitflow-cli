@@ -1,4 +1,4 @@
-//! JSON output contract tests for the `gitflow-cli` binary.
+//! JSON output contract tests for the `gf` binary.
 //!
 //! Verify that commands emit the expected JSON envelope (success /
 //! failure) on stdout and that help output works for every subcommand.
@@ -13,7 +13,7 @@ use assert_cmd::Command;
 
 #[test]
 fn test_should_output_json_format_for_issue_list() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary exists");
+    let mut cmd = Command::cargo_bin("gf").expect("binary exists");
     cmd.args([
         "issue",
         "list",
@@ -35,7 +35,7 @@ fn test_should_output_json_format_for_issue_list() {
 #[test]
 fn test_should_show_help_for_all_subcommands() {
     for subcmd in &["issue", "pr"] {
-        let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary exists");
+        let mut cmd = Command::cargo_bin("gf").expect("binary exists");
         cmd.arg(subcmd).arg("--help");
         cmd.assert().success();
     }

@@ -5,13 +5,13 @@
 //! Phase 1 仅支持 JSON 输出。
 
 use clap::Subcommand;
-use gitflow_cli_core::{
+use gf_core::{
     CliOutput,
     label::{CreateLabelArgs, CreateMilestoneArgs, LabelProvider, MilestoneProvider},
 };
-use gitflow_cli_gitcode::{GitCodeLabelProvider, GitCodeMilestoneProvider};
-use gitflow_cli_github::{GitHubLabelProvider, GitHubMilestoneProvider};
-use gitflow_cli_gitlab::{GitLabLabelProvider, GitLabMilestoneProvider};
+use gf_gitcode::{GitCodeLabelProvider, GitCodeMilestoneProvider};
+use gf_github::{GitHubLabelProvider, GitHubMilestoneProvider};
+use gf_gitlab::{GitLabLabelProvider, GitLabMilestoneProvider};
 
 use crate::OutputFormat;
 

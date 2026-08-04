@@ -7,7 +7,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
@@ -129,7 +129,7 @@ impl From<UserApi> for UserSummary {
 /// - 旧版本：`author` 为纯字符串（用户名）、`id` 为字符串、`created_at` 为 `YYYY-MM-DD HH:MM:SS`
 #[derive(Debug, Clone, Deserialize)]
 struct CommentApiResponse {
-    #[serde(deserialize_with = "gitflow_cli_core::types::deserialize_u64_or_string")]
+    #[serde(deserialize_with = "gf_core::types::deserialize_u64_or_string")]
     id: u64,
     #[serde(default)]
     body: String,
@@ -641,7 +641,7 @@ fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use gitflow_cli_core::types::UserSummary;
+    use gf_core::types::UserSummary;
 
     use super::*;
     use crate::runner::{MockCommandRunner, RecordingMockRunner, SequencedMockCommandRunner};
@@ -814,7 +814,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -827,7 +827,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -840,7 +840,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -853,7 +853,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -866,7 +866,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -879,7 +879,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -892,7 +892,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -905,7 +905,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -918,7 +918,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -931,7 +931,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -944,7 +944,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
+            gf_core::CoreError::Cli(_)
         ));
     }
 
@@ -1130,6 +1130,6 @@ mod contract_tests {
         let issue = &issues[0];
         assert_eq!(issue.number, 15);
         assert!(!issue.title.is_empty());
-        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
+        assert_eq!(issue.state, gf_core::types::State::Open);
     }
 }

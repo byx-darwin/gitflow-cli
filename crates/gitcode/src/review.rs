@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     review::{ReviewData, ReviewProvider, ReviewState},
 };
@@ -24,13 +24,13 @@ const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitcode::GitCodeReviewProvider;
+/// use gf_gitcode::GitCodeReviewProvider;
 ///
 /// let provider = GitCodeReviewProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitCodeReviewProvider {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
+    /// GitCode `owner/repo`，如 `"byx-darwin/gf"`。
     repo: String,
 }
 

@@ -22,32 +22,32 @@ Manages authentication lifecycle: login, logout, status, token retrieval. Does n
 ## Core Pattern
 
 ```bash
-gitflow-cli auth status                # 1. verify state
-gitflow-cli auth login [--token <t>]   # 2. authenticate
-gitflow-cli auth token                 # 3. retrieve (sensitive)
-gitflow-cli auth logout                # 4. clear credentials
+gf auth status                # 1. verify state
+gf auth login [--token <t>]   # 2. authenticate
+gf auth token                 # 3. retrieve (sensitive)
+gf auth logout                # 4. clear credentials
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Check session | `gitflow-cli auth status` |
-| Login | `gitflow-cli auth login [--token <token>]` |
-| Get token | `gitflow-cli auth token` |
-| Clear credentials | `gitflow-cli auth logout` |
+| Check session | `gf auth status` |
+| Login | `gf auth login [--token <token>]` |
+| Get token | `gf auth token` |
+| Clear credentials | `gf auth logout` |
 
 ## Implementation
 
 ### Preconditions
 
-- `command -v gitflow-cli` available
+- `command -v gf` available
 - Platform: `github` / `gitlab` / `gitcode`
 - Mutation skills must verify via `auth status` first
 
 ### Step 1: Check State
 
-`gitflow-cli auth status` → `logged_in`, `user`, `scopes`. Not logged in → Step 2.
+`gf auth status` → `logged_in`, `user`, `scopes`. Not logged in → Step 2.
 
 ### Step 2: Execute
 

@@ -1,14 +1,14 @@
 ---
 name: gitflow-label-milestone
 description: >
-  Use when the user manages repository labels or milestones via gitflow-cli —
+  Use when the user manages repository labels or milestones via gf —
   create/list/edit/delete labels, create/list/edit/close/reopen milestones.
-  当用户通过 gitflow-cli 管理仓库 label 或 milestone 时使用。
+  当用户通过 gf 管理仓库 label 或 milestone 时使用。
 ---
 
 # gitflow-label-milestone — Label & Milestone CRUD
 
-Encapsulates CRUD operations for `gitflow-cli label` and `milestone` command families.
+Encapsulates CRUD operations for `gf label` and `milestone` command families.
 Detailed parameters: docs/references/gitflow-label-milestone-params.md
 
 ## Overview
@@ -19,7 +19,7 @@ Unified CRUD router for Labels (4 ops) and Milestones (5 ops).
 
 CN 创建标签 标签颜色 编辑里程碑 关闭里程碑 版本规划 删除标签
 EN manage labels milestone CRUD label color due date close reopen
-CLI `gitflow-cli label|milestone <subcommand>`
+CLI `gf label|milestone <subcommand>`
 
 ## CRUD Matrix
 

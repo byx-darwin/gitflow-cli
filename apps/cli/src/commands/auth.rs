@@ -5,10 +5,10 @@
 //! Phase 1 仅支持 JSON 输出。
 
 use clap::Subcommand;
-use gitflow_cli_core::{CliOutput, auth::AuthProvider};
-use gitflow_cli_gitcode::GitCodeAuthProvider;
-use gitflow_cli_github::GitHubAuthProvider;
-use gitflow_cli_gitlab::GitLabAuthProvider;
+use gf_core::{CliOutput, auth::AuthProvider};
+use gf_gitcode::GitCodeAuthProvider;
+use gf_github::GitHubAuthProvider;
+use gf_gitlab::GitLabAuthProvider;
 
 use crate::OutputFormat;
 

@@ -1,16 +1,16 @@
 ---
 name: gitflow-pr
 description: >
-  Use when the user manages PRs via gitflow-cli: create/list/view/close/merge/
+  Use when the user manages PRs via gf: create/list/view/close/merge/
   checkout/comment/sync/ready/wip/reopen or toggles draft/ready state.
-  当用户通过 gitflow-cli 创建、查看、合并、关闭、评论、检出、同步、
+  当用户通过 gf 创建、查看、合并、关闭、评论、检出、同步、
   标记PR时使用。
 Full params: docs/references/gitflow-pr-params.md
 ---
 
 # gitflow-pr — PR Command Router
 
-Top-level entry for `gitflow-cli pr` (11 subcommands). Simple CRUD; complex workflows delegate.
+Top-level entry for `gf pr` (11 subcommands). Simple CRUD; complex workflows delegate.
 
 ## When to Use
 
@@ -38,7 +38,7 @@ flowchart TD
 
 | Goal | Command |
 |------|---------|
-| List/View | `gitflow-cli pr list` / `pr view <n>` |
+| List/View | `gf pr list` / `pr view <n>` |
 | CRUD local | `pr close/reopen/comment <n>` |
 | Merge | `pr merge <n> --strategy <s>` (confirm first) |
 | Sync | `pr sync <n>` |

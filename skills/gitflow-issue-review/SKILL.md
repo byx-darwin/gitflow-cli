@@ -21,9 +21,9 @@ Three-dimensional Issue requirement review — title clarity / description suffi
 ## Core Pattern
 
 ```bash
-gitflow-cli issue view <n>
+gf issue view <n>
 # analyze 3 dimensions → write /tmp/issue-analysis.md
-gitflow-cli issue comment <n> --body-file /tmp/issue-analysis.md
+gf issue comment <n> --body-file /tmp/issue-analysis.md
 rm -f /tmp/issue-analysis.md
 ```
 
@@ -31,8 +31,8 @@ rm -f /tmp/issue-analysis.md
 
 | Goal | Command |
 |------|---------|
-| Fetch Issue | `gitflow-cli issue view <n>` |
-| Post comment | `gitflow-cli issue comment <n> --body-file <path>` |
+| Fetch Issue | `gf issue view <n>` |
+| Post comment | `gf issue comment <n> --body-file <path>` |
 
 **Three dimensions:** Title clarity · Description sufficiency · Acceptance criteria
 
@@ -41,7 +41,7 @@ rm -f /tmp/issue-analysis.md
 ### Preconditions
 
 - Issue `<n>` exists — `issue view <n>`
-- `gitflow-cli` authenticated
+- `gf` authenticated
 - Write access to Issue comments
 
 ### Step 1: Fetch — `issue view <n>`. Record title, body, labels, links, comments.

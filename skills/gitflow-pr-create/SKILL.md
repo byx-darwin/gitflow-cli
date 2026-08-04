@@ -1,13 +1,13 @@
 ---
 name: gitflow-pr-create
 description: |
-  Use when the user wants to open a Pull Request through gitflow-cli — feature, fix, or draft PR.
-  当用户希望通过 gitflow-cli 创建 Pull Request（功能、修复或草稿 PR）时使用。
+  Use when the user wants to open a Pull Request through gf — feature, fix, or draft PR.
+  当用户希望通过 gf 创建 Pull Request（功能、修复或草稿 PR）时使用。
 ---
 
 # gitflow-pr-create
 
-Validates branch state, collects title/description, invokes `gitflow-cli pr create`, returns the new PR URL. Does not review, approve, merge, or close PRs.
+Validates branch state, collects title/description, invokes `gf pr create`, returns the new PR URL. Does not review, approve, merge, or close PRs.
 
 ## When to Use
 
@@ -21,19 +21,19 @@ Validates branch state, collects title/description, invokes `gitflow-cli pr crea
 ## Core Pattern
 
 ```bash
-command -v gitflow-cli && gitflow-cli auth status
+command -v gf && gf auth status
 git rev-parse --is-inside-work-tree
 git branch --show-current
 git rev-parse --abbrev-ref @{u}
 git merge-base --is-ancestor origin/main HEAD
-gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
+gf pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Create | `gitflow-cli pr create -t "<t>" -b "<b>" -H <head> -B <base> [--draft]` |
+| Create | `gf pr create -t "<t>" -b "<b>" -H <head> -B <base> [--draft]` |
 | Push upstream | `git push -u origin <branch>` |
 | Rebase | `git rebase origin/<base>` |
 
@@ -42,7 +42,7 @@ gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
 ### Preconditions
 
 - Git repo — `git rev-parse --is-inside-work-tree`
-- CLI + auth — `command -v gitflow-cli` + `gitflow-cli auth status`
+- CLI + auth — `command -v gf` + `gf auth status`
 
 ### Step 1: Branch — not protected, has upstream. Else stop.
 
@@ -50,7 +50,7 @@ gitflow-cli pr create -t "<title>" -b "<body>" -H <head> -B <base> [--draft]
 
 ### Step 3: Collect title (conventional prefix) + body (Markdown template). Confirm command.
 
-### Step 4: Invoke `gitflow-cli pr create`. Success → URL. Failure → Error Handling.
+### Step 4: Invoke `gf pr create`. Success → URL. Failure → Error Handling.
 
 ### Error Handling
 

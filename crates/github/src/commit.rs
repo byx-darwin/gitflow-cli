@@ -4,7 +4,7 @@
 //! 支持 Commit 查看、Diff/Patch 获取及评论功能。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     commit::{CommitDetail, CommitFile, CommitProvider},
     types::UserSummary,
@@ -19,7 +19,7 @@ use crate::error::parse_gh_error;
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_github::GitHubCommitProvider;
+/// use gf_github::GitHubCommitProvider;
 ///
 /// let provider = GitHubCommitProvider::new("octocat/hello-world");
 /// ```
@@ -114,7 +114,7 @@ struct ApiUser {
     login: String,
     #[serde(
         default,
-        deserialize_with = "gitflow_cli_core::types::deserialize_u64_or_string_to_string"
+        deserialize_with = "gf_core::types::deserialize_u64_or_string_to_string"
     )]
     id: String,
 }
