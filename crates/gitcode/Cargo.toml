@@ -1,20 +1,20 @@
 [package]
-name = "gitflow-cli-gitcode"
+name = "gf-gitcode"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "gitflow-cli 的 GitCode 适配器，基于 gitcode CLI 提供 Issue/MR/Release/Review 等能力。GitCode adapter for gitflow-cli via gitcode CLI."
+description = "gf 的 GitCode 适配器，基于 gitcode CLI 提供 Issue/MR/Release/Review 等能力。GitCode adapter for gf via gitcode CLI."
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/gitflow-cli-gitcode"
+documentation = "https://docs.rs/gf-gitcode"
 readme = "README.md"
 keywords = ["cli", "gitcode", "gitflow", "issue", "pr"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-gitflow-cli-core.workspace = true
+gf-core.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 serde.workspace = true
