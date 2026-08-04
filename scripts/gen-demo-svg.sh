@@ -9,6 +9,6 @@ mkdir -p "${ROOT}/docs/assets"
 cargo build -p gf
 GF_BIN="${ROOT}/target/debug/gf" \
   asciinema rec "$CAST" --command "bash ${ROOT}/scripts/demo-session.sh" --overwrite
-svg-term "$CAST" --out "$OUT" --window --width 90 --height 20
+svg-term --in "$CAST" --out "$OUT" --window --width 90 --height 20
 rm -f "$CAST"
 echo "Wrote ${OUT}"
