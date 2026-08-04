@@ -374,10 +374,7 @@ mod tests {
 
         let result = provider.create(sample_release_args()).await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -402,10 +399,7 @@ mod tests {
 
         let result = provider.list().await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -428,10 +422,7 @@ mod tests {
 
         let result = provider.view("v1.0.0").await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -454,10 +445,7 @@ mod tests {
 
         let result = provider.edit("v1.0.0", sample_release_args()).await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -482,10 +470,7 @@ mod tests {
 
         let result = provider.delete("v1.0.0").await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -497,10 +482,7 @@ mod tests {
             .upload_asset("v1.0.0", "/tmp/artifact.tar.gz", "artifact.tar.gz")
             .await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -512,9 +494,6 @@ mod tests {
             .download_asset("v1.0.0", "artifact.tar.gz", "/tmp/out.tar.gz")
             .await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 }

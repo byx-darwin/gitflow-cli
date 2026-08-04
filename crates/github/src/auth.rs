@@ -444,10 +444,7 @@ mod tests {
         let result = provider.logout().await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -472,10 +469,7 @@ mod tests {
         let result = provider.token().await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]

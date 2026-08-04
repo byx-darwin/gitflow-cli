@@ -784,10 +784,7 @@ mod tests {
         let result = provider.status("main").await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -812,10 +809,7 @@ mod tests {
         let result = provider.logs(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -826,10 +820,7 @@ mod tests {
         let result = provider.jobs(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -854,10 +845,7 @@ mod tests {
         let result = provider.report("main", 7).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]

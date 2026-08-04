@@ -97,10 +97,7 @@ fn test_should_not_contain_template_placeholders() {
 #[test]
 fn test_should_have_valid_geo_files() {
     let llms = read("website/public/llms.txt");
-    assert!(
-        llms.starts_with("# gf"),
-        "llms.txt must start with '# gf'"
-    );
+    assert!(llms.starts_with("# gf"), "llms.txt must start with '# gf'");
     assert!(
         llms.contains(CANONICAL_POSITIONING),
         "llms.txt must quote canonical positioning"

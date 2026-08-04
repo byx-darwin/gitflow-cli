@@ -722,10 +722,7 @@ mod tests {
         let result = provider.create(sample_create_args()).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -751,10 +748,7 @@ mod tests {
         let result = provider.list(ListPrArgs::default()).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -779,10 +773,7 @@ mod tests {
         let result = provider.view(999).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -807,10 +798,7 @@ mod tests {
         let result = provider.close(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -821,10 +809,7 @@ mod tests {
         let result = provider.reopen(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -835,10 +820,7 @@ mod tests {
         let result = provider.merge(42, None).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -851,10 +833,7 @@ mod tests {
         let result = provider.merge(42, Some(MergeStrategy::Squash)).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -865,10 +844,7 @@ mod tests {
         let result = provider.checkout(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -879,10 +855,7 @@ mod tests {
         let result = provider.sync_branch(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -893,10 +866,7 @@ mod tests {
         let result = provider.mark_ready(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -907,10 +877,7 @@ mod tests {
         let result = provider.mark_wip(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -921,9 +888,6 @@ mod tests {
         let result = provider.comment(42, "a comment").await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gf_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 }
