@@ -1,0 +1,59 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="支持政策 — gf">
+  <main class="narrow page">
+    <h1 class="page-title">支持政策</h1>
+    <p class="page-lede">
+      gf 版本支持周期与升级指引
+    </p>
+
+    <h2>支持的版本</h2>
+    <table class="matrix-table">
+      <thead>
+        <tr><th>版本</th><th>支持状态</th><th>EOL 日期</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="matrix-platform">1.0.x</td>
+          <td class="matrix-ok">✅ 支持中</td>
+          <td>TBD</td>
+          <td>当前稳定版本</td>
+        </tr>
+        <tr>
+          <td class="matrix-platform">0.9.x</td>
+          <td class="matrix-ok">✅ 支持中</td>
+          <td>2026-12-31</td>
+          <td>仅安全修复</td>
+        </tr>
+        <tr>
+          <td class="matrix-platform">&lt; 0.9</td>
+          <td>❌ 已停止</td>
+          <td>-</td>
+          <td>生命周期结束</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>获取帮助</h2>
+    <ul>
+      <li><strong>Bug 报告：</strong>在 GitHub 上提交 Issue</li>
+      <li><strong>功能建议：</strong>在 GitHub Discussions 发起讨论</li>
+      <li><strong>安全问题：</strong>发送邮件至 baoyx19870908@gmail.com（私信）</li>
+    </ul>
+
+    <h2>兼容性矩阵</h2>
+    <p>
+      平台兼容性详情见 <a href="/compatibility" style="color:var(--gf-teal)">兼容性矩阵</a>。
+    </p>
+
+    <h2>升级指南</h2>
+    <h3>从 0.9.x 升级到 1.0.x</h3>
+    <ul>
+      <li>CLI 接口无破坏性变更</li>
+      <li>新增 crates.io 包（gf, gf-core, gf-github, gf-gitlab, gf-gitcode）</li>
+      <li>Homebrew formula 在发布时自动更新</li>
+    </ul>
+  </main>
+</Base>
