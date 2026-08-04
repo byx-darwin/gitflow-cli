@@ -17,7 +17,7 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 
-/// `gitflow completions bash` emits a bash completion script to stdout.
+/// `gf completions bash` emits a bash completion script to stdout.
 #[test]
 fn test_should_generate_bash_completion_to_stdout() {
     let mut cmd = Command::cargo_bin("gf").expect("binary should build");
@@ -27,7 +27,7 @@ fn test_should_generate_bash_completion_to_stdout() {
         .stdout(predicate::str::contains("complete -F"));
 }
 
-/// `gitflow completions zsh` emits a zsh completion script to stdout.
+/// `gf completions zsh` emits a zsh completion script to stdout.
 #[test]
 fn test_should_generate_zsh_completion_to_stdout() {
     let mut cmd = Command::cargo_bin("gf").expect("binary should build");
@@ -37,7 +37,7 @@ fn test_should_generate_zsh_completion_to_stdout() {
         .stdout(predicate::str::contains("#compdef"));
 }
 
-/// `gitflow completions fish` emits a fish completion script to stdout.
+/// `gf completions fish` emits a fish completion script to stdout.
 #[test]
 fn test_should_generate_fish_completion_to_stdout() {
     let mut cmd = Command::cargo_bin("gf").expect("binary should build");
@@ -47,7 +47,7 @@ fn test_should_generate_fish_completion_to_stdout() {
         .stdout(predicate::str::contains("complete -c"));
 }
 
-/// `gitflow completions` (no args) should fail — shell is required without flags.
+/// `gf completions` (no args) should fail — shell is required without flags.
 #[test]
 fn test_should_require_shell_without_flags() {
     let mut cmd = Command::cargo_bin("gf").expect("binary should build");
@@ -57,7 +57,7 @@ fn test_should_require_shell_without_flags() {
         .stderr(predicate::str::contains("required"));
 }
 
-/// `gitflow completions --install --uninstall` should fail — flags are mutually exclusive.
+/// `gf completions --install --uninstall` should fail — flags are mutually exclusive.
 #[test]
 fn test_should_reject_install_and_uninstall_together() {
     let mut cmd = Command::cargo_bin("gf").expect("binary should build");
@@ -67,7 +67,7 @@ fn test_should_reject_install_and_uninstall_together() {
         .stderr(predicate::str::contains("cannot be used with"));
 }
 
-/// `gitflow completions --install <shell>` writes the completion file to the
+/// `gf completions --install <shell>` writes the completion file to the
 /// expected location and emits the success message.
 #[cfg(unix)]
 #[test]
@@ -96,7 +96,7 @@ fn test_should_install_completion_for_explicit_shell() {
     );
 }
 
-/// `gitflow completions --uninstall <shell>` removes a previously installed
+/// `gf completions --uninstall <shell>` removes a previously installed
 /// completion file.
 #[cfg(unix)]
 #[test]
@@ -128,7 +128,7 @@ fn test_should_uninstall_existing_completion() {
     );
 }
 
-/// `gitflow completions --uninstall` fails with a clear error when no file is
+/// `gf completions --uninstall` fails with a clear error when no file is
 /// installed.
 #[test]
 fn test_should_fail_uninstall_when_file_missing() {
@@ -144,7 +144,7 @@ fn test_should_fail_uninstall_when_file_missing() {
         .stderr(predicate::str::contains("nothing to uninstall"));
 }
 
-/// `gitflow completions --install` auto-detects the shell from `$SHELL`.
+/// `gf completions --install` auto-detects the shell from `$SHELL`.
 #[cfg(unix)]
 #[test]
 fn test_should_auto_detect_shell_from_env() {

@@ -1,4 +1,4 @@
-//! `gitflow skills` 子命令实现。
+//! `gf skills` 子命令实现。
 //!
 //! 管理 gitflow Skills 的安装、列出和卸载。
 //! Skills 可以从仓库的 `skills/` 目录复制，也可以从编译时嵌入的
@@ -253,7 +253,7 @@ fn skills_source_dir() -> PathBuf {
 // Command handlers
 // ---------------------------------------------------------------------------
 
-/// 处理 `gitflow skills` 命令。
+/// 处理 `gf skills` 命令。
 pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
     match command {
         SkillsCommand::Install(args) => install_skills(args),

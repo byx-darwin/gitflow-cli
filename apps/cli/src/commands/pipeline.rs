@@ -1,4 +1,4 @@
-//! `gitflow pipeline` 子命令实现。
+//! `gf pipeline` 子命令实现。
 //!
 //! 提供流水线状态查询、日志获取、任务列表、健康报告等功能，
 //! 支持通过 clap 解析参数后调用对应平台的 [`PipelineProvider`] 实现。
@@ -50,7 +50,7 @@ pub enum PipelineCommand {
     },
 }
 
-/// 处理 `gitflow pipeline` 子命令。
+/// 处理 `gf pipeline` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Pipeline 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。

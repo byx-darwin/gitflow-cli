@@ -61,7 +61,7 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
                                ▼
 ┌─ gf-issue-create ──────────────────────────────────────┐
 │  • 引导 Issue 标题、正文、标签、里程碑                         │
-│  • 调用 gitflow issue create --platform github               │
+│  • 调用 gf issue create --platform github               │
 │  • 输出: Issue URL (如 #42)                                  │
 └──────────────────────────────┬────────────────────────────────┘
                                │
@@ -125,7 +125,7 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 ┌─ gf-pr-create ──────────────────────────────────────────┐
 │  • 自动生成 PR 标题、正文 (引用 Issue #42)                     │
 │  • 关联 Issue: closes #42                                    │
-│  • 调用 gitflow pr create --platform github                  │
+│  • 调用 gf pr create --platform github                  │
 │  • 输出: PR URL (如 #43)                                     │
 └──────────────────────────────┬────────────────────────────────┘
                                │
@@ -179,8 +179,8 @@ Claude 加载 gf-autoreport-bug Skill
 ┌─ 自动 Bug 报告流程 ─────────────────────────────────────────┐
 │  1. 读取 pending.json (error_id, command, error_code 等)     │
 │  2. Claude 分析根因 + 生成 Issue 标题/正文                    │
-│  3. 去重检查: gitflow issue list --search                    │
-│  4. 创建 Issue: gitflow issue create --label bug,auto-report │
+│  3. 去重检查: gf issue list --search                    │
+│  4. 创建 Issue: gf issue create --label bug,auto-report │
 │  5. 清理 pending.json                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -210,7 +210,7 @@ Stop Hook 仅在以下条件**全部满足**时触发:
 
 ### 错误去重
 
-创建 Issue 前，Skill 会通过 `gitflow issue list --search` 检查是否已有相同 `error_code` 的 Issue。如已存在，跳过创建并删除 `pending.json`，避免重复报告。
+创建 Issue 前，Skill 会通过 `gf issue list --search` 检查是否已有相同 `error_code` 的 Issue。如已存在，跳过创建并删除 `pending.json`，避免重复报告。
 
 ## 配置示例
 
@@ -252,16 +252,16 @@ gf 支持多平台，根据你的代码托管平台配置:
 
 ```bash
 # GitHub (默认)
-gitflow auth login --platform github
+gf auth login --platform github
 
 # GitLab
-gitflow auth login --platform gitlab
+gf auth login --platform gitlab
 
 # Gitee
-gitflow auth login --platform gitee
+gf auth login --platform gitee
 
 # GitCode
-gitflow auth login --platform gitcode
+gf auth login --platform gitcode
 ```
 
 #### 2. 质量闸门阈值
@@ -294,7 +294,7 @@ export APP_LOG_LEVEL=debug
 
 - 每个仓库独立配置 `.claude/settings.json`。
 - 共享 `_common.sh` 通过 symlink 或 git submodule 引入。
-- 使用 `gitflow auth status` 确认各仓库的认证状态。
+- 使用 `gf auth status` 确认各仓库的认证状态。
 
 ## 常见问题
 

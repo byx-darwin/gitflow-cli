@@ -1,4 +1,4 @@
-//! `gitflow issue` 子命令实现。
+//! `gf issue` 子命令实现。
 //!
 //! 提供 Issue 的创建、列表、查看、关闭、重新打开、评论、标签管理等功能，
 //! 支持通过 clap 解析参数后调用对应平台的 [`IssueProvider`] 实现。
@@ -121,7 +121,7 @@ pub enum IssueCommand {
     },
 }
 
-/// 处理 `gitflow issue` 子命令。
+/// 处理 `gf issue` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Issue 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。

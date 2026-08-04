@@ -1,4 +1,4 @@
-//! `gitflow review` 子命令实现。
+//! `gf review` 子命令实现。
 //!
 //! 提供 PR Review 的评论、批准、要求修改、提交审查等功能，
 //! 支持通过 clap 解析参数后调用对应平台的 [`ReviewProvider`] 实现。
@@ -108,7 +108,7 @@ impl From<ReviewEventArg> for ReviewState {
     }
 }
 
-/// 处理 `gitflow review` 子命令。
+/// 处理 `gf review` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Review 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。

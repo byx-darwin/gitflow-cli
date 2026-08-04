@@ -1,4 +1,4 @@
-//! `gitflow pr` 子命令实现。
+//! `gf pr` 子命令实现。
 //!
 //! 提供 Pull Request 的创建、列表、查看、关闭、重新打开、评论、
 //! 合并、检出、标记就绪/草稿、同步等功能。
@@ -131,7 +131,7 @@ pub enum PrCommand {
     },
 }
 
-/// 处理 `gitflow pr` 子命令。
+/// 处理 `gf pr` 子命令。
 ///
 /// 根据 `platform` 选择对应的 PR 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。

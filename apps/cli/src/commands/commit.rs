@@ -1,4 +1,4 @@
-//! `gitflow commit` 子命令实现。
+//! `gf commit` 子命令实现。
 //!
 //! 提供 Commit 的查看、Diff/Patch 获取、评论等功能，
 //! 支持通过 clap 解析参数后调用对应平台的 [`CommitProvider`] 实现。
@@ -58,7 +58,7 @@ pub enum CommitCommand {
     },
 }
 
-/// 处理 `gitflow commit` 子命令。
+/// 处理 `gf commit` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Commit 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。

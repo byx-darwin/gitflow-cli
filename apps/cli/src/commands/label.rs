@@ -1,4 +1,4 @@
-//! `gitflow label` 和 `gitflow milestone` 子命令实现。
+//! `gf label` 和 `gf milestone` 子命令实现。
 //!
 //! 提供仓库标签（Label）和里程碑（Milestone）的创建、列表、编辑、删除等操作，
 //! 支持通过 clap 解析参数后调用对应平台的 [`LabelProvider`] 和 [`MilestoneProvider`] 实现。
@@ -116,7 +116,7 @@ pub enum MilestoneCommand {
     },
 }
 
-/// 处理 `gitflow label` 子命令。
+/// 处理 `gf label` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Label 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。
@@ -233,7 +233,7 @@ pub async fn handle_label(
     Ok(())
 }
 
-/// 处理 `gitflow milestone` 子命令。
+/// 处理 `gf milestone` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Milestone 提供者，然后执行具体命令并输出结果。
 /// 支持 `github`、`gitlab`、`gitcode` 三个平台，Phase 1 仅支持 JSON 输出格式。

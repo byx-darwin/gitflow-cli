@@ -1,4 +1,4 @@
-//! `gitflow workflow` 子命令实现。
+//! `gf workflow` 子命令实现。
 //!
 //! 管理工作流合同的创建、读取、归档和清理。
 //! 合同存储在 `.cache/workflows/active/` 和 `.cache/workflows/archive/`。
@@ -234,7 +234,7 @@ pub enum WorkflowCommand {
     },
 }
 
-/// 处理 `gitflow workflow` 子命令。
+/// 处理 `gf workflow` 子命令。
 ///
 /// # Errors
 ///
