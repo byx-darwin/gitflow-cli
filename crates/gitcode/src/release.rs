@@ -37,7 +37,7 @@ const RELEASE_FIELDS: &str =
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitCodeReleaseProvider<R: CommandRunner = RealCommandRunner> {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gf"`。
+    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
     /// 用于执行 `gitcode` CLI 命令的 runner。
     runner: R,

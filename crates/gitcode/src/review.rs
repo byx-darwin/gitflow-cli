@@ -30,7 +30,7 @@ const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitCodeReviewProvider {
-    /// GitCode `owner/repo`，如 `"byx-darwin/gf"`。
+    /// GitCode `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
 }
 

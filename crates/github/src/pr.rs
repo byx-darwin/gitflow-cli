@@ -38,7 +38,7 @@ const PR_FIELDS: &str =
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitHubPrProvider<R: CommandRunner = RealCommandRunner> {
-    /// GitHub `owner/repo`，如 `"byx-darwin/gf"`。
+    /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
     /// 用于执行 `gh` CLI 命令的 runner。
     runner: R,

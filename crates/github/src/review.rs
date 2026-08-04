@@ -27,7 +27,7 @@ use crate::{error::parse_gh_error, issue::GitHubUser};
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitHubReviewProvider {
-    /// GitHub `owner/repo`，如 `"byx-darwin/gf"`。
+    /// GitHub `owner/repo`，如 `"byx-darwin/gitflow-cli"`。
     repo: String,
 }
 
