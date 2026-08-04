@@ -87,14 +87,20 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
     }
 }
 
+/// 格式化平台名称用于显示。
+fn format_platform(platform: &str) -> String {
+    match platform {
+        "github" => "[GitHub]".to_string(),
+        "gitlab" => "[GitLab]".to_string(),
+        "gitcode" => "[GitCode]".to_string(),
+        other => format!("[{other}]"),
+    }
+}
+
 /// 前置检查失败错误。
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum PrerequisiteError {
     /// 底层 CLI 未安装。
-    #[error(
-        "[[PLATFORM]] 未检测到 {binary}。\n\n📦 安装：{install_cmd}\n📖 \
-         文档：{doc_link}\n\n其他安装方式：\n{install_hint}"
-    )]
     NotFound {
         /// CLI 可执行文件名。
         binary: String,
@@ -102,8 +108,6 @@ pub enum PrerequisiteError {
         platform: String,
         /// 安装选项。
         install_hint: String,
-        /// 官方安装链接。
-        install_url: String,
         /// 一键安装命令。
         install_cmd: String,
         /// 文档链接。
@@ -111,10 +115,6 @@ pub enum PrerequisiteError {
     },
 
     /// 底层 CLI 版本过低。
-    #[error(
-        "[[PLATFORM]] {binary} 版本过低：当前 v{found}，需要 v{required}+。\n\n📦 \
-         升级：{install_cmd}\n📖 文档：{doc_link}"
-    )]
     VersionTooLow {
         /// CLI 可执行文件名。
         binary: String,
@@ -131,10 +131,6 @@ pub enum PrerequisiteError {
     },
 
     /// 版本信息解析失败。
-    #[error(
-        "[[PLATFORM]] {binary} 版本信息解析失败。\n\n📦 重新安装：{install_cmd}\n📖 \
-         文档：{doc_link}"
-    )]
     VersionParseFailed {
         /// CLI 可执行文件名。
         binary: String,
@@ -147,7 +143,6 @@ pub enum PrerequisiteError {
     },
 
     /// 未认证。
-    #[error("[[PLATFORM]] {binary} 未认证。\n\n🔍 原因：{reason}\n🔧 修复：运行 `{hint}` 完成登录")]
     NotAuthenticated {
         /// CLI 可执行文件名。
         binary: String,
@@ -160,12 +155,72 @@ pub enum PrerequisiteError {
     },
 
     /// 不支持的平台。
-    #[error("不支持的平台：{platform}。支持的平台：github、gitlab、gitcode")]
     UnsupportedPlatform {
         /// 平台标识。
         platform: String,
     },
 }
+
+impl std::fmt::Display for PrerequisiteError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound {
+                binary,
+                platform,
+                install_cmd,
+                doc_link,
+                install_hint,
+                ..
+            } => write!(
+                f,
+                "{} 未检测到 {binary}。\n\n📦 安装：{install_cmd}\n📖 \
+                 文档：{doc_link}\n\n其他安装方式：\n{install_hint}",
+                format_platform(platform)
+            ),
+            Self::VersionTooLow {
+                binary,
+                platform,
+                found,
+                required,
+                install_cmd,
+                doc_link,
+            } => write!(
+                f,
+                "{} {binary} 版本过低：当前 v{found}，需要 v{required}+。\n\n📦 \
+                 升级：{install_cmd}\n📖 文档：{doc_link}",
+                format_platform(platform)
+            ),
+            Self::VersionParseFailed {
+                binary,
+                platform,
+                install_cmd,
+                doc_link,
+            } => write!(
+                f,
+                "{} {binary} 版本信息解析失败。\n\n📦 重新安装：{install_cmd}\n📖 文档：{doc_link}",
+                format_platform(platform)
+            ),
+            Self::NotAuthenticated {
+                binary,
+                platform,
+                reason,
+                hint,
+            } => write!(
+                f,
+                "{} {binary} 未认证。\n\n🔍 原因：{reason}\n🔧 修复：运行 `{hint}` 完成登录",
+                format_platform(platform)
+            ),
+            Self::UnsupportedPlatform { platform } => {
+                write!(
+                    f,
+                    "不支持的平台：{platform}。支持的平台：github、gitlab、gitcode"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for PrerequisiteError {}
 
 /// 检查原生 CLI 是否可用、版本满足要求且已登录。
 #[allow(
@@ -186,7 +241,6 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
             binary: req.binary.into(),
             platform: platform.into(),
             install_hint: req.install_hint.into(),
-            install_url: req.install_url.into(),
             install_cmd: req.install_cmd.into(),
             doc_link: req.doc_link.into(),
         })?;
@@ -289,9 +343,6 @@ fn find_gitcode_cli(
         install_hint: requirement_for(platform)
             .map_or("", |r| r.install_hint)
             .into(),
-        install_url: requirement_for(platform)
-            .map_or("", |r| r.install_url)
-            .into(),
         install_cmd: install_cmd.into(),
         doc_link: requirement_for(platform).map_or("", |r| r.doc_link).into(),
     })
@@ -389,5 +440,56 @@ mod tests {
         assert!(version_meets_minimum("2.50.0", "2.0.0"));
         assert!(version_meets_minimum("2.0.0", "2.0.0"));
         assert!(!version_meets_minimum("1.9.0", "2.0.0"));
+    }
+
+    #[test]
+    fn test_should_display_github_in_not_authenticated_error() {
+        let err = PrerequisiteError::NotAuthenticated {
+            binary: "gh".into(),
+            platform: "github".into(),
+            reason: "token expired".into(),
+            hint: "gh auth login".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("[GitHub]"), "Expected [GitHub] in: {msg}");
+        assert!(
+            !msg.contains("[[PLATFORM]]"),
+            "Found literal [[PLATFORM]] in: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_should_display_gitlab_in_not_found_error() {
+        let err = PrerequisiteError::NotFound {
+            binary: "glab".into(),
+            platform: "gitlab".into(),
+            install_hint: "brew install glab".into(),
+            install_cmd: "brew install glab".into(),
+            doc_link: "https://docs.gitlab.com".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("[GitLab]"), "Expected [GitLab] in: {msg}");
+        assert!(
+            !msg.contains("[[PLATFORM]]"),
+            "Found literal [[PLATFORM]] in: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_should_display_gitcode_in_version_too_low_error() {
+        let err = PrerequisiteError::VersionTooLow {
+            binary: "gitcode".into(),
+            platform: "gitcode".into(),
+            found: "0.5.0".into(),
+            required: "0.6.0".into(),
+            install_cmd: "pip install gitcode-cli".into(),
+            doc_link: "https://gitcode.com/cli".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("[GitCode]"), "Expected [GitCode] in: {msg}");
+        assert!(
+            !msg.contains("[[PLATFORM]]"),
+            "Found literal [[PLATFORM]] in: {msg}"
+        );
     }
 }
