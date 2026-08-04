@@ -7,7 +7,7 @@
   <text x="20" y="122" fill="#7ee787">$ gf issue list --output toon</text>
   <text x="20" y="146" fill="#c9d1d9">platform: github · 3 open issues</text>
   <text x="20" y="178" fill="#7ee787">$ gf --version</text>
-  <text x="20" y="202" fill="#c9d1d9">gf 0.9.0</text>
+  <text x="20" y="202" fill="#c9d1d9">gf 1.0.0</text>
   <text x="20" y="234" fill="#8b949e"># 统一封装 GitHub / GitLab / GitCode，配合 AI Agent Skills</text>
   <text x="20" y="258" fill="#8b949e"># 覆盖从需求到发布的完整工程循环</text>
 </svg>
