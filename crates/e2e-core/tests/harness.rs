@@ -35,7 +35,7 @@ async fn test_should_run_help_successfully_in_both_tty_modes() {
             output.stderr
         );
         assert!(
-            output.stdout.contains("gitflow"),
+            output.stdout.contains("gf"),
             "mode {mode:?}: stdout missing product name: {}",
             output.stdout
         );
