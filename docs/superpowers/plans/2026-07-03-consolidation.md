@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Consolidate gitcode-dev-workflow's orchestration strengths and ncgo-code-skills' weekly-report + improved auto-report-bug into gitflow-cli as the single source of truth.
+**Goal:** Consolidate gitcode-dev-workflow's orchestration strengths and ncgo-code-skills' weekly-report + improved auto-report-bug into gf as the single source of truth.
 
 **Architecture:** Five documentation/script-level changes: (1) gitflow-workflow gains compliance checklists, --body-file rule, enforcement header; (2) gitflow-quality gains pre-commit as step 6; (3) new gitflow-weekly-report skill ported from ncgo-code; (4) gitflow-autoreport-bug merges both implementations with auth cache + JSON validation; (5) hooks/sync-readme-check.sh added and registered.
 
@@ -11,11 +11,11 @@
 ## Global Constraints
 
 - All changes are SKILL.md text edits or new bash files — no Rust compilation changes
-- weekly-report 保持纯 bash，不引入 gitflow-cli API
-- weekly-report 推荐用户级安装（`gitflow-cli skills install -g`）
-- auto-report-bug 保留 gitflow-cli 现有 pending.json schema（error_id / command / platform / error_code / error_message / timestamp），仅追加可选字段 `auth_cache_ttl`
+- weekly-report 保持纯 bash，不引入 gf API
+- weekly-report 推荐用户级安装（`gf skills install -g`）
+- auto-report-bug 保留 gf 现有 pending.json schema（error_id / command / platform / error_code / error_message / timestamp），仅追加可选字段 `auth_cache_ttl`
 - 不删除或归档源仓库
-- hooks 注册沿用 gitflow-cli 现有的 `.claude/settings.json` matcher 模式
+- hooks 注册沿用 gf 现有的 `.claude/settings.json` matcher 模式
 
 ---
 
@@ -217,7 +217,7 @@ Phase 4 合规检查:
 In steps 1.4, 2.5, 3.3, and 4.6, replace patterns like:
 
 ```bash
-gitflow-cli issue comment <number> --body "## Phase X: ...<long content>..."
+gf issue comment <number> --body "## Phase X: ...<long content>..."
 ```
 
 With:
@@ -229,7 +229,7 @@ cat > /tmp/phase-report.md << 'REPORT'
 ...长内容...
 REPORT
 
-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+gf issue comment <number> --body-file /tmp/phase-report.md
 rm -f /tmp/phase-report.md
 ```
 
@@ -266,7 +266,7 @@ git commit -m "workflow: add compliance checklists, --body-file rule, enforcemen
 
 - [ ] **Step 1: Create the SKILL.md**
 
-Write `skills/gitflow-weekly-report/SKILL.md` with adapted content from ncgo-code's weekly-report. Rename skill, update description for gitflow-cli context, add install note:
+Write `skills/gitflow-weekly-report/SKILL.md` with adapted content from ncgo-code's weekly-report. Rename skill, update description for gf context, add install note:
 
 ```markdown
 ---
@@ -284,7 +284,7 @@ description: |
 
 > **安装建议：** 推荐使用用户级安装，跨项目可用：
 > ```bash
-> gitflow-cli skills install -g gitflow-weekly-report
+> gf skills install -g gitflow-weekly-report
 > ```
 
 扫描一个或多个 Git 仓库，汇总指定时间段内的提交记录，按项目分组生成结构化的研发周报。输出采用纯文本格式，不使用表格。
@@ -442,13 +442,13 @@ git diff --stat --since="<start>" --until="<end>" | tail -1
 1. 安全：所有 `git log` 和 Bash 命令均为只读操作，不修改仓库。
 2. 隐私：不暴露文件路径中的用户名或敏感信息。
 3. 准确性：提交数、日期等数据必须从 git 实际获取，不可编造。
-4. **跨项目设计**：本 skill 推荐安装到用户级目录（`gitflow-cli skills install -g gitflow-weekly-report`），这样无论从哪个项目目录调用都能正常扫描。
+4. **跨项目设计**：本 skill 推荐安装到用户级目录（`gf skills install -g gitflow-weekly-report`），这样无论从哪个项目目录调用都能正常扫描。
 
 ---
 
 **Version**: 2.0.0
 **Last Updated**: 2026-07-03
-**Source**: Migrated from ncgo-code-skills/weekly-report (adapted for gitflow-cli)
+**Source**: Migrated from ncgo-code-skills/weekly-report (adapted for gf)
 ```
 
 - [ ] **Step 2: Verify and commit**
@@ -480,7 +480,7 @@ git commit -m "feat: add gitflow-weekly-report skill (ported from ncgo-code-skil
 
 - [ ] **Step 1: Rewrite gitflow-autoreport-bug/SKILL.md**
 
-Replace the entire content of `skills/gitflow-autoreport-bug/SKILL.md` with the merged version. The new content combines gitflow-cli's CLI-based dedup/search with ncgo-code's auth cache, JSON validation, and failed.log retry:
+Replace the entire content of `skills/gitflow-autoreport-bug/SKILL.md` with the merged version. The new content combines gf's CLI-based dedup/search with ncgo-code's auth cache, JSON validation, and failed.log retry:
 
 ```markdown
 ---
@@ -505,10 +505,10 @@ auth cache 检查 → 去重搜索 → Claude 分析 → 创建 Issue → 清理
 **前置检查：** 在执行任何步骤之前，先验证 `gitflow` CLI 是否可用：
 
 ```bash
-command -v gitflow-cli
+command -v gf
 ```
 
-- 失败 → 输出「gitflow CLI 未安装，请运行：cargo install gitflow-cli」，保留 `pending.json`，结束
+- 失败 → 输出「gitflow CLI 未安装，请运行：cargo install gf」，保留 `pending.json`，结束
 - 成功 → 继续执行步骤
 
 ## 执行步骤
@@ -546,10 +546,10 @@ if [ -f "$CACHE_FILE" ]; then
 fi
 ```
 
-Cache 未命中时，调用 gitflow-cli 检查认证：
+Cache 未命中时，调用 gf 检查认证：
 
 ```bash
-gitflow-cli auth status --platform {platform}
+gf auth status --platform {platform}
 ```
 
 - 失败 → 保留 `pending.json` + 追加记录到 `.cache/bug-reports/failed.log`：
@@ -587,10 +587,10 @@ date +%s > .cache/auth-cache/{platform}.ttl
 
 ### Step 4: 去重检查
 
-构造搜索关键词：`[auto-report] {command} {error_code}`，调用 gitflow-cli 搜索已有 Issue：
+构造搜索关键词：`[auto-report] {command} {error_code}`，调用 gf 搜索已有 Issue：
 
 ```bash
-gitflow-cli issue list --search "[auto-report] {command} {error_code}" --state all
+gf issue list --search "[auto-report] {command} {error_code}" --state all
 ```
 
 - 找到匹配 Issue → 去重命中，输出「已存在相同报告: #N」，清理 `pending.json`，结束
@@ -598,10 +598,10 @@ gitflow-cli issue list --search "[auto-report] {command} {error_code}" --state a
 
 ### Step 5: 创建 Issue
 
-调用 gitflow-cli 创建 Issue：
+调用 gf 创建 Issue：
 
 ```bash
-gitflow-cli issue create --title "[auto-report] gitflow {command} — {error_code}" --body "..." --label "auto-report"
+gf issue create --title "[auto-report] gitflow {command} — {error_code}" --body "..." --label "auto-report"
 ```
 
 - 成功 → 输出 Issue URL，清理 `pending.json`
@@ -622,7 +622,7 @@ rm -f .cache/bug-reports/pending.json
 - **缓存位置：** `.cache/auth-cache/{platform}.ttl`（每平台独立）
 - **缓存内容：** Unix 时间戳（认证成功的时刻）
 - **TTL：** 默认 86400 秒（24 小时），可通过 `pending.json` 的 `auth_cache_ttl` 字段覆盖
-- **缓存失效：** TTL 过期后，下次运行时重新调用 `gitflow-cli auth status`
+- **缓存失效：** TTL 过期后，下次运行时重新调用 `gf auth status`
 
 ## failed.log 格式
 
@@ -662,7 +662,7 @@ rm -f .cache/bug-reports/pending.json
 
 - [ ] **Step 2: Replace hooks/auto-report-bug.sh**
 
-Replace `hooks/auto-report-bug.sh` with the merged version incorporating ncgo-code's banner output with gitflow-cli's existing interactive-TTY guard and auth cache concept:
+Replace `hooks/auto-report-bug.sh` with the merged version incorporating ncgo-code's banner output with gf's existing interactive-TTY guard and auth cache concept:
 
 ```bash
 #!/usr/bin/env bash
@@ -777,7 +777,7 @@ git commit -m "feat: merge auto-report-bug with auth cache, JSON validation, fai
 
 - [ ] **Step 1: Create hooks/sync-readme-check.sh**
 
-Adapt ncgo-code's version for gitflow-cli's structure. The key difference: gitflow-cli has a `skills/` directory at the repo root containing gitflow-* skills, plus supporting directories (`docs/`, `hooks/`, `crates/`). The sync check should compare actual top-level directories against what's documented in README.md.
+Adapt ncgo-code's version for gf's structure. The key difference: gf has a `skills/` directory at the repo root containing gitflow-* skills, plus supporting directories (`docs/`, `hooks/`, `crates/`). The sync check should compare actual top-level directories against what's documented in README.md.
 
 ```bash
 #!/usr/bin/env bash

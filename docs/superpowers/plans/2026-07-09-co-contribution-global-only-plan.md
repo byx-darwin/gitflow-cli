@@ -75,7 +75,7 @@ fn test_should_write_co_contribution_to_global_path() {
 
 - [ ] **Step 2: 运行测试验证失败**
 
-Run: `cargo test -p gitflow-cli test_should_write_co_contribution_to_global_path`
+Run: `cargo test -p gf test_should_write_co_contribution_to_global_path`
 Expected: FAIL — 编译错误，`merge_co_contribution` 需要两个参数但只传了一个
 
 - [ ] **Step 3: 提交失败测试**
@@ -115,7 +115,7 @@ fn merge_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
 
 - [ ] **Step 2: 运行测试验证通过**
 
-Run: `cargo test -p gitflow-cli test_should_write_co_contribution_to_global_path`
+Run: `cargo test -p gf test_should_write_co_contribution_to_global_path`
 Expected: PASS
 
 - [ ] **Step 3: 提交实现**
@@ -166,7 +166,7 @@ merge_co_contribution(platform)?;
 
 - [ ] **Step 3: 运行编译检查**
 
-Run: `cargo check -p gitflow-cli`
+Run: `cargo check -p gf`
 Expected: 编译成功，无错误
 
 - [ ] **Step 4: 提交调用点更新**
@@ -192,20 +192,20 @@ git commit -m "refactor(skills): update merge_co_contribution call sites"
 将 `apps/cli/src/commands/skills.rs:725-726` 从：
 
 ```rust
-println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。");
 println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
 ```
 
 改为：
 
 ```rust
-println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。");
 println!("   用户级设置，加入一次即所有项目生效。");
 ```
 
 - [ ] **Step 2: 运行全量测试**
 
-Run: `cargo test -p gitflow-cli`
+Run: `cargo test -p gf`
 Expected: 所有测试通过
 
 - [ ] **Step 3: 提交文案更新**

@@ -50,7 +50,7 @@
 
 2. **文档结构是"流程叙述"而非"可执行指令"**：
    - 步骤 1-5 是线性叙述，未提炼为可组合的模式（如 "Triage Loop = Classify + Evaluate + Label + Report"）
-   - 缺少前置条件（如"需要 gitflow-cli 已安装并已认证"）
+   - 缺少前置条件（如"需要 gf 已安装并已认证"）
    - 缺少输入验证（如"issue list 为空时如何退出"）
    - 缺少错误处理（如"label 命令失败时如何回退"）
 
@@ -122,7 +122,7 @@
    - 如何判断 "Claude 没有对已 triage 的 issues 重复操作"？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
-   - 基线：Claude 直接运行 `gitflow-cli issue list` 并输出原始列表
+   - 基线：Claude 直接运行 `gf issue list` 并输出原始列表
    - 期望：Claude 按类型/优先级分类并输出结构化报告
 
 3. **无压力测试场景**：应覆盖：
@@ -200,7 +200,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加错误处理章节 | D1 | 覆盖 issue list 为空、label 命令失败、API 限流等异常场景 |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证 gitflow-cli 是否可用、是否已认证、是否在 git 仓库中 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证 gf 是否可用、是否已认证、是否在 git 仓库中 |
 | P1-4 | 添加红旗列表 | D2 | 标识敏感场景（批量关闭 issues、删除标签、修改 issue 内容等） |
 | P1-5 | 添加分类决策 flowchart | D4 | 用 flowchart 表达类型判断和优先级评估的条件逻辑 |
 | P1-6 | 精简叙事性示例 | D1 | 将 8 issues 的叙事性示例提炼为 1-2 行命令模式 + 关键参数说明 |

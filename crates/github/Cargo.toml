@@ -1,20 +1,20 @@
 [package]
-name = "gitflow-cli-github"
+name = "gf-github"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "gitflow-cli 的 GitHub 适配器，基于 gh CLI 提供 Issue/PR/Release/Review 等能力。GitHub adapter for gitflow-cli via gh CLI."
+description = "gf 的 GitHub 适配器，基于 gh CLI 提供 Issue/PR/Release/Review 等能力。GitHub adapter for gf via gh CLI."
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/gitflow-cli-github"
+documentation = "https://docs.rs/gf-github"
 readme = "README.md"
 keywords = ["cli", "github", "gitflow", "issue", "pr"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-gitflow-cli-core.workspace = true
+gf-core.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 serde.workspace = true

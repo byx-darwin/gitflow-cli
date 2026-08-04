@@ -16,16 +16,16 @@ PASS_COUNT=0
 FAIL_COUNT=0
 SKIP_COUNT=0
 
-# 查找 gitflow-cli 二进制文件
+# 查找 gf 二进制文件
 # 优先使用本地构建的版本
-if [[ -f "./target/release/gitflow-cli" ]]; then
-    GITFLOW_CLI="./target/release/gitflow-cli"
-elif [[ -f "./target/debug/gitflow-cli" ]]; then
-    GITFLOW_CLI="./target/debug/gitflow-cli"
-elif command -v gitflow-cli &> /dev/null; then
-    GITFLOW_CLI="gitflow-cli"
+if [[ -f "./target/release/gf" ]]; then
+    GITFLOW_CLI="./target/release/gf"
+elif [[ -f "./target/debug/gf" ]]; then
+    GITFLOW_CLI="./target/debug/gf"
+elif command -v gf &> /dev/null; then
+    GITFLOW_CLI="gf"
 else
-    echo "错误: gitflow-cli 未找到。请先运行 'cargo build' 或 'cargo install'" >&2
+    echo "错误: gf 未找到。请先运行 'cargo build' 或 'cargo install'" >&2
     exit 1
 fi
 
@@ -310,7 +310,7 @@ main() {
     parse_args "$@"
 
     echo "========================================"
-    echo "gitflow-cli 多平台冒烟测试"
+    echo "gf 多平台冒烟测试"
     echo "========================================"
     echo "平台: $PLATFORM"
     echo "模式: $MODE"
@@ -318,12 +318,12 @@ main() {
     echo "========================================"
     echo ""
 
-    log_info "gitflow-cli 版本: $($GITFLOW_CLI --version)"
+    log_info "gf 版本: $($GITFLOW_CLI --version)"
     echo ""
 
     # 测试主命令 --help
     log_info "测试主命令 --help"
-    test_help "gitflow-cli --help"
+    test_help "gf --help"
 
     # 测试所有资源 --help
     echo ""

@@ -232,11 +232,11 @@ pub fn check(platform: &str) -> Result<(), PrerequisiteError> {
 }
 
 /// 创建平台特定的认证检查器。
-fn create_auth_checker(platform: &str) -> Box<dyn gitflow_cli_core::AuthChecker> {
+fn create_auth_checker(platform: &str) -> Box<dyn gf_core::AuthChecker> {
     match platform {
-        "github" => Box::new(gitflow_cli_github::GitHubAuthProvider::new()),
-        "gitlab" => Box::new(gitflow_cli_gitlab::GitLabAuthProvider::new()),
-        "gitcode" => Box::new(gitflow_cli_gitcode::GitCodeAuthProvider::new()),
+        "github" => Box::new(gf_github::GitHubAuthProvider::new()),
+        "gitlab" => Box::new(gf_gitlab::GitLabAuthProvider::new()),
+        "gitcode" => Box::new(gf_gitcode::GitCodeAuthProvider::new()),
         _ => unreachable!("Platform already validated by requirement_for"),
     }
 }

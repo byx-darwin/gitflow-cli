@@ -6,7 +6,7 @@
 //! [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     auth::{AuthProvider, AuthStatus},
 };
@@ -25,7 +25,7 @@ use crate::{
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_github::GitHubAuthProvider;
+/// use gf_github::GitHubAuthProvider;
 ///
 /// let provider = GitHubAuthProvider::new();
 /// ```
@@ -206,7 +206,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitHubAuthProvider<R> {
+impl<R: CommandRunner> gf_core::AuthChecker for GitHubAuthProvider<R> {
     fn is_authenticated(&self) -> bool {
         if std::env::var("GH_TOKEN").is_ok() {
             return true;
@@ -219,10 +219,10 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitHubAuthProvider<R> {
         matches!(output, Ok(out) if out.status.success())
     }
 
-    fn check_status(&self) -> gitflow_cli_core::AuthCheckResult {
+    fn check_status(&self) -> gf_core::AuthCheckResult {
         // 1. 检查环境变量
         if std::env::var("GH_TOKEN").is_ok() {
-            return gitflow_cli_core::AuthCheckResult {
+            return gf_core::AuthCheckResult {
                 authenticated: true,
                 user: None,
                 reason: None,
@@ -237,7 +237,7 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitHubAuthProvider<R> {
         {
             Ok(out) => out,
             Err(e) => {
-                return gitflow_cli_core::AuthCheckResult {
+                return gf_core::AuthCheckResult {
                     authenticated: false,
                     user: None,
                     reason: Some(format!("Failed to execute gh: {e}")),
@@ -251,7 +251,7 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitHubAuthProvider<R> {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let user = parse_user_from_status(&stdout);
 
-            gitflow_cli_core::AuthCheckResult {
+            gf_core::AuthCheckResult {
                 authenticated: true,
                 user,
                 reason: None,
@@ -260,7 +260,7 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitHubAuthProvider<R> {
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
 
-            gitflow_cli_core::AuthCheckResult {
+            gf_core::AuthCheckResult {
                 authenticated: false,
                 user: None,
                 reason: Some(stderr.to_string()),
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_auth_checker_is_authenticated_with_env_var() {
-        use gitflow_cli_core::AuthChecker;
+        use gf_core::AuthChecker;
         temp_env::with_var("GH_TOKEN", Some("test_token"), || {
             let provider = GitHubAuthProvider::new();
             assert!(provider.is_authenticated());
@@ -387,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_auth_checker_check_status_with_env_var() {
-        use gitflow_cli_core::AuthChecker;
+        use gf_core::AuthChecker;
         temp_env::with_var("GH_TOKEN", Some("test_token"), || {
             let provider = GitHubAuthProvider::new();
             let result = provider.check_status();
@@ -408,7 +408,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gf_core::CoreError::Platform(_)
         ));
     }
 
@@ -432,7 +432,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gf_core::CoreError::Platform(_)
         ));
     }
 
@@ -444,10 +444,7 @@ mod tests {
         let result = provider.logout().await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -472,10 +469,7 @@ mod tests {
         let result = provider.token().await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -488,7 +482,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Platform(_)
+            gf_core::CoreError::Platform(_)
         ));
     }
 }

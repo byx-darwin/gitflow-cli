@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-review` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "gitflow-cli 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查"——这是功能描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节（仅有"命令概览"表格） |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -53,7 +53,7 @@
 2. **缺少 approve vs submit 决策指南**：`review approve` 和 `review submit --event approved` 在功能上高度重叠，文档未说明何时用哪个。这是用户最常见的困惑点，当前文档仅解释 `submit` 为"批量操作后一次性提交"，但未给出选择树。
 
 3. **缺少结构化章节**：当前文档是"命令参考手册"风格，缺少：
-   - 前置条件（是否需要先 `gitflow-cli pr view` 查看 PR？是否需要先检查 auth？）
+   - 前置条件（是否需要先 `gf pr view` 查看 PR？是否需要先检查 auth？）
    - 输入验证（PR 编号是否存在？PR 是否处于可审查状态？）
    - 错误处理（无权限、PR 已合并、重复审批等）
    - 输出格式（审查提交成功后的确认信息）
@@ -133,7 +133,7 @@
    - 如何判断 "Claude 在边界情况下正确拒绝了操作"（如审批自己的 PR）？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
-   - 不使用 skill 时，Claude 可能使用 `gh pr review --approve` 而非 `gitflow-cli review approve`
+   - 不使用 skill 时，Claude 可能使用 `gh pr review --approve` 而非 `gf review approve`
    - 不使用 skill 时，Claude 可能不了解 approve 和 submit 的区别
    - 不使用 skill 时，Claude 可能跳过 pr view 直接 approve
 
@@ -174,8 +174,8 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非功能描述**：
-   - ❌ 当前：`gitflow-cli 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查`
-   - ✅ 应为：`Use when the user wants to submit a formal code review decision (approve, request changes, or comment) on a PR through gitflow-cli. Triggers on "review this PR", "LGTM", "approve", "request changes", "reject PR", "submit review".`
+   - ❌ 当前：`gf 的代码审查操作命令封装，支持评论、批准、要求修改和提交审查`
+   - ✅ 应为：`Use when the user wants to submit a formal code review decision (approve, request changes, or comment) on a PR through gf. Triggers on "review this PR", "LGTM", "approve", "request changes", "reject PR", "submit review".`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
    - "审批 PR" / "approve" / "LGTM" / "looks good"
@@ -252,7 +252,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加错误处理章节 | D1 | 覆盖 PR 不存在、无权限、PR 已合并、重复审批、CI 失败、网络超时等异常场景 |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gitflow-cli` 是否在执行 `review` 前需要先 `pr view` 获取 PR 状态 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gf` 是否在执行 `review` 前需要先 `pr view` 获取 PR 状态 |
 | P1-4 | 添加"合理化借口"反制表格 | D2 | 反制"紧急跳过"、"改动很小"、"已有人 approve"等常见借口 |
 | P1-5 | 声明与 gitflow-pr comment 的区分规则 | D2 | 明确：`pr comment` 用于通用评论，`review comment` 用于审查流程中的中间评论 |
 

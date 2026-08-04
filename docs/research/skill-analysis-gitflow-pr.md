@@ -7,7 +7,7 @@
 
 ## Abstract
 
-The `gitflow-pr` skill serves as a top-level command reference for the `gitflow-cli pr` command family. It documents 11 subcommands (`create`, `list`, `view`, `close`, `reopen`, `comment`, `merge`, `checkout`, `ready`, `wip`, `sync`) with parameter tables and usage examples. However, the skill reads like flattened CLI `--help` output rather than a Superpowers writing-skills compliant guide. It lacks workflow guidance, boundary declarations, trigger-accuracy, testability harnesses, and all structural sections required by the writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gitflow-pr` skill serves as a top-level command reference for the `gf pr` command family. It documents 11 subcommands (`create`, `list`, `view`, `close`, `reopen`, `comment`, `merge`, `checkout`, `ready`, `wip`, `sync`) with parameter tables and usage examples. However, the skill reads like flattened CLI `--help` output rather than a Superpowers writing-skills compliant guide. It lacks workflow guidance, boundary declarations, trigger-accuracy, testability harnesses, and all structural sections required by the writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -23,14 +23,14 @@ The `gitflow-pr` skill serves as a top-level command reference for the `gitflow-
 | `name` field correct | ✅ | `gitflow-pr` matches directory name |
 | File location | ✅ | `skills/gitflow-pr/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
-| Command examples | ✅ | Five concrete `gitflow-cli pr <subcommand>` invocations with realistic flags |
+| Command examples | ✅ | Five concrete `gf pr <subcommand>` invocations with realistic flags |
 | Parameter tables | ✅ | Each subcommand has a consistent four-column parameter table |
 
 ### ❌ Deficiencies
 
 | Item | Status | Details |
 |------|--------|---------|
-| `description` format | ❌ | Current: `"gitflow-cli 的 Pull Request 操作命令封装，支持创建、列表、查看、关闭、合并、检出、状态切换和分支同步"` — describes *functionality*, not the *trigger condition*. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
+| `description` format | ❌ | Current: `"gf 的 Pull Request 操作命令封装，支持创建、列表、查看、关闭、合并、检出、状态切换和分支同步"` — describes *functionality*, not the *trigger condition*. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
 | Structural sections | ❌ | Missing all canonical sections: `When to Use`, `Core Pattern`, `Quick Reference`, `Implementation`, `Common Mistakes`. Current structure is a flat command-reference dump with no layered design. |
 | Token efficiency | ⚠️ | ~136 lines, ~600 Chinese words — likely exceeds the 500-word threshold for a frequently-loaded top-level skill because every `pr`-related invocation will pull in documentation for *all* 11 subcommands even when the user only needs one. |
 | Anti-patterns present | ⚠️ | Pure reference-table dump with zero workflow guidance. The `## 使用示例` section shows only 5 of 11 subcommands — no coverage of `list`, `close`, `reopen`, `ready`, `wip`, or `sync` examples. Resembles exported `--help` output rather than a skill the agent can reason about. |
@@ -39,7 +39,7 @@ The `gitflow-pr` skill serves as a top-level command reference for the `gitflow-
 ### Recommended Description Rewrite
 
 ```yaml
-description: "Use when the user wants to manage Pull Requests through gitflow-cli — including creating, listing, viewing, closing, merging, checking out, commenting on, or syncing PRs. Triggers on phrases like 'create a PR', 'list open PRs', 'merge pull request', 'checkout PR locally', 'close this PR', or direct invocation of `gitflow-cli pr <subcommand>`."
+description: "Use when the user wants to manage Pull Requests through gf — including creating, listing, viewing, closing, merging, checking out, commenting on, or syncing PRs. Triggers on phrases like 'create a PR', 'list open PRs', 'merge pull request', 'checkout PR locally', 'close this PR', or direct invocation of `gf pr <subcommand>`."
 ```
 
 ---
@@ -63,7 +63,7 @@ description: "Use when the user wants to manage Pull Requests through gitflow-cl
 
 ```
 ## ✅ Responsible For
-- Acting as the top-level entry point for all `gitflow-cli pr` operations
+- Acting as the top-level entry point for all `gf pr` operations
 - Routing user intent to the correct subcommand or child skill
 - Documenting parameter flags and types for all 11 subcommands
 - Providing quick-reference command examples for common PR workflows
@@ -119,11 +119,11 @@ description: "Use when the user wants to manage Pull Requests through gitflow-cl
 ### Scenario 1: Happy-path — squash merge
 Input:  user says "merge PR #101 with squash"
 Expect: skill confirms squash strategy with user, invokes
-        `gitflow-cli pr merge 101 --strategy squash`, returns merge commit SHA.
+        `gf pr merge 101 --strategy squash`, returns merge commit SHA.
 
 ### Scenario 2: View non-existent PR
 Input:  user says "show me PR #9999"
-Expect: skill invokes `gitflow-cli pr view 9999`, receives 404,
+Expect: skill invokes `gf pr view 9999`, receives 404,
         outputs "PR #9999 not found — confirm the number and repository",
         does not hallucinate PR details.
 
@@ -135,7 +135,7 @@ Expect: skill warns that closing is irreversible and asks whether to
 
 ### Scenario 4: Checkout PR from fork
 Input:  user says "checkout PR #78 and review it locally"
-Expect: skill invokes `gitflow-cli pr checkout 78`, confirms local branch
+Expect: skill invokes `gf pr checkout 78`, confirms local branch
         was created, suggests next step: run `git flow pr review 78`.
 
 ### Scenario 5: Sync merged PR (edge case)
@@ -147,7 +147,7 @@ Expect: skill detects merged state via `pr view 30 --state merged`,
 ### Scenario 6: Wrong delegation (negative probe)
 Input:  user says "create a draft PR for the auth feature"
 Expect: skill delegates to `gitflow-pr-create` instead of trying to
-        run `gitflow-cli pr create --draft` inline.
+        run `gf pr create --draft` inline.
 Baseline: user manually invokes `pr create` without branch validation,
           creates a PR from the wrong branch.
 ```
@@ -174,7 +174,7 @@ Baseline: user manually invokes `pr create` without branch validation,
 |----------|--------|---------|
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description lists supported operations instead of defining when the skill should be loaded. |
-| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "merge pull request", "close this PR", "list open PRs", "checkout PR", "approve PR", "sync branch", "draft PR", `gitflow-cli pr <subcommand>`, "pull request", "merge request" (GitLab context), "code review". |
+| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "merge pull request", "close this PR", "list open PRs", "checkout PR", "approve PR", "sync branch", "draft PR", `gf pr <subcommand>`, "pull request", "merge request" (GitLab context), "code review". |
 | Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-pr-create`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-pipeline-analyzer`, `gitflow-release`, `gitflow-issue`. |
 | Quick Reference / Cheat Sheet | ⚠️ | The command overview table functions as a pseudo quick-reference but lacks: per-subcommand one-liners, exit-code semantics, and common flag combinations. |
 | Pattern-language over narrative | ❌ | No pattern language at all — pure tabular reference with no decision guidance. |
@@ -189,7 +189,7 @@ Baseline: user manually invokes `pr create` without branch validation,
 - Direct:     "create a PR", "list PRs", "view PR", "close PR", "merge PR",
               "checkout PR", "comment on PR", "mark PR ready", "mark PR draft",
               "sync PR branch", "reopen PR", "pull request", "merge request"
-- CLI:        `gitflow-cli pr <subcommand>`
+- CLI:        `gf pr <subcommand>`
 - Symptoms:   user wants to move a branch through the PR lifecycle,
               user asks about PR status or state, user wants local PR review.
 - Synonyms:   "open a pull request", "submit PR", "approve PR", "decline PR",

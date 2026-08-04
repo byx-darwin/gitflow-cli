@@ -38,11 +38,11 @@ Even when an Issue already exists, still run brainstorming to refine requirement
 
 **Chosen:** Documentation-driven (Option A)
 
-Improve SKILL.md to make auto-triggering explicit through documentation, rather than implementing a code-based orchestrator in gitflow-cli.
+Improve SKILL.md to make auto-triggering explicit through documentation, rather than implementing a code-based orchestrator in gf.
 
 **Rationale:**
 1. Current architecture is already a documentation-driven skill system
-2. gitflow-cli is a Rust CLI tool; adding orchestration logic increases complexity
+2. gf is a Rust CLI tool; adding orchestration logic increases complexity
 3. The core issue is "Agent doesn't auto-drive"; solution is making document instructions more explicit
 4. Future code-based orchestrator can be added as a separate enhancement (new Issue)
 
@@ -440,7 +440,7 @@ Based on the new design, add to contract schema:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitflow-cli.ai/schemas/workflow-contract-v1.1.json",
+  "$id": "https://gf.ai/schemas/workflow-contract-v1.1.json",
   "title": "Workflow Contract",
   "version": "1.1",
   ...
@@ -586,7 +586,7 @@ def check_gate(contract, target_phase):
    - Bump version to 1.1
 
 3. **Create new Issue:**
-   - Future enhancement: Code-based orchestrator in gitflow-cli
+   - Future enhancement: Code-based orchestrator in gf
 
 ### Files to Modify
 
@@ -618,4 +618,4 @@ This is a separate enhancement beyond the scope of Issue #79.
 ## Related Issues
 
 - Issue #80: Phase 1→2 transition should enforce design document output (related to this design)
-- Future Issue: Code-based orchestrator in gitflow-cli
+- Future Issue: Code-based orchestrator in gf

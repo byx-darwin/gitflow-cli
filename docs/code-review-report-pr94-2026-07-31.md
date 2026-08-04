@@ -67,4 +67,4 @@
 
 **建议合并（Approve）**：修复完整覆盖 #90 全部子问题并含潜在缺陷；回归防护基础设施（argv 记录 mock + 真实夹具契约测试）到位；测试/静态/冒烟/实测/CI 五层证据齐全；遗留 4 项 Minor 均无正确性影响。
 
-> 注：本报告由工作流编排器基于全程审查证据生成。PR 作者即仓库所有者，GitHub 不允许自我批准，故未通过 `gitflow-cli review approve` 提交形式化 verdict；合并决定由用户在 Branch Finish 步骤确认。
+> 注：本报告由工作流编排器基于全程审查证据生成。PR 作者即仓库所有者，GitHub 不允许自我批准，故未通过 `gf review approve` 提交形式化 verdict；合并决定由用户在 Branch Finish 步骤确认。

@@ -13,4 +13,4 @@
 
 ## 集成指南
 
-- [Integration Guide](../docs/integration-guide.md) — 将 gitflow-cli 集成到现有项目的完整指南。
+- [Integration Guide](../docs/integration-guide.md) — 将 gf 集成到现有项目的完整指南。

@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-issue` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 `"gitflow-cli 的 Issue 操作命令封装，支持创建、列表、查看、关闭、重新打开、评论和标签管理"` |
+| description 以 "Use when..." 开头 | ❌ | 当前为 `"gf 的 Issue 操作命令封装，支持创建、列表、查看、关闭、重新打开、评论和标签管理"` |
 | description 只描述触发条件 | ❌ | 描述了完整能力列表（7 个子命令），而非触发时机 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节（仅一行简介） |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -93,7 +93,7 @@
    - Claude 在错误的仓库中执行操作（缺少 repo 上下文验证）
 
 2. **缺少前置条件检查**：未声明执行前应验证：
-   - gitflow-cli 是否已安装
+   - gf 是否已安装
    - 是否已认证（auth status）
    - 是否在 git 仓库中
    - 目标 issue 是否存在
@@ -141,7 +141,7 @@
    - 如何判断 "Claude 没有误操作其他 issue"？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
-   - 基线：Claude 直接运行 `gitflow-cli issue create` 但不确认参数，可能遗漏 --label 或 --assignee
+   - 基线：Claude 直接运行 `gf issue create` 但不确认参数，可能遗漏 --label 或 --assignee
    - 期望：Claude 按 skill 指引收集所有参数后执行
 
 3. **无压力测试场景**：应覆盖：
@@ -179,8 +179,8 @@
 ### 5.2 具体问题
 
 1. **description 包含能力清单（严重违规）**：
-   - ❌ 当前：`"gitflow-cli 的 Issue 操作命令封装，支持创建、列表、查看、关闭、重新打开、评论和标签管理"`
-   - ✅ 应为：`"Use when the user needs to manage GitHub/GitLab/GitCode issues through gitflow-cli — including creating, listing, viewing, closing, reopening, commenting on issues, or managing issue labels."`
+   - ❌ 当前：`"gf 的 Issue 操作命令封装，支持创建、列表、查看、关闭、重新打开、评论和标签管理"`
+   - ✅ 应为：`"Use when the user needs to manage GitHub/GitLab/GitCode issues through gf — including creating, listing, viewing, closing, reopening, commenting on issues, or managing issue labels."`
 
 2. **未遵循 writing-skills 方法论**：
    - 未进行 "baseline test"（先不用 skill 让 Claude 执行 issue 操作，记录差距）
@@ -194,7 +194,7 @@
    - "评论 issue" / "add comment" / "issue comment"
    - "标签" / "label" / "加标签" / "移除标签"
    - "issue 列表" / "list issues" / "查看待办"
-   - `gitflow-cli issue` / `gitflow issue`
+   - `gf issue` / `gitflow issue`
 
 4. **缺少跨引用**：应引用相关 skills：
    - `gitflow-issue-create`（交互式创建 Issue 工作流）
@@ -224,8 +224,8 @@
 |---|--------|------|------|
 | P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式，移除能力清单 |
 | P0-2 | 添加职责边界声明章节 | D2 | 7 个子命令各有副作用，必须声明 🚫 禁止行为（不得批量操作、不得未确认执行写入）和 ✅ 职责范围 |
-| P0-3 | 添加前置条件检查 | D1, D2 | 执行前验证 gitflow-cli 是否可用、是否已认证、是否在 git 仓库中 |
-| P0-4 | 添加关键词覆盖 | D4 | 覆盖常见表达（"创建 issue"、"关闭 issue"、"issue 列表"、"加标签"）和工具名（`gitflow-cli issue`） |
+| P0-3 | 添加前置条件检查 | D1, D2 | 执行前验证 gf 是否可用、是否已认证、是否在 git 仓库中 |
+| P0-4 | 添加关键词覆盖 | D4 | 覆盖常见表达（"创建 issue"、"关闭 issue"、"issue 列表"、"加标签"）和工具名（`gf issue`） |
 | P0-5 | 添加跨引用 | D4 | 引用 gitflow-issue-create、gitflow-issue-review、gitflow-issue-triage、gitflow-label-milestone |
 
 ### P1（建议修复 — 提升质量）
@@ -255,7 +255,7 @@
 
 - [ ] description 以 "Use when..." 开头，仅描述触发条件，不包含能力清单
 - [ ] 含职责边界声明章节（含 🚫 禁止行为和 ✅ 职责范围）
-- [ ] 含前置条件检查（gitflow-cli 可用、已认证、在 git 仓库中）
+- [ ] 含前置条件检查（gf 可用、已认证、在 git 仓库中）
 - [ ] 含关键词覆盖（"创建 issue"、"关闭 issue"、"issue 列表"、"加标签"等）
 - [ ] 含子命令选择 flowchart（view/close/comment/label/reopen 决策逻辑）
 - [ ] 文档结构包含 Overview / When to Use / Quick Reference / Implementation

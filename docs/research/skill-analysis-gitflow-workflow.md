@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-workflow` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流..." |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "gf 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流..." |
 | description 只描述触发条件 | ❌ | 混合功能描述、流程承诺和效果声明 |
 | 含 Overview 章节 | ❌ | 无结构化 Overview，仅有第一段说明 |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -44,7 +44,7 @@
 ### 2.2 具体问题
 
 1. **description 严重违反 Superpowers 规范**：
-   - 当前：`gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期`
+   - 当前：`gf 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gf 和 Superpowers 协同完成完整开发周期`
    - 问题：这是功能描述 + 流程描述 + 效果承诺，不是触发条件
    - 应为：`Use when the user wants to start a full development cycle for a new feature, bug fix, or enhancement — from requirement clarification through code delivery. Use when the user explicitly asks for a "workflow", "develop a feature", "fix a bug systematically", or provides a high-level requirement that needs breakdown.`
    - 后果：Claude 无法准确判断何时应加载此 skill——用户说"我想加个功能"和"帮我修复 #42"是否都应触发？
@@ -190,7 +190,7 @@
 ### 5.2 具体问题
 
 1. **description 违反规范 — 是功能描述而非触发条件**：
-   - ❌ 当前：`gitflow-cli 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gitflow-cli 和 Superpowers 协同完成完整开发周期`
+   - ❌ 当前：`gf 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流，指挥 gf 和 Superpowers 协同完成完整开发周期`
    - ✅ 应为：`Use when the user wants to start a full development cycle for a new feature, bug fix, or enhancement — from requirement clarification through code delivery. Use when the user explicitly asks for a "workflow", "develop a feature", "fix a bug systematically", or provides a high-level requirement that needs breakdown.`
    - 建议关键词覆盖（中英双语）：
      - "开发功能" / "develop a feature" / "add a feature" / "新功能"
@@ -226,7 +226,7 @@
    - 推荐在 Overview 中嵌入 Mermaid flowchart
 
 5. **唯一的优势 — 闸门机制设计合理**：
-   - 4 个 Phase 之间的闸门校验方法明确（如 `gitflow-cli issue view <number>`）
+   - 4 个 Phase 之间的闸门校验方法明确（如 `gf issue view <number>`）
    - 违规处理路径清晰（输出阻断信息并停止）
    - 合规检查清单逐项打勾的设计实用
    - 这些优质内容是重构时应保留的核心
@@ -257,11 +257,11 @@
 | P1-4 | 添加关键词覆盖章节（中英双语） | D4 | "开发功能"、"修复 bug"、"workflow"、"feature request"、"bug fix" 等 |
 | P1-5 | 添加结构化 See Also / 跨引用章节 | D4 | 列出所有编排涉及的 skills（brainstorming、issue-create、writing-plans 等） |
 | P1-6 | 将计划文档模板移至 `docs/templates/workflow-plan.md` | D1 | 降低 SKILL.md 长度，通过引用方式加载详细模板 |
-| P1-7 | 添加前置条件检查 | D1 | 验证 `gitflow-cli` 可用、在 git 仓库中、认证状态 |
+| P1-7 | 添加前置条件检查 | D1 | 验证 `gf` 可用、在 git 仓库中、认证状态 |
 | P1-8 | 添加错误处理章节 | D1 | 各阶段子 skill 失败时的降级策略 |
 | P1-9 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（直接编码、跳过流程等） |
 | P1-10 | 定义成功标准 | D3 | 4 阶段流程完成的客观证据清单 |
-| P1-11 | 添加工具/命令章节 | D1 | 列出所有涉及的 gitflow-cli 子命令速查 |
+| P1-11 | 添加工具/命令章节 | D1 | 列出所有涉及的 gf 子命令速查 |
 
 ### P2（可选改进 — 锦上添花）
 

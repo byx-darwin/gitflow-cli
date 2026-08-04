@@ -19,7 +19,7 @@
 
 ## 本工作流实际演练的 GitHub 命令（全部成功）
 
-工作流 Phase 1–4 全程以 `gitflow-cli` 自身驱动（dogfooding）：
+工作流 Phase 1–4 全程以 `gf` 自身驱动（dogfooding）：
 
 | 命令 | 用途 | 结果 |
 |------|------|------|

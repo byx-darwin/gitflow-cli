@@ -160,7 +160,7 @@ Insert after the step table (before `## Enforcement Rules`):
 **Trigger:** After dogfooding passes. **Requires user confirmation.**
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
-2. Detect PR merge status: `gitflow-cli pr view` (parse merged state)
+2. Detect PR merge status: `gf pr view` (parse merged state)
 3. **PR merged** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
    - `git checkout $base_branch && git pull origin $base_branch`
@@ -208,7 +208,7 @@ Phase 4 Step 5 commands. All operations are local-only (no push).
 ### Detect PR Merge Status
 
 ```bash
-gitflow-cli pr view  # parse "merged" field from output
+gf pr view  # parse "merged" field from output
 ```
 
 ### Execute Branch Cleanup (after user confirmation)

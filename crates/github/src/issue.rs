@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gh`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
@@ -32,7 +32,7 @@ const ISSUE_FIELDS: &str =
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_github::GitHubIssueProvider;
+/// use gf_github::GitHubIssueProvider;
 ///
 /// let provider = GitHubIssueProvider::new("octocat/hello-world");
 /// ```
@@ -541,7 +541,7 @@ impl From<GitHubCommentApiResponse> for CommentData {
         Self {
             id: api.id,
             body: api.body,
-            author: gitflow_cli_core::types::UserSummary {
+            author: gf_core::types::UserSummary {
                 login: api.user.login,
                 id: api.user.id.to_string(),
             },
@@ -656,7 +656,7 @@ fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use gitflow_cli_core::types::UserSummary;
+    use gf_core::types::UserSummary;
 
     use super::*;
     use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
@@ -942,10 +942,7 @@ mod tests {
         let result = provider.view(999).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -958,7 +955,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -970,10 +967,7 @@ mod tests {
         let result = provider.list(ListIssueArgs::default()).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -986,7 +980,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -1007,10 +1001,7 @@ mod tests {
         let result = provider.create(sample_create_args()).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -1025,7 +1016,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -1037,10 +1028,7 @@ mod tests {
         let result = provider.close(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -1054,7 +1042,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -1161,10 +1149,7 @@ mod tests {
         let result = provider.reopen(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -1178,7 +1163,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -1190,10 +1175,7 @@ mod tests {
         let result = provider.comment(42, "a comment").await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -1208,7 +1190,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -1268,10 +1250,7 @@ mod tests {
         let result = provider.add_labels(42, &["bug".to_string()]).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -1282,10 +1261,7 @@ mod tests {
         let result = provider.remove_label(42, "bug").await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     // --- extract_missing_labels_from_error: pure-function tests ---
@@ -1398,10 +1374,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
-            matches!(err, gitflow_cli_core::CoreError::Cli(_)),
+            matches!(err, gf_core::CoreError::Cli(_)),
             "expected CoreError::Cli, got: {err:?}"
         );
-        if let gitflow_cli_core::CoreError::Cli(boxed) = err {
+        if let gf_core::CoreError::Cli(boxed) = err {
             assert!(
                 boxed.raw_stderr.contains("403") || boxed.raw_stderr.contains("Forbidden"),
                 "unexpected raw_stderr: {}",
@@ -1447,10 +1423,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
-            matches!(err, gitflow_cli_core::CoreError::Cli(_)),
+            matches!(err, gf_core::CoreError::Cli(_)),
             "expected CoreError::Cli, got: {err:?}"
         );
-        if let gitflow_cli_core::CoreError::Cli(boxed) = err {
+        if let gf_core::CoreError::Cli(boxed) = err {
             assert!(
                 boxed.raw_stderr.contains("500") || boxed.raw_stderr.contains("Internal"),
                 "unexpected raw_stderr: {}",
@@ -1577,7 +1553,7 @@ mod contract_tests {
         let issue = &issues[0];
         assert_eq!(issue.number, 42);
         assert!(!issue.title.is_empty());
-        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
+        assert_eq!(issue.state, gf_core::types::State::Open);
         assert_eq!(issue.author.login, "test-user");
     }
 
@@ -1630,6 +1606,6 @@ mod contract_tests {
         assert_eq!(issue.number, 108);
         assert_eq!(issue.author.login, "app/github-actions");
         assert_eq!(issue.author.id, "");
-        assert_eq!(issue.state, gitflow_cli_core::types::State::Open);
+        assert_eq!(issue.state, gf_core::types::State::Open);
     }
 }

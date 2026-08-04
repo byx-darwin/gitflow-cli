@@ -33,15 +33,15 @@
 | 缓存路径 | `.cache/auth-cache/{platform}.ttl`（每平台独立） |
 | 缓存内容 | Unix 时间戳（认证成功时刻） |
 | TTL | 默认 86400 秒，可由 `auth_cache_ttl` 覆盖 |
-| 缓存失效 | TTL 过期后下次重新调用 `gitflow-cli auth status` |
+| 缓存失效 | TTL 过期后下次重新调用 `gf auth status` |
 
 ## 命令速查
 
 ```bash
-command -v gitflow-cli                                   # CLI 可用性检查
-gitflow-cli auth status --platform {platform}            # 平台认证状态
-gitflow-cli issue list --search "[auto-report] {cmd} {err}" --state all
-gitflow-cli issue create --title "[auto-report] gitflow {cmd} — {err}" \
+command -v gf                                   # CLI 可用性检查
+gf auth status --platform {platform}            # 平台认证状态
+gf issue list --search "[auto-report] {cmd} {err}" --state all
+gf issue create --title "[auto-report] gitflow {cmd} — {err}" \
                          --body "..." --label "auto-report"
 ```
 

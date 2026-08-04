@@ -94,7 +94,7 @@ mod tests {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo test -p gitflow-cli-core --lib auth_checker::tests --no-run`
+Run: `cargo test -p gf-core --lib auth_checker::tests --no-run`
 Expected: FAIL with "AuthCheckResult not found", "AuthChecker not found"
 
 - [ ] **Step 3: 写最小实现**
@@ -153,7 +153,7 @@ pub struct AuthCheckResult {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo test -p gitflow-cli-core --lib auth_checker::tests`
+Run: `cargo test -p gf-core --lib auth_checker::tests`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: 在 lib.rs 中导出**
@@ -167,7 +167,7 @@ pub use auth_checker::{AuthCheckResult, AuthChecker};
 
 - [ ] **Step 6: 运行完整测试确认无破坏**
 
-Run: `cargo test -p gitflow-cli-core`
+Run: `cargo test -p gf-core`
 Expected: PASS (所有现有测试 + 新增 3 个测试)
 
 - [ ] **Step 7: 提交**
@@ -238,7 +238,7 @@ fn test_auth_checker_check_status_with_env_var() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo test -p gitflow-cli-gitcode --lib auth::tests::test_should_parse_user_from_status_new_format`
+Run: `cargo test -p gf-gitcode --lib auth::tests::test_should_parse_user_from_status_new_format`
 Expected: FAIL with "AuthChecker not found" or test not found
 
 - [ ] **Step 3: 实现 AuthChecker for GitCodeAuthProvider**
@@ -333,7 +333,7 @@ impl gitflow_cli_core::AuthChecker for GitCodeAuthProvider {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo test -p gitflow-cli-gitcode --lib auth::tests`
+Run: `cargo test -p gf-gitcode --lib auth::tests`
 Expected: PASS (所有测试，包括新增的 4 个)
 
 - [ ] **Step 5: 更新注释说明支持两种格式**
@@ -368,7 +368,7 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 
 - [ ] **Step 6: 运行 clippy 检查**
 
-Run: `cargo clippy -p gitflow-cli-gitcode --all-targets -- -D warnings`
+Run: `cargo clippy -p gf-gitcode --all-targets -- -D warnings`
 Expected: PASS (无警告)
 
 - [ ] **Step 7: 提交**
@@ -431,7 +431,7 @@ fn test_auth_checker_check_status_with_env_var() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo test -p gitflow-cli-github --lib auth::tests::test_auth_checker_is_authenticated_with_env_var`
+Run: `cargo test -p gf-github --lib auth::tests::test_auth_checker_is_authenticated_with_env_var`
 Expected: FAIL with "AuthChecker not found"
 
 - [ ] **Step 3: 实现 AuthChecker for GitHubAuthProvider**
@@ -524,12 +524,12 @@ fn parse_github_user_from_status(output: &str) -> Option<String> {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo test -p gitflow-cli-github --lib auth::tests`
+Run: `cargo test -p gf-github --lib auth::tests`
 Expected: PASS (所有测试)
 
 - [ ] **Step 5: 运行 clippy 检查**
 
-Run: `cargo clippy -p gitflow-cli-github --all-targets -- -D warnings`
+Run: `cargo clippy -p gf-github --all-targets -- -D warnings`
 Expected: PASS
 
 - [ ] **Step 6: 提交**
@@ -590,7 +590,7 @@ fn test_auth_checker_check_status_with_env_var() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo test -p gitflow-cli-gitlab --lib auth::tests::test_auth_checker_is_authenticated_with_env_var`
+Run: `cargo test -p gf-gitlab --lib auth::tests::test_auth_checker_is_authenticated_with_env_var`
 Expected: FAIL with "AuthChecker not found"
 
 - [ ] **Step 3: 实现 AuthChecker for GitLabAuthProvider**
@@ -683,12 +683,12 @@ fn parse_gitlab_user_from_status(output: &str) -> Option<String> {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo test -p gitflow-cli-gitlab --lib auth::tests`
+Run: `cargo test -p gf-gitlab --lib auth::tests`
 Expected: PASS (所有测试)
 
 - [ ] **Step 5: 运行 clippy 检查**
 
-Run: `cargo clippy -p gitflow-cli-gitlab --all-targets -- -D warnings`
+Run: `cargo clippy -p gf-gitlab --all-targets -- -D warnings`
 Expected: PASS
 
 - [ ] **Step 6: 提交**
@@ -748,7 +748,7 @@ fn test_prerequisites_check_fails_with_clear_error_when_not_authenticated() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo test -p gitflow-cli --bin gitflow-cli prerequisites::tests::test_prerequisites_check_fails_with_clear_error_when_not_authenticated`
+Run: `cargo test -p gf --bin gf prerequisites::tests::test_prerequisites_check_fails_with_clear_error_when_not_authenticated`
 Expected: FAIL (测试可能通过，但我们需要重构代码)
 
 - [ ] **Step 3: 重构 check() 函数**
@@ -856,7 +856,7 @@ pub enum PrerequisiteError {
 
 - [ ] **Step 6: 运行测试确认通过**
 
-Run: `cargo test -p gitflow-cli --bin gitflow-cli prerequisites`
+Run: `cargo test -p gf --bin gf prerequisites`
 Expected: PASS (所有测试)
 
 - [ ] **Step 7: 运行完整构建和测试**
@@ -920,7 +920,7 @@ use temp_env;
 fn test_prerequisites_check_success_with_env_var() {
     // 使用环境变量模拟已认证状态
     temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
-        let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+        let mut cmd = Command::cargo_bin("gf").unwrap();
         cmd.arg("auth")
             .arg("status")
             .arg("--platform")
@@ -938,7 +938,7 @@ fn test_prerequisites_check_cli_not_found() {
     // 使用空 PATH 模拟 CLI 不存在
     let temp_dir = tempfile::tempdir().unwrap();
     temp_env::with_var("PATH", Some(temp_dir.path().to_str().unwrap()), || {
-        let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+        let mut cmd = Command::cargo_bin("gf").unwrap();
         cmd.arg("issue").arg("list").arg("--platform").arg("gitcode");
 
         cmd.assert()
@@ -950,7 +950,7 @@ fn test_prerequisites_check_cli_not_found() {
 
 #[test]
 fn test_prerequisites_check_unsupported_platform() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+    let mut cmd = Command::cargo_bin("gf").unwrap();
     cmd.arg("issue").arg("list").arg("--platform").arg("unsupported");
 
     cmd.assert()
@@ -961,7 +961,7 @@ fn test_prerequisites_check_unsupported_platform() {
 
 - [ ] **Step 2: 运行集成测试**
 
-Run: `cargo test -p gitflow-cli --test prerequisites_integration`
+Run: `cargo test -p gf --test prerequisites_integration`
 Expected: PASS (3 个测试)
 
 - [ ] **Step 3: 提交**

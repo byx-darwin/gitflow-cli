@@ -7,7 +7,7 @@
 
 ## Abstract
 
-The `gitflow-pr-create` skill is a linear eight-step workflow guide for creating Pull Requests through the `gitflow-cli pr create` command. It covers branch validation, change review, base-branch freshness checks, title/description collection, target-branch confirmation, PR creation, and post-creation guidance. While the workflow is logically complete and the command examples are concrete, the skill lacks the structural rigor, boundary declarations, trigger-accuracy, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gitflow-pr-create` skill is a linear eight-step workflow guide for creating Pull Requests through the `gf pr create` command. It covers branch validation, change review, base-branch freshness checks, title/description collection, target-branch confirmation, PR creation, and post-creation guidance. While the workflow is logically complete and the command examples are concrete, the skill lacks the structural rigor, boundary declarations, trigger-accuracy, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -24,14 +24,14 @@ The `gitflow-pr-create` skill is a linear eight-step workflow guide for creating
 | File location | ✅ | `skills/gitflow-pr-create/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Token efficiency | ✅ | ~158 lines, under 500-word limit for a full skill guide |
-| Command examples | ✅ | Three concrete `gitflow-cli pr create` invocations with realistic flags |
+| Command examples | ✅ | Three concrete `gf pr create` invocations with realistic flags |
 | Checklist template | ✅ | PR description template includes a useful Checklist section |
 
 ### ❌ Deficiencies
 
 | Item | Status | Details |
 |------|--------|---------|
-| `description` format | ❌ | Current: `"引导用户完成 Pull Request 创建工作流 — 检查分支、变更和 base 状态，填写标题描述后调用 gitflow-cli pr create"` — describes the *entire workflow*, not the *trigger condition*. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
+| `description` format | ❌ | Current: `"引导用户完成 Pull Request 创建工作流 — 检查分支、变更和 base 状态，填写标题描述后调用 gf pr create"` — describes the *entire workflow*, not the *trigger condition*. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
 | Structural sections | ⚠️ | Missing canonical sections: `When to Use`, `Core Pattern`, `Quick Reference`, `Implementation`, `Common Mistakes`. Current structure is a flat sequential workflow without the layered design writing-skills prescribes. |
 | Trigger keywords | ❌ | No `Trigger Keywords` section enumerating error messages, user phrases, or contextual cues (e.g., "create a PR", "open a pull request", `pr create` command). |
 | Anti-patterns present | ⚠️ | Uses narrative prose for workflow steps rather than pattern-language. Steps read like a tutorial ("确认当前所在分支...") rather than a skill contract. The `## 使用示例` section mixes narrative commentary with code blocks. |
@@ -39,7 +39,7 @@ The `gitflow-pr-create` skill is a linear eight-step workflow guide for creating
 ### Recommended Description Rewrite
 
 ```yaml
-description: "Use when the user wants to create a Pull Request through gitflow-cli — including feature PRs, bug-fix PRs, and draft PRs. Triggers on phrases like 'create a PR', 'open a pull request', 'submit changes for review', or direct invocation of `gitflow-cli pr create`."
+description: "Use when the user wants to create a Pull Request through gf — including feature PRs, bug-fix PRs, and draft PRs. Triggers on phrases like 'create a PR', 'open a pull request', 'submit changes for review', or direct invocation of `gf pr create`."
 ```
 
 ---
@@ -68,7 +68,7 @@ description: "Use when the user wants to create a Pull Request through gitflow-c
 - Ensuring base branch is up-to-date to minimize merge conflicts
 - Collecting PR title (with conventional-commit prefix) and structured description
 - Confirming --head and --base branches with the user
-- Invoking `gitflow-cli pr create` with collected parameters
+- Invoking `gf pr create` with collected parameters
 - Presenting the resulting PR URL and next-step guidance (draft → ready, or notify reviewers)
 
 ## ❌ Not Responsible For
@@ -119,7 +119,7 @@ Expect: skill checks current branch (feature/two-factor-auth), confirms not on m
 ### Scenario 2: Draft PR creation
 Input:  user says "open a draft PR for the LRU cache work in progress"
 Expect: skill follows same validation flow, adds --draft flag to final command,
-        reminds user to call `gitflow-cli pr ready <number>` after completion.
+        reminds user to call `gf pr ready <number>` after completion.
 
 ### Scenario 3: Branch not pushed to remote
 Input:  user on feature/new-branch with local-only commits
@@ -138,7 +138,7 @@ Expect: skill detects protected branch, warns that PRs cannot be created from ma
         advises switching to a feature branch, ends without invoking CLI.
 
 ### Baseline (without skill)
-User manually types `gitflow-cli pr create` — must recall flag names (--title, --body,
+User manually types `gf pr create` — must recall flag names (--title, --body,
 --head, --base, --draft), conventional-commit prefix convention, Markdown body format,
 and branch validation steps from memory.
 ```
@@ -165,7 +165,7 @@ and branch validation steps from memory.
 |----------|--------|---------|
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full workflow, not just the trigger condition. |
-| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "create a PR", "open a pull request", "submit for review", "pr create", `gitflow-cli pr create`, "draft PR", "pull request". |
+| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "create a PR", "open a pull request", "submit for review", "pr create", `gf pr create`, "draft PR", "pull request". |
 | Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-pr`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-pipeline-analyzer`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
 | Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern structure. |
@@ -177,7 +177,7 @@ and branch validation steps from memory.
 ## Trigger Keywords
 
 - Direct:   "create a PR", "open a pull request", "submit for review", "create draft PR"
-- CLI:      `gitflow-cli pr create`
+- CLI:      `gf pr create`
 - Symptoms: user has completed work on a branch and wants reviewer feedback
 - Synonyms: "pull request", "draft PR", "code review request", "merge request" (GitLab context)
 ```

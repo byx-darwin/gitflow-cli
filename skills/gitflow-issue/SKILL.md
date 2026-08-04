@@ -1,15 +1,15 @@
 ---
 name: gitflow-issue
 description: |
-  Use when the user needs to manage issues via gitflow-cli — create, list, view, close, reopen, comment, or manage labels.
-  当用户需要通过 gitflow-cli 管理 Issue（创建、列表、查看、关闭、重新打开、评论、标签）时使用。
+  Use when the user needs to manage issues via gf — create, list, view, close, reopen, comment, or manage labels.
+  当用户需要通过 gf 管理 Issue（创建、列表、查看、关闭、重新打开、评论、标签）时使用。
 ---
 
 # gitflow-issue
 
 ## Overview
 
-Wraps `gitflow-cli issue`. 7 subcommands: `create · list · view · close · reopen · comment · label`.
+Wraps `gf issue`. 7 subcommands: `create · list · view · close · reopen · comment · label`.
 
 ## When to Use
 
@@ -28,21 +28,21 @@ Wraps `gitflow-cli issue`. 7 subcommands: `create · list · view · close · re
 ## Core Pattern
 
 ```bash
-gitflow-cli issue create --title <t> --body <b> --label <l> --assignee <a>
-gitflow-cli issue list [--state open|closed|all] [--label <l>] [--limit <n>]
-gitflow-cli issue view <number>
-gitflow-cli issue close <number>
-gitflow-cli issue reopen <number>
-gitflow-cli issue comment <number> --body <text>
-gitflow-cli issue label <number> --add <l> --remove <l>
+gf issue create --title <t> --body <b> --label <l> --assignee <a>
+gf issue list [--state open|closed|all] [--label <l>] [--limit <n>]
+gf issue view <number>
+gf issue close <number>
+gf issue reopen <number>
+gf issue comment <number> --body <text>
+gf issue label <number> --add <l> --remove <l>
 ```
 
 ## Preconditions
 
 ```bash
 git rev-parse --is-inside-work-tree
-command -v gitflow-cli
-gitflow-cli auth status
+command -v gf
+gf auth status
 ```
 
 ## Quick Reference
@@ -109,8 +109,8 @@ flowchart TD
 
 | Error | Recovery |
 |-------|----------|
-| Not in git repo | `cd` or `gitflow-cli repo clone` |
-| Unauthenticated | `gitflow-cli auth login` |
+| Not in git repo | `cd` or `gf repo clone` |
+| Unauthenticated | `gf auth login` |
 | Issue not found | 404; confirm number |
 | Create duplicate | `issue list --search` |
 | Rate limit | Pause then retry |
@@ -129,7 +129,7 @@ flowchart TD
 - **Given** close already-closed #N · **Then** no-op + state note
 
 ### 4: Error
-- **Given** auth missing · **Then** `gitflow-cli auth login` first
+- **Given** auth missing · **Then** `gf auth login` first
 
 ## Success Criteria
 

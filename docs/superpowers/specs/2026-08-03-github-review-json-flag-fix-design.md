@@ -7,7 +7,7 @@
 
 ## 问题描述
 
-`gitflow-cli review` 的全部方法（`approve` / `comment` / `request-changes` / `submit_review`）在 GitHub 平台失败，报错：`gh: unknown flag: --json`。
+`gf review` 的全部方法（`approve` / `comment` / `request-changes` / `submit_review`）在 GitHub 平台失败，报错：`gh: unknown flag: --json`。
 
 ### 根因
 
@@ -22,7 +22,7 @@
 ### 复现步骤
 
 ```bash
-gitflow-cli review approve 118 --body "test"
+gf review approve 118 --body "test"
 # × Failed to approve PR #118: platform error: gh: unknown flag: --json
 ```
 

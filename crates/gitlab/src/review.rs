@@ -14,7 +14,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     review::{ReviewData, ReviewProvider, ReviewState},
     types::UserSummary,
@@ -29,7 +29,7 @@ use crate::error::parse_glab_error;
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitlab::GitLabReviewProvider;
+/// use gf_gitlab::GitLabReviewProvider;
 ///
 /// let provider = GitLabReviewProvider::new("gitlab-org/gitlab");
 /// ```

@@ -1,4 +1,4 @@
-# gitflow-cli release-helper 完整参考
+# gf release-helper 完整参考
 
 > 本文档为 `gitflow-release-helper` skill 的外部化引用。
 
@@ -52,6 +52,6 @@ Breaking Changes 单独置顶。
 git describe --tags --abbrev=0                       # 当前最新 tag
 git tag --sort=-v:refname | head -20                  # 列出近期 tags
 git log <last-tag>..HEAD --pretty=format:"%h %s" --no-merges
-gitflow-cli release changelog --since <last-tag>     # 若支持
-gitflow-cli release create --tag <vX.Y.Z> --notes "..."
+gf release changelog --since <last-tag>     # 若支持
+gf release create --tag <vX.Y.Z> --notes "..."
 ```

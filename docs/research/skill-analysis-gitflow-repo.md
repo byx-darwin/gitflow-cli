@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-repo` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为"仓库操作核心命令工作流 — 封装 gitflow-cli repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口"——这是功能描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为"仓库操作核心命令工作流 — 封装 gf repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述功能范围和命令列表，未描述触发场景 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节（开头段落类似概述，但非结构化标题） |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -128,7 +128,7 @@
    - 如何判断 "Claude 没有在不应操作时操作"（如用户没说 sync，Claude 不应主动 sync）？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型错误行为作为对照基线：
-   - 无 skill：可能直接运行 `gh repo view` 而非 `gitflow-cli repo view`
+   - 无 skill：可能直接运行 `gh repo view` 而非 `gf repo view`
    - 无 skill：可能忘记添加 upstream 远程
    - 无 skill：可能在 sync 冲突时不知所措
 
@@ -164,8 +164,8 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非功能描述**：
-   - ❌ 当前：`仓库操作核心命令工作流 — 封装 gitflow-cli repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口`
-   - ✅ 应为：`Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gitflow-cli`
+   - ❌ 当前：`仓库操作核心命令工作流 — 封装 gf repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口`
+   - ✅ 应为：`Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gf`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
    - "克隆"/"clone"/"拉代码"/"下载仓库"

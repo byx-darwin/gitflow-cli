@@ -65,7 +65,7 @@
 | `[[PLATFORM]]` 诊断占位符未替换 | 已建 Issue | #110 |
 | `issue comment` 返回 stale id | 已建 Issue | #111 |
 | bot actor 的 `UserSummary.id` 为空串语义 | 已修复+文档化;下游消费者应视空 id 为 bot/未知 | 本报告 |
-| `gitflow-cli issue label` 子命令缺失(triage 经 gh 完成) | 能力缺口,建议 roadmap 纳入 | 本报告 |
+| `gf issue label` 子命令缺失(triage 经 gh 完成) | 能力缺口,建议 roadmap 纳入 | 本报告 |
 | Node20 actions 弃用警告(checkout@v4 等) | 全仓库预存,与本 PR 无关 | 独立跟进 |
 | gh/glab/gitcode 版本漂移 | 巡检已自动预警 | #106/#107/#108 |
 | 1.0 发布 dry-run 演练(exit 标准②) | 待合并后于 main 执行 | PR #105 合并后 |

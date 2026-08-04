@@ -24,21 +24,21 @@ Fetch pending review feedback · prioritize (security → logic → boundary →
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <pr>                               # fetch + list pending
+gf pr view <pr>                               # fetch + list pending
 # prioritize → confirm each comment with user
 git checkout <pr-branch>                                       # confirmed PR branch
 # per comment: edit → test → commit (referencing reviewer + location)
-gitflow-cli pr resolve-comment <pr> --comment-id <id>          # mark resolved
+gf pr resolve-comment <pr> --comment-id <id>          # mark resolved
 git push origin <pr-branch>                                    # ONLY after explicit confirmation
-gitflow-cli pr comment <pr> --body "<summary>"                 # notify
+gf pr comment <pr> --body "<summary>"                 # notify
 ```
 
 ## Preconditions
 
 ```bash
 git rev-parse --is-inside-work-tree    # inside git repo
-command -v gitflow-cli                  # CLI available
-gitflow-cli auth status                 # authenticated
+command -v gf                  # CLI available
+gf auth status                 # authenticated
 git rev-parse --abbrev-ref HEAD == <pr-branch>
 ```
 
@@ -86,7 +86,7 @@ git rev-parse --abbrev-ref HEAD == <pr-branch>
 
 ```mermaid
 flowchart TD
-  A[Start] --> B{gitflow-cli pr view <pr>}
+  A[Start] --> B{gf pr view <pr>}
   B -->|not found| STOP[Stop]
   B -->|found| C{Unresolved comments?}
   C -->|none| DONE[Done]
@@ -127,7 +127,7 @@ flowchart TD
 - [ ] Each modification confirmed before commit
 - [ ] Tests pass before resolve
 - [ ] Push only after user confirmation
-- [ ] Reviewer notified via `gitflow-cli pr comment <pr>`
+- [ ] Reviewer notified via `gf pr comment <pr>`
 - [ ] No out-of-scope commands
 
 ## Common Mistakes

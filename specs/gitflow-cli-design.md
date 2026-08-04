@@ -2,7 +2,7 @@
 
 ## 概述
 
-gitflow-cli 是一个跨平台 Git 工程化工作流编排框架。通过 Rust CLI 统一封装 GitHub、GitLab、GitCode 三大平台的差异，结合 Superpowers 的本地开发循环能力，提供从需求澄清到代码发布的完整开发生命周期管理。
+gf 是一个跨平台 Git 工程化工作流编排框架。通过 Rust CLI 统一封装 GitHub、GitLab、GitCode 三大平台的差异，结合 Superpowers 的本地开发循环能力，提供从需求澄清到代码发布的完整开发生命周期管理。
 
 ---
 
@@ -10,7 +10,7 @@ gitflow-cli 是一个跨平台 Git 工程化工作流编排框架。通过 Rust 
 
 | 决策项 | 选择 |
 |--------|------|
-| 项目名 | gitflow-cli |
+| 项目名 | gf |
 | 定位 | 社区项目，全套解决方案（编排层 + 所有平台 skills） |
 | 平台 | GitHub / GitLab / GitCode（放弃 Gitee） |
 | 架构模式 | CLI-centric，统一抽象层 |
@@ -68,7 +68,7 @@ gitflow-cli 是一个跨平台 Git 工程化工作流编排框架。通过 Rust 
 基于现有 `crates/*` + `apps/*` 结构，新增平台 crate：
 
 ```
-gitflow-cli/
+gf/
 ├── apps/
 │   └── cli/                    # CLI 入口（已存在，扩展命令）
 │       └── src/
@@ -481,7 +481,7 @@ Phase 3 完成 → gitflow issue comment <number> --body "PR #N: <url> — 审�
 
 ### 错误来源
 
-gitflow-cli 是 Rust CLI + Skills 混合项目，错误来源有两类：
+gf 是 Rust CLI + Skills 混合项目，错误来源有两类：
 
 | 错误来源 | 捕获方式 |
 |---------|---------|
@@ -725,7 +725,7 @@ bash scripts/smoke-test.sh --keep             # 保留测试 issue
 
 ```bash
 # CLI（从源码编译）
-cargo install gitflow-cli
+cargo install gf
 
 # 或从 GitHub Releases 下载预编译二进制
 curl -sSL https://github.com/byx-darwin/gitflow-cli/releases/latest/download/install.sh | bash
@@ -784,14 +784,14 @@ chrono = { version = "0.4", features = ["serde"] }
 
 ```toml
 [package]
-name = "gitflow-cli-github"
+name = "gf-github"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-gitflow-cli-core.workspace = true
+gf-core.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -1082,8 +1082,8 @@ crates/github/
 // crates/github/src/issue.rs
 
 use async_trait::async_trait;
-use gitflow_cli_core::issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs};
-use gitflow_cli_core::Result;
+use gf_core::issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs};
+use gf_core::Result;
 
 use crate::error::{parse_gh_error, GhError};
 
@@ -1127,16 +1127,16 @@ impl IssueProvider for GitHubIssueProvider {
         }
 
         let output = cmd.output().await.map_err(|e| {
-            gitflow_cli_core::CoreError::Platform(format!("Failed to spawn gh: {e}"))
+            gf_core::CoreError::Platform(format!("Failed to spawn gh: {e}"))
         })?;
 
         if !output.status.success() {
             let gh_err = parse_gh_error(&output.stderr);
-            return Err(gitflow_cli_core::CoreError::Platform(format!("{gh_err}")));
+            return Err(gf_core::CoreError::Platform(format!("{gh_err}")));
         }
 
         let issue: IssueData = serde_json::from_slice(&output.stdout)
-            .map_err(|e| gitflow_cli_core::CoreError::Serialization(e))?;
+            .map_err(|e| gf_core::CoreError::Serialization(e))?;
 
         Ok(issue)
     }
@@ -1150,8 +1150,8 @@ impl IssueProvider for GitHubIssueProvider {
 
         if let Some(state) = &args.state {
             cmd.arg("--state").arg(match state {
-                gitflow_cli_core::types::State::Open => "open",
-                gitflow_cli_core::types::State::Closed => "closed",
+                gf_core::types::State::Open => "open",
+                gf_core::types::State::Closed => "closed",
             });
         }
 
@@ -1164,16 +1164,16 @@ impl IssueProvider for GitHubIssueProvider {
         }
 
         let output = cmd.output().await.map_err(|e| {
-            gitflow_cli_core::CoreError::Platform(format!("Failed to spawn gh: {e}"))
+            gf_core::CoreError::Platform(format!("Failed to spawn gh: {e}"))
         })?;
 
         if !output.status.success() {
             let gh_err = parse_gh_error(&output.stderr);
-            return Err(gitflow_cli_core::CoreError::Platform(format!("{gh_err}")));
+            return Err(gf_core::CoreError::Platform(format!("{gh_err}")));
         }
 
         let issues: Vec<IssueData> = serde_json::from_slice(&output.stdout)
-            .map_err(|e| gitflow_cli_core::CoreError::Serialization(e))?;
+            .map_err(|e| gf_core::CoreError::Serialization(e))?;
 
         Ok(issues)
     }
@@ -1188,16 +1188,16 @@ impl IssueProvider for GitHubIssueProvider {
             .output()
             .await
             .map_err(|e| {
-                gitflow_cli_core::CoreError::Platform(format!("Failed to spawn gh: {e}"))
+                gf_core::CoreError::Platform(format!("Failed to spawn gh: {e}"))
             })?;
 
         if !output.status.success() {
             let gh_err = parse_gh_error(&output.stderr);
-            return Err(gitflow_cli_core::CoreError::Platform(format!("{gh_err}")));
+            return Err(gf_core::CoreError::Platform(format!("{gh_err}")));
         }
 
         let issue: IssueData = serde_json::from_slice(&output.stdout)
-            .map_err(|e| gitflow_cli_core::CoreError::Serialization(e))?;
+            .map_err(|e| gf_core::CoreError::Serialization(e))?;
 
         Ok(issue)
     }
@@ -1477,7 +1477,7 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
             PlatformArg::Gitcode => "gitcode",
         }.to_string(),
         None => {
-            let detected = gitflow_cli_core::platform::Platform::detect_from_remote_url(&remote_url)
+            let detected = gf_core::platform::Platform::detect_from_remote_url(&remote_url)
                 .ok_or_else(|| miette::miette!(
                     "Unable to detect platform from remote URL: {}\nUse --platform to specify explicitly.",
                     remote_url
@@ -1781,7 +1781,7 @@ pub enum CoreError {
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== gitflow-cli Smoke Test (Phase 1 - GitHub) ==="
+echo "=== gf Smoke Test (Phase 1 - GitHub) ==="
 
 # 读取模式测试
 echo "[1/3] issue view"
@@ -1806,7 +1806,7 @@ use assert_cmd::Command;
 
 #[test]
 fn test_should_list_issues_with_json_output() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+    let mut cmd = Command::cargo_bin("gf").unwrap();
     cmd.args(["issue", "list", "--state", "open", "--limit", "1", "--platform", "github"]);
     let output = cmd.assert().success();
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();

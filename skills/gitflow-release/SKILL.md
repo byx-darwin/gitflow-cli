@@ -1,13 +1,13 @@
 ---
 name: gitflow-release
 description: |
-  Use when the user wants to manage Git releases through gitflow-cli — create, list, view, edit, upload/download assets, or delete.
-  当用户希望通过 gitflow-cli 管理版本发布（创建、列表、查看、编辑、上传/下载资源或删除）时使用。
+  Use when the user wants to manage Git releases through gf — create, list, view, edit, upload/download assets, or delete.
+  当用户希望通过 gf 管理版本发布（创建、列表、查看、编辑、上传/下载资源或删除）时使用。
 ---
 
 # gitflow-release
 
-CRUD wrapper for `gitflow-cli release`. Manages GitHub/GitLab/GitCode releases — metadata only; tag must exist first. Delete is irreversible.
+CRUD wrapper for `gf release`. Manages GitHub/GitLab/GitCode releases — metadata only; tag must exist first. Delete is irreversible.
 
 ## When to Use
 
@@ -22,29 +22,29 @@ CRUD wrapper for `gitflow-cli release`. Manages GitHub/GitLab/GitCode releases �
 ## Core Pattern
 
 ```bash
-gitflow-cli auth status
+gf auth status
 git tag -l <tag>
-gitflow-cli release <subcommand> ...
+gf release <subcommand> ...
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Create | `gitflow-cli release create --tag <tag> [--name <n>] [--body <b>] [--draft] [--prerelease] [--target <ref>]` |
-| List | `gitflow-cli release list` |
-| View | `gitflow-cli release view <tag>` |
-| Edit | `gitflow-cli release edit <tag> [--name <n>] [--body <b>] [--draft] [--prerelease]` |
-| Upload | `gitflow-cli release upload <tag> --file <path> [--asset-name <n>]` |
-| Download | `gitflow-cli release download <tag> --asset <name> [--dest <dir>]` |
-| Delete | `gitflow-cli release delete <tag>` |
+| Create | `gf release create --tag <tag> [--name <n>] [--body <b>] [--draft] [--prerelease] [--target <ref>]` |
+| List | `gf release list` |
+| View | `gf release view <tag>` |
+| Edit | `gf release edit <tag> [--name <n>] [--body <b>] [--draft] [--prerelease]` |
+| Upload | `gf release upload <tag> --file <path> [--asset-name <n>]` |
+| Download | `gf release download <tag> --asset <name> [--dest <dir>]` |
+| Delete | `gf release delete <tag>` |
 
 ## Implementation
 
 ### Preconditions
 
 - Tag exists locally and on remote — `git tag -l <tag>`
-- `gitflow-cli` authenticated — `auth status`
+- `gf` authenticated — `auth status`
 - For upload: local file exists
 
 ### Flow by subcommand

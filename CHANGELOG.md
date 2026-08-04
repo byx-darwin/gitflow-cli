@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [Unreleased]
+
+### ⚠ BREAKING CHANGES
+
+- rename: `gitflow-cli` → `gf` — all crate names renamed accordingly
+  - `gitflow-cli` → `gf`
+  - `gitflow-cli-core` → `gf-core`
+  - `gitflow-cli-github` → `gf-github`
+  - `gitflow-cli-gitlab` → `gf-gitlab`
+  - `gitflow-cli-gitcode` → `gf-gitcode`
+  - Binary name: `gitflow-cli` → `gf`
+
+---
 ## [unreleased]
 
 ### Bug Fixes

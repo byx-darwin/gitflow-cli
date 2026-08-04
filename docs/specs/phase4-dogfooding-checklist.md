@@ -9,7 +9,7 @@
 ## Prerequisites
 
 - [ ] 当前版本已完成 Phase 1-3（issue → plan → implement → test → PR）
-- [ ] 三个平台的认证状态正常（`gitflow-cli auth status --platform github/gitlab/gitcode`）
+- [ ] 三个平台的认证状态正常（`gf auth status --platform github/gitlab/gitcode`）
 - [ ] 工作目录干净，无未提交变更
 
 ---
@@ -20,10 +20,10 @@
 
 > GitHub release 命令涉及版本标签创建和远程操作，历史上有过非交互模式兼容性问题。
 
-- [ ] 创建 release：`gitflow-cli release create v0.x.x --notes "test release"`
-- [ ] 删除 release：`gitflow-cli release delete v0.x.x --yes`
-- [ ] 非交互模式验证：`echo "y" | gitflow-cli release create v0.x.x --notes "test"`
-- [ ] 清理：`gitflow-cli release delete v0.x.x --yes`
+- [ ] 创建 release：`gf release create v0.x.x --notes "test release"`
+- [ ] 删除 release：`gf release delete v0.x.x --yes`
+- [ ] 非交互模式验证：`echo "y" | gf release create v0.x.x --notes "test"`
+- [ ] 清理：`gf release delete v0.x.x --yes`
 
 ### 验证要点
 
@@ -39,11 +39,11 @@
 
 > GitLab API 在处理中文标签时可能出现编码问题，需验证 CRUD 操作。
 
-- [ ] 创建中文标签：`gitflow-cli label create "测试标签" --color "#ff0000"`
-- [ ] 创建带中文标签的 issue：`gitflow-cli issue create --title "Dogfooding test" --labels "测试标签"`
-- [ ] 查询 issue 标签：`gitflow-cli issue view <n>` 确认标签正确显示
-- [ ] 删除测试 issue：`gitflow-cli issue close <n>`
-- [ ] 删除测试标签：`gitflow-cli label delete "测试标签" --yes`
+- [ ] 创建中文标签：`gf label create "测试标签" --color "#ff0000"`
+- [ ] 创建带中文标签的 issue：`gf issue create --title "Dogfooding test" --labels "测试标签"`
+- [ ] 查询 issue 标签：`gf issue view <n>` 确认标签正确显示
+- [ ] 删除测试 issue：`gf issue close <n>`
+- [ ] 删除测试标签：`gf label delete "测试标签" --yes`
 
 ### 验证要点
 
@@ -59,8 +59,8 @@
 
 > Issue #70: `pr merge` 在非交互 shell 中因缺少 `--yes` 传递而失败。这是 dogfooding 发现的第一个 bug。
 
-- [ ] 创建测试 PR：`gitflow-cli pr create --title "Dogfooding test" --body "test"`
-- [ ] 非交互 merge：`gitflow-cli pr merge <n>`（在无 TTY 的 shell 中执行）
+- [ ] 创建测试 PR：`gf pr create --title "Dogfooding test" --body "test"`
+- [ ] 非交互 merge：`gf pr merge <n>`（在无 TTY 的 shell 中执行）
 - [ ] 验证 `--yes` 传递：确认命令不提示确认，直接完成 merge
 - [ ] 清理：删除测试分支
 

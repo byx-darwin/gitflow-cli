@@ -1,4 +1,4 @@
-# gitflow-cli 全量指令测试报告
+# gf 全量指令测试报告
 
 **测试日期**: 2026-07-08
 **测试范围**: 3 个平台 × 10 个主要命令 × 多个子命令
@@ -254,23 +254,23 @@
 ## 测试数据清理
 
 ### 已创建的测试数据
-- GitHub Issue #67: `[TEST] gitflow-cli 全量测试 - 1783496972` (已关闭)
+- GitHub Issue #67: `[TEST] gf 全量测试 - 1783496972` (已关闭)
 - GitHub Milestone #1: `[TEST] 已编辑的里程碑` (已关闭)
 
 ### 建议清理
 ```bash
 # 关闭测试 milestone（已关闭）
-gitflow-cli milestone close 1
+gf milestone close 1
 
 # 删除测试 issue（可选）
-# gitflow-cli issue close 67  # 已关闭
+# gf issue close 67  # 已关闭
 ```
 
 ---
 
 ## 结论
 
-本次全量测试覆盖了 gitflow-cli 的 10 个主要命令在 3 个平台上的表现：
+本次全量测试覆盖了 gf 的 10 个主要命令在 3 个平台上的表现：
 
 1. **GitHub** 表现最好（64.3% 通过率），核心功能可用，但 release 和部分序列化问题需要修复
 2. **GitCode** 表现中等（45.5% 通过率），多个关键命令存在序列化或参数问题
@@ -423,7 +423,7 @@ let without_auth = if let Some((_auth, host_and_path)) = without_prefix.split_on
 - 新增测试用例 `test_should_handle_https_with_authentication`
 
 ### 结论
-✅ **gitflow-cli 现在完全支持 HTTPS 远程地址**，包括：
+✅ **gf 现在完全支持 HTTPS 远程地址**，包括：
 - 无认证的 HTTPS URL
 - 带 token 的 HTTPS URL
 - 带 user:password 的 HTTPS URL

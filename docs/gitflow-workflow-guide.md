@@ -1,4 +1,4 @@
-# gitflow-cli Workflow — 完整流程指南
+# gf Workflow — 完整流程指南
 
 基于 `gitflow-workflow` 四阶段闸门编排器的实操指南。配合 [CLAUDE.md](../CLAUDE.md) 的强制规则阅读。
 
@@ -28,19 +28,19 @@
 ## 前置条件
 
 ```bash
-# 安装 gitflow-cli
+# 安装 gf
 cargo install --path apps/cli
-# 或 brew install byx-darwin/gitflow-cli/gitflow-cli
+# 或 brew install byx-darwin/gitflow-cli/gf
 
 # 认证（GitHub / GitLab / GitCode 任选其一）
-gitflow-cli auth status
-gitflow-cli auth login --platform github
+gf auth status
+gf auth login --platform github
 
 # 确认在 git 仓库内
 git rev-parse --show-toplevel
 
 # 安装本仓库的 skills（一次性）
-gitflow-cli skills install --agent claude --force
+gf skills install --agent claude --force
 # 或 codex / gemini / open-code / copilot
 ```
 
@@ -52,13 +52,13 @@ gitflow-cli skills install --agent claude --force
 
 ```bash
 # 1.1 列出所有 Open Issues
-gitflow-cli issue list --state open --output json
+gf issue list --state open --output json
 
 # 1.2 讨论需求（完整模式必须调 brainstorming）
 #    快速模式：直接分析 bug 根因，可跳过 brainstorming
 
 # 1.3 创建 Issue（必选）
-gitflow-cli issue create \
+gf issue create \
   --title "fix(skills): 项目级 install 不识别 --agent" \
   --body "$(cat <<'EOF'
 ## 背景
@@ -156,8 +156,8 @@ REFACTOR: 死分支 / 冗余 detect() / unreachable fallback 清理
 
 ```
 Gate 2 → 3（计划 → 执行）的必备证据：
-  ✓ Issue URL 可访问           gitflow-cli issue view <n>
-  ✓ 需求分析已作为 comment 回贴  gitflow-cli issue view <n> 看评论
+  ✓ Issue URL 可访问           gf issue view <n>
+  ✓ 需求分析已作为 comment 回贴  gf issue view <n> 看评论
   ✓ 计划文档存在               路径或内联计划
   ✓ Quality gate 任务已列入计划   plan.md 中 Task N+1
 
@@ -236,8 +236,8 @@ Gate 2 → 3（计划 → 执行）的必备证据：
 #    REFACTOR: make clippy + make fmt 干净
 
 # 3.3 E2E 验证（若涉及 CLI 行为）
-cargo build --bin gitflow-cli
-./target/debug/gitflow-cli <scenario>
+cargo build --bin gf
+./target/debug/gf <scenario>
 
 # 3.4 Code Review（subagent）
 #    必选：至少跑一次代码审查
@@ -251,7 +251,7 @@ Fixes #<N>
 
 <详细说明>"
 git push -u origin HEAD
-gitflow-cli pr create --head HEAD --base main \
+gf pr create --head HEAD --base main \
   --title "<commit subject>" \
   --body "<PR body>"
 ```
@@ -289,7 +289,7 @@ make build && make test && make fmt && make clippy
 # 4.2 流水线分析（必选）
 #    调用 gitflow-pipeline-analyzer：
 #    - 列出 PR 触发的所有 CI workflow 运行
-gitflow-cli pipeline status --branch fix/issue-62-skills-agent-matrix
+gf pipeline status --branch fix/issue-62-skills-agent-matrix
 
 # 4.3 Issue 分类（必选）
 #    调用 gitflow-issue-triage：
@@ -308,9 +308,9 @@ gitflow-cli pipeline status --branch fix/issue-62-skills-agent-matrix
 #    - 任一 ❌ → 返回 Phase 3
 
 # 4.6 Merge（需用户确认策略）
-gitflow-cli pr merge <N> --strategy squash   # 推荐
-gitflow-cli pr merge <N> --strategy merge    # 保留 commit 历史
-gitflow-cli pr merge <N> --strategy rebase   # 线性历史
+gf pr merge <N> --strategy squash   # 推荐
+gf pr merge <N> --strategy merge    # 保留 commit 历史
+gf pr merge <N> --strategy rebase   # 线性历史
 
 # 4.7 收尾
 git checkout main && git pull --ff-only origin main
@@ -354,28 +354,28 @@ git branch -d fix/issue-<N>-<short-name>
 
 ```bash
 # Issue 操作
-gitflow-cli issue list --state open --output json
-gitflow-cli issue view <N>
-gitflow-cli issue create --title "..." --body "..."
+gf issue list --state open --output json
+gf issue view <N>
+gf issue create --title "..." --body "..."
 
 # PR 操作
-gitflow-cli pr list --state open
-gitflow-cli pr create --head <branch> --base main --title "..." --body "..."
-gitflow-cli pr merge <N> --strategy squash
-gitflow-cli pr view <N>
+gf pr list --state open
+gf pr create --head <branch> --base main --title "..." --body "..."
+gf pr merge <N> --strategy squash
+gf pr view <N>
 
 # Pipeline 操作
-gitflow-cli pipeline status --branch <branch>
-gitflow-cli pipeline logs <run-id>
+gf pipeline status --branch <branch>
+gf pipeline logs <run-id>
 
 # Skills 管理
-gitflow-cli skills install --agent <claude|codex|gemini|open-code|copilot> --force
-gitflow-cli skills list --agent <agent>
-gitflow-cli skills uninstall --agent <agent>
+gf skills install --agent <claude|codex|gemini|open-code|copilot> --force
+gf skills list --agent <agent>
+gf skills uninstall --agent <agent>
 
 # 认证
-gitflow-cli auth status
-gitflow-cli auth login --platform <github|gitlab|gitcode>
+gf auth status
+gf auth login --platform <github|gitlab|gitcode>
 ```
 
 ## 常见陷阱

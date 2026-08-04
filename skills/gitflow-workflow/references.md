@@ -116,7 +116,7 @@ Phase 4 Step 5 commands. All operations are local-only (no push).
 ### Detect PR Merge Status
 
 ```bash
-gitflow-cli pr view  # parse "merged" field from output
+gf pr view  # parse "merged" field from output
 ```
 
 ### Execute Branch Cleanup (after user confirmation)

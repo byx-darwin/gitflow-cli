@@ -2,13 +2,13 @@
 name: gitflow-pr-review
 description: |
   Use when the user requests an overall code review of a Pull Request
-  and needs to submit a verdict via gitflow-cli.
+  and needs to submit a verdict via gf.
   当要求对 PR 进行整体代码审查并提交审查结论时使用。
 ---
 
 # gitflow-pr-review
 
-6-dimension PR diff assessment + overall verdict via `gitflow-cli review`. Line-level comments → `gitflow-pr-inline-review`.
+6-dimension PR diff assessment + overall verdict via `gf review`. Line-level comments → `gitflow-pr-inline-review`.
 
 ## When to Use
 
@@ -23,19 +23,19 @@ description: |
 ## Core Pattern
 
 ```bash
-gitflow-cli pr view <n>              # 1. verify
-gitflow-cli pr diff <n>                          # 2. diff
+gf pr view <n>              # 1. verify
+gf pr diff <n>                          # 2. diff
 # 3. assess 6 dims; draft conclusion
-gitflow-cli review <verdict> <n> --body "<c>"     # 4. submit
+gf review <verdict> <n> --body "<c>"     # 4. submit
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Approve | `gitflow-cli review approve <n> --body "<c>"` |
-| Request changes | `gitflow-cli review request-changes <n> --body "<c>"` |
-| Comment | `gitflow-cli review comment <n> --body "<c>"` |
+| Approve | `gf review approve <n> --body "<c>"` |
+| Request changes | `gf review request-changes <n> --body "<c>"` |
+| Comment | `gf review comment <n> --body "<c>"` |
 
 Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../references/pr-review-checklist.md).
 
@@ -43,11 +43,11 @@ Dimensions: correctness, security, performance, maintainability, test-coverage, 
 
 ### Preconditions
 
-- Open PR — `gitflow-cli pr view <n>`
+- Open PR — `gf pr view <n>`
 
 ### Step 1: Fetch
 
-`gitflow-cli pr view <n>` then `gitflow-cli pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
+`gf pr view <n>` then `gf pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
 
 ### Step 2: Assess 6 Dimensions
 
@@ -59,9 +59,9 @@ Per-dimension verdicts with `path:line` for ⚠️ items. See [template](../refe
 
 ### Step 4: Submit
 
-- All ✅ → `gitflow-cli review approve <n> --body "<conclusion>"`
-- Any ⚠️ → `gitflow-cli review request-changes <n> --body "<conclusion>"`
-- Comment only → `gitflow-cli review comment <n> --body "<conclusion>"`
+- All ✅ → `gf review approve <n> --body "<conclusion>"`
+- Any ⚠️ → `gf review request-changes <n> --body "<conclusion>"`
+- Comment only → `gf review comment <n> --body "<conclusion>"`
 
 Output PR URL.
 
@@ -69,7 +69,7 @@ Output PR URL.
 
 - `pr view` 404 → stop. Check PR number.
 - Empty diff → stop. PR may be merged.
-- Auth failure → run `gitflow-cli auth login`.
+- Auth failure → run `gf auth login`.
 - `review` fails → surface error, stop.
 
 ## Responsibility
@@ -79,7 +79,7 @@ Output PR URL.
 - Fetch PR metadata + diff
 - 6-dimension assessment
 - Conclusion with `path:line` citations
-- Submit verdict via `gitflow-cli review`
+- Submit verdict via `gf review`
 
 ### ❌ Out of Scope
 

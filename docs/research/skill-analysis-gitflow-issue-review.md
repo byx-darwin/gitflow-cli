@@ -82,7 +82,7 @@ description: "Use when the user wants to evaluate the requirement completeness o
 
 ```
 ## ✅ Responsible For
-- Fetching issue details via `gitflow-cli issue view`
+- Fetching issue details via `gf issue view`
 - Evaluating requirement completeness across 3 dimensions (title, description, acceptance criteria)
 - Generating a structured analysis report
 - Posting the report as a comment on the issue
@@ -102,7 +102,7 @@ description: "Use when the user wants to evaluate the requirement completeness o
 - Add labels, assignees, or milestones
 - Close or reopen the issue
 - Analyze closed issues without explicit user request
-- Proceed if `gitflow-cli issue view` returns an error
+- Proceed if `gf issue view` returns an error
 ```
 
 ---
@@ -129,16 +129,16 @@ description: "Use when the user wants to evaluate the requirement completeness o
    - How do we know the skill doesn't post on closed issues?
 
 2. **No baseline contrast** — Without the skill, the agent might:
-   - Run `gitflow-cli issue view` and give a free-form opinion
+   - Run `gf issue view` and give a free-form opinion
    - Skip the structured three-dimension analysis
    - Forget to post the comment
    - The skill's value proposition (structured analysis + persistent comment) is not articulated as a testable delta.
 
 3. **Missing edge cases** — The skill does not address:
-   - Issue number does not exist → `gitflow-cli issue view` fails
+   - Issue number does not exist → `gf issue view` fails
    - Issue has empty description → all three dimensions should be 🔴
    - Issue already has a review comment → should we skip or append?
-   - API rate limit → `gitflow-cli issue comment` fails
+   - API rate limit → `gf issue comment` fails
    - Issue is closed → should we still review?
    - Issue is a PR (some platforms treat PRs as issues) → should we reject?
 
@@ -179,7 +179,7 @@ Expect: skill warns that issue is closed, asks for confirmation before
         proceeding.
 
 ### Baseline (without skill)
-User asks "review issue #42" — agent runs `gitflow-cli issue view 42`
+User asks "review issue #42" — agent runs `gf issue view 42`
 and gives a free-form textual opinion. No structured report, no
 persistent comment, no consistent evaluation framework.
 ```
@@ -206,7 +206,7 @@ persistent comment, no consistent evaluation framework.
 |----------|--------|---------|
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full 6-step workflow, not just the trigger condition. |
-| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "review issue", "analyze issue", "issue quality", "需求分析", "issue 审查", `gitflow-cli issue view`. |
+| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "review issue", "analyze issue", "issue quality", "需求分析", "issue 审查", `gf issue view`. |
 | Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-issue`, `gitflow-issue-triage`, `gitflow-issue-create`, `gitflow-label-milestone`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary. The three-dimension criteria are embedded in step descriptions rather than extracted as a quick-reference table. |
 | Pattern-language over narrative | ⚠️ | The three-dimension framework is good pattern language, but the "使用示例" section uses narrative walkthroughs. |
@@ -219,7 +219,7 @@ persistent comment, no consistent evaluation framework.
 
 - Direct:   "review this issue", "analyze issue requirements", "issue quality check",
             "需求分析", "审查 issue", "issue 完整吗"
-- CLI:      `gitflow-cli issue view`
+- CLI:      `gf issue view`
 - Symptoms: user is unsure if an issue is ready for development, user asks
             "is this issue clear enough", user wants feedback on issue quality
 - Synonyms: "issue review", "requirement analysis", "issue assessment",
@@ -263,7 +263,7 @@ persistent comment, no consistent evaluation framework.
 | P1-4 | Add Red Flags section | D2 | Warnings about: reviewing bot-authored issues, reviewing in bulk, posting on issues you don't own, reviewing PRs as issues. |
 | P1-5 | Remove narrative examples | D1 | Replace the two "使用示例" walkthroughs with 1-2 line command patterns. The Step 3 template already serves as the example. |
 | P1-6 | Eliminate temp file indirection | D1 | Pass report content directly instead of writing to `/tmp/issue-analysis.md` and reading back. Reduces failure modes. |
-| P1-7 | Add preconditions section | D1 | Declare: must be in a git repo, `gitflow-cli` must be installed, user must have issue read/write access. |
+| P1-7 | Add preconditions section | D1 | Declare: must be in a git repo, `gf` must be installed, user must have issue read/write access. |
 
 ### P2 (Optional — nice to have)
 

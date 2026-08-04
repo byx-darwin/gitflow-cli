@@ -4,7 +4,7 @@
 //! 所有方法返回友好错误消息。保留结构体供未来使用。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     pipeline::{JobData, PipelineProvider, PipelineReport, PipelineStatus, PipelineStatusEnum},
 };
@@ -72,7 +72,7 @@ impl GcRun {
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitcode::GitCodePipelineProvider;
+/// use gf_gitcode::GitCodePipelineProvider;
 ///
 /// let provider = GitCodePipelineProvider::new("octocat/hello-world");
 /// ```

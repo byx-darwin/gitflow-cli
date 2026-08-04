@@ -1,6 +1,6 @@
 # Pipeline Analysis Report Template
 
-Use this template when rendering the output of `gitflow-pipeline-analyzer`. Fill placeholders with live data from `gitflow-cli pipeline report`, `pipeline status`, and `pipeline jobs`.
+Use this template when rendering the output of `gitflow-pipeline-analyzer`. Fill placeholders with live data from `gf pipeline report`, `pipeline status`, and `pipeline jobs`.
 
 ```markdown
 ## Pipeline Analysis Report

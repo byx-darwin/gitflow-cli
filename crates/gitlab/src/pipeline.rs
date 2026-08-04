@@ -13,7 +13,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     pipeline::{JobData, PipelineProvider, PipelineReport, PipelineStatus, PipelineStatusEnum},
 };
@@ -33,7 +33,7 @@ use crate::{
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitlab::GitLabPipelineProvider;
+/// use gf_gitlab::GitLabPipelineProvider;
 ///
 /// let provider = GitLabPipelineProvider::new("gitlab-org/gitlab");
 /// ```
@@ -555,10 +555,7 @@ mod tests {
 
         let result = provider.status("main").await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -570,7 +567,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -581,10 +578,7 @@ mod tests {
 
         let result = provider.logs(12345).await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -594,10 +588,7 @@ mod tests {
 
         let result = provider.jobs(12345).await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -609,7 +600,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 
@@ -620,10 +611,7 @@ mod tests {
 
         let result = provider.report("main", 7).await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -635,7 +623,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gitflow_cli_core::CoreError::Serialization(_)
+            gf_core::CoreError::Serialization(_)
         ));
     }
 }

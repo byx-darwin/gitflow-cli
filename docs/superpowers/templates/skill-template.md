@@ -21,25 +21,25 @@ description: |
 
 ```bash
 # 1. Precondition check
-gitflow-cli <verify-command>
+gf <verify-command>
 
 # 2. Read / verify input
-gitflow-cli <read-command> <args>
+gf <read-command> <args>
 
 # 3. Execute core action
-gitflow-cli <action-command> <args>
+gf <action-command> <args>
 
 # 4. Verify outcome
-gitflow-cli <confirm-command> <args>
+gf <confirm-command> <args>
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| <action-1> | `gitflow-cli <cmd-1> <flags>` |
-| <action-2> | `gitflow-cli <cmd-2> <flags>` |
-| <action-3> | `gitflow-cli <cmd-3> <flags>` |
+| <action-1> | `gf <cmd-1> <flags>` |
+| <action-2> | `gf <cmd-2> <flags>` |
+| <action-3> | `gf <cmd-3> <flags>` |
 
 ## Implementation
 
@@ -52,7 +52,7 @@ gitflow-cli <confirm-command> <args>
 
 1. <Action>:
    ```bash
-   gitflow-cli <command> <args>
+   gf <command> <args>
    ```
 2. Success → continue to Step 2.
 3. Failure → <recovery action>, output `<error message>`, stop.

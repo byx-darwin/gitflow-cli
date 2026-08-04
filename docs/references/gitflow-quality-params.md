@@ -39,11 +39,11 @@ Use `rustfmt.toml`, `clippy.toml`, `eslintrc`, etc. to infer convention where in
 
 ## Issue Publishing Behavior
 
-When `.claude/gh-issue/current-issue.txt` exists and `gitflow-cli` is on `PATH`:
+When `.claude/gh-issue/current-issue.txt` exists and `gf` is on `PATH`:
 
 1. Render report to temp file `quality-report.md`.
 2. Ask user to confirm publish.
-3. On yes: `gitflow-cli issue comment "${ISSUE_NUMBER}" --body-file quality-report.md`, then `rm -f quality-report.md`.
+3. On yes: `gf issue comment "${ISSUE_NUMBER}" --body-file quality-report.md`, then `rm -f quality-report.md`.
 
 Otherwise: output report to terminal only.
 

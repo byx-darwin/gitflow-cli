@@ -1,14 +1,14 @@
-# gitflow-cli-gitlab
+# gf-gitlab
 
-[![Crates.io](https://img.shields.io/crates/v/gitflow-cli-gitlab)](https://crates.io/crates/gitflow-cli-gitlab)
-[![Documentation](https://docs.rs/gitflow-cli-gitlab/badge.svg)](https://docs.rs/gitflow-cli-gitlab)
+[![Crates.io](https://img.shields.io/crates/v/gf-gitlab)](https://crates.io/crates/gf-gitlab)
+[![Documentation](https://docs.rs/gf-gitlab/badge.svg)](https://docs.rs/gf-gitlab)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-GitLab platform implementation for [gitflow-cli](https://github.com/byx-darwin/gitflow-cli) — Issue, MR, Release, and Review providers via `glab` CLI.
+GitLab platform implementation for [gf](https://github.com/byx-darwin/gitflow-cli) — Issue, MR, Release, and Review providers via `glab` CLI.
 
 ## Overview
 
-`gitflow-cli-gitlab` provides GitLab-specific implementations of the core platform traits defined in `gitflow-cli-core`. It uses the official [`glab`](https://gitlab.com/gitlab-org/cli) CLI under the hood for all GitLab API interactions.
+`gf-gitlab` provides GitLab-specific implementations of the core platform traits defined in `gf-core`. It uses the official [`glab`](https://gitlab.com/gitlab-org/cli) CLI under the hood for all GitLab API interactions.
 
 ## Features
 
@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gitflow-cli-gitlab = "0.8"
+gf-gitlab = "0.8"
 ```
 
 ### Prerequisites
@@ -47,8 +47,8 @@ glab auth login
 ### Creating a GitLab Provider
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::IssueProvider;
+use gf_gitlab::GitLabProvider;
+use gf_core::IssueProvider;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,8 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Working with Issues
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::{IssueProvider, IssueState};
+use gf_gitlab::GitLabProvider;
+use gf_core::{IssueProvider, IssueState};
 
 let provider = GitLabProvider::new()?;
 
@@ -91,8 +91,8 @@ provider.update_issue_state(
 ### Working with Merge Requests
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::PrProvider;
+use gf_gitlab::GitLabProvider;
+use gf_core::PrProvider;
 
 let provider = GitLabProvider::new()?;
 
@@ -112,8 +112,8 @@ provider.merge_pr("owner/repo", mr.number).await?;
 ### Working with Pipelines
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::{PipelineProvider, PipelineStatus};
+use gf_gitlab::GitLabProvider;
+use gf_core::{PipelineProvider, PipelineStatus};
 
 let provider = GitLabProvider::new()?;
 
@@ -126,13 +126,13 @@ println!("Pipeline status: {:?}", pipeline.status);
 
 ```
 ┌─────────────────────────────────────┐
-│     gitflow-cli-core (traits)       │
+│     gf-core (traits)       │
 │  IssueProvider, PrProvider, etc.    │
 └──────────────────┬──────────────────┘
                    │ implements
                    ▼
 ┌─────────────────────────────────────┐
-│    gitflow-cli-gitlab (this crate)  │
+│    gf-gitlab (this crate)  │
 │      GitLabProvider                 │
 └──────────────────┬──────────────────┘
                    │ uses
@@ -144,11 +144,11 @@ println!("Pipeline status: {:?}", pipeline.status);
 
 ## Error Handling
 
-All operations return `Result<T, gitflow_cli_core::Error>`:
+All operations return `Result<T, gf_core::Error>`:
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::Error;
+use gf_gitlab::GitLabProvider;
+use gf_core::Error;
 
 let provider = GitLabProvider::new()?;
 match provider.list_issues("owner/repo", "open").await {
@@ -166,17 +166,17 @@ match provider.list_issues("owner/repo", "open").await {
 
 ## Ecosystem
 
-This crate is part of the gitflow-cli workspace:
+This crate is part of the gf workspace:
 
-- [gitflow-cli-core](https://crates.io/crates/gitflow-cli-core) — Core types and traits
-- [gitflow-cli-github](https://crates.io/crates/gitflow-cli-github) — GitHub platform implementation
-- **gitflow-cli-gitlab** (this crate) — GitLab platform implementation
-- [gitflow-cli-gitcode](https://crates.io/crates/gitflow-cli-gitcode) — GitCode platform implementation
-- [gitflow-cli](https://crates.io/crates/gitflow-cli) — CLI application
+- [gf-core](https://crates.io/crates/gf-core) — Core types and traits
+- [gf-github](https://crates.io/crates/gf-github) — GitHub platform implementation
+- **gf-gitlab** (this crate) — GitLab platform implementation
+- [gf-gitcode](https://crates.io/crates/gf-gitcode) — GitCode platform implementation
+- [gf](https://crates.io/crates/gf) — CLI application
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/gitflow-cli-gitlab)
+- [API Documentation](https://docs.rs/gf-gitlab)
 - [Main Project](https://github.com/byx-darwin/gitflow-cli)
 - [GitLab CLI Documentation](https://gitlab.com/gitlab-org/cli/-/tree/main/docs)
 

@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-release-helper` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gitflow-cli release create 创建发布并输出 release URL"——这是流程描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gf release create 创建发布并输出 release URL"——这是流程描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了完整工作流（分析 log → 分组 → 创建 → 输出 URL），违反"description 仅描述触发时机"的规范 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节 |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -142,7 +142,7 @@
    - 如何判断 "Claude 在发布前检查了 CI 状态"？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
-   - 不使用 skill 时，Claude 可能直接使用 `gh release create` 而非 `gitflow-cli release create`
+   - 不使用 skill 时，Claude 可能直接使用 `gh release create` 而非 `gf release create`
    - 不使用 skill 时，Claude 可能不会按 conventional commits 分组 changelog
    - 不使用 skill 时，Claude 可能不会在创建前展示版本号供确认
 
@@ -183,7 +183,7 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非流程描述**：
-   - ❌ 当前：`发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gitflow-cli release create 创建发布并输出 release URL`
+   - ❌ 当前：`发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gf release create 创建发布并输出 release URL`
    - ✅ 应为：`Use when the user wants to create a new release with auto-generated release notes from conventional commits since the last tag`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
@@ -230,7 +230,7 @@
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加红旗列表 | D2 | 标识需要用户确认的场景（自动发布请求、非稳定分支发布、跳过确认步骤等） |
 | P1-3 | 添加错误处理章节 | D1 | 覆盖无 tag 仓库、CI 未通过、API 失败、权限不足、无 conventional commits 等异常场景 |
-| P1-4 | 添加前置条件检查 | D1 | 执行前验证 `gitflow-cli` 是否可用、是否在 git 仓库中、认证状态、CI 状态 |
+| P1-4 | 添加前置条件检查 | D1 | 执行前验证 `gf` 是否可用、是否在 git 仓库中、认证状态、CI 状态 |
 | P1-5 | 精简工作流步骤 | D1 | 将 7 步精简为 4 步：确定版本 → 生成 changelog → 确认并创建 → 输出 URL |
 
 ### P2（可选改进 — 锦上添花）

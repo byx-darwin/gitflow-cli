@@ -1,10 +1,10 @@
 # Superpowers 集成指南
 
-本指南说明如何将 gitflow-cli 的 Skills 与 [Superpowers](https://github.com/anthropics/superpowers) 的 SDD（Specification-Driven Development）工作流深度集成，实现从需求到交付的全流程自动化。
+本指南说明如何将 gf 的 Skills 与 [Superpowers](https://github.com/anthropics/superpowers) 的 SDD（Specification-Driven Development）工作流深度集成，实现从需求到交付的全流程自动化。
 
 ## 概览
 
-gitflow-cli 与 Superpowers 形成**互补分层**的协作关系：
+gf 与 Superpowers 形成**互补分层**的协作关系：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -19,7 +19,7 @@ gitflow-cli 与 Superpowers 形成**互补分层**的协作关系：
            │               │                   │
            ▼               ▼                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    gitflow-cli Skills 层                         │
+│                    gf Skills 层                         │
 │  (平台交互能力: Issue / PR / Review / Release / 错误报告)         │
 │                                                                   │
 │  gitflow-issue-create ──► gitflow-pr-create ──► gitflow-release  │
@@ -40,7 +40,7 @@ gitflow-cli 与 Superpowers 形成**互补分层**的协作关系：
 **核心原则:**
 
 - **Superpowers 负责「怎么做」** — 本地开发流程、代码生成、质量保证。
-- **gitflow-cli 负责「在哪做」** — 平台交互、Issue/PR 管理、跨平台适配。
+- **gf 负责「在哪做」** — 平台交互、Issue/PR 管理、跨平台适配。
 - **Skills 是桥梁** — 将两层能力编排为端到端的自动化工作流。
 
 ## 开发流程集成
@@ -156,7 +156,7 @@ gitflow-cli 与 Superpowers 形成**互补分层**的协作关系：
 
 ## 错误反馈集成
 
-gitflow-cli 内置了自动错误报告机制，当 CLI 命令失败时，会自动将错误信息反馈为 GitHub Issue。
+gf 内置了自动错误报告机制，当 CLI 命令失败时，会自动将错误信息反馈为 GitHub Issue。
 
 ### 数据流
 
@@ -248,7 +248,7 @@ Stop Hook 仅在以下条件**全部满足**时触发:
 
 #### 1. 平台选择
 
-gitflow-cli 支持多平台，根据你的代码托管平台配置:
+gf 支持多平台，根据你的代码托管平台配置:
 
 ```bash
 # GitHub (默认)

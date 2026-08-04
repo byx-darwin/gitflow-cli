@@ -24,7 +24,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  BINARY_NAME: gitflow-cli
+  BINARY_NAME: gf
 
 jobs:
   build:
@@ -166,10 +166,10 @@ jobs:
           REPO="${{ github.repository }}"
 
           declare -A URLS=(
-            [arm64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-aarch64-apple-darwin.tar.gz
-            [x86_64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-x86_64-apple-darwin.tar.gz
-            [linux_arm64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-aarch64-unknown-linux-gnu.tar.gz
-            [linux_x86_64]=https://github.com/${REPO}/releases/download/${TAG}/gitflow-cli-x86_64-unknown-linux-gnu.tar.gz
+            [arm64]=https://github.com/${REPO}/releases/download/${TAG}/gf-aarch64-apple-darwin.tar.gz
+            [x86_64]=https://github.com/${REPO}/releases/download/${TAG}/gf-x86_64-apple-darwin.tar.gz
+            [linux_arm64]=https://github.com/${REPO}/releases/download/${TAG}/gf-aarch64-unknown-linux-gnu.tar.gz
+            [linux_x86_64]=https://github.com/${REPO}/releases/download/${TAG}/gf-x86_64-unknown-linux-gnu.tar.gz
           )
 
           for key in "${!URLS[@]}"; do
@@ -179,13 +179,13 @@ jobs:
 
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Update HomebrewFormula/gitflow-cli.rb
+      - name: Update HomebrewFormula/gf.rb
         run: |
           TAG="${{ steps.sha.outputs.tag }}"
           python3 << PYEOF
           import re
 
-          FORMULA = "HomebrewFormula/gitflow-cli.rb"
+          FORMULA = "HomebrewFormula/gf.rb"
           with open(FORMULA, "r") as f:
               content = f.read()
 
@@ -213,7 +213,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add HomebrewFormula/gitflow-cli.rb
+          git add HomebrewFormula/gf.rb
           git diff --cached --quiet || git commit -m "chore: update Homebrew formula to ${{ steps.sha.outputs.tag }}"
           git push origin main
 
@@ -251,9 +251,9 @@ jobs:
 
           echo "Publishing to crates.io..."
           # Publish in dependency order
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-core || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-github || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-gitlab || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli-gitcode || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-core || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-github || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-gitlab || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-gitcode || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf || true
           echo "✓ Published to crates.io"

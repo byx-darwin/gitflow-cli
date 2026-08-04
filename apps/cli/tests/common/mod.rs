@@ -3,7 +3,7 @@
 use std::fs;
 
 /// Load SKILL.md content. `CARGO_MANIFEST_DIR` points to `apps/cli` when running
-/// under `cargo test -p gitflow-cli`, so we navigate two levels up to the workspace root.
+/// under `cargo test -p gf`, so we navigate two levels up to the workspace root.
 ///
 /// Synchronous I/O is acceptable here because this is test-only code that runs once
 /// per test suite and does not benefit from async overhead.

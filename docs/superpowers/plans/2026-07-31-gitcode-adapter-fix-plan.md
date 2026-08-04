@@ -88,7 +88,7 @@ async fn test_should_record_multiple_calls_in_order() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode runner::tests::test_should_record`
+Run: `cargo nextest run -p gf-gitcode runner::tests::test_should_record`
 Expected: 编译错误 — `RecordingMockRunner` 未定义。
 
 - [ ] **Step 3: 实现 RecordingMockRunner**
@@ -166,7 +166,7 @@ impl CommandRunner for RecordingMockRunner {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode runner::tests::test_should_record`
+Run: `cargo nextest run -p gf-gitcode runner::tests::test_should_record`
 Expected: 2 tests PASS。
 
 - [ ] **Step 5: 提交**
@@ -296,7 +296,7 @@ fn test_should_map_open_pr_with_minimal_gitcode_fields() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests::test_should_map`
+Run: `cargo nextest run -p gf-gitcode pr::tests::test_should_map`
 Expected: 编译错误 — `PrApiResponse` 未定义。
 
 - [ ] **Step 3: 实现中间类型与映射**
@@ -390,7 +390,7 @@ impl From<PrApiResponse> for PrData {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests::test_should_map`
+Run: `cargo nextest run -p gf-gitcode pr::tests::test_should_map`
 Expected: 2 tests PASS。
 
 - [ ] **Step 5: 提交**
@@ -476,7 +476,7 @@ async fn test_should_pass_limit_flag_to_pr_list() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests::test_should_not_pass_field_list pr::tests::test_should_pass_yes pr::tests::test_should_pass_limit`
+Run: `cargo nextest run -p gf-gitcode pr::tests::test_should_not_pass_field_list pr::tests::test_should_pass_yes pr::tests::test_should_pass_limit`
 Expected: FAIL — view 断言失败（argv 含 `PR_FIELDS` 字符串）；解析失败（`missing field author`）。
 
 - [ ] **Step 3: 重写五个方法并删除 PR_FIELDS**
@@ -601,7 +601,7 @@ Expected: FAIL — view 断言失败（argv 含 `PR_FIELDS` 字符串）；解�
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests`
+Run: `cargo nextest run -p gf-gitcode pr::tests`
 Expected: 全部 PASS（旧测试中直接反序列化 gh 风格 JSON 到 `PrData` 的用例仍然有效——它们测的是 core 类型本身，不经过 `PrApiResponse`）。
 
 - [ ] **Step 5: 提交**
@@ -700,7 +700,7 @@ async fn test_should_auto_create_missing_label_and_retry_via_issue_label() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode issue::tests::test_should_invoke_issue_label issue::tests::test_should_return_ok_without issue::tests::test_should_auto_create_missing_label_and_retry_via`
+Run: `cargo nextest run -p gf-gitcode issue::tests::test_should_invoke_issue_label issue::tests::test_should_return_ok_without issue::tests::test_should_auto_create_missing_label_and_retry_via`
 Expected: FAIL — 当前 argv 为 `["issue","edit","54","-R","o/r","--add-label",...]`。
 
 - [ ] **Step 3: 重写 add_labels / remove_label**
@@ -812,7 +812,7 @@ Expected: FAIL — 当前 argv 为 `["issue","edit","54","-R","o/r","--add-label
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode issue::tests`
+Run: `cargo nextest run -p gf-gitcode issue::tests`
 Expected: 全部 PASS。旧测试 `test_should_return_platform_error_when_gc_fails_for_add_labels` 与 `test_should_auto_create_label_and_retry_on_add_labels` 若不兼容新 argv（它们用 MockCommandRunner/SequencedMockCommandRunner，不校验 argv，应仍通过）；若失败则按新调用序列调整夹具，不改回旧实现。
 
 - [ ] **Step 5: 提交**
@@ -887,7 +887,7 @@ async fn test_should_omit_method_flag_when_no_strategy() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests::test_should_map_squash pr::tests::test_should_map_all pr::tests::test_should_omit_method`
+Run: `cargo nextest run -p gf-gitcode pr::tests::test_should_map_squash pr::tests::test_should_map_all pr::tests::test_should_omit_method`
 Expected: FAIL — 当前实现不传 `--method`。
 
 - [ ] **Step 3: 重写 merge**
@@ -946,7 +946,7 @@ Expected: FAIL — 当前实现不传 `--method`。
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests`
+Run: `cargo nextest run -p gf-gitcode pr::tests`
 Expected: 全部 PASS。
 
 - [ ] **Step 5: 提交**
@@ -1020,7 +1020,7 @@ fn test_should_parse_issue_comment_with_user_object() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests::test_should_not_pass_field_list_to_pr_comment pr::tests::test_should_parse_comment_with_legacy issue::tests::test_should_parse_issue_comment_with_user_object`
+Run: `cargo nextest run -p gf-gitcode pr::tests::test_should_not_pass_field_list_to_pr_comment pr::tests::test_should_parse_comment_with_legacy issue::tests::test_should_parse_issue_comment_with_user_object`
 Expected: FAIL — `PrCommentApiResponse` 未定义；issue `CommentApiResponse` 无法解析 `user` 对象。
 
 - [ ] **Step 3: 实现双形态评论映射**
@@ -1120,7 +1120,7 @@ impl From<PrCommentApiResponse> for CommentData {
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode pr::tests issue::tests`
+Run: `cargo nextest run -p gf-gitcode pr::tests issue::tests`
 Expected: 全部 PASS（issue.rs 旧的字符串 `author` 夹具测试仍通过——双形态保持后向兼容）。
 
 - [ ] **Step 5: 提交**
@@ -1201,14 +1201,14 @@ mod contract_tests {
 
 - [ ] **Step 3: 运行契约测试确认通过**
 
-Run: `cargo nextest run -p gitflow-cli-gitcode contract`
+Run: `cargo nextest run -p gf-gitcode contract`
 Expected: PASS（依赖 Task 2/3 的修复；若 Task 2/3 被回退，此测试必须以 `missing field` 类错误失败）。
 
 - [ ] **Step 4: 删除误导性旧夹具测试**
 
 从 `pr.rs` 的 `mod tests` 中删除 Step 0（Task 7 Files 节列出的）四个 gh 风格夹具测试。运行全量测试确认无其他依赖：
 
-Run: `cargo nextest run -p gitflow-cli-gitcode`
+Run: `cargo nextest run -p gf-gitcode`
 Expected: 全部 PASS，测试总数净增（新增 > 删除）。
 
 - [ ] **Step 5: 提交**
@@ -1252,7 +1252,7 @@ Expected: 无差异（有差异则 `cargo +nightly fmt` 后重跑）。
 
 - [ ] **Step 3: 静态检查（pedantic）**
 
-Run: `cargo clippy -p gitflow-cli-gitcode --all-targets --all-features -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf-gitcode --all-targets --all-features -- -D warnings -W clippy::pedantic`
 Expected: 零警告。出现 `similar_names` / `module_name_repetitions` 之外的新警告时就地修复（工作区已 allow 这两个）。
 
 - [ ] **Step 4: 全量测试**
@@ -1284,8 +1284,8 @@ git commit -m "docs(gitcode): document PrApiResponse schema mapping in module he
 ## 完成定义（Definition of Done）
 
 - [ ] #90 的 5 个子问题各有对应回归测试（Task 4→add-label；Task 2/3→pr create/list；Task 3→pr view；Task 5→merge strategy；Task 6→pr comment）
-- [ ] `cargo nextest run -p gitflow-cli-gitcode` 全绿，新增测试 ≥ 12 个
-- [ ] `cargo clippy -p gitflow-cli-gitcode --all-targets -- -D warnings -W clippy::pedantic` 零警告
+- [ ] `cargo nextest run -p gf-gitcode` 全绿，新增测试 ≥ 12 个
+- [ ] `cargo clippy -p gf-gitcode --all-targets -- -D warnings -W clippy::pedantic` 零警告
 - [ ] `make smoke-test-gitcode` 通过；`pr list` / `pr view` 对真实 GitCode 仓库的只读实测成功
 - [ ] 契约夹具 `pr_list_gitcode_v0.6.1.json` 来自真实捕获并在测试注释中标注 CLI 版本与 commit
 - [ ] 关闭 #90 的动作**不在本计划内**——由 gitflow-workflow 编排器在交付阶段（PR 合并后）执行

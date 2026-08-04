@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gh`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     review::{ReviewData, ReviewProvider, ReviewState},
 };
@@ -21,7 +21,7 @@ use crate::{error::parse_gh_error, issue::GitHubUser};
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_github::GitHubReviewProvider;
+/// use gf_github::GitHubReviewProvider;
 ///
 /// let provider = GitHubReviewProvider::new("octocat/hello-world");
 /// ```
@@ -245,7 +245,7 @@ impl From<GitHubReviewApiResponse> for ReviewData {
                 _ => ReviewState::Commented,
             },
             body: api.body,
-            author: gitflow_cli_core::types::UserSummary {
+            author: gf_core::types::UserSummary {
                 login: api.user.login,
                 id: api.user.id.to_string(),
             },

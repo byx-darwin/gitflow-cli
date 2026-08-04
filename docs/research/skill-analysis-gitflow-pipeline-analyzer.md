@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-pipeline-analyzer` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | "流水线分析工作流 — 调用 gitflow-cli pipeline report 获取流水线健康数据..." |
+| description 以 "Use when..." 开头 | ❌ | "流水线分析工作流 — 调用 gf pipeline report 获取流水线健康数据..." |
 | description 只描述触发条件 | ❌ | 混合了功能描述、流程描述和效果承诺 |
 | 含 Overview 章节 | ⚠️ | 有 H1 标题和简短介绍，但缺少结构化 Overview |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -44,7 +44,7 @@
 ### 2.2 具体问题
 
 1. **description 违反 Superpowers 规范**：
-   - 当前：`流水线分析工作流 — 调用 gitflow-cli pipeline report 获取流水线健康数据，分析成功率趋势、失败模式、最长耗时，输出分析报告和改进建议`
+   - 当前：`流水线分析工作流 — 调用 gf pipeline report 获取流水线健康数据，分析成功率趋势、失败模式、最长耗时，输出分析报告和改进建议`
    - 问题：这是功能描述 + 流程描述 + 效果承诺，不是触发条件
    - 应为：`Use when the user wants to analyze CI/CD pipeline health (success rate trends, failure patterns, duration bottlenecks), diagnose flaky tests, or generate a pipeline improvement report.`
    - 后果：Claude 无法基于自然语言请求准确判断是否加载此 skill（"流水线最近老挂" vs "帮我看看 CI 为什么慢" vs "生成一份流水线报告" 都可能是触发）
@@ -143,7 +143,7 @@
    - 如何判断 "Claude 在分析过程中未执行任何写操作"？
 
 2. **缺少基线对比**：
-   - 基线行为：用户说"流水线最近老挂" → Claude 可能仅运行 `gitflow-cli pipeline status` 获取当前状态，不进行趋势分析和失败模式归类
+   - 基线行为：用户说"流水线最近老挂" → Claude 可能仅运行 `gf pipeline status` 获取当前状态，不进行趋势分析和失败模式归类
    - 基线行为：用户说"CI 太慢了" → Claude 可能仅查看最近一次 Pipeline 的耗时，不做 P90/P95 分布分析
    - 基线行为：用户说"帮我看看流水线" → Claude 可能仅列出 Pipeline 列表，不做三维度深度分析
 
@@ -183,7 +183,7 @@
 ### 5.2 具体问题
 
 1. **description 应为触发条件，当前是功能描述+流程描述**：
-   - ❌ 当前：`流水线分析工作流 — 调用 gitflow-cli pipeline report 获取流水线健康数据，分析成功率趋势、失败模式、最长耗时，输出分析报告和改进建议`
+   - ❌ 当前：`流水线分析工作流 — 调用 gf pipeline report 获取流水线健康数据，分析成功率趋势、失败模式、最长耗时，输出分析报告和改进建议`
    - ✅ 应为：`Use when the user wants to analyze CI/CD pipeline health (success rate trends, failure patterns, duration bottlenecks), diagnose flaky tests, or generate a pipeline improvement report.`
    - 建议关键词覆盖：用户可能表达为"流水线老挂"、"CI 太慢"、"流水线健康检查"、"分析 CI 失败"、"flaky test"、"pipeline report"、"build 不稳定"、"测试超时"、"流水线优化"、"CI analysis"
 

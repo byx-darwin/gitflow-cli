@@ -25,7 +25,7 @@
 
 | 级别 | 发现 | 处置 |
 |------|------|------|
-| 🔴 Critical | 官网 `BASE_URL` 拼接缺斜杠（`/gitflow-clifavicon.svg`），部署后内链/资产 404 | ✅ 已修复（commit `55ccd24`，8 处调用点补斜杠），重建 `dist/` 校验通过，作用域复审 PASS |
+| 🔴 Critical | 官网 `BASE_URL` 拼接缺斜杠（`/gffavicon.svg`），部署后内链/资产 404 | ✅ 已修复（commit `55ccd24`，8 处调用点补斜杠），重建 `dist/` 校验通过，作用域复审 PASS |
 | 🟢 Minor | README `质量门闸门` 错字 | ✅ 已修为 `质量闸门`（同 `55ccd24`） |
 | ⚪ 观察 | `compatibility.astro` 解构风格 / `index.astro` tagline 换行 / llms-full 小节标题 / JSON-LD 单处假设 | 判定 OK-TO-SHIP（纯展示或已被测试覆盖） |
 
@@ -34,7 +34,7 @@
 - `make test`：959/959 通过（含 5 守护测试）
 - `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic`：零告警
 - `cargo +nightly fmt --check`：干净
-- `cargo package --list -p gitflow-cli`：通过（发布预检）
+- `cargo package --list -p gf`：通过（发布预检）
 - `website` `npm ci && npm run build`：5 页 + GEO 资产 + sitemap
 - CI（PR #112）：核心检查与 Website Build 绿、Deploy 按设计跳过；零失败
 

@@ -52,11 +52,11 @@ secrecy = "0.11"
 # owo-colors = "4"
 
 # workspace crates
-gitflow-cli-core = { version = "0.9.0", path = "crates/core" }
-gitflow-cli-github = { version = "0.9.0", path = "crates/github" }
-gitflow-cli-gitlab = { version = "0.9.0", path = "crates/gitlab" }
-gitflow-cli-gitcode = { version = "0.9.0", path = "crates/gitcode" }
-gitflow-cli = { version = "0.9.0", path = "apps/cli" }
+gf-core = { version = "0.9.0", path = "crates/core" }
+gf-github = { version = "0.9.0", path = "crates/github" }
+gf-gitlab = { version = "0.9.0", path = "crates/gitlab" }
+gf-gitcode = { version = "0.9.0", path = "crates/gitcode" }
+gf = { version = "0.9.0", path = "apps/cli" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

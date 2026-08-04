@@ -70,7 +70,7 @@ async fn test_should_return_newly_created_comment_not_stale() {
 - [ ] **Step 2: Run test to verify it FAILS**
 
 ```bash
-cargo test -p gitflow-cli-github test_should_return_newly_created_comment_not_stale -- --nocapture
+cargo test -p gf-github test_should_return_newly_created_comment_not_stale -- --nocapture
 ```
 
 Expected: FAIL — current implementation calls `gh api GET` and parses array, not single object. The mock returns a single JSON object but the code tries to deserialize it as `Vec<GitHubCommentApiResponse>`, which will fail with a serialization error.
@@ -121,7 +121,7 @@ Replace the entire `comment()` method in `crates/github/src/issue.rs` (lines 343
 - [ ] **Step 4: Run test to verify it PASSES (GREEN)**
 
 ```bash
-cargo test -p gitflow-cli-github test_should_return_newly_created_comment_not_stale -- --nocapture
+cargo test -p gf-github test_should_return_newly_created_comment_not_stale -- --nocapture
 ```
 
 Expected: PASS
@@ -155,7 +155,7 @@ async fn test_should_return_error_when_gh_api_post_fails() {
 - [ ] **Step 6: Run all github crate tests**
 
 ```bash
-cargo test -p gitflow-cli-github
+cargo test -p gf-github
 ```
 
 Expected: All tests PASS
@@ -223,7 +223,7 @@ async fn test_should_return_newly_created_pr_comment_not_stale() {
 - [ ] **Step 3: Run test to verify it FAILS**
 
 ```bash
-cargo test -p gitflow-cli-github test_should_return_newly_created_pr_comment_not_stale -- --nocapture
+cargo test -p gf-github test_should_return_newly_created_pr_comment_not_stale -- --nocapture
 ```
 
 Expected: FAIL — same serialization mismatch as Task 1.
@@ -275,7 +275,7 @@ Replace the entire `comment()` method in `crates/github/src/pr.rs` (lines 247-31
 - [ ] **Step 5: Run test to verify it PASSES (GREEN)**
 
 ```bash
-cargo test -p gitflow-cli-github test_should_return_newly_created_pr_comment_not_stale -- --nocapture
+cargo test -p gf-github test_should_return_newly_created_pr_comment_not_stale -- --nocapture
 ```
 
 Expected: PASS
@@ -307,7 +307,7 @@ async fn test_should_return_error_when_pr_comment_api_fails() {
 - [ ] **Step 7: Run all github crate tests**
 
 ```bash
-cargo test -p gitflow-cli-github
+cargo test -p gf-github
 ```
 
 Expected: All tests PASS
@@ -376,7 +376,7 @@ git commit -m "style: fix formatting in github crate comment methods"
 - [ ] **Step 1: Build the binary**
 
 ```bash
-cargo build --bin gitflow-cli
+cargo build --bin gf
 ```
 
 - [ ] **Step 2: Create a test comment on a known issue**
@@ -384,7 +384,7 @@ cargo build --bin gitflow-cli
 Pick an issue with multiple existing comments (e.g., #111 itself has several). Run:
 
 ```bash
-./target/debug/gitflow-cli issue comment 111 --body "E2E verification: this comment tests fix #111 $(date +%s)"
+./target/debug/gf issue comment 111 --body "E2E verification: this comment tests fix #111 $(date +%s)"
 ```
 
 - [ ] **Step 3: Verify returned data is correct**
@@ -411,7 +411,7 @@ The last comment's `id` should match the `data.id` returned by the CLI.
 gh pr list --state open --json number --jq '.[0].number'
 
 # If no open PR, use a recently closed one for testing
-./target/debug/gitflow-cli pr comment <PR_NUMBER> --body "E2E verification: PR comment fix #111 $(date +%s)"
+./target/debug/gf pr comment <PR_NUMBER> --body "E2E verification: PR comment fix #111 $(date +%s)"
 ```
 
 Verify same three checks as Step 3.

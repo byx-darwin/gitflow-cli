@@ -7,7 +7,7 @@ description: |
 
 # gitflow-commit
 
-Encapsulates `gitflow-cli commit` for viewing, diffing, patching, and line-commenting commits. Read-only except `comment`, which publishes.
+Encapsulates `gf commit` for viewing, diffing, patching, and line-commenting commits. Read-only except `comment`, which publishes.
 
 ## When to Use
 
@@ -22,27 +22,27 @@ Encapsulates `gitflow-cli commit` for viewing, diffing, patching, and line-comme
 ## Core Pattern
 
 ```bash
-command -v gitflow-cli && git cat-file -t <sha>   # preconditions
-gitflow-cli commit view <sha>                       # verify + read
-gitflow-cli commit diff <sha>                       # diff
-gitflow-cli commit patch <sha>                      # patch
-gitflow-cli comment <sha> --body <t> --path <p> --line <n>
+command -v gf && git cat-file -t <sha>   # preconditions
+gf commit view <sha>                       # verify + read
+gf commit diff <sha>                       # diff
+gf commit patch <sha>                      # patch
+gf comment <sha> --body <t> --path <p> --line <n>
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| View details | `gitflow-cli commit view <sha>` |
-| Diff | `gitflow-cli commit diff <sha>` |
-| Patch | `gitflow-cli commit patch <sha>` |
-| Comment | `gitflow-cli commit comment <sha> --body <t> --path <p> --line <n>` |
+| View details | `gf commit view <sha>` |
+| Diff | `gf commit diff <sha>` |
+| Patch | `gf commit patch <sha>` |
+| Comment | `gf commit comment <sha> --body <t> --path <p> --line <n>` |
 
 ## Implementation
 
 ### Preconditions
 
-- `gitflow-cli` installed — `command -v gitflow-cli`
+- `gf` installed — `command -v gf`
 - SHA valid — `git cat-file -t <sha>` = commit
 - In repo — `git rev-parse --show-toplevel`
 
@@ -56,10 +56,10 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 
 ### Step 3: Comment on Commit (mutation)
 
-1. Auth check — `gitflow-cli auth status`
+1. Auth check — `gf auth status`
 2. Draft body. Show to user.
 3. STOP. Await explicit confirmation.
-4. POST via `gitflow-cli commit comment`.
+4. POST via `gf commit comment`.
 5. Output URL.
 
 ### Error Handling
@@ -67,7 +67,7 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 | Error | Recovery |
 |-------|----------|
 | Invalid SHA | "SHA not found. Verify via `git log`." |
-| Auth failure | "Run `gitflow-cli auth login --platform {platform}`." |
+| Auth failure | "Run `gf auth login --platform {platform}`." |
 | Post failure | "Body preserved. Retry or abort." |
 | Line out of diff | "Line not in diff. Re-check." |
 

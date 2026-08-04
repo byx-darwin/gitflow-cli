@@ -7,7 +7,7 @@
 /// # Examples
 ///
 /// ```ignore
-/// use gitflow_cli_core::AuthChecker;
+/// use gf_core::AuthChecker;
 ///
 /// fn check_auth(checker: &dyn AuthChecker) {
 ///     if checker.is_authenticated() {

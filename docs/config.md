@@ -1,11 +1,11 @@
 # Configuration
 
-`gitflow-cli` resolves configuration from four layers, each overriding the previous.
+`gf` resolves configuration from four layers, each overriding the previous.
 
 ## Priority (lowest to highest)
 
 1. **Code defaults** — hardcoded in the `Cli` struct via `#[arg(default_value = "...")]`.
-2. **Config file** — `$XDG_CONFIG_HOME/gitflow-cli/config.toml`.
+2. **Config file** — `$XDG_CONFIG_HOME/gf/config.toml`.
 3. **Environment variables** — prefixed with `APP_`.
 4. **CLI flags** — highest priority, overriding all other sources.
 
@@ -16,7 +16,7 @@ Config files use TOML. YAML is supported optionally via the `config` crate for e
 ### Example `config.toml`
 
 ```toml
-# ~/.config/gitflow-cli/config.toml
+# ~/.config/gf/config.toml
 
 log_level = "debug"
 output_format = "json"
@@ -58,7 +58,7 @@ Use the `dirs` crate for cross-platform path discovery:
 
 ```rust
 fn app_config_dir() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("gitflow-cli"))
+    dirs::config_dir().map(|d| d.join("gf"))
 }
 
 fn config_file_path() -> Option<PathBuf> {
@@ -71,7 +71,7 @@ fn ensure_config_dir() -> std::io::Result<PathBuf> {
             std::io::ErrorKind::NotFound,
             "could not determine config directory",
         ))?
-        .join("gitflow-cli");
+        .join("gf");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }

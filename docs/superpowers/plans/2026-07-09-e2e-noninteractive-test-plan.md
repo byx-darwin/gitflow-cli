@@ -22,7 +22,7 @@
 ## File Structure
 
 ```
-gitflow-cli/
+gf/
 ├── Cargo.toml                          # 修改：添加 e2e-core 和 e2e-github 到 workspace
 ├── crates/
 │   ├── e2e-core/                       # 新建
@@ -232,7 +232,7 @@ impl TtyRunner {
             pixel_height: 0,
         })?;
 
-        let mut cmd = CommandBuilder::new("gitflow-cli");
+        let mut cmd = CommandBuilder::new("gf");
         cmd.args(args);
         cmd.cwd(&self.working_dir);
 
@@ -255,7 +255,7 @@ impl TtyRunner {
     async fn run_without_pty(&self, args: &[&str]) -> Result<CommandOutput, TtyError> {
         use tokio::process::Command;
 
-        let mut cmd = Command::new("gitflow-cli");
+        let mut cmd = Command::new("gf");
         cmd.args(args);
         cmd.current_dir(&self.working_dir);
         cmd.stdin(std::process::Stdio::null());

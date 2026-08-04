@@ -143,7 +143,7 @@
 | **Claude Code** | 完整编排器 | 用 SKILL.md 编排，读写合同 |
 | **Cursor** | 客户端 agent | 读合同判断当前 Phase，按 `.cursorrules` 执行 |
 | **CI / Hook** | 门控校验 | 读合同校验门控，拒绝不合规操作 |
-| **CLI** | 辅助工具 | `gitflow-cli workflow status` 显示状态 |
+| **CLI** | 辅助工具 | `gf workflow status` 显示状态 |
 
 ### 3.2 接力示例
 
@@ -224,16 +224,16 @@ CI hook 校验合同 → 门控通过，允许合并
 
 ```bash
 # 列出所有工作流
-gitflow-cli workflow list
+gf workflow list
 
 # 查看工作流详情
-gitflow-cli workflow status <workflow_id>
+gf workflow status <workflow_id>
 
 # 清理过期工作流（默认 90 天）
-gitflow-cli workflow cleanup --older-than 90
+gf workflow cleanup --older-than 90
 
 # 归档已完成工作流
-gitflow-cli workflow archive <workflow_id>
+gf workflow archive <workflow_id>
 ```
 
 ## 7. 实现计划
@@ -310,7 +310,7 @@ gitflow-cli workflow archive <workflow_id>
 - [ ] 模式自动判定（full / fast）
 - [ ] 多流程并发（多个合同文件独立演进）
 - [ ] 门控校验（跳过 Phase 时被阻止）
-- [ ] CLI 命令 `gitflow-cli workflow status` 可读合同
+- [ ] CLI 命令 `gf workflow status` 可读合同
 - [ ] 生命周期管理（archive + cleanup）
 - [ ] 与现有 `subagent-driven-development` 兼容
 

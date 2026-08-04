@@ -1,11 +1,11 @@
-# gitflow-cli Agent Guide
+# gf Agent Guide
 
 This repository is a reusable Rust 2024 workspace template. These rules are mandatory when working in this template.
 
 ## Non-negotiables
 
 - Never enter plan mode automatically.
-- Preserve template placeholders such as `gitflow-cli` unless the user explicitly asks to instantiate the template.
+- Preserve template placeholders such as `gf` unless the user explicitly asks to instantiate the template.
 - Do not replace template variables with concrete project names during maintenance.
 - Use `CLAUDE.md` as the single project-level agent instruction file.
 - Use Ruflo for agent workflow/orchestration. Do not maintain project-local `.claude/skills` unless explicitly requested.
@@ -107,7 +107,7 @@ This repository is a reusable Rust 2024 workspace template. These rules are mand
 - Bound all externally supplied strings by byte length, all collections by element count, and all numbers by explicit ranges.
 - Use charset allowlists for identifiers and slugs; avoid blocklists.
 - Prevent path traversal by rejecting `..`, absolute paths, NUL bytes, and separators before canonicalization.
-- Use the `SafePath` type from `gitflow-cli-core` for all externally-supplied file path arguments. It validates at construction time.
+- Use the `SafePath` type from `gf-core` for all externally-supplied file path arguments. It validates at construction time.
 - Prevent SSRF by parsing URLs, allowlisting schemes, rejecting private, loopback, and link-local targets, and pinning resolved IPs.
 - Use parameterized database APIs; never format user input into SQL.
 - Use argv-form process execution; never concatenate user input into shell commands.
@@ -297,11 +297,11 @@ make release
 ```
 
 **已发布的 crates**：
-- `gitflow-cli` — 主 CLI 应用
-- `gitflow-cli-core` — 核心库
-- `gitflow-cli-github` — GitHub 平台支持
-- `gitflow-cli-gitlab` — GitLab 平台支持
-- `gitflow-cli-gitcode` — GitCode 平台支持
+- `gf` — 主 CLI 应用
+- `gf-core` — 核心库
+- `gf-github` — GitHub 平台支持
+- `gf-gitlab` — GitLab 平台支持
+- `gf-gitcode` — GitCode 平台支持
 
 **注意事项**：
 - crates.io 版本一旦发布**不可删除或修改**

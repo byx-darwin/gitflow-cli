@@ -1,6 +1,6 @@
 # CLI Patterns
 
-This document is the canonical CLI architecture guide for `gitflow-cli`. Every CLI binary in this workspace follows these conventions.
+This document is the canonical CLI architecture guide for `gf`. Every CLI binary in this workspace follows these conventions.
 
 ## 1. Argument Parsing
 
@@ -9,7 +9,7 @@ Use `clap` derive API with a top-level `Cli` struct and subcommands via a `Comma
 ```rust
 use clap::{Parser, Subcommand};
 
-/// gitflow-cli — short description of the tool.
+/// gf — short description of the tool.
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
@@ -66,7 +66,7 @@ pub enum CoreError {
 #[derive(Debug, miette::Diagnostic, thiserror::Error)]
 pub enum CliError {
     #[error("configuration error")]
-    #[diagnostic(code(app::config), help("check your config file at ~/.config/gitflow-cli/config.toml"))]
+    #[diagnostic(code(app::config), help("check your config file at ~/.config/gf/config.toml"))]
     Config(#[source] CoreError),
 
     #[error("I/O error")]
@@ -170,7 +170,7 @@ async fn handle_termination(temp_dir: &TempDir) {
 Config is resolved in priority order (lowest to highest):
 
 1. **Code defaults** — set via `#[arg(default_value = "...")]` on the `Cli` struct.
-2. **XDG config file** — `$XDG_CONFIG_HOME/gitflow-cli/config.toml`.
+2. **XDG config file** — `$XDG_CONFIG_HOME/gf/config.toml`.
 3. **Environment variables** — `APP_`-prefixed, bound via `#[arg(env = "...")]`.
 4. **CLI flags** — highest priority.
 
@@ -178,7 +178,7 @@ Use the `dirs` crate for XDG path discovery:
 
 ```rust
 fn default_config_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("gitflow-cli").join("config.toml"))
+    dirs::config_dir().map(|d| d.join("gf").join("config.toml"))
 }
 ```
 
@@ -255,7 +255,7 @@ use tempfile::{NamedTempFile, Builder};
 /// Create a temp file with restrictive permissions for sensitive data.
 fn create_secret_temp_file() -> std::io::Result<NamedTempFile> {
     Builder::new()
-        .prefix("gitflow-cli-")
+        .prefix("gf-")
         .suffix(".tmp")
         .permissions(std::fs::Permissions::from_mode(0o600))
         .tempfile()
@@ -293,13 +293,13 @@ Installation paths:
 
 ```bash
 # Bash
-gitflow-cli completions bash | sudo tee /usr/share/bash-completion/completions/gitflow-cli
+gf completions bash | sudo tee /usr/share/bash-completion/completions/gf
 
 # Zsh
-gitflow-cli completions zsh > ~/.zsh/completions/_gitflow-cli
+gf completions zsh > ~/.zsh/completions/_gf
 
 # Fish
-gitflow-cli completions fish > ~/.config/fish/completions/gitflow-cli.fish
+gf completions fish > ~/.config/fish/completions/gf.fish
 ```
 
 See [Shell Completions](./shell-completions.md) for the full guide.
@@ -431,7 +431,7 @@ Wire into clap:
 #[derive(Parser)]
 #[command(
     version = long_version(),
-    about = "gitflow-cli CLI tool"
+    about = "gf CLI tool"
 )]
 pub struct Cli { /* ... */ }
 ```
@@ -439,7 +439,7 @@ pub struct Cli { /* ... */ }
 The `--version` flag will output something like:
 
 ```
-gitflow-cli 0.1.0 (aarch64-apple-darwin release) [git:abcdef1-dirty]
+gf 0.1.0 (aarch64-apple-darwin release) [git:abcdef1-dirty]
 ```
 
 ## 10. Async Runtime

@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-auth` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "gitflow-cli 的认证操作命令封装，支持登录、登出、状态查询和 Token 获取"——这是功能描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的认证操作命令封装，支持登录、登出、状态查询和 Token 获取"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节（仅有"命令概览"表格） |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -78,7 +78,7 @@
 
 1. **完全无职责边界**：对于 auth skill，职责边界尤其重要，因为它涉及敏感的凭据操作。没有边界声明可能导致：
    - Claude 在 token 过期时尝试自动重新认证（而非提示用户）
-   - 在脚本中过度使用 `gitflow-cli auth token` 导致凭据泄露
+   - 在脚本中过度使用 `gf auth token` 导致凭据泄露
    - 尝试读取或修改本地凭据存储文件
 
 2. **缺少禁止行为清单**：auth 相关的禁止行为包括：
@@ -148,7 +148,7 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非功能描述**：
-   - ❌ 当前：`gitflow-cli 的认证操作命令封装，支持登录、登出、状态查询和 Token 获取`
+   - ❌ 当前：`gf 的认证操作命令封装，支持登录、登出、状态查询和 Token 获取`
    - ✅ 应为：`Use when ... scenarios related to authentication state, login/logout flows, or token retrieval for API calls`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
@@ -183,7 +183,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加错误处理章节 | D1 | 覆盖 token 过期、网络不可达、凭据损坏等异常场景 |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gitflow-cli` 是否可用、是否在 git 仓库中 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gf` 是否可用、是否在 git 仓库中 |
 | P1-4 | 添加红旗列表 | D2 | 标识敏感场景（token 外传请求、CI 中存储凭据等） |
 
 ### P2（可选改进 — 锦上添花）

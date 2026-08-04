@@ -1,4 +1,4 @@
-# gitflow-cli label-stats 完整标签分类参考
+# gf label-stats 完整标签分类参考
 
 > 本文档为 `gitflow-label-stats` skill 的外部化引用。
 

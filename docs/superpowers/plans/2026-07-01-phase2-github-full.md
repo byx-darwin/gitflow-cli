@@ -53,7 +53,7 @@
 ## File Structure
 
 ```
-gitflow-cli/
+gf/
 ├── crates/
 │   ├── core/src/
 │   │   ├── issue.rs            # 修改：新增 close/reopen/comment/add_labels/remove_label 方法

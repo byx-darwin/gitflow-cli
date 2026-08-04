@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — gitflow-cli 一键安装脚本
+# install.sh — gf 一键安装脚本
 #
 # 功能：
 #   1. 检查依赖（Rust、Git、平台原生 CLI）
@@ -27,7 +27,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 readonly SCRIPT_NAME="install.sh"
-readonly BINARY_NAME="gitflow-cli"
+readonly BINARY_NAME="gf"
 readonly MIN_RUST_VERSION="1.96.0"
 readonly SKILLS_SOURCE_DIR="skills"
 readonly SKILLS_TARGET_DIR="${HOME}/.claude/skills"
@@ -529,7 +529,7 @@ verify_installation() {
 
     if [[ "$ok" == "true" ]]; then
         echo ""
-        info "🎉 gitflow-cli 安装完成！"
+        info "🎉 gf 安装完成！"
     else
         echo ""
         error "安装过程中出现错误，请检查上方日志"
@@ -546,7 +546,7 @@ main() {
 
     echo ""
     printf "${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}\n"
-    printf "${C_BOLD}  gitflow-cli 一键安装脚本${C_RESET}\n"
+    printf "${C_BOLD}  gf 一键安装脚本${C_RESET}\n"
     printf "${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}\n"
     echo ""
     info "平台: ${PLATFORM_OS}"

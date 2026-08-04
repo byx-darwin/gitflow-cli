@@ -58,8 +58,8 @@ Replace narrative examples ("Let's say a user named Alice encounters a 401 on li
 Alice runs `gitflow issue create` but gets a 401 because her token expired.
 
 <!-- GOOD: pattern -->
-Scenario: `gitflow-cli issue create` returns `401 Unauthorized`.
-Recovery: Run `gitflow-cli auth login --platform {platform}` then retry.
+Scenario: `gf issue create` returns `401 Unauthorized`.
+Recovery: Run `gf auth login --platform {platform}` then retry.
 ```
 
 Pattern language structure: **[Condition] → [Action] → [Expected Result]**. Each triplet is 5–10 words; a narrative equivalent is 25–50 words.
@@ -316,7 +316,7 @@ In addition to the canonical table above, each skill MUST include at least 1 ski
 
 - **In Scope**: Maximum 6 bullets. If more, the skill is too large and should be split.
 - **Out of Scope**: Every out-of-scope item MUST redirect to another skill or to manual user action.
-- **Do Not**: Imperative, specific, verifiable. "Be careful" is not a Do Not. "❌ Do not call `gitflow-cli issue close` without explicit user confirmation" is.
+- **Do Not**: Imperative, specific, verifiable. "Be careful" is not a Do Not. "❌ Do not call `gf issue close` without explicit user confirmation" is.
 
 ### 7.3 Boundary Bidirectionality
 
@@ -335,7 +335,7 @@ A command cheat-sheet table:
 
 | Goal | Command |
 |------|---------|
-| <action> | `gitflow-cli <cmd> <flags>` |
+| <action> | `gf <cmd> <flags>` |
 ```
 
 ### 8.2 Rules

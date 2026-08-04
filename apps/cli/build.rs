@@ -1,4 +1,4 @@
-//! Build script for `gitflow-cli`.
+//! Build script for `gf`.
 //!
 //! Generates build-time metadata (version, commit, target triple, etc.)
 //! via the `built` crate and writes it to `OUT_DIR/built.rs` for inclusion

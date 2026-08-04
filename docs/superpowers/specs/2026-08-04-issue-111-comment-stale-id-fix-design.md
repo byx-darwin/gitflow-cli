@@ -1,21 +1,21 @@
 # Issue #111: Fix GitHub Comment Stale ID Bug
 
-**Date**: 2026-08-04  
-**Issue**: [#111](https://github.com/byx-darwin/gitflow-cli/issues/111)  
-**Status**: Approved  
+**Date**: 2026-08-04
+**Issue**: [#111](https://github.com/byx-darwin/gitflow-cli/issues/111)
+**Status**: Approved
 **Related**: #113 (v1.0.0 release blocker)
 
 ## Problem Statement
 
-`gitflow-cli issue comment <n> --body ...` 成功创建评论后，返回的 `data.id` 和 `data.createdAt` 是该 Issue 的**第一条评论**（最旧），而非刚创建的新评论。
+`gf issue comment <n> --body ...` 成功创建评论后，返回的 `data.id` 和 `data.createdAt` 是该 Issue 的**第一条评论**（最旧），而非刚创建的新评论。
 
-同样的 bug 也存在于 `gitflow-cli pr comment` 命令。
+同样的 bug 也存在于 `gf pr comment` 命令。
 
 ## Root Cause Analysis
 
 ### Current Implementation (Buggy)
 
-**Location**: 
+**Location**:
 - `crates/github/src/issue.rs:351-406` — `comment()` method
 - `crates/github/src/pr.rs:255-310` — `comment()` method
 
@@ -70,15 +70,15 @@ async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         "--repo", &self.repo,
         "--body", body,
     ]).await?;
-    
+
     // Step 2: Fetch comments (BUG: gets oldest)
     let api_path = format!("repos/{repo}/issues/{number}/comments?per_page=1", ...);
     let api_output = self.runner.run("gh", &["api", &api_path]).await?;
-    
+
     // Step 3: Parse and take first (WRONG!)
     let comments: Vec<GitHubCommentApiResponse> = serde_json::from_slice(&api_output.stdout)?;
     let comment = comments.into_iter().next().ok_or(...)?;
-    
+
     Ok(comment.into())
 }
 ```
@@ -87,14 +87,14 @@ async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
 ```rust
 async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
     debug!(repo = %self.repo, number, "spawning `gh api` POST to create comment");
-    
+
     // Single API call: POST to create comment, returns created object
     let api_path = format!(
         "repos/{repo}/issues/{number}/comments",
         repo = self.repo,
         number = number
     );
-    
+
     let output = self.runner.run(
         "gh",
         &[
@@ -103,15 +103,15 @@ async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
             "-f", &format!("body={body}"),
         ],
     ).await.map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
-    
+
     if !output.status.success() {
         return Err(parse_gh_error(&output.stderr).into());
     }
-    
+
     // Parse the created comment directly from POST response
-    let comment: GitHubCommentApiResponse = 
+    let comment: GitHubCommentApiResponse =
         serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-    
+
     Ok(comment.into())
 }
 ```
@@ -134,9 +134,9 @@ gh api repos/{owner}/{repo}/issues/{number}/comments \
 {
   "id": 1234567890,
   "body": "comment text",
-  "user": { 
-    "login": "username", 
-    "id": 12345 
+  "user": {
+    "login": "username",
+    "id": 12345
   },
   "created_at": "2026-08-04T00:00:00Z",
   "html_url": "https://github.com/owner/repo/issues/1#issuecomment-1234567890",
@@ -177,7 +177,7 @@ fn test_should_create_comment_via_gh_api_post() {
         "user": {"login": "testuser", "id": 123},
         "created_at": "2026-08-04T00:00:00Z"
     }"#;
-    
+
     // Verify:
     // 1. gh api called with correct POST path
     // 2. Response parsed correctly
@@ -188,7 +188,7 @@ fn test_should_create_comment_via_gh_api_post() {
 ### Integration Tests
 
 E2E test workflow:
-1. Create comment via `gitflow-cli issue comment`
+1. Create comment via `gf issue comment`
 2. Verify returned `id` matches actual new comment (via `gh api` query)
 3. Verify `id` does NOT match first comment
 
@@ -201,8 +201,8 @@ The bug was discovered in workflow `wf-2026-07-31-003` Phase 1 when `issue-revie
 ## Impact Analysis
 
 ### Affected Commands
-- `gitflow-cli issue comment <number> --body <text>`
-- `gitflow-cli pr comment <number> --body <text>`
+- `gf issue comment <number> --body <text>`
+- `gf pr comment <number> --body <text>`
 
 ### Affected Workflows
 - `gitflow-workflow` Phase 1 `issue-review` step (creates review comments)

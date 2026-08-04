@@ -64,9 +64,9 @@ docs/specs/phase4-dogfooding-checklist.md  # 主 checklist 文档
 
 ## GitHub Dogfooding
 ### 风险项：release 命令
-- [ ] 执行 `gitflow-cli release create v0.x.x`
-- [ ] 执行 `gitflow-cli release delete v0.x.x`
-- [ ] 验证非交互模式：`echo "y" | gitflow-cli release create v0.x.x`
+- [ ] 执行 `gf release create v0.x.x`
+- [ ] 执行 `gf release delete v0.x.x`
+- [ ] 验证非交互模式：`echo "y" | gf release create v0.x.x`
 
 ## GitLab Dogfooding
 ### 风险项：issue label 中文编码
@@ -75,7 +75,7 @@ docs/specs/phase4-dogfooding-checklist.md  # 主 checklist 文档
 
 ## GitCode Dogfooding
 ### 风险项：pr merge 非交互模式（Issue #70）
-- [ ] 执行 `gitflow-cli pr merge <n>` 在非交互 shell
+- [ ] 执行 `gf pr merge <n>` 在非交互 shell
 - [ ] 验证 `--yes` 标志正确传递
 
 ## Bug 记录模板

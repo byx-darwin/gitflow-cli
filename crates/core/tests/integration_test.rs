@@ -1,4 +1,4 @@
-//! Integration tests for the `gitflow-cli-core` crate.
+//! Integration tests for the `gf-core` crate.
 //!
 //! These tests exercise public API surfaces (e.g. `Config` construction
 //! and validation) through the published crate boundary to mirror how
@@ -10,7 +10,7 @@
     reason = "Integration tests unwrap known-good fixtures"
 )]
 
-use gitflow_cli_core::{Config, CoreError, Result};
+use gf_core::{Config, CoreError, Result};
 
 #[test]
 fn integration_config_roundtrip() -> Result<()> {

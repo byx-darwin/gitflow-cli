@@ -26,7 +26,7 @@
 **Issue 标签:** enhancement,core,cli,github,phase-1
 
 **Issue 描述:**
-实现 gitflow-cli 的 Phase 1 MVP：扩展 crates/core 定义平台抽象 trait 和 domain types，新建 crates/github 通过 subprocess 调用 `gh` CLI 实现 Issue/PR 操作，扩展 apps/cli 新增 `gitflow issue` 和 `gitflow pr` 子命令。同时实现平台自动检测和原生 CLI 前置检查（PATH + 版本最低要求）。此阶段仅支持 GitHub，为后续 GitLab/GitCode 扩展建立架构基础。
+实现 gf 的 Phase 1 MVP：扩展 crates/core 定义平台抽象 trait 和 domain types，新建 crates/github 通过 subprocess 调用 `gh` CLI 实现 Issue/PR 操作，扩展 apps/cli 新增 `gitflow issue` 和 `gitflow pr` 子命令。同时实现平台自动检测和原生 CLI 前置检查（PATH + 版本最低要求）。此阶段仅支持 GitHub，为后续 GitLab/GitCode 扩展建立架构基础。
 
 **验收标准:**
 - [ ] 所有任务完成
@@ -50,7 +50,7 @@
 ## File Structure
 
 ```
-gitflow-cli/
+gf/
 ├── Cargo.toml                  # 新增 workspace dependencies（async-trait, chrono, which, regex）
 ├── crates/
 │   ├── core/
@@ -71,7 +71,7 @@ gitflow-cli/
 │           └── pr.rs           # 新增：GitHubPrProvider
 ├── apps/
 │   └── cli/
-│       ├── Cargo.toml          # 新增依赖：gitflow-cli-github, miette, which
+│       ├── Cargo.toml          # 新增依赖：gf-github, miette, which
 │       └── src/
 │           ├── main.rs         # 修改：Cli 结构扩展 + resolve_platform() + maybe_report_error()
 │           ├── config.rs       # 现有，保持不变
@@ -289,14 +289,14 @@ pub use types::{Label, State, UserSummary};
 
 ```toml
 [package]
-name = "gitflow-cli-github"
+name = "gf-github"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-gitflow-cli-core.workspace = true
+gf-core.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -588,7 +588,7 @@ Err(e) => {
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-echo "=== gitflow-cli Smoke Test (Phase 1 - GitHub) ==="
+echo "=== gf Smoke Test (Phase 1 - GitHub) ==="
 echo "[1/3] issue view"
 gitflow issue view 1 --platform github 2>&1 | head -5
 echo "[2/3] issue list"

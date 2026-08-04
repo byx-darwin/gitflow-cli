@@ -1,13 +1,13 @@
 ---
 name: gitflow-issue-create
 description: |
-  Use when the user wants to create a new Issue through gitflow-cli — interactive title, description, label collection.
-  当用户希望通过 gitflow-cli 创建 Issue（交互式标题、描述、标签收集）时使用。
+  Use when the user wants to create a new Issue through gf — interactive title, description, label collection.
+  当用户希望通过 gf 创建 Issue（交互式标题、描述、标签收集）时使用。
 ---
 
 # gitflow-issue-create
 
-Interactive workflow that collects title, description, optional labels/assignee, then invokes `gitflow-cli issue create` and returns the new Issue URL.
+Interactive workflow that collects title, description, optional labels/assignee, then invokes `gf issue create` and returns the new Issue URL.
 
 ## When to Use
 
@@ -21,15 +21,15 @@ Interactive workflow that collects title, description, optional labels/assignee,
 ## Core Pattern
 
 ```bash
-gitflow-cli auth status
-gitflow-cli issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...]
+gf auth status
+gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...]
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Create | `gitflow-cli issue create --title "<title>" --body "<md>" [--label <l>] [--assignee <u>]` |
+| Create | `gf issue create --title "<title>" --body "<md>" [--label <l>] [--assignee <u>]` |
 | Add label | append `--label <label>` (repeatable) |
 
 **Title prefixes:** `feat:` `fix:` `docs:` `refactor:` `chore:` `test:` `perf:`
@@ -38,7 +38,7 @@ gitflow-cli issue create --title "<prefix>(scope): summary" --body "<md>" [--lab
 
 ### Preconditions
 
-- `gitflow-cli` authenticated — `auth status`
+- `gf` authenticated — `auth status`
 - Title non-empty; starts with conventional-commit prefix
 
 ### Step 1: Title — conventional prefix + scope. Example: `fix(auth): login redirect loops on expired token`.
@@ -59,7 +59,7 @@ gitflow-cli issue create --title "<prefix>(scope): summary" --body "<md>" [--lab
 
 ### Step 4: Assignee — optional. Provide login. Skip if absent.
 
-### Step 5: Invoke. Confirm. `gitflow-cli issue create ...`. Parse output, extract + return Issue URL.
+### Step 5: Invoke. Confirm. `gf issue create ...`. Parse output, extract + return Issue URL.
 
 ### Error Handling
 

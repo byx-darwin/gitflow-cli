@@ -6,7 +6,7 @@
 ## 1. 背景与目标
 
 ### 问题
-gitflow-cli 当前支持 JSON 和 Text 两种输出格式。JSON 格式虽然通用，但存在冗余（引号、大括号、重复键名），在 LLM 场景下消耗更多 token。
+gf 当前支持 JSON 和 Text 两种输出格式。JSON 格式虽然通用，但存在冗余（引号、大括号、重复键名），在 LLM 场景下消耗更多 token。
 
 ### 目标
 新增 TOON（Token-Oriented Object Notation）输出格式，实现：
@@ -264,7 +264,7 @@ toon-format = "0.5"
 
 ### 8.1 受影响的 Skills
 
-以下 skills 调用 `gitflow-cli` 命令，**默认使用 `--output auto`** 以优化 token 消耗：
+以下 skills 调用 `gf` 命令，**默认使用 `--output auto`** 以优化 token 消耗：
 
 | Skill | 当前用法 | 更新后 |
 |-------|---------|--------|
@@ -277,7 +277,7 @@ toon-format = "0.5"
 ### 8.2 文档更新策略
 
 **Phase 1: CLI 层面**
-- 所有 `gitflow-cli --help` 自动包含新的 `--output toon/auto` 选项
+- 所有 `gf --help` 自动包含新的 `--output toon/auto` 选项
 - 更新所有 skills 的命令示例，将 `--output json` 改为 `--output auto`
 
 **Phase 2: Skill 文档**
@@ -285,7 +285,7 @@ toon-format = "0.5"
   ```markdown
   ## 命令示例
 
-  gitflow-cli issue list --state open --output auto  # 自动选择最优格式
+  gf issue list --state open --output auto  # 自动选择最优格式
   ```
 
 ### 8.3 向后兼容
@@ -304,14 +304,14 @@ toon-format = "0.5"
 
 ## 10. 验收标准
 
-- [ ] `gitflow-cli issue list --output toon` 输出 TOON 格式
-- [ ] `gitflow-cli issue list --output auto` 自动选择最优格式
+- [ ] `gf issue list --output toon` 输出 TOON 格式
+- [ ] `gf issue list --output auto` 自动选择最优格式
 - [ ] 均匀数组（≥5 元素）使用 TOON HRV，token 减少 ≥50%
 - [ ] 小数据（<200 字符）使用 JSON，避免转换开销
 - [ ] 所有单元测试通过
 - [ ] 所有集成测试通过
 - [ ] `cargo clippy` 无警告
 - [ ] `cargo fmt` 格式化通过
-- [ ] `gitflow-cli --help` 显示新的 `--output toon/auto` 选项
+- [ ] `gf --help` 显示新的 `--output toon/auto` 选项
 - [ ] Skills 文档更新：所有命令示例使用 `--output auto`
 - [ ] gitflow-workflow SKILL.md 更新 `--output json` → `--output auto`

@@ -33,7 +33,7 @@ GitCode 平台的认证状态检查存在以下问题：
 
 - **直接受影响**: GitCode 平台的认证检查（存在 bug）
 - **间接受影响**: GitHub/GitLab 平台（需要实现 `AuthChecker` trait 以保持架构一致性）
-- **受影响功能**: `gitflow-cli auth status`、`gitflow-cli` 前置检查
+- **受影响功能**: `gf auth status`、`gf` 前置检查
 - **向后兼容性**: 需要同时支持旧格式和新格式的 gitcode CLI 输出
 
 **说明**: 虽然 GitHub/GitLab 的认证检查当前工作正常，但为了架构一致性和可维护性，需要为它们实现 `AuthChecker` trait。这是一个预防性重构，避免未来出现类似问题。
@@ -440,7 +440,7 @@ pub enum PrerequisiteError {
 ## 4. 数据流
 
 ```
-用户执行命令（如 gitflow-cli issue list）
+用户执行命令（如 gf issue list）
     ↓
 prerequisites::check(platform)
     ↓
@@ -571,7 +571,7 @@ use temp_env;
 fn test_prerequisites_check_success() {
     // 使用 temp_env 设置环境变量模拟已认证状态
     temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
-        let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+        let mut cmd = Command::cargo_bin("gf").unwrap();
         cmd.arg("auth").arg("status").arg("--platform").arg("gitcode");
 
         cmd.assert()
@@ -584,7 +584,7 @@ fn test_prerequisites_check_success() {
 fn test_prerequisites_check_not_authenticated() {
     // 清除环境变量，确保未认证
     temp_env::with_var_unset("GITCODE_TOKEN", || {
-        let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+        let mut cmd = Command::cargo_bin("gf").unwrap();
         cmd.arg("issue").arg("list").arg("--platform").arg("gitcode");
 
         // 如果 gitcode CLI 未认证，应该失败并显示错误信息
@@ -602,7 +602,7 @@ fn test_prerequisites_check_cli_not_found() {
     // 设置 PATH 为空目录，确保找不到 gitcode CLI
     let temp_dir = tempfile::tempdir().unwrap();
     temp_env::with_var("PATH", Some(temp_dir.path()), || {
-        let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+        let mut cmd = Command::cargo_bin("gf").unwrap();
         cmd.arg("issue").arg("list").arg("--platform").arg("gitcode");
 
         cmd.assert()

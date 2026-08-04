@@ -139,7 +139,7 @@ fn test_merge_stop_hook_preserves_other_hooks() {
 - [ ] **Step 4: 运行测试确认失败**
 
 ```bash
-cargo test -p gitflow-cli --lib -- commands::skills::tests::test_merge_stop_hook
+cargo test -p gf --lib -- commands::skills::tests::test_merge_stop_hook
 ```
 
 Expected: 3 个测试 FAIL — `merge_stop_hook` 当前仍生成扁平格式，`hooks` 数组不存在。
@@ -206,7 +206,7 @@ json = serde_json::json!({
 - [ ] **Step 3: 运行 Task 1 的测试确认通过**
 
 ```bash
-cargo test -p gitflow-cli --lib -- commands::skills::tests::test_merge_stop_hook
+cargo test -p gf --lib -- commands::skills::tests::test_merge_stop_hook
 ```
 
 Expected: 3 个测试 PASS。
@@ -214,7 +214,7 @@ Expected: 3 个测试 PASS。
 - [ ] **Step 4: 运行 clippy 确认无新警告**
 
 ```bash
-cargo clippy -p gitflow-cli --all-targets --all-features -- -D warnings -W clippy::pedantic
+cargo clippy -p gf --all-targets --all-features -- -D warnings -W clippy::pedantic
 ```
 
 Expected: 无警告，无错别字，无格式问题。如 clippy 报 `ignored_unit_patterns` 或其他 lint，按提示加 `#[allow(...)]` 并注明 reason。
@@ -368,7 +368,7 @@ fn test_uninstall_hook_preserves_others() {
 因为 `uninstall_hook` 原本就读 `v.get("matcher")`，新格式仍保留顶层 matcher，这两个测试应该**直接通过**（无需额外实现改动）。
 
 ```bash
-cargo test -p gitflow-cli --lib -- commands::skills::tests::test_uninstall_hook
+cargo test -p gf --lib -- commands::skills::tests::test_uninstall_hook
 ```
 
 Expected: 2 个测试 PASS — 证明新格式向后兼容。
@@ -423,7 +423,7 @@ git commit -m "test: verify uninstall_hook works with nested hook format"
 - [ ] **Step 3: 运行测试确认现有功能不回归**
 
 ```bash
-cargo test -p gitflow-cli --lib -- commands::skills::tests
+cargo test -p gf --lib -- commands::skills::tests
 ```
 
 Expected: 全部通过。`report_bug` 默认 true，不影响现有调用。
@@ -431,7 +431,7 @@ Expected: 全部通过。`report_bug` 默认 true，不影响现有调用。
 - [ ] **Step 4: 运行 clippy**
 
 ```bash
-cargo clippy -p gitflow-cli --all-targets --all-features -- -D warnings -W clippy::pedantic
+cargo clippy -p gf --all-targets --all-features -- -D warnings -W clippy::pedantic
 ```
 
 Expected: 无警告。
@@ -582,7 +582,7 @@ nested Claude Code hook schema."
 - [ ] **Step 1: 运行完整 skills 测试套件**
 
 ```bash
-cargo test -p gitflow-cli --lib -- commands::skills
+cargo test -p gf --lib -- commands::skills
 ```
 
 Expected: 全部通过（含 Task 1-3 新增的 5 个测试 + 原有测试）。
@@ -590,7 +590,7 @@ Expected: 全部通过（含 Task 1-3 新增的 5 个测试 + 原有测试）。
 - [ ] **Step 2: 运行 clippy**
 
 ```bash
-cargo clippy -p gitflow-cli --all-targets --all-features -- -D warnings -W clippy::pedantic
+cargo clippy -p gf --all-targets --all-features -- -D warnings -W clippy::pedantic
 ```
 
 Expected: 无警告。
@@ -598,7 +598,7 @@ Expected: 无警告。
 - [ ] **Step 3: 运行 cargo fmt**
 
 ```bash
-cargo +nightly fmt -p gitflow-cli -- --check
+cargo +nightly fmt -p gf -- --check
 ```
 
 Expected: 无格式问题。
@@ -639,13 +639,13 @@ Expected: OK。
 
 ```bash
 # 运行全部 skills 单元测试
-cargo test -p gitflow-cli --lib -- commands::skills
+cargo test -p gf --lib -- commands::skills
 
 # Clippy 严格检查
-cargo clippy -p gitflow-cli --all-targets --all-features -- -D warnings -W clippy::pedantic
+cargo clippy -p gf --all-targets --all-features -- -D warnings -W clippy::pedantic
 
 # 格式检查
-cargo +nightly fmt -p gitflow-cli -- --check
+cargo +nightly fmt -p gf -- --check
 
 # Bash 语法检查
 bash -n scripts/install.sh

@@ -70,7 +70,7 @@ apps/cli/src/
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitflow-cli.ai/schemas/workflow-contract-v1.json",
+  "$id": "https://gf.ai/schemas/workflow-contract-v1.json",
   "title": "Workflow Contract",
   "description": "Phase 间传递的结构化合同，用于 gitflow-workflow 四阶段编排器",
   "type": "object",
@@ -417,7 +417,7 @@ description: |
 **入口条件：** 无
 **出口条件：** 合同 `phases.1.status = complete`
 
-1. 读取 Open Issues → `gitflow-cli issue list --state open`
+1. 读取 Open Issues → `gf issue list --state open`
 2. **full 模式：** 调用 `superpowers:brainstorming` 澄清需求
 3. 调用 `gitflow-issue-create` 创建 Issue
 4. **full 模式：** 调用 `gitflow-issue-review` 审计回贴
@@ -586,7 +586,7 @@ gitflow workflow cleanup --older-than 90
 | 合同 JSON 损坏 | 从备份恢复或重建 |
 | 门控校验失败 | 返回当前 Phase 补齐 evidence |
 | worktree 泄露 | `git worktree remove` + `branch -d` |
-| auth 过期 | `gitflow-cli auth status` 检查，重登 |
+| auth 过期 | `gf auth status` 检查，重登 |
 
 ## Common Mistakes
 
@@ -734,7 +734,7 @@ mod tests {
 
 - [ ] **Step 2: 运行测试 — 预期失败（类型未定义）**
 
-Run: `cargo test -p gitflow-cli workflow::tests 2>&1 | head -30`
+Run: `cargo test -p gf workflow::tests 2>&1 | head -30`
 Expected: 编译错误（`WorkflowContract` 未定义）
 
 - [ ] **Step 3: 实现 workflow.rs**
@@ -1055,17 +1055,17 @@ fn cleanup_archives(older_than_days: i64) -> miette::Result<()> {
 - 如果 `chrono::Duration::days` 不存在 → 使用 `chrono::TimeDelta::days` 或 `Duration::try_days(older_than_days).expect("valid duration")`
 - 如果 derive `Default` 不适用于含 `String` 的 enum → 手动实现
 
-Run: `cargo build -p gitflow-cli 2>&1 | tail -20`
+Run: `cargo build -p gf 2>&1 | tail -20`
 Expected: 编译成功
 
 - [ ] **Step 5: 运行测试**
 
-Run: `cargo test -p gitflow-cli workflow::tests 2>&1`
+Run: `cargo test -p gf workflow::tests 2>&1`
 Expected: 所有测试通过
 
 - [ ] **Step 6: fmt + clippy**
 
-Run: `cargo fmt -p gitflow-cli && cargo clippy -p gitflow-cli --all-targets --all-features -- -D warnings -W clippy::pedantic 2>&1`
+Run: `cargo fmt -p gf && cargo clippy -p gf --all-targets --all-features -- -D warnings -W clippy::pedantic 2>&1`
 Expected: 无警告无错误
 
 - [ ] **Step 7: Commit**
@@ -1155,17 +1155,17 @@ Commands::Skills(_) | Commands::Completions(_) | Commands::Workflow(_)
 
 - [ ] **Step 7: 编译验证**
 
-Run: `cargo build -p gitflow-cli 2>&1 | tail -10`
+Run: `cargo build -p gf 2>&1 | tail -10`
 Expected: 编译成功
 
 - [ ] **Step 8: 功能验证**
 
-Run: `cargo run --bin gitflow-cli -- workflow --help 2>&1`
+Run: `cargo run --bin gf -- workflow --help 2>&1`
 Expected: 显示 list/status/archive/cleanup 子命令帮助
 
 - [ ] **Step 9: 运行全量测试**
 
-Run: `cargo test -p gitflow-cli 2>&1 | tail -20`
+Run: `cargo test -p gf 2>&1 | tail -20`
 Expected: 所有测试通过
 
 - [ ] **Step 10: Commit**
@@ -1288,7 +1288,7 @@ git commit -m "test(workflow): complete writing-skills TDD validation
 | 模式自动判定 (full / fast) | Task 3 (SKILL.md 嵌入判定规则) |
 | 多流程并发（多个合同独立演进） | Task 3 (SKILL.md 并发章节) |
 | 门控校验（不满足合同则阻止进入下一 Phase） | Task 2 + Task 4 |
-| CLI 可读合同 (gitflow-cli workflow status) | Task 4 + Task 5 |
+| CLI 可读合同 (gf workflow status) | Task 4 + Task 5 |
 | 生命周期管理 (archive + cleanup) | Task 4 |
 | 与现有 subagent-driven-development 兼容 | Task 3 (Phase 3 保留) |
 | writing-skills 测试通过（3 个 pressure scenario） | Task 6 |

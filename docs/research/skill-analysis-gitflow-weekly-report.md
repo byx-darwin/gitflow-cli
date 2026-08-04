@@ -47,7 +47,7 @@
    - 当前：`生成研发周报，扫描多个 Git 仓库的提交记录…跨项目工具，推荐用户级安装。TRIGGER when: 用户要生成周报…`
    - 问题：description 字段混合了三类内容——功能说明、安装建议、触发关键词
    - 应为：`Use when the user asks to generate a weekly report, summarize recent commits, review weekly work output, or says "周报", "weekly report", "本周工作", "上周做了什么", "多项目周报".`
-   - 安装建议（`gitflow-cli skills install -g`）不应放在 description 中，应放在 Overview 或独立的 Installation 章节
+   - 安装建议（`gf skills install -g`）不应放在 description 中，应放在 Overview 或独立的 Installation 章节
    - TRIGGER 关键词（周报、本周工作总结、weekly report 等）应作为独立的触发条件列表，而非嵌入 description
 
 2. **文档结构偏向"模板展示"而非"可执行指令"**：

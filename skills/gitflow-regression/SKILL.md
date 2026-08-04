@@ -59,8 +59,8 @@ flowchart TD
 
 - In git repo — `git rev-parse --show-toplevel`
 - `scripts/smoke-test.sh` executable
-- `gitflow-cli` on PATH — `command -v gitflow-cli`
-- Auth valid — `gitflow-cli auth status` (auth-fail → `gitflow auth login`, stop)
+- `gf` on PATH — `command -v gf`
+- Auth valid — `gf auth status` (auth-fail → `gitflow auth login`, stop)
 
 ### Steps
 

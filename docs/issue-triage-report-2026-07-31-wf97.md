@@ -23,7 +23,7 @@
 ## 与 #97 相关的关键发现
 
 ### 1. dogfooding bug 已有 Issue（无需新建）
-Phase 3 发现的 `gitflow-cli issue comment` 返回陈旧响应问题，**已登记为 #111**（type:bug）。本次补全 `priority:medium` + `triage:done`。建议合并 #112 后排期修复。
+Phase 3 发现的 `gf issue comment` 返回陈旧响应问题，**已登记为 #111**（type:bug）。本次补全 `priority:medium` + `triage:done`。建议合并 #112 后排期修复。
 
 ### 2. Issue #97 后续处置建议
 - 代码类交付物已由 **PR #112** 覆盖（元数据 + README + 官网 + GEO + 守护测试）。

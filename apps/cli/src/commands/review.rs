@@ -5,13 +5,13 @@
 //! Phase 1 仅支持 JSON 输出。
 
 use clap::Subcommand;
-use gitflow_cli_core::{
+use gf_core::{
     CliOutput,
     review::{ReviewProvider, ReviewState},
 };
-use gitflow_cli_gitcode::GitCodeReviewProvider;
-use gitflow_cli_github::GitHubReviewProvider;
-use gitflow_cli_gitlab::GitLabReviewProvider;
+use gf_gitcode::GitCodeReviewProvider;
+use gf_github::GitHubReviewProvider;
+use gf_gitlab::GitLabReviewProvider;
 
 use crate::OutputFormat;
 

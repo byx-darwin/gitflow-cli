@@ -7,7 +7,7 @@ description: |
 
 # gitflow-label-stats
 
-Read-only label analytics. Queries `gitflow-cli label list`, then `gitflow-cli issue list --label` per label and per priority. Produces a unified report: label group counts, priority distribution with health indicators, and unclassified Issue identification. Propose fixes — never mutate.
+Read-only label analytics. Queries `gf label list`, then `gf issue list --label` per label and per priority. Produces a unified report: label group counts, priority distribution with health indicators, and unclassified Issue identification. Propose fixes — never mutate.
 
 See [full label taxonomy](../references/gitflow-label-stats-taxonomy.md) for canonical label category reference.
 
@@ -25,24 +25,24 @@ See [full label taxonomy](../references/gitflow-label-stats-taxonomy.md) for can
 ## Core Pattern
 
 ```bash
-gitflow-cli label list
-gitflow-cli issue list --label "<l>" --state open --limit 1000
-gitflow-cli issue list --state open --limit 1000
+gf label list
+gf issue list --label "<l>" --state open --limit 1000
+gf issue list --state open --limit 1000
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|------|
-| All labels | `gitflow-cli label list` |
-| Filter by label | `gitflow-cli issue list --label "<l>" --state open [--limit 1000]` |
-| All open Issues | `gitflow-cli issue list --state open --limit 1000` |
+| All labels | `gf label list` |
+| Filter by label | `gf issue list --label "<l>" --state open [--limit 1000]` |
+| All open Issues | `gf issue list --state open --limit 1000` |
 
 ## Implementation
 
 ### Preconditions
 
-- `gitflow-cli` authenticated
+- `gf` authenticated
 - Read-only; no Issue/label mutation
 
 ### Step 1–6 Summary

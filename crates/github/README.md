@@ -1,14 +1,14 @@
-# gitflow-cli-github
+# gf-github
 
-[![Crates.io](https://img.shields.io/crates/v/gitflow-cli-github)](https://crates.io/crates/gitflow-cli-github)
-[![Documentation](https://docs.rs/gitflow-cli-github/badge.svg)](https://docs.rs/gitflow-cli-github)
+[![Crates.io](https://img.shields.io/crates/v/gf-github)](https://crates.io/crates/gf-github)
+[![Documentation](https://docs.rs/gf-github/badge.svg)](https://docs.rs/gf-github)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-GitHub platform implementation for [gitflow-cli](https://github.com/byx-darwin/gitflow-cli) — Issue, PR, Release, and Review providers via `gh` CLI.
+GitHub platform implementation for [gf](https://github.com/byx-darwin/gitflow-cli) — Issue, PR, Release, and Review providers via `gh` CLI.
 
 ## Overview
 
-`gitflow-cli-github` provides GitHub-specific implementations of the core platform traits defined in `gitflow-cli-core`. It uses the official [`gh`](https://cli.github.com/) CLI under the hood for all GitHub API interactions.
+`gf-github` provides GitHub-specific implementations of the core platform traits defined in `gf-core`. It uses the official [`gh`](https://cli.github.com/) CLI under the hood for all GitHub API interactions.
 
 ## Features
 
@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gitflow-cli-github = "0.8"
+gf-github = "0.8"
 ```
 
 ### Prerequisites
@@ -47,8 +47,8 @@ gh auth login
 ### Creating a GitHub Provider
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::IssueProvider;
+use gf_github::GitHubProvider;
+use gf_core::IssueProvider;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,8 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Working with Issues
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::{IssueProvider, IssueState};
+use gf_github::GitHubProvider;
+use gf_core::{IssueProvider, IssueState};
 
 let provider = GitHubProvider::new()?;
 
@@ -91,8 +91,8 @@ provider.update_issue_state(
 ### Working with Pull Requests
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::PrProvider;
+use gf_github::GitHubProvider;
+use gf_core::PrProvider;
 
 let provider = GitHubProvider::new()?;
 
@@ -112,8 +112,8 @@ provider.merge_pr("owner/repo", pr.number).await?;
 ### Working with Releases
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::ReleaseProvider;
+use gf_github::GitHubProvider;
+use gf_core::ReleaseProvider;
 
 let provider = GitHubProvider::new()?;
 
@@ -132,8 +132,8 @@ let releases = provider.list_releases("owner/repo").await?;
 ### Code Reviews
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::{ReviewProvider, ReviewState};
+use gf_github::GitHubProvider;
+use gf_core::{ReviewProvider, ReviewState};
 
 let provider = GitHubProvider::new()?;
 
@@ -150,13 +150,13 @@ provider.submit_review(
 
 ```
 ┌─────────────────────────────────────┐
-│     gitflow-cli-core (traits)       │
+│     gf-core (traits)       │
 │  IssueProvider, PrProvider, etc.    │
 └──────────────────┬──────────────────┘
                    │ implements
                    ▼
 ┌─────────────────────────────────────┐
-│    gitflow-cli-github (this crate)  │
+│    gf-github (this crate)  │
 │      GitHubProvider                 │
 └──────────────────┬──────────────────┘
                    │ uses
@@ -168,11 +168,11 @@ provider.submit_review(
 
 ## Error Handling
 
-All operations return `Result<T, gitflow_cli_core::Error>`:
+All operations return `Result<T, gf_core::Error>`:
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::Error;
+use gf_github::GitHubProvider;
+use gf_core::Error;
 
 let provider = GitHubProvider::new()?;
 match provider.list_issues("owner/repo", "open").await {
@@ -190,17 +190,17 @@ match provider.list_issues("owner/repo", "open").await {
 
 ## Ecosystem
 
-This crate is part of the gitflow-cli workspace:
+This crate is part of the gf workspace:
 
-- [gitflow-cli-core](https://crates.io/crates/gitflow-cli-core) — Core types and traits
-- **gitflow-cli-github** (this crate) — GitHub platform implementation
-- [gitflow-cli-gitlab](https://crates.io/crates/gitflow-cli-gitlab) — GitLab platform implementation
-- [gitflow-cli-gitcode](https://crates.io/crates/gitflow-cli-gitcode) — GitCode platform implementation
-- [gitflow-cli](https://crates.io/crates/gitflow-cli) — CLI application
+- [gf-core](https://crates.io/crates/gf-core) — Core types and traits
+- **gf-github** (this crate) — GitHub platform implementation
+- [gf-gitlab](https://crates.io/crates/gf-gitlab) — GitLab platform implementation
+- [gf-gitcode](https://crates.io/crates/gf-gitcode) — GitCode platform implementation
+- [gf](https://crates.io/crates/gf) — CLI application
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/gitflow-cli-github)
+- [API Documentation](https://docs.rs/gf-github)
 - [Main Project](https://github.com/byx-darwin/gitflow-cli)
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 

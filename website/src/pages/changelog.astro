@@ -6,10 +6,10 @@ import changelog from "../../../CHANGELOG.md?raw";
 const html = marked.parse(changelog, { async: false }) as string;
 ---
 
-<Base title="更新日志 — gitflow-cli">
+<Base title="更新日志 — gf">
   <main class="narrow page">
     <h1 class="page-title">更新日志</h1>
-    <p class="page-lede">gitflow-cli 各版本的变更记录，由 git-cliff 自动生成。</p>
+    <p class="page-lede">gf 各版本的变更记录，由 git-cliff 自动生成。</p>
     <div class="prose" set:html={html} />
   </main>
 </Base>

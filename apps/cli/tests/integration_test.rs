@@ -1,4 +1,4 @@
-//! End-to-end integration tests for the `gitflow-cli` binary.
+//! End-to-end integration tests for the `gf` binary.
 //!
 //! These tests invoke the compiled binary via `assert_cmd` to verify
 //! that top-level flags (`--help`, `--version`) exit successfully.
@@ -13,14 +13,14 @@ use assert_cmd::Command;
 
 #[test]
 fn test_help_succeeds() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+    let mut cmd = Command::cargo_bin("gf").unwrap();
     cmd.arg("--help");
     cmd.assert().success();
 }
 
 #[test]
 fn test_version_succeeds() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").unwrap();
+    let mut cmd = Command::cargo_bin("gf").unwrap();
     cmd.arg("--version");
     cmd.assert().success();
 }

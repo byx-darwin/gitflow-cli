@@ -21,7 +21,7 @@ Read-only analysis of three CI/CD health dimensions, with improvement suggestion
 
 CN 流水线分析 CI失败 flaky test 耗时分析
 EN pipeline health analyze flaky test CI slow success rate
-CLI `gitflow-cli pipeline report --branch <B> --days <N>`
+CLI `gf pipeline report --branch <B> --days <N>`
 
 ## Data Sufficiency Flow
 
@@ -41,10 +41,10 @@ flowchart TD
 
 | Step | Command |
 |------|---------|
-| Report | `gitflow-cli pipeline report --branch <B> --days <N>` |
-| Status | `gitflow-cli pipeline status --branch <B>` |
-| Jobs | `gitflow-cli pipeline jobs --pipeline-id <ID>` |
-| Logs | `gitflow-cli pipeline logs --pipeline-id <ID>` |
+| Report | `gf pipeline report --branch <B> --days <N>` |
+| Status | `gf pipeline status --branch <B>` |
+| Jobs | `gf pipeline jobs --pipeline-id <ID>` |
+| Logs | `gf pipeline logs --pipeline-id <ID>` |
 
 ## Pattern Triplets
 

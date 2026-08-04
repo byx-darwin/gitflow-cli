@@ -3,7 +3,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现编排层三大核心 Skill（gitflow-workflow 全流程编排、gitflow-quality 质量关卡、gitflow-autoreport-bug 自动错误反馈完整版），配合 install.sh 一键安装脚本和 Superpowers 集成指南，使 gitflow-cli 成为完整的开发工作流指挥中心。
+**Goal:** 实现编排层三大核心 Skill（gitflow-workflow 全流程编排、gitflow-quality 质量关卡、gitflow-autoreport-bug 自动错误反馈完整版），配合 install.sh 一键安装脚本和 Superpowers 集成指南，使 gf 成为完整的开发工作流指挥中心。
 
 **Architecture:** 三个编排 Skill 通过 subprocess 调用 `gitflow` CLI，按阶段闸门驱动需求→开发→质量关卡→交付的完整流程。install.sh 负责 CLI 编译 + Skills 安装 + Hook 注册的一键部署。
 
@@ -23,7 +23,7 @@
 **Issue 标签:** enhancement,skills,orchestration,docs,phase-4
 
 **Issue 描述:**
-实现 gitflow-cli 的编排层三大核心 Skill：gitflow-workflow（全流程指挥，从需求分析到质量关卡再到交付）、gitflow-quality（5 项质量检查闸门：build/test/coverage/format/static）、gitflow-autoreport-bug（完整版，集成 Skills 侧 ERR trap + Claude 分析 + 去重创建 Issue）。同时提供 `scripts/install.sh` 一键安装脚本和 Superpowers 集成指南。
+实现 gf 的编排层三大核心 Skill：gitflow-workflow（全流程指挥，从需求分析到质量关卡再到交付）、gitflow-quality（5 项质量检查闸门：build/test/coverage/format/static）、gitflow-autoreport-bug（完整版，集成 Skills 侧 ERR trap + Claude 分析 + 去重创建 Issue）。同时提供 `scripts/install.sh` 一键安装脚本和 Superpowers 集成指南。
 
 **验收标准:**
 - [ ] 所有任务完成
@@ -42,7 +42,7 @@
 ## File Structure
 
 ```
-gitflow-cli/
+gf/
 ├── skills/
 │   ├── gitflow-workflow/SKILL.md           # 新增：全流程编排
 │   ├── gitflow-quality/SKILL.md            # 新增：质量关卡
@@ -120,7 +120,7 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 4: skills/ — gitflow-workflow 全流程编排
 
-**Description:** 新建 `skills/gitflow-workflow/SKILL.md`。这是 gitflow-cli 的顶层指挥中心，按照设计规格的阶段闸门驱动完整开发流程。
+**Description:** 新建 `skills/gitflow-workflow/SKILL.md`。这是 gf 的顶层指挥中心，按照设计规格的阶段闸门驱动完整开发流程。
 
 **Dependencies:** Task 3
 
@@ -239,7 +239,7 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 7: scripts/install.sh — 一键安装脚本
 
-**Description:** 新建 `scripts/install.sh`，实现 gitflow-cli 的一键安装：编译 CLI → 安装到 PATH → 复制 Skills → 注册 Hooks → 验证。
+**Description:** 新建 `scripts/install.sh`，实现 gf 的一键安装：编译 CLI → 安装到 PATH → 复制 Skills → 注册 Hooks → 验证。
 
 **Dependencies:** Task 3, Task 4, Task 5, Task 6
 
@@ -263,7 +263,7 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
     - `ls ~/.claude/skills/ | grep gitflow | wc -l`
 
 - [ ] **Step 2: 支持 Homebrew 安装路径**
-  - `brew install gitflow-cli` 场景下的路径适配
+  - `brew install gf` 场景下的路径适配
 
 - [ ] **Step 3: 支持 Windows (Git Bash)**
   - 路径分隔符适配
@@ -273,12 +273,12 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 8: docs/ — Superpowers 集成指南
 
-**Description:** 新建 `docs/integration-guide.md`，说明如何将 gitflow-cli 的 Skills 与 Superpowers 的 SDD 工作流深度集成。
+**Description:** 新建 `docs/integration-guide.md`，说明如何将 gf 的 Skills 与 Superpowers 的 SDD 工作流深度集成。
 
 **Dependencies:** Task 4, Task 5, Task 6
 
 - [ ] **Step 1: 编写 integration-guide.md**
-  - **概览：** gitflow-cli 与 Superpowers 的关系图
+  - **概览：** gf 与 Superpowers 的关系图
   - **开发流程集成：**
     - brainstorming + gitflow-issue-create → Issue
     - writing-plans + gitflow-workflow → 原子任务

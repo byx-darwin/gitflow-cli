@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`。
 
 use async_trait::async_trait;
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     auth::{AuthProvider, AuthStatus},
 };
@@ -24,7 +24,7 @@ use crate::{
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitcode::GitCodeAuthProvider;
+/// use gf_gitcode::GitCodeAuthProvider;
 ///
 /// let provider = GitCodeAuthProvider::new();
 /// ```
@@ -201,7 +201,7 @@ impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitCodeAuthProvider<R> {
+impl<R: CommandRunner> gf_core::AuthChecker for GitCodeAuthProvider<R> {
     fn is_authenticated(&self) -> bool {
         // 1. 优先检查环境变量
         if std::env::var("GITCODE_TOKEN").is_ok() {
@@ -233,10 +233,10 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitCodeAuthProvider<R> 
         }
     }
 
-    fn check_status(&self) -> gitflow_cli_core::AuthCheckResult {
+    fn check_status(&self) -> gf_core::AuthCheckResult {
         // 1. 检查环境变量
         if std::env::var("GITCODE_TOKEN").is_ok() {
-            return gitflow_cli_core::AuthCheckResult {
+            return gf_core::AuthCheckResult {
                 authenticated: true,
                 user: None,
                 reason: None,
@@ -252,7 +252,7 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitCodeAuthProvider<R> 
         {
             Ok(out) => out,
             Err(e) => {
-                return gitflow_cli_core::AuthCheckResult {
+                return gf_core::AuthCheckResult {
                     authenticated: false,
                     user: None,
                     reason: Some(format!("Failed to execute gitcode: {e}")),
@@ -266,7 +266,7 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitCodeAuthProvider<R> 
             let stdout = String::from_utf8_lossy(&output.stdout);
             let user = parse_user_from_status(&stdout);
 
-            gitflow_cli_core::AuthCheckResult {
+            gf_core::AuthCheckResult {
                 authenticated: true,
                 user,
                 reason: None,
@@ -275,7 +275,7 @@ impl<R: CommandRunner> gitflow_cli_core::AuthChecker for GitCodeAuthProvider<R> 
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
 
-            gitflow_cli_core::AuthCheckResult {
+            gf_core::AuthCheckResult {
                 authenticated: false,
                 user: None,
                 reason: Some(stderr.to_string()),
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn test_auth_checker_is_authenticated_with_env_var() {
-        use gitflow_cli_core::AuthChecker;
+        use gf_core::AuthChecker;
         temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
             let provider = GitCodeAuthProvider::new();
             assert!(provider.is_authenticated());
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_auth_checker_check_status_with_env_var() {
-        use gitflow_cli_core::AuthChecker;
+        use gf_core::AuthChecker;
         temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
             let provider = GitCodeAuthProvider::new();
             let result = provider.check_status();
@@ -410,10 +410,7 @@ mod tests {
 
         let result = provider.login(Some("gco_token")).await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -423,10 +420,7 @@ mod tests {
 
         let result = provider.logout().await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -447,10 +441,7 @@ mod tests {
 
         let result = provider.status().await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
@@ -460,10 +451,7 @@ mod tests {
 
         let result = provider.token().await;
 
-        assert!(matches!(
-            result.unwrap_err(),
-            gitflow_cli_core::CoreError::Cli(_)
-        ));
+        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]

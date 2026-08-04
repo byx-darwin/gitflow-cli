@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gitflow_cli_core::{
+use gf_core::{
     CoreError, Result,
     label::{
         CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
@@ -23,7 +23,7 @@ use crate::error::parse_glab_error;
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitlab::GitLabLabelProvider;
+/// use gf_gitlab::GitLabLabelProvider;
 ///
 /// let provider = GitLabLabelProvider::new("gitlab-org/gitlab");
 /// ```
@@ -188,7 +188,7 @@ impl LabelProvider for GitLabLabelProvider {
 /// # Examples
 ///
 /// ```no_run
-/// use gitflow_cli_gitlab::GitLabMilestoneProvider;
+/// use gf_gitlab::GitLabMilestoneProvider;
 ///
 /// let provider = GitLabMilestoneProvider::new("gitlab-org/gitlab");
 /// ```

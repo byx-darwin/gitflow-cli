@@ -25,7 +25,7 @@ use std::path::PathBuf;
 include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
 
 use clap::{ArgAction, Args, Subcommand, ValueEnum};
-use gitflow_cli_core::AuthChecker;
+use gf_core::AuthChecker;
 use is_terminal::IsTerminal;
 
 use crate::error_reporter::read_co_contribution_flag;
@@ -732,7 +732,7 @@ fn try_enable_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
     }
 
     println!();
-    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。");
     println!("   用户级设置，加入一次即所有项目生效。");
     println!();
 
@@ -742,7 +742,7 @@ fn try_enable_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
     }
 
     // Check GitHub auth
-    let auth_provider = gitflow_cli_github::GitHubAuthProvider::new();
+    let auth_provider = gf_github::GitHubAuthProvider::new();
     if auth_provider.is_authenticated() {
         merge_co_contribution(platform)?;
         println!("✅ 共建计划已激活");

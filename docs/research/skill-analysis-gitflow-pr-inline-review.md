@@ -12,7 +12,7 @@
 | 维度 | 评分 | 说明 |
 |------|------|------|
 | 维度 1：Skill 结构和文档规范 | ⚠️ 需改进 | description 为功能/流程描述而非触发条件；缺少 Overview / When to Use / Core Pattern / Quick Reference 等结构化章节；操作步骤偏"操作手册"风格（step-by-step bash 块 + 表格 + checklist）；token 数 479 词（勉强通过 500 上限但无余裕）；无多语言稀释，无流程图嵌入代码 |
-| 维度 2：职责边界清晰度 | ❌ 不合格 | 完全缺失职责边界声明、禁止行为清单、职责范围说明、红旗列表和"合理化借口"反制表格；且 skill 涉及通过 `gitflow-cli commit comment` 向远端 PR 发布会审评论（写操作副作用） |
+| 维度 2：职责边界清晰度 | ❌ 不合格 | 完全缺失职责边界声明、禁止行为清单、职责范围说明、红旗列表和"合理化借口"反制表格；且 skill 涉及通过 `gf commit comment` 向远端 PR 发布会审评论（写操作副作用） |
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试、压力测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 工作流步骤可执行（5 步）、4 维度审查清单实用、命令精确；但 description 不合规、无关键词覆盖、无跨引用其他 skills、未遵循 writing-skills 方法论 |
 
@@ -89,7 +89,7 @@
 ### 3.2 具体问题
 
 1. **无职责边界 → 涉及写操作副作用风险**：
-   - 本 skill 调用 `gitflow-cli commit comment` 向远端 PR 发布会审评论——这是不可逆的写操作
+   - 本 skill 调用 `gf commit comment` 向远端 PR 发布会审评论——这是不可逆的写操作
    - GitHub/GitLab/GitCode 上的评论一旦发布，编辑/删除可能受限或有可见痕迹
    - 没有边界声明时，Claude 可能在以下场景过度执行：
      - 用户仅问"这个 PR 有没有安全问题"时，Claude 自动分析并批量发布 10+ 条行内评论
@@ -186,8 +186,8 @@
 |--------|------|------|
 | 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程记录 |
 | description 只描述触发条件，不描述流程 | ❌ | description 混合功能描述、流程、方法论承诺 |
-| 关键词覆盖（错误信息、症状、同义词、工具） | ⚠️ | 提到 `gitflow-cli pr diff`、`gitflow-cli commit comment`、`PR diff`、`行内评论`、`HEAD commit SHA`、hunk 等术语 |
-| 跨引用其他 skills | ❌ | 仅文字提及 `gitflow-cli review comment`（注意事项段落），无结构化 See Also / 相关 Skills |
+| 关键词覆盖（错误信息、症状、同义词、工具） | ⚠️ | 提到 `gf pr diff`、`gf commit comment`、`PR diff`、`行内评论`、`HEAD commit SHA`、hunk 等术语 |
+| 跨引用其他 skills | ❌ | 仅文字提及 `gf review comment`（注意事项段落），无结构化 See Also / 相关 Skills |
 | 必要时使用 flowchart | ⚠️ | 当前无流程图，但 5 步骤工作流 + 3 个决策点（评论前确认、行号验证、发布前 PR 状态检查）其实需要流程图指导 |
 
 ### 5.2 具体问题

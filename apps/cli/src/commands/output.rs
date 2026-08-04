@@ -36,7 +36,7 @@ fn print_json<T: serde::Serialize>(value: &T) -> miette::Result<()> {
 fn print_toon<T: serde::Serialize>(value: &T) -> miette::Result<()> {
     let json_value = serde_json::to_value(value)
         .map_err(|e| miette::miette!("Failed to serialize value for TOON output: {e}"))?;
-    let toon = gitflow_cli_core::toon::encode(&json_value)
+    let toon = gf_core::toon::encode(&json_value)
         .map_err(|e| miette::miette!("Failed to encode TOON output: {e}"))?;
     println!("{toon}");
     Ok(())
@@ -52,16 +52,16 @@ fn print_toon<T: serde::Serialize>(value: &T) -> miette::Result<()> {
 fn print_auto<T: serde::Serialize>(value: &T) -> miette::Result<()> {
     let json_value = serde_json::to_value(value)
         .map_err(|e| miette::miette!("Failed to serialize value for auto output: {e}"))?;
-    let shape = gitflow_cli_core::toon::analyze(&json_value);
-    let strategy = gitflow_cli_core::toon::select_strategy(&shape);
+    let shape = gf_core::toon::analyze(&json_value);
+    let strategy = gf_core::toon::select_strategy(&shape);
 
     match strategy {
-        gitflow_cli_core::toon::ToonStrategy::Toon => {
-            let toon = gitflow_cli_core::toon::encode(&json_value)
+        gf_core::toon::ToonStrategy::Toon => {
+            let toon = gf_core::toon::encode(&json_value)
                 .map_err(|e| miette::miette!("Failed to encode TOON output: {e}"))?;
             println!("{toon}");
         }
-        gitflow_cli_core::toon::ToonStrategy::Json => {
+        gf_core::toon::ToonStrategy::Json => {
             let json = serde_json::to_string_pretty(&json_value)
                 .map_err(|e| miette::miette!("Failed to serialize output to JSON: {e}"))?;
             println!("{json}");

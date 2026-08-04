@@ -20,7 +20,7 @@ Infers the next SemVer version from conventional commits, generates a changelog,
 
 CN 发布 release 版本号 changelog 打标签
 EN create release bump version semantic version release notes tag major minor
-CLI `gitflow-cli release-helper <subcommand>`
+CLI `gf release-helper <subcommand>`
 
 ## Version Decision Flow
 
@@ -49,7 +49,7 @@ flowchart TD
 |------|---------|
 | Latest tag | `git describe --tags --abbrev=0` |
 | commits | `git log <tag>..HEAD --pretty=format:"%h %s" --no-merges` |
-| Create release | `gitflow-cli release create --tag <v> --notes "..."` |
+| Create release | `gf release create --tag <v> --notes "..."` |
 
 ## Pattern Triplets
 

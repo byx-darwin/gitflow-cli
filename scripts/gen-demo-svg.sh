@@ -6,8 +6,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 OUT="${ROOT}/docs/assets/demo.svg"
 CAST="$(mktemp /tmp/gitflow-demo.XXXXXX.cast)"
 mkdir -p "${ROOT}/docs/assets"
-cargo build -p gitflow-cli
-GITFLOW_BIN="${ROOT}/target/debug/gitflow-cli" \
+cargo build -p gf
+GF_BIN="${ROOT}/target/debug/gf" \
   asciinema rec "$CAST" --command "bash ${ROOT}/scripts/demo-session.sh" --overwrite
 svg-term "$CAST" --out "$OUT" --window --width 90 --height 20
 rm -f "$CAST"

@@ -37,14 +37,14 @@ fn test_should_contain_full_and_fast_mode_in_phase1() {
 #[test]
 fn test_should_contain_issue_list_commands() {
     let content = common::load_skill_md();
-    // Phase 1 must show gitflow-cli issue list commands
+    // Phase 1 must show gf issue list commands
     assert!(
-        content.contains("gitflow-cli issue list"),
-        "SKILL.md must contain 'gitflow-cli issue list' command"
+        content.contains("gf issue list"),
+        "SKILL.md must contain 'gf issue list' command"
     );
     // Full mode lists all open issues
     assert!(
-        content.contains("gitflow-cli issue list --state open"),
+        content.contains("gf issue list --state open"),
         "SKILL.md must contain open state filter for issue list"
     );
 }

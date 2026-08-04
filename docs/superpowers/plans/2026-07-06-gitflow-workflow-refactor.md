@@ -6,7 +6,7 @@
 
 **Architecture:** 按照 gitflow-workflow 的四阶段流程（需求探索 → 计划制定 → 执行 → 交付后）重新组织 skill，支持完整模式和快速模式。
 
-**Tech Stack:** Markdown, bash, gitflow-cli
+**Tech Stack:** Markdown, bash, gf
 
 ## Global Constraints
 
@@ -79,13 +79,13 @@ grep -n "## Phase 1" skills/gitflow-workflow/SKILL.md
 
 **完整模式**：读取所有 open issues
 ```bash
-gitflow-cli issue list --state open --limit 100 --output json
+gf issue list --state open --limit 100 --output json
 ```
 按类型分组显示：feature/enhancement、bug、question/discussion
 
 **快速模式**：只读取 bug 类型 issues
 ```bash
-gitflow-cli issue list --state open --label bug --limit 50 --output json
+gf issue list --state open --label bug --limit 50 --output json
 ```
 按优先级排序显示
 
