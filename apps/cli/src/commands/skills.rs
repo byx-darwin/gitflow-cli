@@ -293,7 +293,7 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
 
-            if !name_str.starts_with("gitflow-") {
+            if !name_str.starts_with("gf-") {
                 continue;
             }
 
@@ -368,7 +368,7 @@ fn install_skills_bundled(target: &std::path::Path, args: &InstallArgs) -> miett
     for (path, data) in SKILLS {
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2
-            && parts.first().is_some_and(|f| f.starts_with("gitflow-"))
+            && parts.first().is_some_and(|f| f.starts_with("gf-"))
             && let Some(&first) = parts.first()
         {
             let relative = &path[first.len() + 1..];
@@ -590,14 +590,14 @@ fn list_skills(args: &ListArgs) -> miette::Result<()> {
     {
         let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
         let name_str = entry.file_name().to_string_lossy().into_owned();
-        if name_str.starts_with("gitflow-") {
+        if name_str.starts_with("gf-") {
             println!("  {name_str}");
             found += 1;
         }
     }
 
     if found == 0 {
-        println!("(未安装任何 gitflow skills)");
+        println!("(未安装任何 gf skills)");
     } else {
         println!();
         println!("共 {found} 个 skills");
@@ -627,7 +627,7 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
     {
         let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
         let name_str = entry.file_name().to_string_lossy().into_owned();
-        if name_str.starts_with("gitflow-") {
+        if name_str.starts_with("gf-") {
             let path = entry.path();
             if path.is_dir() {
                 std::fs::remove_dir_all(&path)
@@ -642,7 +642,7 @@ fn uninstall_skills(args: &UninstallArgs) -> miette::Result<()> {
     }
 
     if removed == 0 {
-        println!("(未安装任何 gitflow skills)");
+        println!("(未安装任何 gf skills)");
     } else {
         println!();
         println!("已卸载 {removed} 个 skills");
