@@ -6,17 +6,17 @@ help: ## Show this help
 
 build: ## Compile the project
 	@cargo build
-	@echo "✓ Debug build complete: target/debug/gitflow-cli"
+	@echo "✓ Debug build complete: target/debug/gf"
 
 build-release: ## Compile the project (release mode, optimized)
 	@cargo build --release
-	@echo "✓ Release build complete: target/release/gitflow-cli"
+	@echo "✓ Release build complete: target/release/gf"
 
-local-install: ## Install gitflow-cli to ~/.cargo/bin (release build)
-	@echo "Installing gitflow-cli to ~/.cargo/bin..."
+local-install: ## Install gf to ~/.cargo/bin (release build)
+	@echo "Installing gf to ~/.cargo/bin..."
 	@cargo install --path apps/cli --force --locked
 	@echo "✓ Installed successfully"
-	@gitflow-cli --version
+	@gf --version
 
 local-rebuild: ## Clean, rebuild, and reinstall
 	@cargo clean
@@ -169,11 +169,11 @@ package: ## Build and package current platform binary into dist/
 	@mkdir -p dist
 	@cargo build --release
 	@TARGET=$$(rustc -vV | sed -n 's|host: ||p'); \
-	BIN=target/release/gitflow-cli; \
+	BIN=target/release/gf; \
 	if [ "$$(uname)" = "Darwin" ] || [ "$$(uname)" = "Linux" ]; then \
-		tar -czvf dist/gitflow-cli-$${TARGET}.tar.gz -C target/release gitflow-cli; \
+		tar -czvf dist/gf-$${TARGET}.tar.gz -C target/release gf; \
 	else \
-		echo "Windows: use 7z to package target\\release\\gitflow-cli.exe"; \
+		echo "Windows: use 7z to package target\\release\\gf.exe"; \
 	fi
 	@echo "Packaged to dist/"
 
@@ -185,4 +185,4 @@ package: ## Build and package current platform binary into dist/
 
 .PHONY: compatibility-matrix
 compatibility-matrix: ## 从 JSON 生成兼容性矩阵 Markdown
-	cargo run -p gitflow-cli-core --example gen_compat_matrix
+	cargo run -p gf-core --example gen_compat_matrix
