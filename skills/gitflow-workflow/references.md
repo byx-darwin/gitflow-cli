@@ -16,7 +16,7 @@ cat > ".cache/workflows/active/${WORKFLOW_ID}.json" << EOF
   "version": "1.0",
   "workflow_id": "${WORKFLOW_ID}",
   "title": "<issue_title>",
-  "mode": "<full|fast>",
+  "mode": "<full|standard|fast>",
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "current_phase": 1,
@@ -69,11 +69,11 @@ New Session Starts
     ↓
 1. List .cache/workflows/active/*.json → find workflow with status != "complete"
 2. Read current_phase and evidence
-3. Load context:
+3. Load context based on mode and current_phase:
    • Phase 1: No doc needed (start fresh)
-   • Phase 2: Read design_doc_path
-   • Phase 3: Read spec_path (plan document)
-   • Phase 4: Read pr_url + review reports
+   • Phase 2: Read design_doc_path; check mode for Phase 1 exemptions
+   • Phase 3: Read spec_path (plan document); check mode for fast skip
+   • Phase 4: Read pr_url + review reports; use get_phase4_steps(mode) to determine remaining steps
 4. Resume from current_phase, follow auto-trigger rules
 ```
 

@@ -23,8 +23,8 @@
     },
     "mode": {
       "type": "string",
-      "enum": ["full", "fast"],
-      "description": "full = 完整四阶段；fast = 跳过非必需 Phase"
+      "enum": ["full", "standard", "fast"],
+      "description": "full = 完整四阶段；standard = 中等复杂度；fast = 简单任务跳过非必需 Phase"
     },
     "created_at": {
       "type": "string",
@@ -110,6 +110,11 @@
             "dogfooding_passed": {
               "type": "boolean",
               "description": "Whether dogfooding checklist passed (Phase 4)"
+            },
+            "phase4_steps_executed": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of Phase 4 steps actually executed (for audit trail)"
             }
           },
           "additionalProperties": false

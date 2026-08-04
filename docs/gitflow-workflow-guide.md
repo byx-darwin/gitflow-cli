@@ -17,12 +17,13 @@
          └─────────── 若质量不过关，返回 Phase 3 ─────────────┘
 ```
 
-两种模式：
+三种模式：
 
 | 模式 | 适用场景 | 必选子技能 |
 |---|---|---|
-| **完整模式** | 新功能 / 大重构 | 全部 7 个 |
-| **快速模式** | Bug fix / 小改动 | 4 个（Phase 1 issue-create、Phase 3 subagent、Phase 4 全组） |
+| **完整模式 (full)** | 新功能 / 大重构 / 跨模块 | 全部 7 个 |
+| **标准模式 (standard)** | 中等复杂度 / 单模块改动 | 6 个（Phase 4 简化：无 triage/dogfooding） |
+| **快速模式 (fast)** | Bug fix / 小改动 / typo | 4 个（Phase 1 issue-create、Phase 3 subagent、Phase 4 pipeline + branch-finish） |
 
 ## 前置条件
 
@@ -324,15 +325,30 @@ git branch -d fix/issue-<N>-<short-name>
 - ✅ PR merged + Issue auto-closed
 - ✅ 本地 main 已同步
 
+### Phase 4 步骤矩阵（按模式）
+
+| # | 步骤 | Full | Standard | Fast |
+|---|------|------|----------|------|
+| 1 | 流水线分析 | ✅ | ✅ | ✅ |
+| 2 | Issue 分类 | ✅ | ❌ | ❌ |
+| 3 | 代码审查报告 | ✅ | ✅ | ❌ |
+| 4 | Dogfooding 检查 | ✅ | ❌ | ❌ |
+| 5 | Branch Finish | ✅ | ✅ | ✅ |
+
+**执行流程：**
+- Full: Pipeline → Triage → Review → Dogfooding → Branch Finish → Archive
+- Standard: Pipeline → Review → Branch Finish → Archive
+- Fast: Pipeline → Branch Finish → Archive
+
 ## 模式对比速查
 
-| 维度 | 完整模式 | 快速模式 |
-|---|---|---|
-| Phase 1 | brainstorming ✅ + issue-create ✅ + issue-review ✅ | issue-create ✅ |
-| Phase 2 | writing-plans ✅ + 完整 quality gate | 可内联计划；quality gate 不变 |
-| Phase 3 | subagent-driven ✅ + TDD ✅ + review ✅ | 同左 |
-| Phase 4 | pipeline ✅ + triage ✅ + review ✅ | 同左 |
-| 适用 | 新功能 / 大重构 / 跨模块 | bug fix / 单文件改动 / 配置调整 |
+| 维度 | 完整模式 (full) | 标准模式 (standard) | 快速模式 (fast) |
+|---|---|---|---|
+| Phase 1 | brainstorming ✅ + issue-create ✅ + issue-review ✅ | brainstorming ✅ + issue-create ✅ + issue-review ✅ | issue-create ✅ |
+| Phase 2 | writing-plans ✅ + 完整 quality gate | writing-plans ✅ + 完整 quality gate | 可内联计划；quality gate 不变 |
+| Phase 3 | subagent-driven ✅ + TDD ✅ + review ✅ | subagent-driven ✅ + TDD ✅ + review ✅ | 同左 |
+| Phase 4 | pipeline ✅ + triage ✅ + review ✅ + dogfooding ✅ + branch-finish ✅ | pipeline ✅ + review ✅ + branch-finish ✅ | pipeline ✅ + branch-finish ✅ |
+| 适用 | 新功能 / 大重构 / 跨模块 | 中等复杂度 / 单模块 | bug fix / 单文件改动 / 配置调整 |
 
 ## 常用命令速查
 
