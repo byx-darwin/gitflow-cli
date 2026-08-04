@@ -138,8 +138,8 @@ mod tests {
 
     #[test]
     fn test_with_hint_adds_hint() {
-        let error = CliError::new("AUTH_FAILED", "Authentication failed")
-            .with_hint("Run 'gf auth login'");
+        let error =
+            CliError::new("AUTH_FAILED", "Authentication failed").with_hint("Run 'gf auth login'");
         let output: CliOutput<serde_json::Value> = CliOutput::failure(error, "github");
         let json = serde_json::to_string(&output).expect("failed to serialize");
 
