@@ -372,7 +372,7 @@ install_skills() {
         local skill_name
         skill_name="$(basename "$skill_dir")"
 
-        # 跳过非 gitflow 前缀的目录（如 _common.sh 所在的父目录不会被遍历）
+        # 跳过非 gf 前缀的目录（如 _common.sh 所在的父目录不会被遍历）
         local target_path="${SKILLS_TARGET_DIR}/${skill_name}"
 
         if [[ -d "$target_path" ]]; then
@@ -511,8 +511,8 @@ verify_installation() {
     # 统计安装的 Skills 数量
     local skill_count=0
     if [[ -d "$SKILLS_TARGET_DIR" ]]; then
-        # 统计 gitflow- 开头的目录数
-        skill_count=$(find "$SKILLS_TARGET_DIR" -maxdepth 1 -type d -name "gitflow-*" 2>/dev/null | wc -l | tr -d ' ')
+        # 统计 gf- 开头的目录数
+        skill_count=$(find "$SKILLS_TARGET_DIR" -maxdepth 1 -type d -name "gf-*" 2>/dev/null | wc -l | tr -d ' ')
         info "已安装 Skills: ${skill_count} 个"
     else
         warn "Skills 目录不存在: ${SKILLS_TARGET_DIR}"
