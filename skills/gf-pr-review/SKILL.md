@@ -1,14 +1,14 @@
 ---
-name: gitflow-pr-review
+name: gf-pr-review
 description: |
   Use when the user requests an overall code review of a Pull Request
   and needs to submit a verdict via gf.
   当要求对 PR 进行整体代码审查并提交审查结论时使用。
 ---
 
-# gitflow-pr-review
+# gf-pr-review
 
-6-dimension PR diff assessment + overall verdict via `gf review`. Line-level comments → `gitflow-pr-inline-review`.
+6-dimension PR diff assessment + overall verdict via `gf review`. Line-level comments → `gf-pr-inline-review`.
 
 ## When to Use
 
@@ -17,8 +17,8 @@ description: |
 | review PR | 审查 PR | overall verdict |
 | approve / LGTM | 审批 / 通过 | post-analysis |
 | request changes | 要求修改 | PR blocked |
-| inline / line review | 逐行评论 | → `gitflow-pr-inline-review` |
-| merge / close | 合并/关闭 | → `gitflow-pr` |
+| inline / line review | 逐行评论 | → `gf-pr-inline-review` |
+| merge / close | 合并/关闭 | → `gf-pr` |
 
 ## Core Pattern
 
@@ -83,15 +83,15 @@ Output PR URL.
 
 ### ❌ Out of Scope
 
-- Line-level inline comments → `gitflow-pr-inline-review`
-- Applying fixes → `gitflow-pr-apply-feedback`
-- PR lifecycle → `gitflow-pr`
-- Deep security scanning → `gitflow-security-check`
+- Line-level inline comments → `gf-pr-inline-review`
+- Applying fixes → `gf-pr-apply-feedback`
+- PR lifecycle → `gf-pr`
+- Deep security scanning → `gf-security-check`
 
 ### 🚫 Do Not
 
 - ❌ Verdict before reading diff
-- ❌ Publish `[logic]`/`[security]` inline comments — that is `gitflow-pr-inline-review`
+- ❌ Publish `[logic]`/`[security]` inline comments — that is `gf-pr-inline-review`
 - ❌ Edit source or run `cargo fix` from findings
 - ❌ Merge / close after approve
 - ❌ Skip security — even for small changes
@@ -100,22 +100,22 @@ Output PR URL.
 
 | User Intent | Delegate To |
 |-------------|-------------|
-| Inline review | `/gitflow-pr-inline-review` |
-| Apply feedback | `/gitflow-pr-apply-feedback` |
-| Merge / close | `/gitflow-pr` |
+| Inline review | `/gf-pr-inline-review` |
+| Apply feedback | `/gf-pr-apply-feedback` |
+| Merge / close | `/gf-pr` |
 
 ## Rationalization Excuses
 
 | Excuse | Reality |
 |--------|---------|
 | "Small change, skip" | One-liners can hide vulnerabilities. |
-| "Inline faster" | Inline is `gitflow-pr-inline-review`'s job. |
+| "Inline faster" | Inline is `gf-pr-inline-review`'s job. |
 
 ## Red Flags
 
 - 🚩 "approve without reviewing" — Refuse. Read diff.
-- 🚩 "leave line comments" — → `gitflow-pr-inline-review`.
-- 🚩 "fix the issues" — → `gitflow-pr-apply-feedback`.
+- 🚩 "leave line comments" — → `gf-pr-inline-review`.
+- 🚩 "fix the issues" — → `gf-pr-apply-feedback`.
 
 ## Test Scenarios
 
@@ -129,13 +129,13 @@ Output PR URL.
 
 - **Given** Wants line-level
 - **When** "Leave inline comments on #101"
-- **Then** NOT loaded. → `gitflow-pr-inline-review`.
+- **Then** NOT loaded. → `gf-pr-inline-review`.
 
 ### 3: Boundary — Apply Fixes
 
 - **Given** User asks to fix findings
 - **When** "review #101 and fix"
-- **Then** Submits request-changes. No edits. → `gitflow-pr-apply-feedback`.
+- **Then** Submits request-changes. No edits. → `gf-pr-apply-feedback`.
 
 ### 4: Error — PR Not Found
 
@@ -153,7 +153,7 @@ Output PR URL.
 ## Common Mistakes
 
 - ❌ **Approving without reading diff** — violates Preconditions. Read diff first.
-- ❌ **Publishing inline comments** — line-level belongs to `gitflow-pr-inline-review`.
+- ❌ **Publishing inline comments** — line-level belongs to `gf-pr-inline-review`.
 
 ## Trigger Keywords
 
@@ -167,7 +167,7 @@ Output PR URL.
 
 ## See Also
 
-- `gitflow-pr-create` — create a PR
-- `gitflow-pr-inline-review` — line-level inline comments
-- `gitflow-pr-apply-feedback` — applies feedback as code changes
-- `gitflow-pr` — PR lifecycle
+- `gf-pr-create` — create a PR
+- `gf-pr-inline-review` — line-level inline comments
+- `gf-pr-apply-feedback` — applies feedback as code changes
+- `gf-pr` — PR lifecycle

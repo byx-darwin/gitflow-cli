@@ -1,6 +1,6 @@
 # Pre-commit Hook Template
 
-> Source for `gitflow-precommit` hook setup path. Written to `.git/hooks/pre-commit` only after explicit user confirmation.
+> Source for `gf-precommit` hook setup path. Written to `.git/hooks/pre-commit` only after explicit user confirmation.
 
 ```bash
 #!/usr/bin/env bash

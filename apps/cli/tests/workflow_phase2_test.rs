@@ -1,4 +1,4 @@
-//! Structure verification tests for Phase 2 (plan creation) of the gitflow-workflow SKILL.md.
+//! Structure verification tests for Phase 2 (plan creation) of the gf-workflow SKILL.md.
 
 mod common;
 

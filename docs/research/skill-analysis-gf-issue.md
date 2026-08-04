@@ -1,7 +1,7 @@
-# gitflow-issue Skill 分析报告
+# gf-issue Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-issue/SKILL.md`
+> **分析目标：** `skills/gf-issue/SKILL.md`
 > **对应 Issue：** #36
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线、成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | description 描述能力而非触发条件；缺少 TDD 流程、关键词覆盖、跨引用 |
 
-**总体评估：** `gitflow-issue` 是一个"命令参考手册"风格的文档，以表格形式罗列了 7 个子命令及其参数。它不具备 Superpowers skill 所需的可执行性、边界清晰性和可测试性。该 skill 与 `gitflow-pr`、`gitflow-commit` 采用相同模式——三者都是纯命令封装，缺乏 skill 方法论要求的结构化设计。
+**总体评估：** `gf-issue` 是一个"命令参考手册"风格的文档，以表格形式罗列了 7 个子命令及其参数。它不具备 Superpowers skill 所需的可执行性、边界清晰性和可测试性。该 skill 与 `gf-pr`、`gf-commit` 采用相同模式——三者都是纯命令封装，缺乏 skill 方法论要求的结构化设计。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-issue` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-issue` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 `"gf 的 Issue 操作命令封装，支持创建、列表、查看、关闭、重新打开、评论和标签管理"` |
 | description 只描述触发条件 | ❌ | 描述了完整能力列表（7 个子命令），而非触发时机 |
@@ -53,7 +53,7 @@
    - 未说明何时应使用哪个子命令（如"close 之前是否需要先 comment？"）
    - 未说明子命令之间的依赖关系（如"label 操作是否需要 issue 已存在？"）
 
-3. **与 gitflow-pr / gitflow-commit 同构**：三个 skill 采用完全相同的"命令参考手册"模式，说明这是系统性的模式问题，而非单个 skill 的偶然缺陷。
+3. **与 gf-pr / gf-commit 同构**：三个 skill 采用完全相同的"命令参考手册"模式，说明这是系统性的模式问题，而非单个 skill 的偶然缺陷。
 
 4. **缺少结构化章节**：按照 writing-skills 方法论，应包含：
    - `## Overview` — 一段话说明 skill 的核心价值
@@ -110,14 +110,14 @@
    - 用户要求操作其他仓库的 issue 但未指定 --repo
    - 用户要求对 issue 执行非 CRUD 操作（如修改标题、转移仓库）
 
-5. **与 gitflow-issue-create / gitflow-issue-review / gitflow-issue-triage 的边界模糊**：
-   - `gitflow-issue create` vs `gitflow-issue-create`：前者是命令封装，后者是交互式工作流。用户何时用哪个？
-   - `gitflow-issue label` vs `gitflow-label-milestone`：标签管理的边界在哪里？
-   - `gitflow-issue view` vs `gitflow-issue-review`：查看详情和需求分析的区别？
+5. **与 gf-issue-create / gf-issue-review / gf-issue-triage 的边界模糊**：
+   - `gf-issue create` vs `gf-issue-create`：前者是命令封装，后者是交互式工作流。用户何时用哪个？
+   - `gf-issue label` vs `gf-label-milestone`：标签管理的边界在哪里？
+   - `gf-issue view` vs `gf-issue-review`：查看详情和需求分析的区别？
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-issue 应参照此模式，尤其需要声明 7 个子命令各自的边界和前置条件。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-issue 应参照此模式，尤其需要声明 7 个子命令各自的边界和前置条件。
 
 ---
 
@@ -197,16 +197,16 @@
    - `gf issue` / `gitflow issue`
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-issue-create`（交互式创建 Issue 工作流）
-   - `gitflow-issue-review`（Issue 需求分析）
-   - `gitflow-issue-triage`（Issue 分类分流）
-   - `gitflow-label-milestone`（标签和里程碑管理）
-   - `gitflow-autoreport-bug`（自动错误报告）
-   - `gitflow-workflow`（完整开发工作流）
+   - `gf-issue-create`（交互式创建 Issue 工作流）
+   - `gf-issue-review`（Issue 需求分析）
+   - `gf-issue-triage`（Issue 分类分流）
+   - `gf-label-milestone`（标签和里程碑管理）
+   - `gf-autoreport-bug`（自动错误报告）
+   - `gf-workflow`（完整开发工作流）
 
 5. **缺少子命令选择 flowchart**：7 个子命令的选择逻辑适合用 flowchart 表达。当前文档假设用户已知要使用哪个子命令，但实际场景中用户可能只说"帮我处理一下 issue 42"，Claude 需要根据上下文判断应使用 view/close/comment 中的哪一个。
 
-6. **与 gitflow-pr / gitflow-commit 同构问题**：三个 skill 共享相同的"命令参考手册"模式，说明这是系统性的设计问题。理想情况下，这类"命令封装型 skill"应有统一的模板，包含：
+6. **与 gf-pr / gf-commit 同构问题**：三个 skill 共享相同的"命令参考手册"模式，说明这是系统性的设计问题。理想情况下，这类"命令封装型 skill"应有统一的模板，包含：
    - 触发条件（而非能力清单）
    - 子命令选择决策逻辑
    - 每个子命令的前置条件和边界
@@ -226,7 +226,7 @@
 | P0-2 | 添加职责边界声明章节 | D2 | 7 个子命令各有副作用，必须声明 🚫 禁止行为（不得批量操作、不得未确认执行写入）和 ✅ 职责范围 |
 | P0-3 | 添加前置条件检查 | D1, D2 | 执行前验证 gf 是否可用、是否已认证、是否在 git 仓库中 |
 | P0-4 | 添加关键词覆盖 | D4 | 覆盖常见表达（"创建 issue"、"关闭 issue"、"issue 列表"、"加标签"）和工具名（`gf issue`） |
-| P0-5 | 添加跨引用 | D4 | 引用 gitflow-issue-create、gitflow-issue-review、gitflow-issue-triage、gitflow-label-milestone |
+| P0-5 | 添加跨引用 | D4 | 引用 gf-issue-create、gf-issue-review、gf-issue-triage、gf-label-milestone |
 
 ### P1（建议修复 — 提升质量）
 
@@ -246,7 +246,7 @@
 | P2-1 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（直接执行命令但不确认参数） |
 | P2-2 | 定义成功标准 | D3 | 每个子命令的成功输出格式和验证方式 |
 | P2-3 | 添加压力测试场景 | D3 | issue 不存在、特殊字符、API 限流、未认证 |
-| P2-4 | 统一命令封装型 skill 模板 | D1, D4 | 与 gitflow-pr、gitflow-commit 共享统一结构模板 |
+| P2-4 | 统一命令封装型 skill 模板 | D1, D4 | 与 gf-pr、gf-commit 共享统一结构模板 |
 | P2-5 | 添加输出格式说明 | D1 | 说明 --output json 和 --output text 的差异和使用场景 |
 
 ---
@@ -268,7 +268,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-issue | gitflow-autoreport-bug | gitflow-issue-create | 差距 |
+| 对比项 | gf-issue | gf-autoreport-bug | gf-issue-create | 差距 |
 |--------|--------------|----------------------|---------------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 | 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | — |
@@ -281,13 +281,13 @@
 
 ## 九、总结
 
-`gitflow-issue` 当前的定位是"命令参考手册"，它以表格形式罗列了 7 个子命令及其参数，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+`gf-issue` 当前的定位是"命令参考手册"，它以表格形式罗列了 7 个子命令及其参数，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **description 包含能力清单** → Claude 无法用此判断何时加载 skill
 2. **缺乏职责边界** → Claude 可能误操作 issues（批量关闭、未确认写入）
 3. **缺乏错误处理** → issue 不存在或 API 失败时 Claude 无指导
 4. **缺乏可测试性** → 无法验证 Claude 是否正确执行了 issue 操作
-5. **与 gitflow-pr / gitflow-commit 同构** → 这是系统性的模式问题，需要统一模板
+5. **与 gf-pr / gf-commit 同构** → 这是系统性的模式问题，需要统一模板
 
-重构方向：将其从"命令参考手册"转型为"可执行指令 + 边界声明 + 子命令决策流程图 + 验证标准"的完整 skill。建议与 `gitflow-pr`、`gitflow-commit` 统一重构，采用相同的"命令封装型 skill"模板。
+重构方向：将其从"命令参考手册"转型为"可执行指令 + 边界声明 + 子命令决策流程图 + 验证标准"的完整 skill。建议与 `gf-pr`、`gf-commit` 统一重构，采用相同的"命令封装型 skill"模板。

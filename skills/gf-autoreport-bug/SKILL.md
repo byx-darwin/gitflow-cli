@@ -1,12 +1,12 @@
 ---
-name: gitflow-autoreport-bug
+name: gf-autoreport-bug
 description: |
   Use when `.cache/bug-reports/pending.json` exists and needs automated
   bug report processing (triggered by Stop Hook or manual invocation).
   当存在待处理的 bug 报告需要自动创建 Issue 时使用。
 ---
 
-# gitflow-autoreport-bug
+# gf-autoreport-bug
 
 Detects `pending.json` → validates → auth check → dedup → Claude analysis → creates Issue → cleans up.
 
@@ -48,7 +48,7 @@ flowchart TD
 
 - ❌ Modify any code files — even if you think you know the bug cause
 - ❌ Launch subagents to fix — no code modification flows
-- ❌ Trigger `gitflow-workflow` repair — no auto-repair workflows
+- ❌ Trigger `gf-workflow` repair — no auto-repair workflows
 - ❌ Analyze source code or attempt fixes — analysis only, no remediation
 - ❌ Continue after Issue creation — end immediately after Issue is created
 
@@ -63,7 +63,7 @@ flowchart TD
 
 ### 🔧 Fix Flow (User-Initiated Only)
 
-User must manually run `/gitflow-workflow --fast` or explicitly request fix.
+User must manually run `/gf-workflow --fast` or explicitly request fix.
 
 ## Target Repository
 
@@ -89,7 +89,7 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 | Dedup hit | Clean `pending.json`, show existing Issue |
 | Issue creation failure | Keep `pending.json` + log to `failed.log` |
 
-For Schema and failed.log format, see `docs/references/gitflow-autoreport-bug-params.md`.
+For Schema and failed.log format, see `docs/references/gf-autoreport-bug-params.md`.
 
 ## Common Mistakes
 

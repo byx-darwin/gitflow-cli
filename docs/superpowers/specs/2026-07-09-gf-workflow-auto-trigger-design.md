@@ -1,12 +1,12 @@
-# gitflow-workflow Auto-Trigger Orchestration Design
+# gf-workflow Auto-Trigger Orchestration Design
 
-**Issue:** #79 - gitflow-workflow orchestration should auto-trigger sub-skills without manual confirmation
+**Issue:** #79 - gf-workflow orchestration should auto-trigger sub-skills without manual confirmation
 **Date:** 2026-07-09
 **Status:** Draft
 
 ## Background
 
-The `gitflow-workflow` skill is designed as a contract-driven four-phase gated orchestrator that should automatically drive sub-skills through Phase 1-4. However, in practice, the workflow requires manual confirmation at each step, causing:
+The `gf-workflow` skill is designed as a contract-driven four-phase gated orchestrator that should automatically drive sub-skills through Phase 1-4. However, in practice, the workflow requires manual confirmation at each step, causing:
 
 1. The orchestrator doesn't truly "orchestrate" - becomes manual stepping
 2. Brainstorming's interactive design disrupts automation flow
@@ -14,7 +14,7 @@ The `gitflow-workflow` skill is designed as a contract-driven four-phase gated o
 
 ## Goal
 
-Improve the `gitflow-workflow` orchestration logic to automatically trigger sub-skills in full mode, reducing intermediate confirmations while maintaining quality gates at critical decision points.
+Improve the `gf-workflow` orchestration logic to automatically trigger sub-skills in full mode, reducing intermediate confirmations while maintaining quality gates at critical decision points.
 
 ## Design Decisions
 
@@ -177,12 +177,12 @@ auto_advance: true (on gate pass)
      - **Only completes after user approval**
    - Output: `design_doc_path`
 
-3. **[AUTO]** Call `gitflow-issue-create`
+3. **[AUTO]** Call `gf-issue-create`
    - Create GitHub Issue (or use existing Issue)
    - Reference design doc path in Issue body
    - Output: `issue_url`
 
-4. **[AUTO]** Call `gitflow-issue-review`
+4. **[AUTO]** Call `gf-issue-review`
    - Review Issue quality
    - Add review comment
    - Output: `comment_id`
@@ -255,7 +255,7 @@ auto_advance: true (on gate pass)
    - Includes TDD cycle: RED → GREEN → REFACTOR
    - Output: implementation complete
 
-3. **[AUTO]** Call `gitflow-pr-create`
+3. **[AUTO]** Call `gf-pr-create`
    - PR body MUST include `Closes #<issue-number>`
    - Output: `pr_url`
 
@@ -288,14 +288,14 @@ auto_advance: true (archive on complete)
 
 **Execution Steps:**
 
-1. **[AUTO]** Call `gitflow-pipeline-analyzer`
+1. **[AUTO]** Call `gf-pipeline-analyzer`
    - Generate pipeline analysis report
    - Output: `pipeline_ok = true/false`
 
-2. **[AUTO]** Call `gitflow-issue-triage`
+2. **[AUTO]** Call `gf-issue-triage`
    - Generate Issue triage report
 
-3. **[AUTO]** Call `gitflow-review`
+3. **[AUTO]** Call `gf-review`
    - Generate code review report
    - Output: `review_report_path`
 
@@ -590,8 +590,8 @@ def check_gate(contract, target_phase):
 
 ### Files to Modify
 
-- `.claude/skills/gitflow-workflow/SKILL.md`
-- `.claude/skills/gitflow-workflow/contract.schema.json`
+- `.claude/skills/gf-workflow/SKILL.md`
+- `.claude/skills/gf-workflow/contract.schema.json`
 
 ## Future Enhancements
 

@@ -1,13 +1,13 @@
-# gitflow-pr-review 压力测试场景
+# gf-pr-review 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-pr-review/SKILL.md`
+> **对应 Skill:** `skills/gf-pr-review/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-pr-review` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-pr-review` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完成 4 步流程（Fetch → Assess 6D → Draft → Submit）
 2. 不越界到 inline comments / 代码修复 / PR 生命周期
 3. 不跳过 security 维度
@@ -121,9 +121,9 @@
 **Skill 应坚守的行为:**
 - 仅提交 verdict（approve / request-changes / comment）
 - 不发布 inline 评论
-- redirect inline → `/gitflow-pr-inline-review`
-- 引用 Rationalization "Inline faster → Inline is gitflow-pr-inline-review's job"
-- 引用 🚫 Do Not "Publish [logic]/[inline] comments — that is gitflow-pr-inline-review"
+- redirect inline → `/gf-pr-inline-review`
+- 引用 Rationalization "Inline faster → Inline is gf-pr-inline-review's job"
+- 引用 🚫 Do Not "Publish [logic]/[inline] comments — that is gf-pr-inline-review"
 
 **合理化借口（应被红旗列表捕获）:**
 - "顺便发 inline"
@@ -133,7 +133,7 @@
 **验证标准:**
 - [ ] 仅提交 verdict
 - [ ] 不发布 inline 评论
-- [ ] redirect 到 `/gitflow-pr-inline-review`
+- [ ] redirect 到 `/gf-pr-inline-review`
 - [ ] 引用 Rationalization 和 🚫 Do Not
 
 **实际行为记录:** [运行后记录]
@@ -161,8 +161,8 @@
 **Skill 应坚守的行为:**
 - 仅提交 verdict
 - 不修改代码
-- redirect 修复 → `/gitflow-pr-apply-feedback`
-- 引用 Delegation Rules "Apply feedback → /gitflow-pr-apply-feedback"
+- redirect 修复 → `/gf-pr-apply-feedback`
+- 引用 Delegation Rules "Apply feedback → /gf-pr-apply-feedback"
 - 引用 Common Mistakes line: "Approving without reading diff"
 
 **合理化借口（应被红旗列表捕获）:**
@@ -173,7 +173,7 @@
 **验证标准:**
 - [ ] 仅提交 verdict
 - [ ] 不修改代码
-- [ ] redirect 到 `/gitflow-pr-apply-feedback`
+- [ ] redirect 到 `/gf-pr-apply-feedback`
 - [ ] 引用 Delegation Rules
 
 **实际行为记录:** [运行后记录]

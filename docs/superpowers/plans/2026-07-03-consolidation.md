@@ -4,7 +4,7 @@
 
 **Goal:** Consolidate gitcode-dev-workflow's orchestration strengths and ncgo-code-skills' weekly-report + improved auto-report-bug into gf as the single source of truth.
 
-**Architecture:** Five documentation/script-level changes: (1) gitflow-workflow gains compliance checklists, --body-file rule, enforcement header; (2) gitflow-quality gains pre-commit as step 6; (3) new gitflow-weekly-report skill ported from ncgo-code; (4) gitflow-autoreport-bug merges both implementations with auth cache + JSON validation; (5) hooks/sync-readme-check.sh added and registered.
+**Architecture:** Five documentation/script-level changes: (1) gf-workflow gains compliance checklists, --body-file rule, enforcement header; (2) gf-quality gains pre-commit as step 6; (3) new gf-weekly-report skill ported from ncgo-code; (4) gf-autoreport-bug merges both implementations with auth cache + JSON validation; (5) hooks/sync-readme-check.sh added and registered.
 
 **Tech Stack:** Markdown (SKILL.md), Bash (hooks), JSON (settings.json, pending.json schema)
 
@@ -19,10 +19,10 @@
 
 ---
 
-### Task 1: gitflow-quality — Add Pre-commit Step
+### Task 1: gf-quality — Add Pre-commit Step
 
 **Files:**
-- Modify: `skills/gitflow-quality/SKILL.md`
+- Modify: `skills/gf-quality/SKILL.md`
 
 **Interfaces:**
 - Consumes: existing 5-step quality gate (build → test → coverage → format → static)
@@ -98,19 +98,19 @@ Append:
 - [ ] **Step 6: Verify and commit**
 
 ```bash
-cat skills/gitflow-quality/SKILL.md | head -5
+cat skills/gf-quality/SKILL.md | head -5
 # Verify frontmatter intact
 
-git add skills/gitflow-quality/SKILL.md
+git add skills/gf-quality/SKILL.md
 git commit -m "quality: add pre-commit as 6th quality gate step"
 ```
 
 ---
 
-### Task 2: gitflow-workflow — Add Compliance Checklists, --body-file Rule, Enforcement Header
+### Task 2: gf-workflow — Add Compliance Checklists, --body-file Rule, Enforcement Header
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md`
+- Modify: `skills/gf-workflow/SKILL.md`
 
 **Interfaces:**
 - Consumes: existing 4-phase structure with gates
@@ -249,16 +249,16 @@ Append to the existing list:
 Verify the markdown renders correctly and frontmatter is intact, then commit:
 
 ```bash
-git add skills/gitflow-workflow/SKILL.md
+git add skills/gf-workflow/SKILL.md
 git commit -m "workflow: add compliance checklists, --body-file rule, enforcement header"
 ```
 
 ---
 
-### Task 3: Create gitflow-weekly-report Skill
+### Task 3: Create gf-weekly-report Skill
 
 **Files:**
-- Create: `skills/gitflow-weekly-report/SKILL.md`
+- Create: `skills/gf-weekly-report/SKILL.md`
 
 **Interfaces:**
 - Consumes:用户指定项目路径和时间范围
@@ -266,11 +266,11 @@ git commit -m "workflow: add compliance checklists, --body-file rule, enforcemen
 
 - [ ] **Step 1: Create the SKILL.md**
 
-Write `skills/gitflow-weekly-report/SKILL.md` with adapted content from ncgo-code's weekly-report. Rename skill, update description for gf context, add install note:
+Write `skills/gf-weekly-report/SKILL.md` with adapted content from ncgo-code's weekly-report. Rename skill, update description for gf context, add install note:
 
 ```markdown
 ---
-name: gitflow-weekly-report
+name: gf-weekly-report
 description: |
   生成研发周报，扫描多个 Git 仓库的提交记录，按照统一模板输出本周工作复盘（纯文本、无表格）。
   支持指定截止时间和项目列表，自动合并跨天提交。跨项目工具，推荐用户级安装。
@@ -284,7 +284,7 @@ description: |
 
 > **安装建议：** 推荐使用用户级安装，跨项目可用：
 > ```bash
-> gf skills install -g gitflow-weekly-report
+> gf skills install -g gf-weekly-report
 > ```
 
 扫描一个或多个 Git 仓库，汇总指定时间段内的提交记录，按项目分组生成结构化的研发周报。输出采用纯文本格式，不使用表格。
@@ -442,7 +442,7 @@ git diff --stat --since="<start>" --until="<end>" | tail -1
 1. 安全：所有 `git log` 和 Bash 命令均为只读操作，不修改仓库。
 2. 隐私：不暴露文件路径中的用户名或敏感信息。
 3. 准确性：提交数、日期等数据必须从 git 实际获取，不可编造。
-4. **跨项目设计**：本 skill 推荐安装到用户级目录（`gf skills install -g gitflow-weekly-report`），这样无论从哪个项目目录调用都能正常扫描。
+4. **跨项目设计**：本 skill 推荐安装到用户级目录（`gf skills install -g gf-weekly-report`），这样无论从哪个项目目录调用都能正常扫描。
 
 ---
 
@@ -456,42 +456,42 @@ git diff --stat --since="<start>" --until="<end>" | tail -1
 Verify the new skill renders correctly:
 
 ```bash
-head -10 skills/gitflow-weekly-report/SKILL.md
+head -10 skills/gf-weekly-report/SKILL.md
 ```
 
 Commit:
 
 ```bash
-git add skills/gitflow-weekly-report/SKILL.md
-git commit -m "feat: add gitflow-weekly-report skill (ported from ncgo-code-skills)"
+git add skills/gf-weekly-report/SKILL.md
+git commit -m "feat: add gf-weekly-report skill (ported from ncgo-code-skills)"
 ```
 
 ---
 
-### Task 4: Merge gitflow-autoreport-bug — Dual-Source Consolidation
+### Task 4: Merge gf-autoreport-bug — Dual-Source Consolidation
 
 **Files:**
-- Modify: `skills/gitflow-autoreport-bug/SKILL.md`
+- Modify: `skills/gf-autoreport-bug/SKILL.md`
 - Modify: `hooks/auto-report-bug.sh`
 
 **Interfaces:**
 - Consumes: pending.json (existing schema), `.cache/auth-cache/{platform}.ttl` (new)
 - Produces: unified bug report flow with auth cache + dedup + Issue creation
 
-- [ ] **Step 1: Rewrite gitflow-autoreport-bug/SKILL.md**
+- [ ] **Step 1: Rewrite gf-autoreport-bug/SKILL.md**
 
-Replace the entire content of `skills/gitflow-autoreport-bug/SKILL.md` with the merged version. The new content combines gf's CLI-based dedup/search with ncgo-code's auth cache, JSON validation, and failed.log retry:
+Replace the entire content of `skills/gf-autoreport-bug/SKILL.md` with the merged version. The new content combines gf's CLI-based dedup/search with ncgo-code's auth cache, JSON validation, and failed.log retry:
 
 ```markdown
 ---
-name: gitflow-autoreport-bug
+name: gf-autoreport-bug
 description: |
   自动分析 CLI 错误报告，auth cache 加速认证检查，去重检查后创建
   GitHub/GitLab/GitCode Issue，失败记录保留到 failed.log 待重试。
   由 Stop Hook (hooks/auto-report-bug.sh) 自动触发。
 ---
 
-# gitflow-autoreport-bug
+# gf-autoreport-bug
 
 自动处理 gitflow CLI 的错误报告：检测 pending.json → 验证 JSON →
 auth cache 检查 → 去重搜索 → Claude 分析 → 创建 Issue → 清理临时文件。
@@ -674,7 +674,7 @@ Replace `hooks/auto-report-bug.sh` with the merged version incorporating ncgo-co
 #   1. Checks for pending.json
 #   2. Shallow-validates JSON
 #   3. Uses auth cache (24h TTL) to avoid redundant auth checks
-#   4. Outputs a banner that triggers the gitflow-autoreport-bug skill
+#   4. Outputs a banner that triggers the gf-autoreport-bug skill
 #
 # Exit codes: 0 always (silent no-op when nothing to do)
 
@@ -740,8 +740,8 @@ echo "  原始报告:"
 echo "$PENDING_CONTENT"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  请加载 gitflow-autoreport-bug Skill 执行自动 Bug 报告流程。"
-echo "  Skill 路径: skills/gitflow-autoreport-bug/SKILL.md"
+echo "  请加载 gf-autoreport-bug Skill 执行自动 Bug 报告流程。"
+echo "  Skill 路径: skills/gf-autoreport-bug/SKILL.md"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -759,7 +759,7 @@ echo "Syntax OK"
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-git add skills/gitflow-autoreport-bug/SKILL.md hooks/auto-report-bug.sh
+git add skills/gf-autoreport-bug/SKILL.md hooks/auto-report-bug.sh
 git commit -m "feat: merge auto-report-bug with auth cache, JSON validation, failed.log retry"
 ```
 
@@ -919,12 +919,12 @@ Walk through each section of `docs/superpowers/specs/2026-07-03-consolidation-de
 
 | Spec section | Task | Verify |
 |---|---|---|
-| 1.1 合规检查清单 | Task 2 Step 2-5 | grep 'Phase.*合规检查' skills/gitflow-workflow/SKILL.md |
-| 1.2 --body-file 强制规则 | Task 2 Step 6-7 | grep 'body-file' skills/gitflow-workflow/SKILL.md |
-| 1.3 强制执行规则头 | Task 2 Step 1 | grep '🚨' skills/gitflow-workflow/SKILL.md |
-| 2.1 Pre-commit 第 6 步 | Task 1 Step 2 | grep '步骤 6' skills/gitflow-quality/SKILL.md |
-| 2.2 Quality Report | Task 1 Step 3 | grep 'pre-commit' skills/gitflow-quality/SKILL.md |
-| 3.1 - 3.4 weekly-report | Task 3 | gitflow-weekly-report/SKILL.md exists, contains -g install note, no scripts/ |
+| 1.1 合规检查清单 | Task 2 Step 2-5 | grep 'Phase.*合规检查' skills/gf-workflow/SKILL.md |
+| 1.2 --body-file 强制规则 | Task 2 Step 6-7 | grep 'body-file' skills/gf-workflow/SKILL.md |
+| 1.3 强制执行规则头 | Task 2 Step 1 | grep '🚨' skills/gf-workflow/SKILL.md |
+| 2.1 Pre-commit 第 6 步 | Task 1 Step 2 | grep '步骤 6' skills/gf-quality/SKILL.md |
+| 2.2 Quality Report | Task 1 Step 3 | grep 'pre-commit' skills/gf-quality/SKILL.md |
+| 3.1 - 3.4 weekly-report | Task 3 | gf-weekly-report/SKILL.md exists, contains -g install note, no scripts/ |
 | 4.1 - 4.4 autoreport-bug | Task 4 | SKILL.md contains auth cache + dedup + failed.log, hook has auth cache check |
 | 5.1 - 5.3 hooks | Task 5 | sync-readme-check.sh exists + registered |
 | 5.4 auto-smoke-test 不迁 | — | hooks/ 中不存在 auto-smoke-test.sh |
@@ -944,7 +944,7 @@ bash -n skills/_common.sh && echo "_common.sh OK"
 Check every SKILL.md has valid YAML frontmatter (starts with `---`, contains `name:`):
 
 ```bash
-for f in skills/gitflow-workflow/SKILL.md skills/gitflow-quality/SKILL.md skills/gitflow-weekly-report/SKILL.md skills/gitflow-autoreport-bug/SKILL.md; do
+for f in skills/gf-workflow/SKILL.md skills/gf-quality/SKILL.md skills/gf-weekly-report/SKILL.md skills/gf-autoreport-bug/SKILL.md; do
   head -1 "$f" | grep -q "^---$" && echo "$f: frontmatter OK" || echo "$f: frontmatter MISSING"
 done
 ```
@@ -964,7 +964,7 @@ Run the negative checks from the spec:
 test ! -f hooks/auto-smoke-test.sh && echo "auto-smoke-test correctly excluded" || echo "ERROR: auto-smoke-test found"
 
 # weekly-report should NOT have scripts/ directory
-test ! -d skills/gitflow-weekly-report/scripts && echo "weekly-report correctly has no scripts/" || echo "ERROR: unexpected scripts/ in weekly-report"
+test ! -d skills/gf-weekly-report/scripts && echo "weekly-report correctly has no scripts/" || echo "ERROR: unexpected scripts/ in weekly-report"
 ```
 
 - [ ] **Step 6: Final commit — consolidation complete**

@@ -1,13 +1,13 @@
 ---
-name: gitflow-weekly-report
+name: gf-weekly-report
 description: |
   Use when the user wants a weekly/biweekly dev-report summarizing commits across one or more repos.
   当用户需要按类型汇总一个或多个仓库的提交、生成研发周报时使用。
 ---
 
-# gitflow-weekly-report — Read-Only Aggregator
+# gf-weekly-report — Read-Only Aggregator
 
-Read-only Git log scan → group by project + type → plain-text weekly report. Template: [`docs/templates/weekly-report-template.md`](docs/templates/weekly-report-template.md) · Quality thresholds: [`docs/references/gitflow-quality-params.md`](docs/references/gitflow-quality-params.md)
+Read-only Git log scan → group by project + type → plain-text weekly report. Template: [`docs/templates/weekly-report-template.md`](docs/templates/weekly-report-template.md) · Quality thresholds: [`docs/references/gf-quality-params.md`](docs/references/gf-quality-params.md)
 
 ## When to Use
 
@@ -116,7 +116,7 @@ No commits → write `"暂无提交"`; count 0.
 
 ## See Also
 
-`/gitflow-workflow` — Phase 4 trigger
-`/gitflow-pipeline-analyzer` — CI health
-`/gitflow-commit` — single commit
-`/gitflow-label-milestone` — milestones
+`/gf-workflow` — Phase 4 trigger
+`/gf-pipeline-analyzer` — CI health
+`/gf-commit` — single commit
+`/gf-label-milestone` — milestones

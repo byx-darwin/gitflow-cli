@@ -1,11 +1,11 @@
 ---
-name: gitflow-pr-create
+name: gf-pr-create
 description: |
   Use when the user wants to open a Pull Request through gf — feature, fix, or draft PR.
   当用户希望通过 gf 创建 Pull Request（功能、修复或草稿 PR）时使用。
 ---
 
-# gitflow-pr-create
+# gf-pr-create
 
 Validates branch state, collects title/description, invokes `gf pr create`, returns the new PR URL. Does not review, approve, merge, or close PRs.
 
@@ -95,10 +95,10 @@ flowchart TD
 
 ### ❌ Out of Scope
 
-- Reviewing → `/gitflow-pr-review`
-- Feedback → `/gitflow-pr-apply-feedback`
-- Merge / close → `/gitflow-pr`
-- CI/CD → `/gitflow-pipeline-analyzer`
+- Reviewing → `/gf-pr-review`
+- Feedback → `/gf-pr-apply-feedback`
+- Merge / close → `/gf-pr`
+- CI/CD → `/gf-pipeline-analyzer`
 
 ### 🚫 Do Not
 
@@ -114,8 +114,8 @@ flowchart TD
 |-------------|-------------|--------|
 | Create a PR | This skill | Branch validation + title/desc |
 | Review / inline / apply feedback | review sibling skills | Per their scope |
-| Merge / close / reopen | `/gitflow-pr` | Lifecycle operation |
-| Check CI | `/gitflow-pipeline-analyzer` | Pipeline health |
+| Merge / close / reopen | `/gf-pr` | Lifecycle operation |
+| Check CI | `/gf-pipeline-analyzer` | Pipeline health |
 
 ## Rationalization Excuses
 
@@ -123,22 +123,22 @@ flowchart TD
 |--------|---------|
 | "Skip base freshness" | Stale base produces hidden merge conflicts |
 | "Just run it, skip approval" | Command must be confirmed first |
-| "PR looks good, merge it" | Out-of-scope; redirect to `/gitflow-pr` |
+| "PR looks good, merge it" | Out-of-scope; redirect to `/gf-pr` |
 
 ## Red Flags
 
 - 🚩 "Skip the base check" — Stop.
 - 🚩 "Create from main" — Protected. Stop.
-- 🚩 "Merge after creating" — → `/gitflow-pr`.
+- 🚩 "Merge after creating" — → `/gf-pr`.
 - 🚩 CLI fails → improvise — Follow Error Handling.
 
 ## Test Scenarios
 
 ### Scenario 1: Happy Path — `feature/ssh-auth`, upstream OK. "create a PR" → validates, invokes CLI, returns URL.
 
-### Scenario 2: Negative — "review PR #42" → NOT loaded. → `/gitflow-pr-review`.
+### Scenario 2: Negative — "review PR #42" → NOT loaded. → `/gf-pr-review`.
 
-### Scenario 3: Boundary — PR created, "merge it" → Refuses. → `/gitflow-pr`.
+### Scenario 3: Boundary — PR created, "merge it" → Refuses. → `/gf-pr`.
 
 ### Scenario 4: Error — Base outdated → rebase advised, stops. No `pr create`.
 
@@ -168,7 +168,7 @@ flowchart TD
 
 ## See Also
 
-- `gitflow-pr` — close, approve, merge PR lifecycle
-- `gitflow-pr-review` — initial code review
-- `gitflow-pr-inline-review` — inline review comments
-- `gitflow-pr-apply-feedback` — apply reviewer feedback
+- `gf-pr` — close, approve, merge PR lifecycle
+- `gf-pr-review` — initial code review
+- `gf-pr-inline-review` — inline review comments
+- `gf-pr-apply-feedback` — apply reviewer feedback

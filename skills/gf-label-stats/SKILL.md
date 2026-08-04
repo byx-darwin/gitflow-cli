@@ -1,15 +1,15 @@
 ---
-name: gitflow-label-stats
+name: gf-label-stats
 description: |
   Use when the user wants Issue label statistics — group counts by label, priority health, and unclassified Issue identification.
   当用户希望分析 Issue 标签分布（按标签分组计数、优先级分布、未分类 Issue 识别）时使用。
 ---
 
-# gitflow-label-stats
+# gf-label-stats
 
 Read-only label analytics. Queries `gf label list`, then `gf issue list --label` per label and per priority. Produces a unified report: label group counts, priority distribution with health indicators, and unclassified Issue identification. Propose fixes — never mutate.
 
-See [full label taxonomy](../references/gitflow-label-stats-taxonomy.md) for canonical label category reference.
+See [full label taxonomy](../references/gf-label-stats-taxonomy.md) for canonical label category reference.
 
 ## When to Use
 
@@ -18,9 +18,9 @@ See [full label taxonomy](../references/gitflow-label-stats-taxonomy.md) for can
 | show label statistics | 显示标签统计 | health check |
 | label distribution | 标签分布 | backlog grooming |
 | unclassified issues | 未分类 Issue | triage backlog |
-| triage all unclassified | 对所有未分类 triage | **NOT** → `gitflow-issue-triage` |
+| triage all unclassified | 对所有未分类 triage | **NOT** → `gf-issue-triage` |
 | delete unused label | 删除无用标签 | **NOT** — read-only skill |
-| modify issue labels | 修改标签 | **NOT** → `gitflow-issue-triage` |
+| modify issue labels | 修改标签 | **NOT** → `gf-issue-triage` |
 
 ## Core Pattern
 
@@ -54,7 +54,7 @@ gf issue list --state open --limit 1000
 
 | Category | Action |
 |----------|--------|
-| Fully unlabeled | → `gitflow-issue-triage` |
+| Fully unlabeled | → `gf-issue-triage` |
 | Missing type | add type |
 | Missing priority | add priority |
 
@@ -63,7 +63,7 @@ gf issue list --state open --limit 1000
 
 | Finding | Recommendation |
 |---------|----------------|
-| unlabeled > 30% | run `gitflow-issue-triage` |
+| unlabeled > 30% | run `gf-issue-triage` |
 | urgent share high | recalibrate |
 | pile-up | clear backlog |
 
@@ -86,9 +86,9 @@ gf issue list --state open --limit 1000
 
 ### ❌ Out of Scope
 
-- Mutating labels / Issues → `gitflow-issue-triage`
-- Classifying Issues → `gitflow-issue-triage`
-- Cleaning up labels → suggest + `gitflow-issue-triage`
+- Mutating labels / Issues → `gf-issue-triage`
+- Classifying Issues → `gf-issue-triage`
+- Cleaning up labels → suggest + `gf-issue-triage`
 
 ## Rationalization Excuses
 
@@ -105,8 +105,8 @@ gf issue list --state open --limit 1000
 ## Test Scenarios
 
 - **Happy**: Given "label stats" — When pipelines execute — Then grouped table + health + unclassified + recommendations.
-- **Negative**: Given "label issue #42 as bug" — Then NOT loaded. → `gitflow-issue-triage`.
-- **Boundary**: Given "stats then fix unlabeled" — Then output report only; redirect → `gitflow-issue-triage`.
+- **Negative**: Given "label issue #42 as bug" — Then NOT loaded. → `gf-issue-triage`.
+- **Boundary**: Given "stats then fix unlabeled" — Then output report only; redirect → `gf-issue-triage`.
 - **Idempotency**: Run twice — identical outputs.
 
 ## Success Criteria
@@ -123,5 +123,5 @@ gf issue list --state open --limit 1000
 
 ## See Also
 
-- `gitflow-issue-triage` — apply labels based on stats findings
-- `gitflow-label-milestone` — label CRUD operations
+- `gf-issue-triage` — apply labels based on stats findings
+- `gf-label-milestone` — label CRUD operations

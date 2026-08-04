@@ -1,7 +1,7 @@
-# gitflow-label-milestone Skill 分析报告
+# gf-label-milestone Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-label-milestone/SKILL.md`
+> **分析目标：** `skills/gf-label-milestone/SKILL.md`
 > **对应 Issue：** #17
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-label-milestone 当前是一个纯命令参考手册，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。此外，该 skill 同时承载了 `label` 和 `milestone` 两个无明显关联的命令族，违反了单一职责原则，进一步降低了 token 效率和触发精度。
+**总体评估：** gf-label-milestone 当前是一个纯命令参考手册，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。此外，该 skill 同时承载了 `label` 和 `milestone` 两个无明显关联的命令族，违反了单一职责原则，进一步降低了 token 效率和触发精度。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-label-milestone` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-label-milestone` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的 Label 和 Milestone 操作命令封装，支持仓库标签和里程碑的增删改查"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
@@ -104,7 +104,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-label-milestone 应参照此模式，明确定义其仅负责 label/milestone 的 CRUD 操作，不负责自动分类或批量状态修改。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-label-milestone 应参照此模式，明确定义其仅负责 label/milestone 的 CRUD 操作，不负责自动分类或批量状态修改。
 
 ---
 
@@ -172,11 +172,11 @@
    - "标签管理" / "label 管理" / "颜色设置"
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-issue`（为 issue 分配 label 和 milestone）
-   - `gitflow-issue-triage`（issue 分类时用到 label）
-   - `gitflow-repo-onboarding`（首次设置仓库时创建默认 label 和 milestone）
-   - `gitflow-release`（发布时关联 milestone）
-   - `gitflow-weekly-report`（报告时统计 milestone 进度）
+   - `gf-issue`（为 issue 分配 label 和 milestone）
+   - `gf-issue-triage`（issue 分类时用到 label）
+   - `gf-repo-onboarding`（首次设置仓库时创建默认 label 和 milestone）
+   - `gf-release`（发布时关联 milestone）
+   - `gf-weekly-report`（报告时统计 milestone 进度）
 
 5. **两个命令族应有不同的 description 和关键词**：如果必须保留单文件，至少应在 description 中同时覆盖 label 和 milestone 的触发条件，但这会稀释描述的精确度。更好的方式是拆分。
 
@@ -193,7 +193,7 @@
 | P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式 |
 | P0-2 | 添加职责边界声明章节 | D2 | 明确 label/milestone skill 仅负责 CRUD 操作，不负责自动分类或批量操作 |
 | P0-3 | 添加关键词覆盖 | D4 | 覆盖常见表达（"创建标签""管理里程碑""关闭里程碑"）和同义词 |
-| P0-4 | 添加跨引用 | D4 | 引用 gitflow-issue、gitflow-issue-triage、gitflow-release 等相关 skills |
+| P0-4 | 添加跨引用 | D4 | 引用 gf-issue、gf-issue-triage、gf-release 等相关 skills |
 
 ### P1（建议修复 — 提升质量）
 
@@ -231,7 +231,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-label-milestone | gitflow-autoreport-bug | gitflow-auth | 差距 |
+| 对比项 | gf-label-milestone | gf-autoreport-bug | gf-auth | 差距 |
 |--------|------------------------|----------------------|--------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 | 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | — |
@@ -244,7 +244,7 @@
 
 ## 九、总结
 
-gitflow-label-milestone 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-label-milestone 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？

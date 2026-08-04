@@ -1288,4 +1288,4 @@ git commit -m "docs(gitcode): document PrApiResponse schema mapping in module he
 - [ ] `cargo clippy -p gf-gitcode --all-targets -- -D warnings -W clippy::pedantic` 零警告
 - [ ] `make smoke-test-gitcode` 通过；`pr list` / `pr view` 对真实 GitCode 仓库的只读实测成功
 - [ ] 契约夹具 `pr_list_gitcode_v0.6.1.json` 来自真实捕获并在测试注释中标注 CLI 版本与 commit
-- [ ] 关闭 #90 的动作**不在本计划内**——由 gitflow-workflow 编排器在交付阶段（PR 合并后）执行
+- [ ] 关闭 #90 的动作**不在本计划内**——由 gf-workflow 编排器在交付阶段（PR 合并后）执行

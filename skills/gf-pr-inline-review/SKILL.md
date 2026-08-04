@@ -1,11 +1,11 @@
 ---
-name: gitflow-pr-inline-review
+name: gf-pr-inline-review
 description: |
   Use when user requests line-level inline review comments on a specific Pull Request.
   当用户要求对 PR 进行逐行行内评论审查时使用。
 ---
 
-# gitflow-pr-inline-review
+# gf-pr-inline-review
 
 Publishes inline comments on PR changed lines. No review decisions, no code fixes, no unchanged-line comments.
 
@@ -16,8 +16,8 @@ Publishes inline comments on PR changed lines. No review decisions, no code fixe
 | inline review | 行内审查 | line-level PR comments |
 | line-level comments | 逐行评论 | per-line feedback |
 | review PR line by line | 逐行审查 PR | per-file analysis |
-| overall PR review | PR 总体审查 | **NOT** → `gitflow-pr-review` |
-| approve / request changes | 审批 PR | **NOT** → `gitflow-review` |
+| overall PR review | PR 总体审查 | **NOT** → `gf-pr-review` |
+| approve / request changes | 审批 PR | **NOT** → `gf-review` |
 
 ## Core Pattern
 
@@ -86,7 +86,7 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 ### ❌ Out of Scope
 
-- Review decisions → `gitflow-review`; code fixes → `gitflow-pr-apply-feedback`; overall summary → `gitflow-pr-review`; PR lifecycle → `gitflow-pr`
+- Review decisions → `gf-review`; code fixes → `gf-pr-apply-feedback`; overall summary → `gf-pr-review`; PR lifecycle → `gf-pr`
 
 ### 🚫 Do Not
 
@@ -99,9 +99,9 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 | User Intent | Delegate To | Reason |
 |-------------|-------------|--------|
 | Inline review | This skill | Per-line diff + publish |
-| Overall verdict | `/gitflow-pr-review` | 6-dim checklist |
-| Apply feedback | `/gitflow-pr-apply-feedback` | Code changes |
-| PR lifecycle | `/gitflow-pr` | merge/close/etc |
+| Overall verdict | `/gf-pr-review` | 6-dim checklist |
+| Apply feedback | `/gf-pr-apply-feedback` | Code changes |
+| PR lifecycle | `/gf-pr` | merge/close/etc |
 
 ## Rationalization Excuses
 
@@ -124,7 +124,7 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 - **Given** PR #101 open 3 files — **When** "Review inline" — **Then** fetches, drafts, shows draft, awaits, publishes
 
 ### 2: Negative
-- **Given** PR #101 — **When** "Approve PR" — **Then** NOT loaded. → `gitflow-review`.
+- **Given** PR #101 — **When** "Approve PR" — **Then** NOT loaded. → `gf-review`.
 
 ### 3: Boundary
 - **Given** 5 drafts — **When** "Publish now" without draft — **Then** Refuses — shows draft first.
@@ -153,8 +153,8 @@ Output PR number, files reviewed, per-dimension counts, per-comment table.
 
 ## See Also
 
-- `gitflow-pr-create` — create a PR
-- `gitflow-pr-review` — overall review with decision
-- `gitflow-pr` — PR lifecycle operations
-- `gitflow-pr-apply-feedback` — applies feedback locally
-- `gitflow-review` — approve/request-changes/comment decisions
+- `gf-pr-create` — create a PR
+- `gf-pr-review` — overall review with decision
+- `gf-pr` — PR lifecycle operations
+- `gf-pr-apply-feedback` — applies feedback locally
+- `gf-review` — approve/request-changes/comment decisions

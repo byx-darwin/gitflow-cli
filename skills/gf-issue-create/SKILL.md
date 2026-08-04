@@ -1,11 +1,11 @@
 ---
-name: gitflow-issue-create
+name: gf-issue-create
 description: |
   Use when the user wants to create a new Issue through gf — interactive title, description, label collection.
   当用户希望通过 gf 创建 Issue（交互式标题、描述、标签收集）时使用。
 ---
 
-# gitflow-issue-create
+# gf-issue-create
 
 Interactive workflow that collects title, description, optional labels/assignee, then invokes `gf issue create` and returns the new Issue URL.
 
@@ -80,10 +80,10 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 
 ### ❌ Out of Scope
 
-- Analysis → `/gitflow-issue-review`
-- Classification → `/gitflow-issue-triage`
-- Comments → `/gitflow-issue` (comment subcommand)
-- Bulk label ops → `/gitflow-label-stats` + `/gitflow-issue-triage`
+- Analysis → `/gf-issue-review`
+- Classification → `/gf-issue-triage`
+- Comments → `/gf-issue` (comment subcommand)
+- Bulk label ops → `/gf-label-stats` + `/gf-issue-triage`
 
 ### 🚫 Do Not
 
@@ -112,10 +112,10 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 - **Given** "create a bug issue: `fix(auth): redirect loop`, body filled" — **When** user confirms — **Then** `issue create ... --label bug`, returns Issue URL.
 
 ### 2: Negative
-- **Given** "review issue #42" — **Then** NOT loaded. → `/gitflow-issue-review`.
+- **Given** "review issue #42" — **Then** NOT loaded. → `/gf-issue-review`.
 
 ### 3: Boundary
-- **Given** "create issue and also triage all open issues" — **Then** create only; redirect triage → `/gitflow-issue-triage`.
+- **Given** "create issue and also triage all open issues" — **Then** create only; redirect triage → `/gf-issue-triage`.
 
 ### 4: Error
 - **Given** "create issue" but `auth status` fails — **Then** stop, prompt `auth login`, do not call create.
@@ -137,7 +137,7 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 
 ## See Also
 
-- `/gitflow-issue` — Issue CRUD operations
-- `/gitflow-issue-review` — Issue requirement analysis
-- `/gitflow-issue-triage` — Issue classification
+- `/gf-issue` — Issue CRUD operations
+- `/gf-issue-review` — Issue requirement analysis
+- `/gf-issue-triage` — Issue classification
 - `docs/superpowers/templates/skill-conventions.md` — skill conventions

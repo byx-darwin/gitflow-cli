@@ -10,7 +10,7 @@
 ## Development
 
 - [Superpowers Integration Guide](./integration-guide.md) — how gf skills integrate with Superpowers SDD workflow.
-- [Gitflow Workflow Guide](./gitflow-workflow-guide.md) — complete four-phase gated workflow (clarify → plan → execute → deliver) with examples.
+- [Gitflow Workflow Guide](./gf-workflow-guide.md) — complete four-phase gated workflow (clarify → plan → execute → deliver) with examples.
 - [TDD Guide](./tdd.md) — test-driven development workflow with `make test-watch`.
 - [Pre-commit Usage](./pre-commit-usage.md) — how to install and run repository pre-commit hooks.
 - [Release](./release.md) — release checklist, changelog, and distribution packaging.

@@ -1,5 +1,5 @@
 ---
-name: gitflow-pipeline-analyzer
+name: gf-pipeline-analyzer
 description: >
   Use when the user wants to analyze CI/CD pipeline health — success-rate trends,
   failure patterns, duration bottlenecks, flaky tests, or a pipeline improvement
@@ -7,11 +7,11 @@ description: >
   flaky test，或生成流水线优化报告时使用。
 ---
 
-# gitflow-pipeline-analyzer — CI/CD Pipeline Health Analyzer
+# gf-pipeline-analyzer — CI/CD Pipeline Health Analyzer
 
 Three-dimensional analysis: success-rate trends / failure patterns / duration distribution → report + prioritized improvement suggestions.
 Read-only: never triggers/reruns/cancels pipelines.
-Full params & report template: docs/references/gitflow-pipeline-analyzer-params.md
+Full params & report template: docs/references/gf-pipeline-analyzer-params.md
 
 ## Overview
 
@@ -99,5 +99,5 @@ flowchart TD
 
 ## See Also
 
-- gitflow-precommit — local checks to avoid failures
-- gitflow-quality — 6-gate code quality
+- gf-precommit — local checks to avoid failures
+- gf-quality — 6-gate code quality

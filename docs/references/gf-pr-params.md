@@ -1,6 +1,6 @@
 # gf pr 子命令参数完整参考
 
-> 本文档为 `gitflow-pr` skill 的子命令参数速查，由 SKILL.md 主文档外部化引用。
+> 本文档为 `gf-pr` skill 的子命令参数速查，由 SKILL.md 主文档外部化引用。
 
 ## `pr create`
 

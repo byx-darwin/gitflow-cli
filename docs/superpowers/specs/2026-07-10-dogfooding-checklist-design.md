@@ -114,9 +114,9 @@ docs/specs/phase4-dogfooding-checklist.md  # 主 checklist 文档
 
 ```
 Phase 4: Post-Delivery Checks
-├── Step 1: gitflow-pipeline-analyzer (现有)
-├── Step 2: gitflow-issue-triage (现有)
-├── Step 3: gitflow-review (现有)
+├── Step 1: gf-pipeline-analyzer (现有)
+├── Step 2: gf-issue-triage (现有)
+├── Step 3: gf-review (现有)
 └── Step 4: Dogfooding Checklist (新增) ← 最后执行
 ```
 
@@ -136,9 +136,9 @@ Phase 4: Post-Delivery Checks
 - `pending.json` 中无本次 dogfooding 新增的 bug 条目（即所有发现的 bug 已修复并验证，或已被用户明确移除）
 - 生成 dogfooding 汇总报告并保存
 
-**与 gitflow-workflow 的集成：**
+**与 gf-workflow 的集成：**
 
-在 `skills/gitflow-workflow/SKILL.md` 的 Phase 4 步骤中新增引用：
+在 `skills/gf-workflow/SKILL.md` 的 Phase 4 步骤中新增引用：
 
 ```markdown
 4. **[AUTO]** Execute Dogfooding Checklist
@@ -189,7 +189,7 @@ Gate 3→4 的条件不变（`pr_url` + `tests_passed`），Phase 4 完成条件
 ## Deliverables
 
 - [ ] `docs/specs/phase4-dogfooding-checklist.md` — 主 checklist 文档
-- [ ] 更新 `skills/gitflow-workflow/SKILL.md` — Phase 4 步骤新增 dogfooding
+- [ ] 更新 `skills/gf-workflow/SKILL.md` — Phase 4 步骤新增 dogfooding
 - [ ] 更新 `docs/index.md` — 添加文档索引
 
 ## Related

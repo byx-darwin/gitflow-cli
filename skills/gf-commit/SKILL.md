@@ -1,11 +1,11 @@
 ---
-name: gitflow-commit
+name: gf-commit
 description: |
   Use when the user wants to inspect (view/diff/patch) or comment on a specific commit.
   当用户需要查看、差异比较、补丁导出或行内评论某个 commit 时使用。
 ---
 
-# gitflow-commit
+# gf-commit
 
 Encapsulates `gf commit` for viewing, diffing, patching, and line-commenting commits. Read-only except `comment`, which publishes.
 
@@ -81,10 +81,10 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 
 ### ❌ Out of Scope
 
-- Create / fix commits — `/gitflow-workflow`
-- PR review — `/gitflow-pr-inline-review`, `/gitflow-pr-review`
-- PR lifecycle — `/gitflow-pr`
-- Issue management — `/gitflow-issue`
+- Create / fix commits — `/gf-workflow`
+- PR review — `/gf-pr-inline-review`, `/gf-pr-review`
+- PR lifecycle — `/gf-pr`
+- Issue management — `/gf-issue`
 
 ### 🚫 Do Not
 
@@ -99,16 +99,16 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 |--------|---------|
 | "Just post it directly" | Mutation requires confirmation |
 | "SHA looks valid, skip check" | Always verify before API call |
-| "I'll fix the bug too" | Out of scope — `/gitflow-workflow` |
-| "Comment equals approval" | Use `/gitflow-review` |
+| "I'll fix the bug too" | Out of scope — `/gf-workflow` |
+| "Comment equals approval" | Use `/gf-review` |
 
 ## Red Flags
 
 - 🚩 "Post without asking" — refuse; confirmation mandatory
 - 🚩 "Skip the SHA check" — refuse; non-skippable
-- 🚩 "Merge / approve" — redirect `/gitflow-pr`
-- 🚩 "Fix the issue" — redirect `/gitflow-workflow`
-- 🚩 "Add task" — redirect `/gitflow-issue`
+- 🚩 "Merge / approve" — redirect `/gf-pr`
+- 🚩 "Fix the issue" — redirect `/gf-workflow`
+- 🚩 "Add task" — redirect `/gf-issue`
 
 ## Common Mistakes
 
@@ -133,7 +133,7 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 
 ### 2: Negative — PR Review
 - **Given** "review PR #101" — **When** user asks for PR review
-- **Then** skill NOT loaded; redirect `/gitflow-pr-inline-review`
+- **Then** skill NOT loaded; redirect `/gf-pr-inline-review`
 
 ### 3: Boundary — Comment Without Confirmation
 - **Given** SHA + `--body` + `--path` + `--line` ready
@@ -153,8 +153,8 @@ Run `view`, `diff`, or `patch`. Output. Stop.
 
 ## See Also
 
-- `/gitflow-pr-inline-review` — inline comments on PRs
-- `/gitflow-pr-review` — overall PR review
-- `/gitflow-pr` — PR lifecycle
-- `/gitflow-precommit` — pre-commit quality gate
-- `/gitflow-quality` — 6-gate quality check
+- `/gf-pr-inline-review` — inline comments on PRs
+- `/gf-pr-review` — overall PR review
+- `/gf-pr` — PR lifecycle
+- `/gf-precommit` — pre-commit quality gate
+- `/gf-quality` — 6-gate quality check

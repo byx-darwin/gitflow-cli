@@ -1,12 +1,12 @@
 ---
-name: gitflow-quality
+name: gf-quality
 description: |
   Use when running pre-delivery quality checks, verifying a branch is
   ready for release, or generating a Quality Report.
   当用户在交付前需运行质量检查、验证分支可交付或生成 Quality Report 时使用。
 ---
 
-# gitflow-quality — Language-Agnostic 6-Gate Quality Gate
+# gf-quality — Language-Agnostic 6-Gate Quality Gate
 
 6-gate fast-fail quality gate. Detects project language, loads the matching toolchain, runs gates in order; first failure stops the chain. Outputs a Quality Report.
 
@@ -167,8 +167,8 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 
 ## See Also
 
-- `gitflow-precommit` — Gate 6 in isolation
-- `gitflow-commit` — commit after passing gate
-- `gitflow-release` — release workflow (gate is pre-req)
-- `gitflow-security-check` — security layer alongside quality
-- `gitflow-pipeline-analyzer` — CI inspection after quality gate
+- `gf-precommit` — Gate 6 in isolation
+- `gf-commit` — commit after passing gate
+- `gf-release` — release workflow (gate is pre-req)
+- `gf-security-check` — security layer alongside quality
+- `gf-pipeline-analyzer` — CI inspection after quality gate

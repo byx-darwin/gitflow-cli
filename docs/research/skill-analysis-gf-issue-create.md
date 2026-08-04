@@ -1,13 +1,13 @@
-# Skill Analysis: `gitflow-issue-create`
+# Skill Analysis: `gf-issue-create`
 
 **Date:** 2026-07-07
-**Source:** `skills/gitflow-issue-create/SKILL.md`
+**Source:** `skills/gf-issue-create/SKILL.md`
 **GitHub Issue:** #26
 **Analyst:** implementer subagent
 
 ## Abstract
 
-The `gitflow-issue-create` skill is a straightforward linear workflow guide for creating GitHub issues through the `gf issue create` command. It follows a sequential six-step flow (title → description → labels → assignee → execute → present result). While functionally adequate, it lacks the structure, boundary declarations, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gf-issue-create` skill is a straightforward linear workflow guide for creating GitHub issues through the `gf issue create` command. It follows a sequential six-step flow (title → description → labels → assignee → execute → present result). While functionally adequate, it lacks the structure, boundary declarations, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -20,8 +20,8 @@ The `gitflow-issue-create` skill is a straightforward linear workflow guide for 
 | Item | Status | Notes |
 |------|--------|-------|
 | YAML frontmatter present | ✅ | Has `name` field |
-| `name` field correct | ✅ | `gitflow-issue-create` matches directory name |
-| File location | ✅ | `skills/gitflow-issue-create/SKILL.md` |
+| `name` field correct | ✅ | `gf-issue-create` matches directory name |
+| File location | ✅ | `skills/gf-issue-create/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Token efficiency | ✅ | ~115 lines, well under 500-word limit for a full skill guide |
 
@@ -52,7 +52,7 @@ description: "Use when the user wants to create a new GitHub issue through gf �
 |------------------|----------|-----|
 | Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never states what it owns vs. what the underlying CLI owns. |
 | Prohibition list (`🚫 Do not...`) | ❌ | No explicit prohibitions. Unclear whether the skill should: create issues in bulk, edit existing issues, delete issues, or manage comments. |
-| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gitflow-issue-triage`, `gitflow-label-milestone`, or `gitflow-issue-review`. |
+| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gf-issue-triage`, `gf-label-milestone`, or `gf-issue-review`. |
 | "Rationalization excuse" counter-table | ❌ | No `## When NOT to use this skill` table that preempts common justifications for misapplication (e.g., "I can also add labels while creating — should I call label-milestone instead?"). |
 | Red Flags list | ❌ | No `## Red Flags` section warning about misapplication contexts (e.g., creating issues from CI pipelines, batch-creation, or cross-repository creation). |
 
@@ -66,10 +66,10 @@ description: "Use when the user wants to create a new GitHub issue through gf �
 - Presenting the resulting Issue URL
 
 ## ❌ Not Responsible For
-- Editing or closing existing issues (→ gitflow-issue / gitflow-issue-triage)
-- Managing labels or milestones at scale (→ gitflow-label-milestone)
-- Reviewing or triaging issues (→ gitflow-issue-review, gitflow-issue-triage)
-- Assigning issues in bulk or to teams (→ gitflow-issue-triage)
+- Editing or closing existing issues (→ gf-issue / gf-issue-triage)
+- Managing labels or milestones at scale (→ gf-label-milestone)
+- Reviewing or triaging issues (→ gf-issue-review, gf-issue-triage)
+- Assigning issues in bulk or to teams (→ gf-issue-triage)
 
 ## 🚫 Do Not
 - Create issues without user confirmation of title/description
@@ -143,7 +143,7 @@ conventional-commit prefix convention, and Markdown body format from memory.
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full workflow, not just the trigger condition. |
 | Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "new issue", "file a bug", "open a ticket", "issue create", `gf issue create`, "create ticket", "bug report". |
-| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-issue`, `gitflow-issue-triage`, `gitflow-issue-review`, `gitflow-label-milestone`. |
+| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gf-issue`, `gf-issue-triage`, `gf-issue-review`, `gf-label-milestone`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
 | Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern structure. |
 
@@ -172,7 +172,7 @@ conventional-commit prefix convention, and Markdown body format from memory.
 
 ### P1 (Should Fix — recommended for polish)
 
-6. **Add cross-references** — `## See Also` linking to `gitflow-issue`, `gitflow-issue-triage`, `gitflow-label-milestone`.
+6. **Add cross-references** — `## See Also` linking to `gf-issue`, `gf-issue-triage`, `gf-label-milestone`.
 7. **Add Quick Reference section** — one-page command cheat-sheet for advanced users.
 8. **Add Common Mistakes section** — e.g., using non-conventional-commit titles, omitting acceptance criteria, passing unescaped quotes in `--body`.
 9. **Add Red Flags section** — warnings about batch creation, pipeline usage, and cross-repo creation.

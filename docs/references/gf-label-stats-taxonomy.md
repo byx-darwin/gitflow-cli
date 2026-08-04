@@ -1,6 +1,6 @@
 # gf label-stats 完整标签分类参考
 
-> 本文档为 `gitflow-label-stats` skill 的外部化引用。
+> 本文档为 `gf-label-stats` skill 的外部化引用。
 
 ## 标签分类体系
 

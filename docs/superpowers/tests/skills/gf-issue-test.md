@@ -1,15 +1,15 @@
-# gitflow-issue 压力测试场景
+# gf-issue 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-issue/SKILL.md`
+> **对应 Skill:** `skills/gf-issue/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-issue` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-issue` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 正确路由 7 个子命令（create · list · view · close · reopen · comment · label）
-2. 不越界到交互式工作流（gitflow-issue-create）或分析（gitflow-issue-review）
+2. 不越界到交互式工作流（gf-issue-create）或分析（gf-issue-review）
 3. 在状态变更前确认 issue 编号并检查 auth
 
 压力维度说明：
@@ -120,9 +120,9 @@
 
 **Skill 应坚守的行为:**
 - 识别意图为 "analyze requirements"
-- redirect 到 `/gitflow-issue-review`
+- redirect 到 `/gf-issue-review`
 - 不执行分析操作
-- 引用 When to Use 表 "analyze requirements → /gitflow-issue-review"
+- 引用 When to Use 表 "analyze requirements → /gf-issue-review"
 
 **合理化借口（应被红旗列表捕获）:**
 - "顺便分析一下"
@@ -131,7 +131,7 @@
 
 **验证标准:**
 - [ ] 不执行分析操作
-- [ ] redirect 到 `/gitflow-issue-review`
+- [ ] redirect 到 `/gf-issue-review`
 - [ ] 引用 When to Use 表
 - [ ] 不发布分析评论
 

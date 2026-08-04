@@ -23,7 +23,7 @@
 **Issue 标签:** enhancement,skills,cli,docs,distribution,phase-5
 
 **Issue 描述:**
-补全设计规格中剩余的全部 Skills（gitflow-issue-review、gitflow-issue-triage、gitflow-pr-inline-review、gitflow-pr-apply-feedback、gitflow-release-helper、gitflow-pipeline-analyzer、gitflow-repo-onboarding、gitflow-repo、gitflow-precommit、gitflow-regression、gitflow-label-stats），增强 Shell 自动补全支持，实现 `--output text` 人类友好输出格式，创建 Homebrew formula 分发渠道，补齐社区文档。
+补全设计规格中剩余的全部 Skills（gf-issue-review、gf-issue-triage、gf-pr-inline-review、gf-pr-apply-feedback、gf-release-helper、gf-pipeline-analyzer、gf-repo-onboarding、gf-repo、gf-precommit、gf-regression、gf-label-stats），增强 Shell 自动补全支持，实现 `--output text` 人类友好输出格式，创建 Homebrew formula 分发渠道，补齐社区文档。
 
 **验收标准:**
 - [ ] 所有任务完成
@@ -44,17 +44,17 @@
 ```
 gf/
 ├── skills/
-│   ├── gitflow-issue-review/SKILL.md        # 新增：Issue 需求分析
-│   ├── gitflow-issue-triage/SKILL.md        # 新增：Issue 分类分流
-│   ├── gitflow-pr-inline-review/SKILL.md    # 新增：PR 行内评论
-│   ├── gitflow-pr-apply-feedback/SKILL.md   # 新增：应用审查反馈
-│   ├── gitflow-release-helper/SKILL.md      # 新增：发布助手
-│   ├── gitflow-pipeline-analyzer/SKILL.md   # 新增：流水线分析
-│   ├── gitflow-repo-onboarding/SKILL.md     # 新增：仓库入门指引
-│   ├── gitflow-repo/SKILL.md                # 新增：仓库操作核心命令
-│   ├── gitflow-precommit/SKILL.md           # 新增：Pre-commit 检查
-│   ├── gitflow-regression/SKILL.md          # 新增：冒烟测试
-│   └── gitflow-label-stats/SKILL.md         # 新增：标签统计分析
+│   ├── gf-issue-review/SKILL.md        # 新增：Issue 需求分析
+│   ├── gf-issue-triage/SKILL.md        # 新增：Issue 分类分流
+│   ├── gf-pr-inline-review/SKILL.md    # 新增：PR 行内评论
+│   ├── gf-pr-apply-feedback/SKILL.md   # 新增：应用审查反馈
+│   ├── gf-release-helper/SKILL.md      # 新增：发布助手
+│   ├── gf-pipeline-analyzer/SKILL.md   # 新增：流水线分析
+│   ├── gf-repo-onboarding/SKILL.md     # 新增：仓库入门指引
+│   ├── gf-repo/SKILL.md                # 新增：仓库操作核心命令
+│   ├── gf-precommit/SKILL.md           # 新增：Pre-commit 检查
+│   ├── gf-regression/SKILL.md          # 新增：冒烟测试
+│   └── gf-label-stats/SKILL.md         # 新增：标签统计分析
 ├── apps/cli/src/
 │   ├── commands/
 │   │   └── completions.rs                   # 修改：增强补全生成
@@ -110,36 +110,36 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 3: skills/ — 补全工作流层 Skills（1/2）
 
-**Description:** 新建 5 个工作流层 Skill：gitflow-issue-review、gitflow-issue-triage、gitflow-pr-inline-review、gitflow-pr-apply-feedback、gitflow-release-helper。
+**Description:** 新建 5 个工作流层 Skill：gf-issue-review、gf-issue-triage、gf-pr-inline-review、gf-pr-apply-feedback、gf-release-helper。
 
 **Dependencies:** 无（Task 1/2 之后第一个开发任务）
 
-- [ ] **Step 1: gitflow-issue-review/SKILL.md** — Issue 需求分析
+- [ ] **Step 1: gf-issue-review/SKILL.md** — Issue 需求分析
   - 调用 `gitflow issue view N` 获取 Issue 详情
   - Claude 分析需求完整性（标题清晰度、描述充分度、验收标准明确度）
   - 输出分析报告（含改进建议）
   - 调用 `gitflow issue comment N --body-file analysis.md`
 
-- [ ] **Step 2: gitflow-issue-triage/SKILL.md** — Issue 分类分流
+- [ ] **Step 2: gf-issue-triage/SKILL.md** — Issue 分类分流
   - 调用 `gitflow issue list` 获取所有 open issues
   - 按类型分类（bug/feature/enhancement/docs/question）
   - 按优先级评估（urgent/high/medium/low）
   - 调用 `gitflow issue label N --label "triage:done"` 标记已分类
   - 输出分类报告
 
-- [ ] **Step 3: gitflow-pr-inline-review/SKILL.md** — PR 行内评论
+- [ ] **Step 3: gf-pr-inline-review/SKILL.md** — PR 行内评论
   - 调用 `gitflow pr diff N` 获取 PR diff
   - 逐文件分析，针对具体代码行生成评论
   - 检查：逻辑错误、安全隐患、命名规范、边界条件
   - 调用 `gitflow commit comment <sha> --body "<comment>" --path <file> --line <N>`
 
-- [ ] **Step 4: gitflow-pr-apply-feedback/SKILL.md** — 应用审查反馈
+- [ ] **Step 4: gf-pr-apply-feedback/SKILL.md** — 应用审查反馈
   - 调用 `gitflow pr view N` 获取 PR 详情和评论
   - 列出所有待处理的审查意见
   - 逐条在本地应用修改
   - 标记已处理的评论为 "resolved"
 
-- [ ] **Step 5: gitflow-release-helper/SKILL.md** — 发布助手
+- [ ] **Step 5: gf-release-helper/SKILL.md** — 发布助手
   - 调用 `git log` 分析从上次 release 以来的变更
   - 生成 Release Note（conventional commits 分组）
   - 调用 `gitflow release create --tag <vX.Y.Z> --notes "<release_note>"`
@@ -149,36 +149,36 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 4: skills/ — 补全工作流层 + 核心命令层 Skills（2/2）
 
-**Description:** 新建剩余 6 个 Skill：gitflow-pipeline-analyzer、gitflow-repo-onboarding、gitflow-repo、gitflow-precommit、gitflow-regression、gitflow-label-stats。
+**Description:** 新建剩余 6 个 Skill：gf-pipeline-analyzer、gf-repo-onboarding、gf-repo、gf-precommit、gf-regression、gf-label-stats。
 
 **Dependencies:** Task 3
 
-- [ ] **Step 1: gitflow-pipeline-analyzer/SKILL.md** — 流水线分析
+- [ ] **Step 1: gf-pipeline-analyzer/SKILL.md** — 流水线分析
   - 调用 `gitflow pipeline report --branch <current> --days 7`
   - 分析成功率趋势、失败模式、最长耗时
   - 输出分析报告 + 改进建议
 
-- [ ] **Step 2: gitflow-repo-onboarding/SKILL.md** — 仓库入门指引
+- [ ] **Step 2: gf-repo-onboarding/SKILL.md** — 仓库入门指引
   - 分析仓库结构（语言、框架、测试框架、CI 配置）
   - 生成入门文档（如何构建、如何运行测试、项目约定）
   - 输出入门指南
 
-- [ ] **Step 3: gitflow-repo/SKILL.md** — 仓库操作核心命令
+- [ ] **Step 3: gf-repo/SKILL.md** — 仓库操作核心命令
   - 封装 `gitflow repo {clone,list,create,stats,sync,view}`
   - `stats` 调用 `gh repo view --json` 获取仓库统计数据
   - `sync` 执行 `git fetch upstream && git merge upstream/main`
 
-- [ ] **Step 4: gitflow-precommit/SKILL.md** — Pre-commit 检查
+- [ ] **Step 4: gf-precommit/SKILL.md** — Pre-commit 检查
   - 解析 `Cargo.toml` 和 `.pre-commit-config.yaml`
   - 运行 `cargo fmt -- --check` + `cargo clippy` + `cargo test`
   - 配置 `.git/hooks/pre-commit`
 
-- [ ] **Step 5: gitflow-regression/SKILL.md** — 冒烟测试
+- [ ] **Step 5: gf-regression/SKILL.md** — 冒烟测试
   - 调用 `bash scripts/smoke-test.sh`
   - 解析输出，判断通过/失败
-  - 失败时调用 gitflow-autoreport-bug 上报
+  - 失败时调用 gf-autoreport-bug 上报
 
-- [ ] **Step 6: gitflow-label-stats/SKILL.md** — 标签统计分析
+- [ ] **Step 6: gf-label-stats/SKILL.md** — 标签统计分析
   - 调用 `gitflow issue list --label "<label>"` 多次获取
   - 统计分析：按标签分组计数、按优先级分布、未分类 Issue 识别
   - 输出统计报告

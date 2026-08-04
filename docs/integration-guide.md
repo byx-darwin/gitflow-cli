@@ -22,11 +22,11 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 │                    gf Skills 层                         │
 │  (平台交互能力: Issue / PR / Review / Release / 错误报告)         │
 │                                                                   │
-│  gitflow-issue-create ──► gitflow-pr-create ──► gitflow-release  │
+│  gf-issue-create ──► gf-pr-create ──► gf-release  │
 │       │                        │                     │            │
-│  gitflow-issue            gitflow-pr-review     gitflow-pr       │
+│  gf-issue            gf-pr-review     gf-pr       │
 │       │                                                  │        │
-│  gitflow-autoreport-bug                                  │        │
+│  gf-autoreport-bug                                  │        │
 │  (Stop Hook 自动触发)                                      │        │
 └─────────────────────────────────────────────────────────────────┘
            │               │                   │
@@ -59,7 +59,7 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 └──────────────────────────────┬────────────────────────────────┘
                                │
                                ▼
-┌─ gitflow-issue-create ──────────────────────────────────────┐
+┌─ gf-issue-create ──────────────────────────────────────┐
 │  • 引导 Issue 标题、正文、标签、里程碑                         │
 │  • 调用 gitflow issue create --platform github               │
 │  • 输出: Issue URL (如 #42)                                  │
@@ -69,7 +69,7 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
                     Issue #42 已创建
 ```
 
-**触发方式:** 用户说「创建一个 Issue」或 `gitflow-workflow` Phase 1 自动触发。
+**触发方式:** 用户说「创建一个 Issue」或 `gf-workflow` Phase 1 自动触发。
 
 ### Phase 2: 计划制定 → 原子任务
 
@@ -95,7 +95,7 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 ### Phase 3: 质量闸门
 
 ```
-┌─ gitflow-quality ────────────────────────────────────────────┐
+┌─ gf-quality ────────────────────────────────────────────┐
 │  5 项检查，快速失败:                                          │
 │                                                               │
 │  1. build     cargo build --workspace              ✅/❌      │
@@ -117,12 +117,12 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
               Phase 4            返回 Phase 2 修复
 ```
 
-**触发方式:** `gitflow-workflow` Phase 3 自动触发，或用户手动调用「运行质量检查」。
+**触发方式:** `gf-workflow` Phase 3 自动触发，或用户手动调用「运行质量检查」。
 
 ### Phase 4: 交付
 
 ```
-┌─ gitflow-pr-create ──────────────────────────────────────────┐
+┌─ gf-pr-create ──────────────────────────────────────────┐
 │  • 自动生成 PR 标题、正文 (引用 Issue #42)                     │
 │  • 关联 Issue: closes #42                                    │
 │  • 调用 gitflow pr create --platform github                  │
@@ -130,7 +130,7 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 └──────────────────────────────┬────────────────────────────────┘
                                │
                                ▼
-┌─ gitflow-pr-review ─────────────────────────────────────────┐
+┌─ gf-pr-review ─────────────────────────────────────────┐
 │  • 6 维度代码审查:                                            │
 │    正确性 / 安全性 / 性能 / 可维护性 / 测试覆盖 / 文档         │
 │  • 输出: 审查评论或 approve                                   │
@@ -148,11 +148,11 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 
 | 阶段 | Superpowers 技能 | gitflow 技能 | 输出物 |
 |------|------------------|-------------|--------|
-| 需求 | `brainstorming` | `gitflow-issue-create` | Issue URL |
+| 需求 | `brainstorming` | `gf-issue-create` | Issue URL |
 | 计划 | `writing-plans` | — | 实现计划文档 |
 | 实现 | `TDD` + `subagent-dev` | — | 通过测试的代码 |
-| 质量 | — | `gitflow-quality` | 质量报告 |
-| 交付 | `finishing-a-branch` | `gitflow-pr-create` + `gitflow-pr-review` | 已合并 PR |
+| 质量 | — | `gf-quality` | 质量报告 |
+| 交付 | `finishing-a-branch` | `gf-pr-create` + `gf-pr-review` | 已合并 PR |
 
 ## 错误反馈集成
 
@@ -173,7 +173,7 @@ Claude Code Stop Hook 触发 .claude/hooks/auto-report-bug.sh
 脚本检测到 pending.json → 打印错误 banner
        │
        ▼
-Claude 加载 gitflow-autoreport-bug Skill
+Claude 加载 gf-autoreport-bug Skill
        │
        ▼
 ┌─ 自动 Bug 报告流程 ─────────────────────────────────────────┐
@@ -319,8 +319,8 @@ export APP_LOG_LEVEL=debug
 
 ### Q: Skill 之间的调用顺序是固定的吗?
 
-`gitflow-workflow` 定义了推荐的 4 阶段流程，但每个 Skill 也可以独立使用。例如:
+`gf-workflow` 定义了推荐的 4 阶段流程，但每个 Skill 也可以独立使用。例如:
 
-- 单独运行 `gitflow-quality` 做质量检查，不一定要在 workflow 中。
-- 单独运行 `gitflow-pr-create` 创建 PR，不需要从 Issue 开始。
-- 单独运行 `gitflow-autoreport-bug` 手动触发错误报告。
+- 单独运行 `gf-quality` 做质量检查，不一定要在 workflow 中。
+- 单独运行 `gf-pr-create` 创建 PR，不需要从 Issue 开始。
+- 单独运行 `gf-autoreport-bug` 手动触发错误报告。

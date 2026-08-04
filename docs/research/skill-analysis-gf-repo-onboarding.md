@@ -1,7 +1,7 @@
-# gitflow-repo-onboarding Skill 分析报告
+# gf-repo-onboarding Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-repo-onboarding/SKILL.md`
+> **分析目标：** `skills/gf-repo-onboarding/SKILL.md`
 > **对应 Issue：** #20
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试、压力测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论，description 为功能描述，无关键词覆盖和跨引用 |
 
-**总体评估：** gitflow-repo-onboarding 当前是一个"分步教程 + 模板合集"，而非符合 Superpowers 规范的 skill。它详细描述了从检测到输出的 6 个步骤，但缺少 Claude 运行 skill 所必需的决策逻辑、边界声明和验证手段。文档冗长（968 词），信息密度低，触发条件不明确，导致 Claude 无法准确判断何时应加载此 skill。
+**总体评估：** gf-repo-onboarding 当前是一个"分步教程 + 模板合集"，而非符合 Superpowers 规范的 skill。它详细描述了从检测到输出的 6 个步骤，但缺少 Claude 运行 skill 所必需的决策逻辑、边界声明和验证手段。文档冗长（968 词），信息密度低，触发条件不明确，导致 Claude 无法准确判断何时应加载此 skill。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-repo-onboarding` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-repo-onboarding` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为"仓库入门指引工作流 — 分析仓库结构和约定，生成面向新成员的入门指南，涵盖构建、测试、代码规范和项目约定"，是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述 skill 输出内容，未说明何时应触发 |
@@ -45,7 +45,7 @@
 
 1. **description 违反 Superpowers 规范**：当前 description 描述了"做什么"（生成入门指南）和"覆盖哪些内容"（构建、测试、代码规范），但完全没有回答"何时触发"。这导致：
    - Claude 无法从 description 判断是否应加载此 skill
-   - 当用户说"帮我看看这个仓库"时，可能错加载此 skill 而非 gitflow-repo
+   - 当用户说"帮我看看这个仓库"时，可能错加载此 skill 而非 gf-repo
    - 当用户说"我需要给新人准备文档"时，Claude 可能没有触发此 skill
 
 2. **文档结构为"教程体"而非 "skill 模板"**：当前结构是"手把手教程"风格：
@@ -84,7 +84,7 @@
 
 ### 3.2 具体问题
 
-1. **完全无职责边界**：虽然 gitflow-repo-onboarding 的核心操作是"读取文件 → 生成文档"（低风险），但 skill 末尾明确说"入门指南生成后应保存为文件（如 `docs/ONBOARDING.md`）"，这是一个**写入操作**。没有边界声明时，可能发生：
+1. **完全无职责边界**：虽然 gf-repo-onboarding 的核心操作是"读取文件 → 生成文档"（低风险），但 skill 末尾明确说"入门指南生成后应保存为文件（如 `docs/ONBOARDING.md`）"，这是一个**写入操作**。没有边界声明时，可能发生：
    - Claude 自动写入 `docs/ONBOARDING.md`，覆盖已有文件
    - Claude 在缺少 `CONTRIBUTING.md` 时自动创建该文件（注意事项第 3 条提到"应建议补充"，但没有说"不得自动创建"）
    - Claude 在 CI 配置分析时修改了 `.github/workflows/` 文件（虽然不期望但无禁止）
@@ -162,7 +162,7 @@
 | 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程 |
 | description 只描述触发条件，不描述流程 | ❌ | description 描述了功能范围和输出内容 |
 | 关键词覆盖（错误信息、症状、同义词、工具） | ❌ | 无关键词覆盖 |
-| 跨引用其他 skills | ❌ | 完全没有跨引用（如 gitflow-repo、gitflow-auth） |
+| 跨引用其他 skills | ❌ | 完全没有跨引用（如 gf-repo、gf-auth） |
 | 必要时使用 flowchart | ⚠️ | 6 个步骤是线性顺序，但步骤 1 的语言检测是一个决策点（多个语言 → 多个分支），可考虑小流程图 |
 
 ### 5.2 具体问题
@@ -187,12 +187,12 @@
 4. **跨引用缺失**：
    - 现有文档未引用任何其他 skill
    - 应至少引用：
-     - `gitflow-repo`（重用户可能在刚 clone 后需要 onboarding）
-     - `gitflow-auth`（onboarding 可能需要验证认证状态）
-     - `gitflow-commit`（分析 commit 规范时）
-     - `gitflow-issue`（项目约定可能与 issue 模板相关）
-     - `gitflow-workflow`（新用户上手 workflow 时也需 onboarding）
-     - `gitflow-precommit`（onboarding 可能需说明 hooks 配置）
+     - `gf-repo`（重用户可能在刚 clone 后需要 onboarding）
+     - `gf-auth`（onboarding 可能需要验证认证状态）
+     - `gf-commit`（分析 commit 规范时）
+     - `gf-issue`（项目约定可能与 issue 模板相关）
+     - `gf-workflow`（新用户上手 workflow 时也需 onboarding）
+     - `gf-precommit`（onboarding 可能需说明 hooks 配置）
 
 5. **步骤 1 缺少决策步骤的明确引导**：语言检测本质上是"if/else"判断，当前文档只是列出一个表格但没有说明"如果多个同时存在怎么办"、"如果都不匹配怎么办"
 
@@ -211,7 +211,7 @@
 | P0-1 | 重写 description 为触发条件 | D1, D4 | 必须改为 "Use when..." 格式，只描述触发场景（如用户要求生成/更新入门指南、询问如何构建项目），不含功能范围和输出内容 |
 | P0-2 | 添加职责边界声明章节 | D2 | 明确 ✅ 负责（分析、提取、汇总）和 🚫 不负责（不修改文件、不自动创建文档），防止 Claude 在分析时写入仓库 |
 | P0-3 | 添加关键词覆盖 | D4 | 覆盖用户表达方式（入门指南、onboarding、getting started）和同义词 |
-| P0-4 | 添加结构化跨引用 | D4 | 明确引用 gitflow-repo、gitflow-auth 等相关 skills |
+| P0-4 | 添加结构化跨引用 | D4 | 明确引用 gf-repo、gf-auth 等相关 skills |
 
 ### P1（建议修复 — 提升质量）
 
@@ -251,7 +251,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-repo-onboarding | gitflow-autoreport-bug | gitflow-repo | 差距 |
+| 对比项 | gf-repo-onboarding | gf-autoreport-bug | gf-repo | 差距 |
 |--------|------------------------|----------------------|--------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 | 与 autoreport-bug 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | 项目通病 |
@@ -264,7 +264,7 @@
 
 ## 九、总结
 
-gitflow-repo-onboarding 当前的定位是"分步教程 + 输出模板 + 叙事示例"，信息全面但缺乏 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-repo-onboarding 当前的定位是"分步教程 + 输出模板 + 叙事示例"，信息全面但缺乏 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **description 是功能列表** → Claude 无法准确判断触发时机（什么情况下应触发 onboarding 而非其他 skill？）

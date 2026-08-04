@@ -1,11 +1,11 @@
 ---
-name: gitflow-repo
+name: gf-repo
 description: |
   Use when the user needs to clone, list, create, inspect statistics, sync forks, or view details of a git repository via gf.
   当用户需要通过 gf 列出、克隆、创建、同步或查看仓库时使用。
 ---
 
-# gitflow-repo
+# gf-repo
 
 ## Overview
 
@@ -21,7 +21,7 @@ Encapsulates read and write operations for `gf repo`. Covers `clone/list/stats/v
 | 仓库信息 | 仓库详情, 查看 | — |
 | create / new repo | 创建仓库, 新建 | — |
 | sync fork / 同步 fork | 同步 fork, upstream | — |
-| PR workflow | — | → `gitflow-pr` |
+| PR workflow | — | → `gf-pr` |
 
 ## Core Pattern
 
@@ -119,7 +119,7 @@ flowchart TD
 - **Given** `gh` installed · **When** "stats for this repo" · **Then** Run `repo stats`, output Markdown table
 
 ### 2: Negative
-- **Given** "create a PR" · **When** asked to load `gitflow-repo` · **Then** NOT loaded — `gitflow-pr` handles PRs
+- **Given** "create a PR" · **When** asked to load `gf-repo` · **Then** NOT loaded — `gf-pr` handles PRs
 
 ### 3: Boundary
 - **Given** sync with merge conflict · **When** `git merge` fails · **Then** Stop, show conflicts, do NOT push
@@ -142,9 +142,9 @@ flowchart TD
 
 ## See Also
 
-- `gitflow-repo-onboarding` — onboarding after clone
-- `gitflow-auth` — auth before clone/create
-- `gitflow-workflow` — workflow may start with `repo clone`
+- `gf-repo-onboarding` — onboarding after clone
+- `gf-auth` — auth before clone/create
+- `gf-workflow` — workflow may start with `repo clone`
 
 ## Trigger Keywords
 

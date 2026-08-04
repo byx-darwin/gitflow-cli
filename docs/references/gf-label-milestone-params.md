@@ -1,6 +1,6 @@
 # gf label / milestone 完整参考
 
-> 本文档为 `gitflow-label-milestone` skill 的外部化引用。
+> 本文档为 `gf-label-milestone` skill 的外部化引用。
 
 ## Label 子命令
 

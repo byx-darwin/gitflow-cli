@@ -25,35 +25,35 @@ gf 是一个跨平台 Git 工程化工作流编排框架。通过 Rust CLI 统�
 
 ```
 编排层（Orchestration Skills）
-├── gitflow-workflow           # 全流程编排
-├── gitflow-quality            # 质量关卡
-└── gitflow-autoreport-bug     # 自动错误反馈
+├── gf-workflow           # 全流程编排
+├── gf-quality            # 质量关卡
+└── gf-autoreport-bug     # 自动错误反馈
 
 工作流层（Workflow Skills）
-├── gitflow-repo-onboarding        # 仓库入门
-├── gitflow-security-check         # 安全审计
-├── gitflow-issue-create           # 引导写 Issue
-├── gitflow-issue-review           # Issue 需求分析
-├── gitflow-issue-triage           # Issue 分类分流
-├── gitflow-pr-create              # 引导创建 PR
-├── gitflow-pr-review              # 工程审查
-├── gitflow-pr-inline-review       # 行内评论
-├── gitflow-pr-apply-feedback      # 应用审查反馈
-├── gitflow-release-helper         # 发布助手
-├── gitflow-pipeline-analyzer      # 流水线分析（通用接口）
-└── gitflow-label-stats            # 标签统计
+├── gf-repo-onboarding        # 仓库入门
+├── gf-security-check         # 安全审计
+├── gf-issue-create           # 引导写 Issue
+├── gf-issue-review           # Issue 需求分析
+├── gf-issue-triage           # Issue 分类分流
+├── gf-pr-create              # 引导创建 PR
+├── gf-pr-review              # 工程审查
+├── gf-pr-inline-review       # 行内评论
+├── gf-pr-apply-feedback      # 应用审查反馈
+├── gf-release-helper         # 发布助手
+├── gf-pipeline-analyzer      # 流水线分析（通用接口）
+└── gf-label-stats            # 标签统计
 
 核心命令层（Core Command Skills）
-├── gitflow-auth                   # 认证管理
-├── gitflow-repo                   # 仓库操作
-├── gitflow-issue                  # Issue 直接命令
-├── gitflow-pr                     # PR 直接命令
-├── gitflow-review                 # 评论机制
-├── gitflow-release                # Release 直接命令
-├── gitflow-commit                 # Commit 操作
-├── gitflow-precommit              # Pre-commit 检查
-├── gitflow-label-milestone        # 标签/里程碑管理
-└── gitflow-regression             # 冒烟测试
+├── gf-auth                   # 认证管理
+├── gf-repo                   # 仓库操作
+├── gf-issue                  # Issue 直接命令
+├── gf-pr                     # PR 直接命令
+├── gf-review                 # 评论机制
+├── gf-release                # Release 直接命令
+├── gf-commit                 # Commit 操作
+├── gf-precommit              # Pre-commit 检查
+├── gf-label-milestone        # 标签/里程碑管理
+└── gf-regression             # 冒烟测试
 ```
 
 **各层职责**：
@@ -138,55 +138,55 @@ gf/
 │           └── ...
 │
 ├── skills/                     # 新增：Claude Code skills
-│   ├── gitflow-workflow/
+│   ├── gf-workflow/
 │   │   └── SKILL.md
-│   ├── gitflow-quality/
+│   ├── gf-quality/
 │   │   └── SKILL.md
-│   ├── gitflow-autoreport-bug/
+│   ├── gf-autoreport-bug/
 │   │   └── SKILL.md
-│   ├── gitflow-issue-create/
+│   ├── gf-issue-create/
 │   │   └── SKILL.md
-│   ├── gitflow-issue-review/
+│   ├── gf-issue-review/
 │   │   └── SKILL.md
-│   ├── gitflow-issue-triage/
+│   ├── gf-issue-triage/
 │   │   └── SKILL.md
-│   ├── gitflow-pr-create/
+│   ├── gf-pr-create/
 │   │   └── SKILL.md
-│   ├── gitflow-pr-review/
+│   ├── gf-pr-review/
 │   │   └── SKILL.md
-│   ├── gitflow-pr-inline-review/
+│   ├── gf-pr-inline-review/
 │   │   └── SKILL.md
-│   ├── gitflow-pr-apply-feedback/
+│   ├── gf-pr-apply-feedback/
 │   │   └── SKILL.md
-│   ├── gitflow-release-helper/
+│   ├── gf-release-helper/
 │   │   └── SKILL.md
-│   ├── gitflow-security-check/
+│   ├── gf-security-check/
 │   │   └── SKILL.md
-│   ├── gitflow-pipeline-analyzer/
+│   ├── gf-pipeline-analyzer/
 │   │   └── SKILL.md
-│   ├── gitflow-repo-onboarding/
+│   ├── gf-repo-onboarding/
 │   │   └── SKILL.md
-│   ├── gitflow-auth/
+│   ├── gf-auth/
 │   │   └── SKILL.md
-│   ├── gitflow-repo/
+│   ├── gf-repo/
 │   │   └── SKILL.md
-│   ├── gitflow-issue/
+│   ├── gf-issue/
 │   │   └── SKILL.md
-│   ├── gitflow-pr/
+│   ├── gf-pr/
 │   │   └── SKILL.md
-│   ├── gitflow-review/
+│   ├── gf-review/
 │   │   └── SKILL.md
-│   ├── gitflow-release/
+│   ├── gf-release/
 │   │   └── SKILL.md
-│   ├── gitflow-commit/
+│   ├── gf-commit/
 │   │   └── SKILL.md
-│   ├── gitflow-precommit/
+│   ├── gf-precommit/
 │   │   └── SKILL.md
-│   ├── gitflow-label-milestone/
+│   ├── gf-label-milestone/
 │   │   └── SKILL.md
-│   ├── gitflow-label-stats/
+│   ├── gf-label-stats/
 │   │   └── SKILL.md
-│   └── gitflow-regression/
+│   └── gf-regression/
 │       └── SKILL.md
 │
 ├── scripts/                    # 新增：辅助脚本
@@ -406,11 +406,11 @@ impl IssueProvider for GitHubIssueProvider {
 ```
 Phase 1: 需求               Phase 2: 开发               🔒 Quality Gate            Phase 3: 交付
 ──────────────────────────────────────────────────────────────────────────────────────────
-Superpowers:               Superpowers:               gitflow-quality:           gitflow-pr-create
-  brainstorming              writing-plans              build      ✅/❌           gitflow-pr-review
-gitflow-issue-create         TDD (per task)             test       ✅/❌           Superpowers:
-gitflow-issue-review         subagent-dev               coverage   ✅/❌             finishing-a-dev-branch
-                             requesting-review          format     ✅/❌           gitflow-release-helper
+Superpowers:               Superpowers:               gf-quality:           gf-pr-create
+  brainstorming              writing-plans              build      ✅/❌           gf-pr-review
+gf-issue-create         TDD (per task)             test       ✅/❌           Superpowers:
+gf-issue-review         subagent-dev               coverage   ✅/❌             finishing-a-dev-branch
+                             requesting-review          format     ✅/❌           gf-release-helper
                              (per task)                 static     ✅/❌
      ↓                             ↓                    ↓                               ↓
 产出: Issue URL              产出: 全绿原子任务清单      产出: Quality Report       产出: Merged PR + Release
@@ -439,12 +439,12 @@ Phase 3 完成 → gitflow issue comment <number> --body "PR #N: <url> — 审�
 
 ### 关键交接点
 
-1. **brainstorming → gitflow-issue-create**：将 Superpowers 需求澄清输出整理为 `gitflow issue create` 输入
-2. **gitflow-issue-review → writing-plans**：将需求分解传递给 writing-plans 拆解为 2-5min 原子任务
-3. **TDD + subagent 完成 → gitflow-quality**：运行质量检查（build → test → coverage → format → static）
-4. **质量通过 → gitflow-pr-create**：检查变更、conventional commit 标题、创建 PR
-5. **gitflow-pr-create → gitflow-pr-review**：6 维度审查 + 行内评论
-6. **merge → gitflow-release-helper**：生成 release note、创建 release
+1. **brainstorming → gf-issue-create**：将 Superpowers 需求澄清输出整理为 `gitflow issue create` 输入
+2. **gf-issue-review → writing-plans**：将需求分解传递给 writing-plans 拆解为 2-5min 原子任务
+3. **TDD + subagent 完成 → gf-quality**：运行质量检查（build → test → coverage → format → static）
+4. **质量通过 → gf-pr-create**：检查变更、conventional commit 标题、创建 PR
+5. **gf-pr-create → gf-pr-review**：6 维度审查 + 行内评论
+6. **merge → gf-release-helper**：生成 release note、创建 release
 
 ---
 
@@ -470,7 +470,7 @@ Phase 3 完成 → gitflow issue comment <number> --body "PR #N: <url> — 审�
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│  处理层          │  gitflow-autoreport-bug 技能
+│  处理层          │  gf-autoreport-bug 技能
 │                  │  读取 → Claude 分析 → 去重 → 创建 Issue
 └────────┬────────┘
          ▼
@@ -615,11 +615,11 @@ cat "$PENDING_FILE"
 
 ```
 skills/
-├── gitflow-autoreport-bug/    # 新增：编排层辅助
+├── gf-autoreport-bug/    # 新增：编排层辅助
 │   └── SKILL.md
 ```
 
-**`gitflow-autoreport-bug/SKILL.md` 核心流程：**
+**`gf-autoreport-bug/SKILL.md` 核心流程：**
 
 1. 读取 `.cache/bug-reports/pending.json`
 2. 生成搜索关键词：`[auto-report] {command} {error_code}`
@@ -657,7 +657,7 @@ skills/
 {Claude 基于错误上下文生成的分析：可能原因、建议修复方向}
 
 ---
-*此 Issue 由 gitflow-autoreport-bug 技能自动创建*
+*此 Issue 由 gf-autoreport-bug 技能自动创建*
 ```
 
 **标签：** `bug,auto-reported,{platform},{error_code}`
@@ -682,13 +682,13 @@ skills/
 | `apps/cli/src/main.rs` | `async_main` Err 分支调用 `maybe_report_error()` |
 | `.claude/hooks/auto-report-bug.sh` | 新建 |
 | `.claude/settings.json` | 注册 Stop Hook |
-| `skills/gitflow-autoreport-bug/SKILL.md` | 新建（Phase 2+） |
+| `skills/gf-autoreport-bug/SKILL.md` | 新建（Phase 2+） |
 | `skills/_common.sh` | 新建（Phase 2+），提供 `report_error()` |
 
 ### 实现时机
 
 - **Phase 1**：Rust 侧 error_reporter + pending.json 写入 + Hook 检测脚本
-- **Phase 2+**：Skills 侧 `_common.sh` 错误捕获 + 完整 `gitflow-autoreport-bug` skill
+- **Phase 2+**：Skills 侧 `_common.sh` 错误捕获 + 完整 `gf-autoreport-bug` skill
 
 ---
 
@@ -1850,8 +1850,8 @@ fn test_should_list_issues_with_json_output() {
 
 - [ ] 其余 Issue/PR 操作（close、reopen、comment、label）
 - [ ] Release、Review、Auth 操作
-- [ ] 核心 Skills (`gitflow-issue`、`gitflow-pr`、`gitflow-release`)
-- [ ] 工作流 Skills (`gitflow-issue-create`、`gitflow-pr-create`、`gitflow-pr-review`)
+- [ ] 核心 Skills (`gf-issue`、`gf-pr`、`gf-release`)
+- [ ] 工作流 Skills (`gf-issue-create`、`gf-pr-create`、`gf-pr-review`)
 
 ### Phase 3: GitLab + GitCode
 
@@ -1862,9 +1862,9 @@ fn test_should_list_issues_with_json_output() {
 
 ### Phase 4: 编排层
 
-- [ ] `gitflow-workflow` skill（全流程编排）
-- [ ] `gitflow-quality` skill（质量关卡）
-- [ ] `gitflow-autoreport-bug` skill（自动错误反馈）
+- [ ] `gf-workflow` skill（全流程编排）
+- [ ] `gf-quality` skill（质量关卡）
+- [ ] `gf-autoreport-bug` skill（自动错误反馈）
 - [ ] 与 Superpowers 集成指南
 - [ ] install.sh 一键安装脚本
 

@@ -2,7 +2,7 @@
 
 日期: 2026-07-09
 SKILL 版本: contract-driven v1
-被测文件: `skills/gitflow-workflow/SKILL.md`（配合 `gates.md` + `contract.schema.json`）
+被测文件: `skills/gf-workflow/SKILL.md`（配合 `gates.md` + `contract.schema.json`）
 测试方法: 每个 scenario 模拟 5 次独立"阅读 SKILL.md → 决策"过程，判定被测 AI 是否违反 SKILL.md 规则（跳步 / 混淆合同 / 向用户跳步请求让步）。
 
 ---

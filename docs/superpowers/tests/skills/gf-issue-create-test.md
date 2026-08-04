@@ -1,13 +1,13 @@
-# gitflow-issue-create 压力测试场景
+# gf-issue-create 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-issue-create/SKILL.md`
+> **对应 Skill:** `skills/gf-issue-create/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-issue-create` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-issue-create` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完成完整 5 步流程（Title → Body → Labels → Assignee → Invoke）
 2. 强制 conventional prefix，不跳过
 3. 调用 CLI 前必须获得用户确认
@@ -124,8 +124,8 @@
 
 **Skill 应坚守的行为:**
 - 仅创建 issue
-- redirect triage → `/gitflow-issue-triage`
-- 引用 Out of Scope "Classification → /gitflow-issue-triage"
+- redirect triage → `/gf-issue-triage`
+- 引用 Out of Scope "Classification → /gf-issue-triage"
 - 引用 Test Scenario 3 "Boundary: create only; redirect triage"
 
 **合理化借口（应被红旗列表捕获）:**
@@ -135,7 +135,7 @@
 
 **验证标准:**
 - [ ] 仅创建 issue
-- [ ] redirect triage 到 `/gitflow-issue-triage`
+- [ ] redirect triage 到 `/gf-issue-triage`
 - [ ] 不执行任何批量 label 操作
 - [ ] 引用 Out of Scope 边界
 

@@ -1,13 +1,13 @@
 ---
-name: gitflow-workflow
+name: gf-workflow
 description: |
   Use when the user wants a mandatory four-phase gated workflow with
-  contract verification between phases, or invokes `/gitflow-workflow`.
+  contract verification between phases, or invokes `/gf-workflow`.
   Enforces: clarify → plan → execute → deliver with JSON state tracking.
   当用户需要强制执行的四阶段闸门驱动全流程时使用。
 ---
 
-# gitflow-workflow — Contract-Driven Four-Phase Gated Orchestrator
+# gf-workflow — Contract-Driven Four-Phase Gated Orchestrator
 
 Orchestrator commands only; state lives in the contract; gates are never skipped.
 
@@ -54,7 +54,7 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 | Rule | Description |
 |------|-------------|
 | **Call and Return** | After invoking a sub-skill, the orchestrator MUST resume at the next step. Sub-skills do NOT chain to other skills. |
-| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the transition to `gitflow-issue-create`. |
+| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the transition to `gf-issue-create`. |
 | **Single Active Orchestrator** | Only this workflow's state machine drives the conversation. No other skill may claim orchestration while a contract is active. |
 | **Evidence Before Gate** | A gate check MAY NOT pass until all required evidence fields are populated. |
 | **No Implicit Completion** | A Phase is complete ONLY when the orchestrator sets `status = "complete"` in the contract. Sub-skill completion ≠ Phase completion. |
@@ -116,8 +116,8 @@ User can override batching strategy during plan phase.
 |----------|--------|
 | About to invoke `brainstorming` without a contract | **STOP** — create contract first |
 | About to create a new contract when an active one exists | **STOP** — resume the existing contract instead |
-| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, execute `gitflow-issue-create` |
-| About to skip `gitflow-issue-create` or `gitflow-issue-review` | **STOP** — MANDATORY in Phase 1 |
+| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, execute `gf-issue-create` |
+| About to skip `gf-issue-create` or `gf-issue-review` | **STOP** — MANDATORY in Phase 1 |
 | About to advance without updating contract evidence | **STOP** — update contract first |
 | User says "just write the code" | **CHECK** — Scenario C? If no contract, refuse and start Phase 1 |
 | About to let a sub-skill chain to another | **STOP** — sub-skills return to orchestrator |
@@ -128,8 +128,8 @@ User can override batching strategy during plan phase.
 |--------|---------|
 | "brainstorming will handle Issue creation" | No — brainstorming chains to `writing-plans`, not Issue creation. Orchestrator must do it. |
 | "Contract can be created later" | No — contract MUST exist before any sub-skill. It is the single source of truth. |
-| "User just wants to discuss" | If they invoked `/gitflow-workflow`, run the workflow. |
-| "Issue review is optional" | No — `gitflow-issue-review` is MANDATORY in both full and fast modes. |
+| "User just wants to discuss" | If they invoked `/gf-workflow`, run the workflow. |
+| "Issue review is optional" | No — `gf-issue-review` is MANDATORY in both full and fast modes. |
 | "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Issue list/create/review are separate mandatory steps. |
 | "Requirement is clear, skip to Phase 3" | Scenario C. If `phases.2.evidence.spec_path` is empty, refuse and go to Phase 2. |
 | "New session, start fresh" | No — check `.cache/workflows/active/` first. If incomplete contract exists, resume it. |
@@ -142,7 +142,7 @@ User can override batching strategy during plan phase.
 | full workflow | 全流程（默认） |
 | clarify → plan → execute → deliver | 需求→计划→执行→交付 |
 
-**When NOT to Use:** quick fix → `gitflow-commit` · PR review → `gitflow-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
+**When NOT to Use:** quick fix → `gf-commit` · PR review → `gf-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
 
 **Mode auto-detection:** "fix"/"typo"/"hotfix"/"docs"/"chore" → `fast` · "refactor: small"/"fix: bug" → `standard` · "feat"/"refactor: large"/breaking → `full` · `good-first-issue` label → `fast` · unclear → `standard` (default). User can override with `--mode <mode>`.
 
@@ -184,25 +184,25 @@ User input:
 
 In fast mode, the following skills are invoked per phase:
 
-**Phase 1:** `gitflow-issue-create` (required), `superpowers:brainstorming` (optional)
+**Phase 1:** `gf-issue-create` (required), `superpowers:brainstorming` (optional)
 
 **Phase 2:** `superpowers:writing-plans` (optional, skippable)
 
 **Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
 
-**Phase 4:** `gitflow-pipeline-analyzer` → `gitflow-issue-triage` → `gitflow-review` → dogfooding checklist (all required)
+**Phase 4:** `gf-pipeline-analyzer` → `gf-issue-triage` → `gf-review` → dogfooding checklist (all required)
 
 ## Standard Mode — Required Skills Checklist
 
 In standard mode, the following skills are invoked per phase:
 
-**Phase 1:** `superpowers:brainstorming` (required), `gitflow-issue-create` (required), `gitflow-issue-review` (required)
+**Phase 1:** `superpowers:brainstorming` (required), `gf-issue-create` (required), `gf-issue-review` (required)
 
-**Phase 2:** `superpowers:writing-plans` (required) + `gitflow-quality` gate (required)
+**Phase 2:** `superpowers:writing-plans` (required) + `gf-quality` gate (required)
 
 **Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
 
-**Phase 4:** `gitflow-pipeline-analyzer` → `gitflow-review` → Branch Finish (all required)
+**Phase 4:** `gf-pipeline-analyzer` → `gf-review` → Branch Finish (all required)
 
 ## State Machine
 
@@ -214,7 +214,7 @@ In standard mode, the following skills are invoked per phase:
 
 ## Gate Rules
 
-Full definitions: `skills/gitflow-workflow/gates.md`
+Full definitions: `skills/gf-workflow/gates.md`
 
 | Enter Phase | Required evidence | fast-mode exemption |
 |-------------|-------------------|---------------------|
@@ -239,11 +239,11 @@ Full definitions: `skills/gitflow-workflow/gates.md`
    - Brainstorming will: explore context → ask questions → propose approaches → present design → write spec → **return control**
    - Output: `design_doc_path`
 
-4. **[AUTO] `gitflow-issue-create`** — **MANDATORY**
+4. **[AUTO] `gf-issue-create`** — **MANDATORY**
    - Create Issue (or use existing), reference design doc in body
    - Output: `issue_url`
 
-5. **[AUTO] `gitflow-issue-review`** — **MANDATORY**
+5. **[AUTO] `gf-issue-review`** — **MANDATORY**
    - Review Issue quality, add review comment
    - Output: `comment_id`
 
@@ -258,7 +258,7 @@ Full definitions: `skills/gitflow-workflow/gates.md`
 | Step | Action | Output |
 |------|--------|--------|
 | 1 | **[CALL]** `superpowers:writing-plans` (input: `design_doc_path`) — **⚠️ RETURN to orchestrator**. Create a full plan covering architecture, data flow, API design, component tree, and route design. The plan must create a full plan document with all design decisions. | `spec_path` |
-| 2 | **[AUTO]** `gitflow-quality` gate — runs all quality checks: Build check, Test check, Coverage check, Format check, Static check, and Pre-commit check. Report shows status per check. | all checks passed |
+| 2 | **[AUTO]** `gf-quality` gate — runs all quality checks: Build check, Test check, Coverage check, Format check, Static check, and Pre-commit check. Report shows status per check. | all checks passed |
 | 3 | **[AUTO]** Update contract: `evidence = { spec_path, user_approved: false }` | — |
 | 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → Phase 3 · "changes" → revise · "rejected" → terminate | `user_approved` |
 
@@ -272,7 +272,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 |------|--------|--------|
 | 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`, then create worktree: `feat/<issue-number>-<short-description>` | `branch`, `base_branch`, `worktree_path` |
 | 2 | **[AUTO]** `superpowers:subagent-driven-development` (TDD: RED → GREEN → REFACTOR) | implementation |
-| 3 | **[AUTO]** `gitflow-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
+| 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
 | 5 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, pr_url, tests_passed }` | — |
 | 6 | **[AUTO]** Gate 3→4 — `pr_url` + `tests_passed = true` → **AUTO-ADVANCE to Phase 4** | — |
@@ -299,9 +299,9 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gitflow-pipeline-analyzer` — generates pipeline analysis report (all modes) | `pipeline_ok` |
-| 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report (full mode only) | — |
-| 3 | **[AUTO]** `gitflow-review` — creates code review report (full + standard modes) | `review_report_path` |
+| 1 | **[AUTO]** `gf-pipeline-analyzer` — generates pipeline analysis report (all modes) | `pipeline_ok` |
+| 2 | **[AUTO]** `gf-issue-triage` — produces Issue triage report (full mode only) | — |
+| 3 | **[AUTO]** `gf-review` — creates code review report (full + standard modes) | `review_report_path` |
 | 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) (full mode only) | `dogfooding_passed` |
 | 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
 | 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` | — |
@@ -342,7 +342,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 |-----------------|----------|
 | Contract not found | Create new contract (start from Bootstrap) |
 | Sub-skill did not return | Reassert: read contract, resume at next step |
-| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, execute `gitflow-issue-create` |
+| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, execute `gf-issue-create` |
 | Gate check failed | Return to current Phase to complete evidence |
 | Skip gate / inline sub-skill / advance before contract update / worktree leak | Fix and re-run |
 | **Invoke sub-skill without contract** / **let sub-skill chain** / **skip Issue create/review** | **STOP** — see Red Flags |

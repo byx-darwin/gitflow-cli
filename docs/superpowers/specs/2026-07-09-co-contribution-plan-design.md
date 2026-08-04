@@ -10,7 +10,7 @@
 
 ## 动机
 
-当前 `skills install` 安装的 Stop Hook 和 `gitflow-autoreport-bug` Skill 构成了完整的自动 bug 上报管道，但缺少一个关键环节：**安装时不验证 GitHub 登录状态**。未登录的用户安装了 hook 也无法成功创建 Issue。
+当前 `skills install` 安装的 Stop Hook 和 `gf-autoreport-bug` Skill 构成了完整的自动 bug 上报管道，但缺少一个关键环节：**安装时不验证 GitHub 登录状态**。未登录的用户安装了 hook 也无法成功创建 Issue。
 
 共建计划解决三个问题：
 1. **安装时验证 auth**：确保用户已登录 GitHub，使上报管道端到端可用。
@@ -288,7 +288,7 @@ if [ "$AUTH_CHECK_FAILED" = "true" ]; then
 fi
 ```
 
-### 4. Skill 改动（`skills/gitflow-autoreport-bug/SKILL.md`）
+### 4. Skill 改动（`skills/gf-autoreport-bug/SKILL.md`）
 
 在 Decision Flow 中增加"未登录 fallback"分支：
 
@@ -319,7 +319,7 @@ Skill 正文中增加未登录处理说明：
 | `apps/cli/src/commands/skills.rs` | 新增逻辑 | 共建计划询问 + auth 检查 + settings.json 标记写入 |
 | `apps/cli/src/error_reporter.rs` | 修改 | 增加 `is_co_contribution_enabled()` 检查 |
 | `hooks/auto-report-bug.sh` | 修改 | Auth 失败时输出登录提示 + Issue 模板 |
-| `skills/gitflow-autoreport-bug/SKILL.md` | 修改 | 增加未登录 fallback 分支 |
+| `skills/gf-autoreport-bug/SKILL.md` | 修改 | 增加未登录 fallback 分支 |
 
 ## 错误处理
 

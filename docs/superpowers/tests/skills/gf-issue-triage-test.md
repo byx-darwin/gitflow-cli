@@ -1,13 +1,13 @@
-# gitflow-issue-triage 压力测试场景
+# gf-issue-triage 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-issue-triage/SKILL.md`
+> **对应 Skill:** `skills/gf-issue-triage/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-issue-triage` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-issue-triage` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完成 5 步流程（Fetch → Classify → Priority → Apply labels → Report）
 2. 每个 issue 只分配一个 type + 一个 priority
 3. 所有 issue 必须标记 `triage:done`
@@ -163,7 +163,7 @@
 **Skill 应坚守的行为:**
 - 仅执行 triage，不关闭 issue
 - 标记 duplicate 但不关闭
-- 引用 Out of Scope "Editing Issue body → /gitflow-issue"
+- 引用 Out of Scope "Editing Issue body → /gf-issue"
 - 引用 Test Scenario 3 "triage only; label duplicates but do not close"
 
 **合理化借口（应被红旗列表捕获）:**

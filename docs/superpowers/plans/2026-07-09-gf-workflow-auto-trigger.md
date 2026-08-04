@@ -1,8 +1,8 @@
-# gitflow-workflow Auto-Trigger Orchestration Implementation Plan
+# gf-workflow Auto-Trigger Orchestration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make gitflow-workflow automatically trigger sub-skills through Phase 1-4 with minimal user intervention, pausing only at Gate 2→3 for plan approval.
+**Goal:** Make gf-workflow automatically trigger sub-skills through Phase 1-4 with minimal user intervention, pausing only at Gate 2→3 for plan approval.
 
 **Architecture:** Update SKILL.md documentation to define an Orchestrator State Machine with explicit auto-trigger rules. Update contract schema to include design_doc_path field. Update gate rules to reflect new conditions. All changes are documentation-only.
 
@@ -24,9 +24,9 @@
 
 | File | Responsibility | Changes |
 |------|---------------|---------|
-| `.claude/skills/gitflow-workflow/contract.schema.json` | Define contract structure | Add `design_doc_path` field, bump version to 1.1 |
-| `.claude/skills/gitflow-workflow/gates.md` | Define gate conditions | Update Gate 1→2 to require `design_doc_path`, add auto-advance rules |
-| `.claude/skills/gitflow-workflow/SKILL.md` | Define workflow orchestration | Add Orchestrator State Machine section, rewrite Phase 1-4 flows, add Cross-Session Recovery section |
+| `.claude/skills/gf-workflow/contract.schema.json` | Define contract structure | Add `design_doc_path` field, bump version to 1.1 |
+| `.claude/skills/gf-workflow/gates.md` | Define gate conditions | Update Gate 1→2 to require `design_doc_path`, add auto-advance rules |
+| `.claude/skills/gf-workflow/SKILL.md` | Define workflow orchestration | Add Orchestrator State Machine section, rewrite Phase 1-4 flows, add Cross-Session Recovery section |
 
 ### File Dependencies
 
@@ -45,7 +45,7 @@ SKILL.md (references gates and schema)
 ### Task 1: Update Contract Schema
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/contract.schema.json`
+- Modify: `.claude/skills/gf-workflow/contract.schema.json`
 
 **Interfaces:**
 - Produces: Updated JSON schema with `design_doc_path` field in Phase 1 evidence
@@ -54,7 +54,7 @@ SKILL.md (references gates and schema)
 - [ ] **Step 1: Read current schema**
 
 ```bash
-cat .claude/skills/gitflow-workflow/contract.schema.json
+cat .claude/skills/gf-workflow/contract.schema.json
 ```
 
 Expected: Version 1.0 schema with evidence fields (issue_url, comment_id, spec_path, etc.)
@@ -117,7 +117,7 @@ Full evidence properties should be:
 - [ ] **Step 5: Validate JSON syntax**
 
 ```bash
-jq . .claude/skills/gitflow-workflow/contract.schema.json > /dev/null && echo "Valid JSON"
+jq . .claude/skills/gf-workflow/contract.schema.json > /dev/null && echo "Valid JSON"
 ```
 
 Expected: `Valid JSON`
@@ -125,7 +125,7 @@ Expected: `Valid JSON`
 - [ ] **Step 6: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/contract.schema.json
+git add .claude/skills/gf-workflow/contract.schema.json
 git commit -m "feat(schema): add design_doc_path field and bump version to 1.1
 
 - Add design_doc_path to Phase 1 evidence for tracking brainstorming output
@@ -140,7 +140,7 @@ Relates to #79"
 ### Task 2: Update Gate Rules
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/gates.md`
+- Modify: `.claude/skills/gf-workflow/gates.md`
 
 **Interfaces:**
 - Consumes: Updated schema from Task 1 (design_doc_path field)
@@ -149,7 +149,7 @@ Relates to #79"
 - [ ] **Step 1: Read current gates.md**
 
 ```bash
-cat .claude/skills/gitflow-workflow/gates.md
+cat .claude/skills/gf-workflow/gates.md
 ```
 
 Expected: Current gate definitions for Gate 1→2, 2→3, 3→4
@@ -277,7 +277,7 @@ def check_gate(contract, target_phase):
 - [ ] **Step 7: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/gates.md
+git add .claude/skills/gf-workflow/gates.md
 git commit -m "feat(gates): update gate conditions and add auto-advance rules
 
 - Gate 1→2: require design_doc_path (exempt in fast mode)
@@ -294,7 +294,7 @@ Relates to #79"
 ### Task 3: Update SKILL.md with Orchestrator State Machine
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/SKILL.md`
+- Modify: `.claude/skills/gf-workflow/SKILL.md`
 
 **Interfaces:**
 - Consumes: Updated gates from Task 2, schema from Task 1
@@ -303,7 +303,7 @@ Relates to #79"
 - [ ] **Step 1: Read current SKILL.md**
 
 ```bash
-cat .claude/skills/gitflow-workflow/SKILL.md
+cat .claude/skills/gf-workflow/SKILL.md
 ```
 
 Expected: Current skill documentation with Phase 1-4 descriptions
@@ -368,12 +368,12 @@ Replace the Phase 1 section (lines ~125-140) with:
      - **Only completes after user approval**
    - Output: `design_doc_path`
 
-3. **[AUTO]** Call `gitflow-issue-create`
+3. **[AUTO]** Call `gf-issue-create`
    - Create GitHub Issue (or use existing Issue)
    - Reference design doc path in Issue body
    - Output: `issue_url`
 
-4. **[AUTO]** Call `gitflow-issue-review`
+4. **[AUTO]** Call `gf-issue-review`
    - Review Issue quality
    - Add review comment
    - Output: `comment_id`
@@ -454,7 +454,7 @@ Replace the Phase 3 section (lines ~158-173) with:
    - Includes TDD cycle: RED → GREEN → REFACTOR
    - Output: implementation complete
 
-3. **[AUTO]** Call `gitflow-pr-create`
+3. **[AUTO]** Call `gf-pr-create`
    - PR body MUST include `Closes #<issue-number>`
    - Output: `pr_url`
 
@@ -491,14 +491,14 @@ Replace the Phase 4 section (lines ~175-185) with:
 
 **Execution Steps:**
 
-1. **[AUTO]** Call `gitflow-pipeline-analyzer`
+1. **[AUTO]** Call `gf-pipeline-analyzer`
    - Generate pipeline analysis report
    - Output: `pipeline_ok = true/false`
 
-2. **[AUTO]** Call `gitflow-issue-triage`
+2. **[AUTO]** Call `gf-issue-triage`
    - Generate Issue triage report
 
-3. **[AUTO]** Call `gitflow-review`
+3. **[AUTO]** Call `gf-review`
    - Generate code review report
    - Output: `review_report_path`
 
@@ -568,7 +568,7 @@ Step 4: Continue Execution
 
 ```bash
 # Check for obvious syntax errors
-grep -n "^#" .claude/skills/gitflow-workflow/SKILL.md | head -20
+grep -n "^#" .claude/skills/gf-workflow/SKILL.md | head -20
 ```
 
 Expected: Section headers are properly formatted
@@ -576,7 +576,7 @@ Expected: Section headers are properly formatted
 - [ ] **Step 9: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/SKILL.md
+git add .claude/skills/gf-workflow/SKILL.md
 git commit -m "feat(skill): add orchestrator state machine and auto-trigger rules
 
 - Add Orchestrator State Machine section with auto-advance rules
@@ -620,7 +620,7 @@ Relates to #79"
 
 ## Execution Handoff
 
-**Plan complete and saved to `docs/superpowers/plans/2026-07-09-gitflow-workflow-auto-trigger.md`. Two execution options:**
+**Plan complete and saved to `docs/superpowers/plans/2026-07-09-gf-workflow-auto-trigger.md`. Two execution options:**
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

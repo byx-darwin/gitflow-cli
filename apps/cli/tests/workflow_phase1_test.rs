@@ -1,4 +1,4 @@
-//! Structure verification tests for Phase 1 (needs clarification) of the gitflow-workflow SKILL.md.
+//! Structure verification tests for Phase 1 (needs clarification) of the gf-workflow SKILL.md.
 
 mod common;
 

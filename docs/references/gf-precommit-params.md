@@ -1,6 +1,6 @@
 # gf pre-commit 完整参考
 
-> 本文档为 `gitflow-precommit` skill 的参数与模板外部化引用。
+> 本文档为 `gf-precommit` skill 的参数与模板外部化引用。
 
 ## 参数速查
 

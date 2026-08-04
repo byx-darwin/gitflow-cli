@@ -1,11 +1,11 @@
 ---
-name: gitflow-issue
+name: gf-issue
 description: |
   Use when the user needs to manage issues via gf — create, list, view, close, reopen, comment, or manage labels.
   当用户需要通过 gf 管理 Issue（创建、列表、查看、关闭、重新打开、评论、标签）时使用。
 ---
 
-# gitflow-issue
+# gf-issue
 
 ## Overview
 
@@ -22,8 +22,8 @@ Wraps `gf issue`. 7 subcommands: `create · list · view · close · reopen · c
 | reopen | 重新打开 | — |
 | add comment | 添加评论 | — |
 | add label | 添加标签 | — |
-| full workflow | 全流程 | → `gitflow-issue-create` |
-| analyze requirements | — | → `gitflow-issue-review` |
+| full workflow | 全流程 | → `gf-issue-create` |
+| analyze requirements | — | → `gf-issue-review` |
 
 ## Core Pattern
 
@@ -81,7 +81,7 @@ flowchart TD
 
 **In:** select sub-command · run read or state change · format output · record action.
 
-**Out:** interactive workflow (`gitflow-issue-create`) · triage (`gitflow-issue-review` · `gitflow-issue-triage`) · bulk operations · mutating others' issues without confirmation.
+**Out:** interactive workflow (`gf-issue-create`) · triage (`gf-issue-review` · `gf-issue-triage`) · bulk operations · mutating others' issues without confirmation.
 
 ### 🚫 Do Not
 
@@ -123,7 +123,7 @@ flowchart TD
 - **Given** "create: title=X label=bug" · **Then** `issue create` → output URL
 
 ### 2: Negative
-- **Given** "do review issue #5" · **Then** → `gitflow-issue-review`
+- **Given** "do review issue #5" · **Then** → `gf-issue-review`
 
 ### 3: Boundary
 - **Given** close already-closed #N · **Then** no-op + state note
@@ -146,13 +146,13 @@ flowchart TD
 
 ## See Also
 
-- `gitflow-issue-create` — interactive creation
-- `gitflow-issue-review` — requirement analysis
-- `gitflow-issue-triage` — classification
-- `gitflow-label-milestone` — labels/milestones
-- `gitflow-autoreport-bug` — auto-create from CLI error
-- `gitflow-workflow` — end-to-end workflow
-- `gitflow-pr` — PR linking
+- `gf-issue-create` — interactive creation
+- `gf-issue-review` — requirement analysis
+- `gf-issue-triage` — classification
+- `gf-label-milestone` — labels/milestones
+- `gf-autoreport-bug` — auto-create from CLI error
+- `gf-workflow` — end-to-end workflow
+- `gf-pr` — PR linking
 
 ## Trigger Keywords
 

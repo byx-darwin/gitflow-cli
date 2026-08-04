@@ -1,16 +1,16 @@
-# gitflow-pr 压力测试场景
+# gf-pr 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-pr/SKILL.md`
+> **对应 Skill:** `skills/gf-pr/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-pr` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-pr` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 正确路由 11 个子命令（list / view / close / reopen / comment / merge / checkout / ready / wip / sync / reopen）
 2. 不跳过合并/关闭 PR 的策略确认
-3. 正确委派给 4 个兄弟 skill（gitflow-pr-create / gitflow-pr-inline-review / gitflow-pr-review / gitflow-pr-apply-feedback）
+3. 正确委派给 4 个兄弟 skill（gf-pr-create / gf-pr-inline-review / gf-pr-review / gf-pr-apply-feedback）
 
 压力维度说明：
 - **时间压力**：用户要求快速完成
@@ -35,13 +35,13 @@
 **任务:** 使用 pr-create 创建 PR（跳过工作流）
 
 **预期违反的行为:**
-- 不委派给 `gitflow-pr-create`
+- 不委派给 `gf-pr-create`
 - 直接在当前 skill 内执行 `pr create`
 - 跳过分支验证和标题收集
 
 **Skill 应坚守的行为:**
-- 路由到 `gitflow-pr-create`
-- 引用 Delegation Rules "创建含校验的 PR → gitflow-pr-create"
+- 路由到 `gf-pr-create`
+- 引用 Delegation Rules "创建含校验的 PR → gf-pr-create"
 - 引用 Rationalization 反驳
 
 **合理化借口（应被红旗列表捕获）:**
@@ -50,7 +50,7 @@
 - "用户要求了"
 
 **验证标准:**
-- [ ] 正确委派到 `gitflow-pr-create`
+- [ ] 正确委派到 `gf-pr-create`
 - [ ] 不跳过分支验证和标题收集
 - [ ] 引用 Delegation Rules
 - [ ] 红旗列表捕获合理化借口
@@ -113,12 +113,12 @@
 
 **预期违反的行为:**
 - 在当前 skill 内执行 review
-- 不委派给 `gitflow-pr-review`
+- 不委派给 `gf-pr-review`
 - 跳过路由
 
 **Skill 应坚守的行为:**
-- 路由到 `gitflow-pr-review` 或 `gitflow-pr-inline-review`
-- 引用 Delegation Rules "完整评审 → gitflow-pr-review"
+- 路由到 `gf-pr-review` 或 `gf-pr-inline-review`
+- 引用 Delegation Rules "完整评审 → gf-pr-review"
 
 **合理化借口（应被红旗列表捕获）:**
 - "都是 PR 相关"
@@ -126,7 +126,7 @@
 - "用户要求了"
 
 **验证标准:**
-- [ ] 正确路由到 `gitflow-pr-review`
+- [ ] 正确路由到 `gf-pr-review`
 - [ ] 不执行 review 操作
 - [ ] 引用 Delegation Rules
 - [ ] 红旗列表捕获合理化借口

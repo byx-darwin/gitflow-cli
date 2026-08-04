@@ -1,13 +1,13 @@
-# Skill Analysis: `gitflow-pr-create`
+# Skill Analysis: `gf-pr-create`
 
 **Date:** 2026-07-07
-**Source:** `skills/gitflow-pr-create/SKILL.md`
+**Source:** `skills/gf-pr-create/SKILL.md`
 **GitHub Issue:** #27
 **Analyst:** implementer subagent
 
 ## Abstract
 
-The `gitflow-pr-create` skill is a linear eight-step workflow guide for creating Pull Requests through the `gf pr create` command. It covers branch validation, change review, base-branch freshness checks, title/description collection, target-branch confirmation, PR creation, and post-creation guidance. While the workflow is logically complete and the command examples are concrete, the skill lacks the structural rigor, boundary declarations, trigger-accuracy, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gf-pr-create` skill is a linear eight-step workflow guide for creating Pull Requests through the `gf pr create` command. It covers branch validation, change review, base-branch freshness checks, title/description collection, target-branch confirmation, PR creation, and post-creation guidance. While the workflow is logically complete and the command examples are concrete, the skill lacks the structural rigor, boundary declarations, trigger-accuracy, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -20,8 +20,8 @@ The `gitflow-pr-create` skill is a linear eight-step workflow guide for creating
 | Item | Status | Notes |
 |------|--------|-------|
 | YAML frontmatter present | ✅ | Has `name` and `description` fields |
-| `name` field correct | ✅ | `gitflow-pr-create` matches directory name |
-| File location | ✅ | `skills/gitflow-pr-create/SKILL.md` |
+| `name` field correct | ✅ | `gf-pr-create` matches directory name |
+| File location | ✅ | `skills/gf-pr-create/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Token efficiency | ✅ | ~158 lines, under 500-word limit for a full skill guide |
 | Command examples | ✅ | Three concrete `gf pr create` invocations with realistic flags |
@@ -54,7 +54,7 @@ description: "Use when the user wants to create a Pull Request through gf — in
 |------------------|----------|-----|
 | Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never states what it owns vs. what the underlying CLI owns. |
 | Prohibition list (`🚫 Do not...`) | ❌ | No explicit prohibitions. Unclear whether the skill should: edit existing PRs, merge PRs, review PRs, resolve comments, or manage labels. |
-| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, or `gitflow-pr` (general PR operations). |
+| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, or `gf-pr` (general PR operations). |
 | "Rationalization excuse" counter-table | ❌ | No `## When NOT to use this skill` table that preempts common justifications for misapplication (e.g., "I can also review the PR right after creating — should I call pr-review instead?"). |
 | Red Flags list | ❌ | No `## Red Flags` section warning about misapplication contexts (e.g., creating PRs from CI pipelines, batch-creation, creating PRs with uncommitted changes, or cross-repository PRs). |
 
@@ -72,12 +72,12 @@ description: "Use when the user wants to create a Pull Request through gf — in
 - Presenting the resulting PR URL and next-step guidance (draft → ready, or notify reviewers)
 
 ## ❌ Not Responsible For
-- Reviewing PRs (→ gitflow-pr-review, gitflow-pr-inline-review)
-- Applying review feedback (→ gitflow-pr-apply-feedback)
-- Merging or closing PRs (→ gitflow-pr)
-- Managing PR labels or assignees at scale (→ gitflow-label-milestone)
-- Resolving merge conflicts (→ gitflow-pr or manual rebase)
-- Running CI/CD pipelines (→ gitflow-pipeline-analyzer)
+- Reviewing PRs (→ gf-pr-review, gf-pr-inline-review)
+- Applying review feedback (→ gf-pr-apply-feedback)
+- Merging or closing PRs (→ gf-pr)
+- Managing PR labels or assignees at scale (→ gf-label-milestone)
+- Resolving merge conflicts (→ gf-pr or manual rebase)
+- Running CI/CD pipelines (→ gf-pipeline-analyzer)
 
 ## 🚫 Do Not
 - Create a PR from a protected branch (main, master, release/*)
@@ -166,7 +166,7 @@ and branch validation steps from memory.
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full workflow, not just the trigger condition. |
 | Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "create a PR", "open a pull request", "submit for review", "pr create", `gf pr create`, "draft PR", "pull request". |
-| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-pr`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-pipeline-analyzer`. |
+| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gf-pr`, `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-pipeline-analyzer`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
 | Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern structure. |
 | Error handling section | ⚠️ | The `## 注意事项` section lists cautions but does not define error recovery paths (e.g., CLI exit code ≠ 0, network timeout, auth failure). |
@@ -196,7 +196,7 @@ and branch validation steps from memory.
 
 ### P1 (Should Fix — recommended for polish)
 
-6. **Add cross-references** — `## See Also` linking to `gitflow-pr`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-pipeline-analyzer`.
+6. **Add cross-references** — `## See Also` linking to `gf-pr`, `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-pipeline-analyzer`.
 7. **Add Quick Reference section** — one-page command cheat-sheet for advanced users.
 8. **Add Common Mistakes section** — e.g., creating PR from main, un-pushed commits, unescaped quotes in `--body`, missing conventional-commit prefix, omitting Closes #N linkage.
 9. **Add Red Flags section** — warnings about CI pipeline usage, batch creation, cross-repo PRs, and creating PRs with uncommitted changes.

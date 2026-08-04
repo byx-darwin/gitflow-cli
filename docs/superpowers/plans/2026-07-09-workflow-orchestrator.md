@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: 使用 superpowers:subagent-driven-development 按计划逐任务执行。步骤使用 checkbox (`- [ ]`) 语法追踪。
 
-**Goal:** 将 `gitflow-workflow` 从 prompt-driven 提示文档升级为 contract-driven 强制编排器，实现门控校验、多 Agent 兼容、多流程并发。
+**Goal:** 将 `gf-workflow` 从 prompt-driven 提示文档升级为 contract-driven 强制编排器，实现门控校验、多 Agent 兼容、多流程并发。
 
 **Architecture:** 合同（Contract）是 Phase 间传递的 JSON 结构，存储于 `.cache/workflows/active/`。每个 Phase 完成后写入 evidence，进入下一 Phase 前校验 evidence 完整性。多 Agent 通过读写同一份合同实现接力。CLI 提供 `workflow status/list/archive/cleanup` 子命令。
 
@@ -27,7 +27,7 @@
 ### 文件结构
 
 ```
-skills/gitflow-workflow/
+skills/gf-workflow/
 ├── SKILL.md                      ← 重写（四阶段编排器）
 ├── contract.schema.json          ← 新建（JSON Schema）
 └── gates.md                      ← 新建（门控规则）
@@ -56,7 +56,7 @@ apps/cli/src/
 ## Task 1: 合同 JSON Schema
 
 **Files:**
-- Create: `skills/gitflow-workflow/contract.schema.json`
+- Create: `skills/gf-workflow/contract.schema.json`
 - Test: 手动 JSON 校验
 
 **Interfaces:**
@@ -65,14 +65,14 @@ apps/cli/src/
 
 - [ ] **Step 1: 创建合同 Schema**
 
-写入文件 `skills/gitflow-workflow/contract.schema.json`：
+写入文件 `skills/gf-workflow/contract.schema.json`：
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://gf.ai/schemas/workflow-contract-v1.json",
   "title": "Workflow Contract",
-  "description": "Phase 间传递的结构化合同，用于 gitflow-workflow 四阶段编排器",
+  "description": "Phase 间传递的结构化合同，用于 gf-workflow 四阶段编排器",
   "type": "object",
   "required": ["version", "workflow_id", "title", "mode", "created_at", "updated_at", "current_phase", "phases"],
   "properties": {
@@ -173,13 +173,13 @@ apps/cli/src/
 
 - [ ] **Step 2: 验证 Schema 合法性**
 
-Run: `python3 -m json.tool skills/gitflow-workflow/contract.schema.json > /dev/null && echo "JSON valid"`
+Run: `python3 -m json.tool skills/gf-workflow/contract.schema.json > /dev/null && echo "JSON valid"`
 Expected: `JSON valid`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add skills/gitflow-workflow/contract.schema.json
+git add skills/gf-workflow/contract.schema.json
 git commit -m "feat(workflow): add contract JSON schema v1.0
 
 Defines the contract structure for phase-to-phase state transfer.
@@ -192,7 +192,7 @@ Validated against JSON Schema 2020-12."
 ## Task 2: 门控规则定义
 
 **Files:**
-- Create: `skills/gitflow-workflow/gates.md`
+- Create: `skills/gf-workflow/gates.md`
 - Test: 文档人工审查
 
 **Interfaces:**
@@ -201,7 +201,7 @@ Validated against JSON Schema 2020-12."
 
 - [ ] **Step 1: 创建门控规则文档**
 
-写入文件 `skills/gitflow-workflow/gates.md`：
+写入文件 `skills/gf-workflow/gates.md`：
 
 ```markdown
 # 门控规则
@@ -277,7 +277,7 @@ def check_gate(contract, target_phase):
 - [ ] **Step 2: Commit**
 
 ```bash
-git add skills/gitflow-workflow/gates.md
+git add skills/gf-workflow/gates.md
 git commit -m "feat(workflow): define gate rules between phases
 
 Three gates (1→2, 2→3, 3→4) with fast-mode exemptions.
@@ -290,7 +290,7 @@ Includes multi-agent gate check algorithm."
 ## Task 3: SKILL.md 重写
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md`
+- Modify: `skills/gf-workflow/SKILL.md`
 - Test: 3 个 pressure scenario（见 Task 6）
 
 **Interfaces:**
@@ -300,23 +300,23 @@ Includes multi-agent gate check algorithm."
 - [ ] **Step 1: 备份当前 SKILL.md**
 
 ```bash
-cp skills/gitflow-workflow/SKILL.md skills/gitflow-workflow/SKILL.md.bak
+cp skills/gf-workflow/SKILL.md skills/gf-workflow/SKILL.md.bak
 ```
 
 - [ ] **Step 2: 重写 SKILL.md**
 
-写入新文件 `skills/gitflow-workflow/SKILL.md`：
+写入新文件 `skills/gf-workflow/SKILL.md`：
 
 ```markdown
 ---
-name: gitflow-workflow
+name: gf-workflow
 description: |
   Contract-driven four-phase gated pipeline. Use when the user wants a
   mandatory clarify → plan → execute → deliver workflow with JSON contract
   verification between phases. 当用户需要强制执行的四阶段闸门驱动全流程时使用。
 ---
 
-# gitflow-workflow — 合同驱动四阶段闸门编排器
+# gf-workflow — 合同驱动四阶段闸门编排器
 
 编排层只指挥；状态靠合同；门控不跳过。
 
@@ -342,7 +342,7 @@ description: |
 .cache/workflows/active/<workflow_id>.json
 ```
 
-合同格式定义：`skills/gitflow-workflow/contract.schema.json`
+合同格式定义：`skills/gf-workflow/contract.schema.json`
 
 ### 合同示例
 
@@ -400,7 +400,7 @@ description: |
 
 ## 门控规则
 
-完整门控定义：`skills/gitflow-workflow/gates.md`
+完整门控定义：`skills/gf-workflow/gates.md`
 
 **关键原则：** 进入下一 Phase 前，必须校验前一 Phase 的 evidence 完整性。门控失败时，**阻止进入**并返回修复。
 
@@ -419,8 +419,8 @@ description: |
 
 1. 读取 Open Issues → `gf issue list --state open`
 2. **full 模式：** 调用 `superpowers:brainstorming` 澄清需求
-3. 调用 `gitflow-issue-create` 创建 Issue
-4. **full 模式：** 调用 `gitflow-issue-review` 审计回贴
+3. 调用 `gf-issue-create` 创建 Issue
+4. **full 模式：** 调用 `gf-issue-review` 审计回贴
 5. 写入合同 `phases.1.evidence = { issue_url, comment_id }`
 6. 更新 `phases.1.status = complete`
 
@@ -436,7 +436,7 @@ description: |
 1. **full 模式：** 调用 `superpowers:writing-plans` 制定计划
 2. 用户审批 → `evidence.user_approved = true`
 3. 写入合同 `phases.2.evidence = { spec_path, user_approved }`
-4. 调用 `gitflow-quality` gate → ALL CHECKS PASSED
+4. 调用 `gf-quality` gate → ALL CHECKS PASSED
 5. 更新 `phases.2.status = complete`
 
 **门控 2→3 校验：**
@@ -452,7 +452,7 @@ description: |
 1. 创建 worktree
 2. 调用 `superpowers:subagent-driven-development`
 3. 内含 TDD 循环：RED → GREEN → REFACTOR
-4. 调用 `gitflow-pr-create` 创建 PR
+4. 调用 `gf-pr-create` 创建 PR
 5. 写入合同 `phases.3.evidence = { branch, pr_url, tests_passed }`
 6. 更新 `phases.3.status = complete`
 
@@ -465,9 +465,9 @@ description: |
 **入口条件：** Gate 3→4 通过
 **出口条件：** 合同 `phases.4.status = complete`
 
-1. 调用 `gitflow-pipeline-analyzer` → 生成流水线报告
-2. 调用 `gitflow-issue-triage` → 生成 Issue 分类报告
-3. 调用 `gitflow-review` → 生成代码审查报告
+1. 调用 `gf-pipeline-analyzer` → 生成流水线报告
+2. 调用 `gf-issue-triage` → 生成 Issue 分类报告
+3. 调用 `gf-review` → 生成代码审查报告
 4. 写入合同 `phases.4.evidence = { pipeline_ok, review_report_path }`
 5. 更新 `phases.4.status = complete`
 6. 归档合同 → `.cache/workflows/archive/YYYY-MM/`
@@ -596,13 +596,13 @@ gitflow workflow cleanup --older-than 90
 - [ ] **Step 3: 清理备份**
 
 ```bash
-rm skills/gitflow-workflow/SKILL.md.bak
+rm skills/gf-workflow/SKILL.md.bak
 ```
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add skills/gitflow-workflow/SKILL.md
+git add skills/gf-workflow/SKILL.md
 git commit -m "feat(workflow): rewrite SKILL.md as contract-driven orchestrator
 
 - Add contract lifecycle (create/update/read)

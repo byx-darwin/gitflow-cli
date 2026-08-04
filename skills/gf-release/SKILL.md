@@ -1,11 +1,11 @@
 ---
-name: gitflow-release
+name: gf-release
 description: |
   Use when the user wants to manage Git releases through gf — create, list, view, edit, upload/download assets, or delete.
   当用户希望通过 gf 管理版本发布（创建、列表、查看、编辑、上传/下载资源或删除）时使用。
 ---
 
-# gitflow-release
+# gf-release
 
 CRUD wrapper for `gf release`. Manages GitHub/GitLab/GitCode releases — metadata only; tag must exist first. Delete is irreversible.
 
@@ -77,8 +77,8 @@ gf release <subcommand> ...
 ### ❌ Out of Scope
 
 - Creating the Git tag → `git tag`, `git push --tags`
-- Changelog generation → `/gitflow-release-helper`
-- Release orchestration → `/gitflow-release-helper`
+- Changelog generation → `/gf-release-helper`
+- Release orchestration → `/gf-release-helper`
 
 ### 🚫 Do Not
 
@@ -110,7 +110,7 @@ gf release <subcommand> ...
 - **Given** "delete tag v1.0.0" — **Then** NOT loaded. → git CLI. This skill is for releases, not tags.
 
 ### 3: Boundary
-- **Given** "upload binary and also generate the changelog" — **Then** `upload` only; redirect changelog → `/gitflow-release-helper`.
+- **Given** "upload binary and also generate the changelog" — **Then** `upload` only; redirect changelog → `/gf-release-helper`.
 
 ### 4: Error
 - **Given** "create release v3.0.0" but no such tag — **Then** stop, "Tag v3.0.0 missing. Run `git tag` first."
@@ -132,7 +132,7 @@ gf release <subcommand> ...
 
 ## See Also
 
-- `gitflow-release-helper` — version decision, changelog, release orchestration
-- `gitflow-quality` — pre-release quality gate
-- `gitflow-pr` — PR lifecycle
-- `gitflow-label-milestone` — milestone association
+- `gf-release-helper` — version decision, changelog, release orchestration
+- `gf-quality` — pre-release quality gate
+- `gf-pr` — PR lifecycle
+- `gf-label-milestone` — milestone association

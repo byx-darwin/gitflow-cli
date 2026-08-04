@@ -1,7 +1,7 @@
-# gitflow-pr-inline-review Skill 分析报告
+# gf-pr-inline-review Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-pr-inline-review/SKILL.md`
+> **分析目标：** `skills/gf-pr-inline-review/SKILL.md`
 > **对应 Issue：** #32
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试、压力测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 工作流步骤可执行（5 步）、4 维度审查清单实用、命令精确；但 description 不合规、无关键词覆盖、无跨引用其他 skills、未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-pr-inline-review 是一个"操作手册 + 命令模板库"混合体——它有清晰的 5 步工作流、结构化的 4 维度审查清单、精确的命令格式。但与 Superpowers skill 形态差距在于：**description 不合规导致触发边界模糊**、**职责边界完全缺失**（涉及发布会审评论的写操作副作用）、**无可测试性设计**。
+**总体评估：** gf-pr-inline-review 是一个"操作手册 + 命令模板库"混合体——它有清晰的 5 步工作流、结构化的 4 维度审查清单、精确的命令格式。但与 Superpowers skill 形态差距在于：**description 不合规导致触发边界模糊**、**职责边界完全缺失**（涉及发布会审评论的写操作副作用）、**无可测试性设计**。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-pr-inline-review` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-pr-inline-review` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | "PR 行内评论工作流 — 获取 PR diff 并逐文件分析..." |
 | description 只描述触发条件 | ❌ | 混合功能描述（4 维度审查）、流程描述（"获取 diff → 分析 → 生成评论"）、效果承诺 |
@@ -67,7 +67,7 @@
    - 建议：维度清单浓缩为 1 个 4 行标签表 + 维度名简要；详细检查点移至 `docs/references/pr-review-checklist.md`
 
 5. **缺少 When NOT to use 指导**：
-   - 何时应使用 `gitflow-pr-review`（总体审查）而非 `gitflow-pr-inline-review`（行内审查）？边界未定义
+   - 何时应使用 `gf-pr-review`（总体审查）而非 `gf-pr-inline-review`（行内审查）？边界未定义
    - 建议：明确"总体架构反馈 → pr-review；具体行问题 → pr-inline-review"
 
 ### 2.3 评分：⚠️ 需改进
@@ -103,7 +103,7 @@
    - 🚫 不得代替用户做出 Review 决策（Approve / Request Changes / Comment）
    - 🚫 不得读取或评论非 PR 变更范围内的文件
    - 🚫 不得将评审草稿同时发布到多个 PR（编号混淆）
-   - 🚫 不得在 CI 环境（如 gitflow-workflow 执行中）未经用户审阅批量发布会审评论
+   - 🚫 不得在 CI 环境（如 gf-workflow 执行中）未经用户审阅批量发布会审评论
 
 3. **缺少红旗信号 — 应标识**：
    - 用户说"直接帮评论一下"但未确认发布（需先展示草稿）
@@ -115,7 +115,7 @@
 4. **缺少职责范围说明**：
    - ✅ 负责：获取 PR diff、按 4 维度分析变更、生成行内评论草稿、发布评论到指定行、输出审查汇总
    - ❌ 不负责：做出 Review 决策（Approve / Request Changes 由用户决定）、修复 PR 代码、反复审查已关闭的 PR、处理 Review 回复
-   - ❌ 不负责：在 PR 上创建或关闭 PR（属于 gitflow-pr skill）
+   - ❌ 不负责：在 PR 上创建或关闭 PR（属于 gf-pr skill）
 
 5. **"合理化借口"反制**：
    - "just leave a quick comment" → "留个评论很快" → 发布会审评论前需用户确认
@@ -126,7 +126,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** autoreport-bug 本身有完整的"职责边界声明"章节，明确"只报告不修复"。gitflow-pr-inline-review 涉及发布会审评论（写操作），但边界风险更高——误发的评论可能被 PR 作者和团队看到，一旦发布难以无痕撤回。这种"写入公开可见内容"的操作比普通 Issue 创建更需要明确边界。
+**对比参考（gf-autoreport-bug）：** autoreport-bug 本身有完整的"职责边界声明"章节，明确"只报告不修复"。gf-pr-inline-review 涉及发布会审评论（写操作），但边界风险更高——误发的评论可能被 PR 作者和团队看到，一旦发布难以无痕撤回。这种"写入公开可见内容"的操作比普通 Issue 创建更需要明确边界。
 
 ---
 
@@ -199,11 +199,11 @@
    - 关键词覆盖建议（英文）："inline review"、"line-level comments"、"PR line review"、"review PR with inline feedback"、"comment on specific lines"、"code review per-file"
 
 2. **缺少结构化跨引用**：应明确引用：
-   - `gitflow-pr-review`（总审审查技能，与本 skill 互补——何时用 pr-review 何时用 pr-inline-review）
-   - `gitflow-pr`（PR 操作命令封装，包含 `pr diff`、`pr view`）
-   - `gitflow-pr-create`（创建 PR 的技能）
-   - `gitflow-pr-apply-feedback`（审查后应用反馈）
-   - `gitflow-review`（Review 总体决策：approve/request-changes/comment）
+   - `gf-pr-review`（总审审查技能，与本 skill 互补——何时用 pr-review 何时用 pr-inline-review）
+   - `gf-pr`（PR 操作命令封装，包含 `pr diff`、`pr view`）
+   - `gf-pr-create`（创建 PR 的技能）
+   - `gf-pr-apply-feedback`（审查后应用反馈）
+   - `gf-review`（Review 总体决策：approve/request-changes/comment）
    - `superpowers:requesting-code-review`（代码审查请求方法论）
    - `superpowers:receiving-code-review`（接收审查反馈方法论）
 
@@ -251,7 +251,7 @@
 | P1-2 | 添加 Quick Reference 速查 | D1 | 3 行核心命令（`pr diff` + 分析 + `commit comment`）+ 维度标签速查表 + 发布前确认清单 |
 | P1-3 | 添加决策点分支结构 | D1, D4 | 用户确认 → 行号验证 → PR 状态检查 → 发布 / 抑制 使用明确 if/else 分支 |
 | P1-4 | 添加关键词覆盖 | D4 | 覆盖中英触发词："行内审查"、"inline review"、"PR 逐行审查"、"line-level review"、"代码审查 PR"、"review PR line by line" |
-| P1-5 | 添加结构化跨引用 | D4 | 引用 gitflow-pr-review（总体审查互补）、gitflow-pr、gitflow-pr-create、gitflow-pr-apply-feedback、gitflow-review、superpowers:requesting-code-review |
+| P1-5 | 添加结构化跨引用 | D4 | 引用 gf-pr-review（总体审查互补）、gf-pr、gf-pr-create、gf-pr-apply-feedback、gf-review、superpowers:requesting-code-review |
 | P1-6 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能仅文本输出分析、不发布会审评论、不区分 Review 决策权属） |
 | P1-7 | 补充成功标准 | D3 | 发布前验证清单（用户确认 + 行号精确验证 + PR 状态）；成功评论的最低内容结构；失败回退策略 |
 
@@ -273,7 +273,7 @@
 - [ ] 含职责边界声明章节（含 🚫 禁止行为、✅/❌ 职责范围）
 - [ ] 含红旗列表（确认缺失、行号错误、PR 关闭、平台不支持、大量问题未沟通等）
 - [ ] 含关键词覆盖（中英触发词、工具名、错误信息）
-- [ ] 含跨引用（至少引用 gitflow-pr-review、gitflow-pr、gitflow-review）
+- [ ] 含跨引用（至少引用 gf-pr-review、gf-pr、gf-review）
 - [ ] 文档结构包含 Overview / When to Use / Core Pattern / Quick Reference / Common Mistakes
 - [ ] 快速加载时 token 数 < 400 词（留有余裕，详细审查清单移至 `docs/references/`）
 - [ ] 含决策点分支结构（用户确认、行号验证、PR 状态检查、Review 决策权属）
@@ -286,7 +286,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-pr-inline-review | gitflow-pr-review | gitflow-autoreport-bug |
+| 对比项 | gf-pr-inline-review | gf-pr-review | gf-autoreport-bug |
 |--------|-------------------------|-------------------|----------------------|
 | 边界风险等级 | 🔴 高（发布会审评论到公开可见的 PR） | 🟡 中（发总体审查决策） | 🟡 中（涉及 Issue 创建） |
 | 职责边界 | ❌ 缺失 | ❌ 缺失 | ✅ 完整 |
@@ -298,13 +298,13 @@
 | Token 数 | ⚠️ 紧（479 vs 500 上限） | ⚠️ 紧 | ⚠️ 中 |
 | 结构化程度 | ⚠️ 线性步骤完整 | ⚠️ checklist + 步骤 | ✅ 结构化最佳 |
 
-**关键发现：** gitflow-pr-inline-review 是所有 skill 中边界风险最高的——它向公开可见的 PR 发布会审评论，误发后难以撤回。但其职责边界完全缺失，形成"高风险操作 + 无边界声明"的最危险组合。同时，本 skill 与 `gitflow-pr-review` 存在天然的互补关系（行内 vs 总体），但两者之间无结构化跨引用，无法帮助 Claude 判断在具体场景应加载哪个 skill。
+**关键发现：** gf-pr-inline-review 是所有 skill 中边界风险最高的——它向公开可见的 PR 发布会审评论，误发后难以撤回。但其职责边界完全缺失，形成"高风险操作 + 无边界声明"的最危险组合。同时，本 skill 与 `gf-pr-review` 存在天然的互补关系（行内 vs 总体），但两者之间无结构化跨引用，无法帮助 Claude 判断在具体场景应加载哪个 skill。
 
 ---
 
 ## 九、总结
 
-gitflow-pr-inline-review 当前的定位是"操作手册 + 审查清单 + 命令模板库"混合体——它有结构化的 4 维度审查清单、精确的行内评论命令格式、实用的注意事项。但与 Superpowers skill 形态差距在于：
+gf-pr-inline-review 当前的定位是"操作手册 + 审查清单 + 命令模板库"混合体——它有结构化的 4 维度审查清单、精确的行内评论命令格式、实用的注意事项。但与 Superpowers skill 形态差距在于：
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"行内审查 PR"？"逐行 feedback"？"review with inline comments"？）
@@ -314,10 +314,10 @@ gitflow-pr-inline-review 当前的定位是"操作手册 + 审查清单 + 命令
 
 重构方向：保留高质量 4 维度清单和命令精确性（重构为 Quick Reference + 决策分支），将详细审查清单和示例命令移至 `docs/references/pr-review-checklist.md`，添加职责边界声明和红旗列表（含发布前确认机制），重写 description 为触发条件，添加跨引用和 Success Criteria。重构后预期 token 从 479 词降至 ~280 词，同时将边界风险从 🔴 高降至 🟡 中（通过明确的发布确认机制）。
 
-**特殊关注点（发布确认机制）：** gitflow-pr-inline-review 的核心边界要求是"发布前必须获得用户确认"。这与 TDD for skills 中"防止合理化借口"的关系尤其密切——Claude 可能以"这是作者需要的反馈"或"高质量审查应该直接发布"为理由跳过一个明确的用户确认步骤。重构需要：展示评论草稿、等待用户确认、然后发布——这是防止越界发布的最关键设计约束。
+**特殊关注点（发布确认机制）：** gf-pr-inline-review 的核心边界要求是"发布前必须获得用户确认"。这与 TDD for skills 中"防止合理化借口"的关系尤其密切——Claude 可能以"这是作者需要的反馈"或"高质量审查应该直接发布"为理由跳过一个明确的用户确认步骤。重构需要：展示评论草稿、等待用户确认、然后发布——这是防止越界发布的最关键设计约束。
 
-**关联关注点（与 pr-review 的互补）：** gitflow-pr-inline-review 与 gitflow-pr-review 是天然的互补技能：
-- `gitflow-pr-review`：总体审查 → 6 维度 checklist → 决策 Approve/Request Changes/Comment
-- `gitflow-pr-inline-review`：行内细节审查 → 4 维度 checklist → 生成行内评论 → 辅助 Review 决策
+**关联关注点（与 pr-review 的互补）：** gf-pr-inline-review 与 gf-pr-review 是天然的互补技能：
+- `gf-pr-review`：总体审查 → 6 维度 checklist → 决策 Approve/Request Changes/Comment
+- `gf-pr-inline-review`：行内细节审查 → 4 维度 checklist → 生成行内评论 → 辅助 Review 决策
 
 重构后应建立双向跨引用，帮助 Claude 在用户发起"审查 PR"请求时选择正确的 skill。

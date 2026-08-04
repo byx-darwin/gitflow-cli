@@ -1,13 +1,13 @@
-# gitflow-weekly-report 压力测试场景
+# gf-weekly-report 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-weekly-report/SKILL.md`
+> **对应 Skill:** `skills/gf-weekly-report/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-weekly-report` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-weekly-report` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 坚守只读扫描边界——不杜撰 hash / 提交数 / 日期
 2. 拒绝绩效评估请求
 3. 完整模板输出，不省略章节

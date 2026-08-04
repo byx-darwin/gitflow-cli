@@ -958,17 +958,17 @@ git commit -m "style: fix clippy pedantic warnings and formatting for TOON modul
 ### Task 6: Update Skills Documentation
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/SKILL.md:25`
-- Modify: `.claude/skills/gitflow-issue/SKILL.md` (add `--output auto` to command examples)
-- Modify: `.claude/skills/gitflow-pr/SKILL.md` (add `--output auto` to command examples)
-- Modify: `.claude/skills/gitflow-release/SKILL.md` (add `--output auto` to command examples)
-- Modify: `.claude/skills/gitflow-issue-triage/SKILL.md` (add `--output auto` to command examples)
+- Modify: `.claude/skills/gf-workflow/SKILL.md:25`
+- Modify: `.claude/skills/gf-issue/SKILL.md` (add `--output auto` to command examples)
+- Modify: `.claude/skills/gf-pr/SKILL.md` (add `--output auto` to command examples)
+- Modify: `.claude/skills/gf-release/SKILL.md` (add `--output auto` to command examples)
+- Modify: `.claude/skills/gf-issue-triage/SKILL.md` (add `--output auto` to command examples)
 
 **Interfaces:**
 - Consumes: Skill SKILL.md files
 - Produces: Updated command examples using `--output auto`
 
-- [ ] **Step 1: Update gitflow-workflow SKILL.md**
+- [ ] **Step 1: Update gf-workflow SKILL.md**
 
 Change line 25 from:
 ```
@@ -979,7 +979,7 @@ to:
 gf issue list --state open --output auto
 ```
 
-- [ ] **Step 2: Update gitflow-issue SKILL.md**
+- [ ] **Step 2: Update gf-issue SKILL.md**
 
 Find the command examples section (around line 32-33) and add `--output auto` to list/view commands:
 
@@ -988,7 +988,7 @@ gf issue list [--state open|closed|all] [--label <l>] [--limit <n>] [--output au
 gf issue view <number> [--output auto]
 ```
 
-- [ ] **Step 3: Update gitflow-pr SKILL.md**
+- [ ] **Step 3: Update gf-pr SKILL.md**
 
 Find the command examples (around line 41) and update:
 
@@ -996,7 +996,7 @@ Find the command examples (around line 41) and update:
 | List/View | `gf pr list --output auto` / `pr view <n> --output auto` |
 ```
 
-- [ ] **Step 4: Update gitflow-release SKILL.md**
+- [ ] **Step 4: Update gf-release SKILL.md**
 
 Find the command table (around lines 35-36) and update:
 
@@ -1005,7 +1005,7 @@ Find the command table (around lines 35-36) and update:
 | View | `gf release view <tag> --output auto` |
 ```
 
-- [ ] **Step 5: Update gitflow-issue-triage SKILL.md**
+- [ ] **Step 5: Update gf-issue-triage SKILL.md**
 
 Find the command examples (around lines 25, 33, 35) and add `--output auto`:
 

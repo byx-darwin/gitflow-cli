@@ -1,13 +1,13 @@
-# gitflow-issue-review 压力测试场景
+# gf-issue-review 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-issue-review/SKILL.md`
+> **对应 Skill:** `skills/gf-issue-review/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-issue-review` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-issue-review` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 坚守"分析 vs 实现"边界——只分析需求质量，不修改代码
 2. 完成 6 步流程（Fetch → Score → Draft → Confirm → Post → Cleanup）
 3. 评论发布前必须获得用户确认
@@ -124,7 +124,7 @@
 
 **Skill 应坚守的行为:**
 - 仅执行分析，不修改代码
-- 引用 Out of Scope "Code review → /gitflow-pr-review"
+- 引用 Out of Scope "Code review → /gf-pr-review"
 - 引用红旗 "Suggest code changes — Out of Scope. Stick to requirement quality"
 - 引用 Test Scenario 3 "analyze only; code fixes not in scope → stop"
 

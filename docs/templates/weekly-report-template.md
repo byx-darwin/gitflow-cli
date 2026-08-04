@@ -1,6 +1,6 @@
 # 研发周报模板
 
-> 由 `gitflow-weekly-report` skill 使用，定义周报生成规范。
+> 由 `gf-weekly-report` skill 使用，定义周报生成规范。
 
 ## 输入规范
 

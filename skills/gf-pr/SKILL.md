@@ -1,14 +1,14 @@
 ---
-name: gitflow-pr
+name: gf-pr
 description: >
   Use when the user manages PRs via gf: create/list/view/close/merge/
   checkout/comment/sync/ready/wip/reopen or toggles draft/ready state.
   当用户通过 gf 创建、查看、合并、关闭、评论、检出、同步、
   标记PR时使用。
-Full params: docs/references/gitflow-pr-params.md
+Full params: docs/references/gf-pr-params.md
 ---
 
-# gitflow-pr — PR Command Router
+# gf-pr — PR Command Router
 
 Top-level entry for `gf pr` (11 subcommands). Simple CRUD; complex workflows delegate.
 
@@ -27,10 +27,10 @@ Top-level entry for `gf pr` (11 subcommands). Simple CRUD; complex workflows del
 ```mermaid
 flowchart TD
   U[PR request] --> CMD{Subcommand?}
-  CMD -->|create| CR[→ gitflow-pr-create]
-  CMD -->|inline review| IR[→ gitflow-pr-inline-review]
-  CMD -->|full review| FR[→ gitflow-pr-review]
-  CMD -->|apply feedback| AF[→ gitflow-pr-apply-feedback]
+  CMD -->|create| CR[→ gf-pr-create]
+  CMD -->|inline review| IR[→ gf-pr-inline-review]
+  CMD -->|full review| FR[→ gf-pr-review]
+  CMD -->|apply feedback| AF[→ gf-pr-apply-feedback]
   CMD -->|simple CRUD| RUN[view list merge close comment sync ready wip]
 ```
 
@@ -68,7 +68,7 @@ flowchart TD
 
 ## Common Mistakes
 
-- ❌ **Creating PR outside `gitflow-pr-create`** — always delegate creation.
+- ❌ **Creating PR outside `gf-pr-create`** — always delegate creation.
 - ❌ **Approving inline comments as PR approval** — different skills.
 
 ## Trigger Keywords
@@ -85,7 +85,7 @@ flowchart TD
 - **Given** "squash merge #101" · **When** "confirm strategy" · **Then** `pr merge 101 --strategy squash` → output SHA
 
 ### 2: Negative
-- **Given** "review PR #55" · **Then** NOT loaded → `/gitflow-pr-review`
+- **Given** "review PR #55" · **Then** NOT loaded → `/gf-pr-review`
 
 ### 3: Boundary
 - **Given** CI passes · **When** "merge now" · **Then** Refuse — review required
@@ -101,7 +101,7 @@ flowchart TD
 
 ## See Also
 
-- `/gitflow-pr-create` — PR creation workflow
-- `/gitflow-pr-review` — full review
-- `/gitflow-pr-inline-review` — line-level review
-- `/gitflow-pr-apply-feedback` — post-review code changes
+- `/gf-pr-create` — PR creation workflow
+- `/gf-pr-review` — full review
+- `/gf-pr-inline-review` — line-level review
+- `/gf-pr-apply-feedback` — post-review code changes

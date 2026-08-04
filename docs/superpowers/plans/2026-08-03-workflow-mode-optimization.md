@@ -1,8 +1,8 @@
-# gitflow-workflow Mode Optimization — Implementation Plan
+# gf-workflow Mode Optimization — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add 3-tier mode system (fast/standard/full) to gitflow-workflow with auto-detection, align quality gate with CI, and introduce smart subagent batching.
+**Goal:** Add 3-tier mode system (fast/standard/full) to gf-workflow with auto-detection, align quality gate with CI, and introduce smart subagent batching.
 
 **Architecture:** Incremental enhancement of existing skill files. Schema adds `standard` mode + `phase4_steps_executed` evidence field. SKILL.md/gates.md/references.md updated with 3-mode logic. Quality gate Rust reference aligned with Makefile. Documentation synced across guide and CLAUDE.md.
 
@@ -23,7 +23,7 @@
 ### Task 1: Schema Update — contract.schema.json
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/contract.schema.json`
+- Modify: `.claude/skills/gf-workflow/contract.schema.json`
 
 **Interfaces:**
 - Consumes: Current schema with `mode: ["full", "fast"]`
@@ -65,13 +65,13 @@ In `$defs.phase.properties.evidence.properties`, add after `branch_cleaned`:
 
 - [ ] **Step 4: Verify schema is valid JSON**
 
-Run: `cat .claude/skills/gitflow-workflow/contract.schema.json | jq . > /dev/null && echo "VALID JSON"`
+Run: `cat .claude/skills/gf-workflow/contract.schema.json | jq . > /dev/null && echo "VALID JSON"`
 Expected: `VALID JSON`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/contract.schema.json
+git add .claude/skills/gf-workflow/contract.schema.json
 git commit -m "feat(skills): add standard mode to workflow contract schema
 
 - Add 'standard' to mode enum (between full and fast)
@@ -86,7 +86,7 @@ Refs: #121"
 ### Task 2: Quality Gate Alignment — rust.md
 
 **Files:**
-- Modify: `.claude/skills/gitflow-quality/references/rust.md`
+- Modify: `.claude/skills/gf-quality/references/rust.md`
 
 **Interfaces:**
 - Consumes: Current Gate 5 command without pedantic
@@ -137,13 +137,13 @@ Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
 
 - [ ] **Step 4: Verify file renders correctly**
 
-Run: `cat .claude/skills/gitflow-quality/references/rust.md | head -20`
+Run: `cat .claude/skills/gf-quality/references/rust.md | head -20`
 Expected: Gate 5 line includes `--all-features` and `-W clippy::pedantic`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .claude/skills/gitflow-quality/references/rust.md
+git add .claude/skills/gf-quality/references/rust.md
 git commit -m "fix(skills): align quality gate with CI clippy configuration
 
 - Gate 5 now includes -W clippy::pedantic and --all-features by default
@@ -160,7 +160,7 @@ Refs: #121"
 ### Task 3: Core Skill Update — SKILL.md
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/SKILL.md`
+- Modify: `.claude/skills/gf-workflow/SKILL.md`
 
 **Interfaces:**
 - Consumes: Current 2-mode skill definition
@@ -204,7 +204,7 @@ Find the "When to Use" table (around line 50-55) and update to include standard 
 | full workflow | 全流程（默认） |
 | clarify → plan → execute → deliver | 需求→计划→执行→交付 |
 
-**When NOT to Use:** quick fix → `gitflow-commit` · PR review → `gitflow-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
+**When NOT to Use:** quick fix → `gf-commit` · PR review → `gf-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
 
 **Mode auto-detection:** "fix"/"typo"/"hotfix"/"docs"/"chore" → `fast` · "refactor: small"/"fix: bug" → `standard` · "feat"/"refactor: large"/breaking → `full` · `good-first-issue` label → `fast` · unclear → `standard` (default). User can override with `--mode <mode>`.
 ```
@@ -218,13 +218,13 @@ After the "Fast Mode — Required Skills Checklist" section, add Standard Mode s
 
 In standard mode, the following skills are invoked per phase:
 
-**Phase 1:** `superpowers:brainstorming` (required), `gitflow-issue-create` (required), `gitflow-issue-review` (required)
+**Phase 1:** `superpowers:brainstorming` (required), `gf-issue-create` (required), `gf-issue-review` (required)
 
-**Phase 2:** `superpowers:writing-plans` (required) + `gitflow-quality` gate (required)
+**Phase 2:** `superpowers:writing-plans` (required) + `gf-quality` gate (required)
 
 **Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
 
-**Phase 4:** `gitflow-pipeline-analyzer` → `gitflow-review` → Branch Finish (all required)
+**Phase 4:** `gf-pipeline-analyzer` → `gf-review` → Branch Finish (all required)
 ```
 
 - [ ] **Step 4: Add Auto-Detection Rules section**
@@ -291,9 +291,9 @@ Replace the existing Phase 4 steps table with:
 ```markdown
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gitflow-pipeline-analyzer` — generates pipeline analysis report (all modes) | `pipeline_ok` |
-| 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report (full mode only) | — |
-| 3 | **[AUTO]** `gitflow-review` — creates code review report (full + standard modes) | `review_report_path` |
+| 1 | **[AUTO]** `gf-pipeline-analyzer` — generates pipeline analysis report (all modes) | `pipeline_ok` |
+| 2 | **[AUTO]** `gf-issue-triage` — produces Issue triage report (full mode only) | — |
+| 3 | **[AUTO]** `gf-review` — creates code review report (full + standard modes) | `review_report_path` |
 | 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) (full mode only) | `dogfooding_passed` |
 | 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
 | 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` | — |
@@ -359,14 +359,14 @@ User can override batching strategy during plan phase.
 
 - [ ] **Step 8: Verify file renders correctly**
 
-Run: `wc -l .claude/skills/gitflow-workflow/SKILL.md`
+Run: `wc -l .claude/skills/gf-workflow/SKILL.md`
 Expected: Line count increased significantly (from ~350 to ~450+)
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/SKILL.md
-git commit -m "feat(skills): add 3-mode system to gitflow-workflow
+git add .claude/skills/gf-workflow/SKILL.md
+git commit -m "feat(skills): add 3-mode system to gf-workflow
 
 - Add standard mode between full and fast
 - Add auto-detection rules with user confirmation
@@ -382,7 +382,7 @@ Refs: #121"
 ### Task 4: Gates Update — gates.md
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/gates.md`
+- Modify: `.claude/skills/gf-workflow/gates.md`
 
 **Interfaces:**
 - Consumes: Current gate rules with full/fast exemptions
@@ -481,13 +481,13 @@ def get_phase4_steps(mode):
 
 - [ ] **Step 5: Verify file renders correctly**
 
-Run: `cat .claude/skills/gitflow-workflow/gates.md | grep -c "standard"`
+Run: `cat .claude/skills/gf-workflow/gates.md | grep -c "standard"`
 Expected: At least 3 occurrences of "standard"
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/gates.md
+git add .claude/skills/gf-workflow/gates.md
 git commit -m "feat(skills): add standard mode gate exemptions
 
 - Gate 1→2: standard mode requires all evidence (same as full)
@@ -503,7 +503,7 @@ Refs: #121"
 ### Task 5: References Update — references.md
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/references.md`
+- Modify: `.claude/skills/gf-workflow/references.md`
 
 **Interfaces:**
 - Consumes: Current cross-session recovery procedure
@@ -546,7 +546,7 @@ to:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/references.md
+git add .claude/skills/gf-workflow/references.md
 git commit -m "docs(skills): update references for 3-mode system
 
 - Create Contract template now includes standard mode
@@ -557,10 +557,10 @@ Refs: #121"
 
 ---
 
-### Task 6: Documentation Sync — gitflow-workflow-guide.md
+### Task 6: Documentation Sync — gf-workflow-guide.md
 
 **Files:**
-- Modify: `docs/gitflow-workflow-guide.md`
+- Modify: `docs/gf-workflow-guide.md`
 
 **Interfaces:**
 - Consumes: Current 2-mode guide
@@ -619,13 +619,13 @@ Find the "模式对比速查" table (around line 327-335) and replace with:
 
 - [ ] **Step 4: Verify file renders correctly**
 
-Run: `grep -c "标准模式" docs/gitflow-workflow-guide.md`
+Run: `grep -c "标准模式" docs/gf-workflow-guide.md`
 Expected: At least 2 occurrences
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/gitflow-workflow-guide.md
+git add docs/gf-workflow-guide.md
 git commit -m "docs: update workflow guide for 3-mode system
 
 - Change '两种模式' to '三种模式' with standard mode
@@ -689,37 +689,37 @@ This task verifies all changes are consistent and correct.
 
 - [ ] **Step 1: Verify JSON schema is valid**
 
-Run: `cat .claude/skills/gitflow-workflow/contract.schema.json | jq . > /dev/null && echo "SCHEMA: VALID"`
+Run: `cat .claude/skills/gf-workflow/contract.schema.json | jq . > /dev/null && echo "SCHEMA: VALID"`
 Expected: `SCHEMA: VALID`
 
 - [ ] **Step 2: Verify schema includes standard mode**
 
-Run: `grep -c '"standard"' .claude/skills/gitflow-workflow/contract.schema.json`
+Run: `grep -c '"standard"' .claude/skills/gf-workflow/contract.schema.json`
 Expected: At least 1 occurrence
 
 - [ ] **Step 3: Verify quality gate alignment**
 
-Run: `grep "pedantic" .claude/skills/gitflow-quality/references/rust.md`
+Run: `grep "pedantic" .claude/skills/gf-quality/references/rust.md`
 Expected: Line showing Gate 5 includes `-W clippy::pedantic`
 
 - [ ] **Step 4: Verify no "Strict Mode" section remains**
 
-Run: `grep -c "Strict Mode" .claude/skills/gitflow-quality/references/rust.md`
+Run: `grep -c "Strict Mode" .claude/skills/gf-quality/references/rust.md`
 Expected: `0`
 
 - [ ] **Step 5: Verify SKILL.md has 3 modes**
 
-Run: `grep -c "standard" .claude/skills/gitflow-workflow/SKILL.md`
+Run: `grep -c "standard" .claude/skills/gf-workflow/SKILL.md`
 Expected: At least 5 occurrences
 
 - [ ] **Step 6: Verify gates.md has standard mode**
 
-Run: `grep -c "standard" .claude/skills/gitflow-workflow/gates.md`
+Run: `grep -c "standard" .claude/skills/gf-workflow/gates.md`
 Expected: At least 3 occurrences
 
-- [ ] **Step 7: Verify docs/gitflow-workflow-guide.md has 3 modes**
+- [ ] **Step 7: Verify docs/gf-workflow-guide.md has 3 modes**
 
-Run: `grep -c "标准模式" docs/gitflow-workflow-guide.md`
+Run: `grep -c "标准模式" docs/gf-workflow-guide.md`
 Expected: At least 2 occurrences
 
 - [ ] **Step 8: Verify CLAUDE.md has 3 modes**
@@ -734,7 +734,7 @@ Expected: 7 files changed, reasonable line counts
 
 - [ ] **Step 10: Verify no broken links**
 
-Run: `grep -r "skills/gitflow-workflow" docs/gitflow-workflow-guide.md | head -5`
+Run: `grep -r "skills/gf-workflow" docs/gf-workflow-guide.md | head -5`
 Expected: Valid skill references
 
 - [ ] **Step 11: Summary validation report**
@@ -771,7 +771,7 @@ This task is validation only — no new commit required.
 | 3 | SKILL.md | Core skill update | 20 min |
 | 4 | gates.md | Gate rules | 10 min |
 | 5 | references.md | References | 5 min |
-| 6 | gitflow-workflow-guide.md | Docs | 10 min |
+| 6 | gf-workflow-guide.md | Docs | 10 min |
 | 7 | CLAUDE.md | Docs | 5 min |
 | 8 | (validation) | QA | 10 min |
 | **Total** | **7 files** | — | **~70 min** |

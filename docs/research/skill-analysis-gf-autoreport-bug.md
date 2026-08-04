@@ -1,7 +1,7 @@
-# gitflow-autoreport-bug Skill 分析报告
+# gf-autoreport-bug Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-autoreport-bug/SKILL.md`
+> **分析目标：** `skills/gf-autoreport-bug/SKILL.md`
 > **对应 Issue：** #40
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 无测试场景、无基线测试、无压力测试、无成功标准、无 writing-skills 钩子 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | description 违反"只描述触发条件"规则；缺少关键词覆盖和跨引用；触发方式依赖 Stop Hook（非典型 skill 加载路径） |
 
-**总体评估：** gitflow-autoreport-bug 是项目中**职责边界最完善**的 skill，但其 description 是**功能+流程描述**而非触发条件，导致 Claude 无法在正常对话中自主判断是否加载。它实际上是一个"自动化 pipeline 脚本的 Markdown 包装"，而非标准的"可触发 skill"。
+**总体评估：** gf-autoreport-bug 是项目中**职责边界最完善**的 skill，但其 description 是**功能+流程描述**而非触发条件，导致 Claude 无法在正常对话中自主判断是否加载。它实际上是一个"自动化 pipeline 脚本的 Markdown 包装"，而非标准的"可触发 skill"。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-autoreport-bug` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-autoreport-bug` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为"自动分析 CLI 错误报告，auth cache 加速认证检查..." — 完整描述了功能流程 |
 | description 只描述触发条件 | ❌ | 描述了完整 pipeline（检测 → 验证 → 去重 → 分析 → 创建 → 清理） |
@@ -93,11 +93,11 @@
 
 3. **职责范围的"修复流程"部分过于温和**：
    - "如果需要修复 bug，必须由用户手动触发" — 这是正确的
-   - 但后续 3 个条件中有模糊空间："用户明确指示'立即修复这个 bug'" — 这实际上已经不在本 skill 范围内，应说明此时应转交给 `gitflow-workflow` skill 而非继续本 skill
+   - 但后续 3 个条件中有模糊空间："用户明确指示'立即修复这个 bug'" — 这实际上已经不在本 skill 范围内，应说明此时应转交给 `gf-workflow` skill 而非继续本 skill
 
 ### 3.3 评分：⚠️ 需改进
 
-**对比参考：** gitflow-autoreport-bug 是整个项目中职责边界最完善的 skill（比其他所有 skill 都好），但距离 Superpowers 最佳实践仍差"合理化借口反制"和"红旗列表"两层防御。
+**对比参考：** gf-autoreport-bug 是整个项目中职责边界最完善的 skill（比其他所有 skill 都好），但距离 Superpowers 最佳实践仍差"合理化借口反制"和"红旗列表"两层防御。
 
 ---
 
@@ -148,7 +148,7 @@
 | 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程证据 |
 | description 只描述触发条件，不描述流程 | ❌ | description 描述了完整 pipeline |
 | 关键词覆盖（错误信息、症状、同义词、工具） | ❌ | 无关键词/触发词章节 |
-| 跨引用其他 skills | ⚠️ | 提到了 `gitflow-workflow` 和 Stop Hook，但未使用 Superpowers 的 See Also 标准格式 |
+| 跨引用其他 skills | ⚠️ | 提到了 `gf-workflow` 和 Stop Hook，但未使用 Superpowers 的 See Also 标准格式 |
 | 必要时使用 flowchart | N/A | 6 步线性流程 + 多个分支（失败路径），flowchart 会有帮助但非必需 |
 
 ### 5.2 具体问题
@@ -169,12 +169,12 @@
    - 当前文档未显式列出这些触发词，Claude 需要从内容中推断关联
 
 3. **跨引用形式化不足**：
-   - 提到了 `gitflow-workflow --fast` 和 `hooks/auto-report-bug.sh`
+   - 提到了 `gf-workflow --fast` 和 `hooks/auto-report-bug.sh`
    - 但没有标准化的 See Also 章节：
      ```
      ## See Also
-     - gitflow-workflow — 用于修复 bug 的完整工作流（Phase 1–4）
-     - gitflow-issue — issue 命令的参考文档
+     - gf-workflow — 用于修复 bug 的完整工作流（Phase 1–4）
+     - gf-issue — issue 命令的参考文档
      - hooks/auto-report-bug.sh — Stop Hook 脚本
      ```
 
@@ -210,9 +210,9 @@
 |---|--------|------|------|
 | P1-1 | 添加标准化文档结构 | D1 | 补充 Overview / When to Use / Core Pattern / Quick Reference / Common Mistakes 章节 |
 | P1-2 | 压缩 Token 到 < 500 词 | D1 | Step 2 的 bash 内联 shell 可用单行命令 + 注释替代，节省约 150 词 |
-| P1-3 | 添加 See Also 跨引用 | D4 | 引用 gitflow-workflow、gitflow-issue、gitflow-auth 等相关 skills |
+| P1-3 | 添加 See Also 跨引用 | D4 | 引用 gf-workflow、gf-issue、gf-auth 等相关 skills |
 | P1-4 | 添加关键词覆盖章节 | D4 | 显式列出触发同义词（"报错了""自动报告""pending.json"等） |
-| P1-5 | 修复"修复流程"章节的模糊性 | D2 | 明确"立即修复这个 bug"是转交给 gitflow-workflow skill 的信号，不是本 skill 的延续 |
+| P1-5 | 修复"修复流程"章节的模糊性 | D2 | 明确"立即修复这个 bug"是转交给 gf-workflow skill 的信号，不是本 skill 的延续 |
 
 ### P2（可选改进 — 锦上添花）
 
@@ -241,7 +241,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-autoreport-bug | gitflow-auth | gitflow-issue-create | 差距说明 |
+| 对比项 | gf-autoreport-bug | gf-auth | gf-issue-create | 差距说明 |
 |--------|----------------------|-------------|---------------------|---------|
 | 职责边界 | ⚠️ 最完善（有声明+禁止+范围） | ❌ 缺失 | ❌ 缺失 | autoreport-bug 是项目标杆 |
 | description 规范 | ❌ 流程描述 | ❌ 功能描述 | ❌ 功能描述 | 全部不合格 |
@@ -253,7 +253,7 @@
 
 ## 九、总结
 
-gitflow-autoreport-bug 在**职责边界**上是项目中的最佳实践标杆——它有明确的禁止行为和职责范围，这在整个项目中独一无二。但它仍然不符合 Superpowers 的完整规范：
+gf-autoreport-bug 在**职责边界**上是项目中的最佳实践标杆——它有明确的禁止行为和职责范围，这在整个项目中独一无二。但它仍然不符合 Superpowers 的完整规范：
 
 1. **description 是流程描述而非触发条件** — 这是最紧迫的问题，因为它直接决定了 Claude 能否正确识别何时应使用此 skill
 2. **缺少合理化借口反制** — 对边界声明是必要的补充，Claude 在"想帮忙"时会产生合规但危险的借口
@@ -267,4 +267,4 @@ gitflow-autoreport-bug 在**职责边界**上是项目中的最佳实践标杆�
 ## 十、备注
 
 本分析报告遵循 task-26 brief 的 4 维度框架，产出独立 Markdown 文件，
-对应 GitHub Issue #40（标题：`refactor(skill): gitflow-autoreport-bug — 符合 Superpowers 最佳实践`）。
+对应 GitHub Issue #40（标题：`refactor(skill): gf-autoreport-bug — 符合 Superpowers 最佳实践`）。

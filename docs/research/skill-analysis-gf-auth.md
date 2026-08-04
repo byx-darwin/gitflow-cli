@@ -1,7 +1,7 @@
-# gitflow-auth Skill 分析报告
+# gf-auth Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-auth/SKILL.md`
+> **分析目标：** `skills/gf-auth/SKILL.md`
 > **对应 Issue：** #15
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-auth 当前是一个纯命令参考文档，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。
+**总体评估：** gf-auth 当前是一个纯命令参考文档，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-auth` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-auth` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的认证操作命令封装，支持登录、登出、状态查询和 Token 获取"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
@@ -93,7 +93,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档（⚠️ 职责边界声明 章节含 🚫 禁止行为、✅ 职责范围、🔧 修复流程）。gitflow-auth 应参照此模式。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档（⚠️ 职责边界声明 章节含 🚫 禁止行为、✅ 职责范围、🔧 修复流程）。gf-auth 应参照此模式。
 
 ---
 
@@ -158,9 +158,9 @@
    - "登出" / "logout" / "sign out"
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-autoreport-bug`（auth cache 机制）
-   - `gitflow-repo-onboarding`（首次设置认证）
-   - `gitflow-security-check`（凭据安全检查）
+   - `gf-autoreport-bug`（auth cache 机制）
+   - `gf-repo-onboarding`（首次设置认证）
+   - `gf-security-check`（凭据安全检查）
 
 ### 5.3 评分：❌ 不合格
 
@@ -211,7 +211,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-auth | gitflow-autoreport-bug | 差距 |
+| 对比项 | gf-auth | gf-autoreport-bug | 差距 |
 |--------|-------------|----------------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | — |
@@ -223,7 +223,7 @@
 
 ## 九、总结
 
-gitflow-auth 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-auth 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？

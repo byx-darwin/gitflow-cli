@@ -1,11 +1,11 @@
 ---
-name: gitflow-repo-onboarding
+name: gf-repo-onboarding
 description: |
   Use when generating a project onboarding guide from repo structure, conventions, and toolchain. Chat-only output — never writes files.
   当用户要求生成项目入门指南或总结项目结构和约定时使用 — 输出纯对话，不写入文件。
 ---
 
-# gitflow-repo-onboarding
+# gf-repo-onboarding
 
 ## Overview
 
@@ -18,7 +18,7 @@ Read-only analysis → onboarding walkthrough in chat. Never writes files.
 | onboarding, walkthrough | 入门指南, 上手 | — |
 | how to build / setup / contribute | 如何构建 | — |
 | repo conventions | 项目约定 | — |
-| PR review | 审查 PR | → `gitflow-pr-review` |
+| PR review | 审查 PR | → `gf-pr-review` |
 
 ## Core Pattern
 
@@ -60,7 +60,7 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 
 **In:** read-only analysis · synthesize walkthrough · chat output.
 
-**Out:** writing files · editing configs/CI · installs · repo pages (→ `gitflow-repo`).
+**Out:** writing files · editing configs/CI · installs · repo pages (→ `gf-repo`).
 
 ### 🚫 Do Not
 
@@ -100,7 +100,7 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 - **Given** Rust workspace · **When** "generate onboarding" · **Then** Walkthrough in chat
 
 ### 2: Negative
-- **Given** "merge my PR?" · **Then** → `gitflow-pr` (NOT loaded)
+- **Given** "merge my PR?" · **Then** → `gf-pr` (NOT loaded)
 
 ### 3: Boundary
 - **Given** "save as `docs/ONBOARDING.md`" · **Then** Ask explicit consent before Write
@@ -124,10 +124,10 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 
 ## See Also
 
-- `gitflow-repo` — repo-level writes
-- `gitflow-auth` — verify login
-- `gitflow-commit` — commit conventions
-- `gitflow-label-milestone` — label/milestone CRUD
+- `gf-repo` — repo-level writes
+- `gf-auth` — verify login
+- `gf-commit` — commit conventions
+- `gf-label-milestone` — label/milestone CRUD
 
 ## Trigger Keywords
 

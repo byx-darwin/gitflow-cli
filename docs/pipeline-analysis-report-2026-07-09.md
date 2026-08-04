@@ -117,4 +117,4 @@
 ---
 
 **报告生成工具**: gf pipeline report
-**分析者**: Claude Code (gitflow-workflow)
+**分析者**: Claude Code (gf-workflow)

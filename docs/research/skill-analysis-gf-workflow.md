@@ -1,7 +1,7 @@
-# gitflow-workflow Skill 分析报告
+# gf-workflow Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-workflow/SKILL.md`
+> **分析目标：** `skills/gf-workflow/SKILL.md`
 > **对应 Issue：** #38
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试、压力测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践差距 | ⚠️ 需改进 | description 违反规范（混合功能+流程）；无 TDD 流程；有部分关键词覆盖和跨引用但非结构化；flowchart 存在但嵌入代码 |
 
-**总体评估：** gitflow-workflow 是一份完整的"四阶段全流程编排手册"，它定义了从需求澄清到交付后检查的完整工作流，闸门机制和合规检查点设计合理。但文档定位为"操作手册 + 流程规范"而非"可执行 skill 指令"——它告诉 Claude "这个流程是什么"，却没有告诉 Claude "在什么情况下加载这个 skill"以及"如何逐步遵循并验证"。1725 词远超 Superpowers 要求的 500 词上限（超标 245%），加上 3 个完整使用场景叙事，冗长的描述会干扰 Claude 执行精确度。
+**总体评估：** gf-workflow 是一份完整的"四阶段全流程编排手册"，它定义了从需求澄清到交付后检查的完整工作流，闸门机制和合规检查点设计合理。但文档定位为"操作手册 + 流程规范"而非"可执行 skill 指令"——它告诉 Claude "这个流程是什么"，却没有告诉 Claude "在什么情况下加载这个 skill"以及"如何逐步遵循并验证"。1725 词远超 Superpowers 要求的 500 词上限（超标 245%），加上 3 个完整使用场景叙事，冗长的描述会干扰 Claude 执行精确度。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-workflow` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-workflow` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "gf 全流程开发编排 — 从需求澄清到代码交付的四阶段闸门驱动工作流..." |
 | description 只描述触发条件 | ❌ | 混合功能描述、流程承诺和效果声明 |
@@ -124,7 +124,7 @@
 
 ### 3.3 评分：⚠️ 需改进
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 通过完整的"职责边界声明 + 🚫 禁止行为 + ✅/❌ 职责范围 + 🔧 修复流程"章节树立了边界声明标杆。gitflow-workflow 有禁止行为清单（质量较高），但缺少反制借口表格和红旗列表，且有结构化职责范围说明的空间。
+**对比参考（gf-autoreport-bug）：** 该 skill 通过完整的"职责边界声明 + 🚫 禁止行为 + ✅/❌ 职责范围 + 🔧 修复流程"章节树立了边界声明标杆。gf-workflow 有禁止行为清单（质量较高），但缺少反制借口表格和红旗列表，且有结构化职责范围说明的空间。
 
 ---
 
@@ -203,16 +203,16 @@
 2. **缺少跨引用结构化章节**：
    - 文档中涉及的 skills 包括：
      - `superpowers:brainstorming`
-     - `gitflow-issue-create`
-     - `gitflow-issue-review`
+     - `gf-issue-create`
+     - `gf-issue-review`
      - `superpowers:writing-plans`
      - `superpowers:subagent-driven-development`
-     - `gitflow-pipeline-analyzer`
-     - `gitflow-issue-triage`
-     - `gitflow-review`
-     - `gitflow-quality`
-     - `gitflow-pr-create`
-     - `gitflow-pr-review`
+     - `gf-pipeline-analyzer`
+     - `gf-issue-triage`
+     - `gf-review`
+     - `gf-quality`
+     - `gf-pr-create`
+     - `gf-pr-review`
    - 应在文档末尾添加结构化的 "See Also" 章节
 
 3. **内容组织偏向"流程规范文档"而非"执行指令"**：
@@ -299,7 +299,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-workflow | gitflow-autoreport-bug | gitflow-pipeline-analyzer |
+| 对比项 | gf-workflow | gf-autoreport-bug | gf-pipeline-analyzer |
 |--------|------------------|----------------------|--------------------------|
 | 定位 | 编排型（调用其他 skills） | 执行型（创建 Issue） | 分析型（生成报告） |
 | 职责边界 | ⚠️ 有禁止行为但无章节 | ✅ 完整声明（含修复流程） | ❌ 缺失 |
@@ -312,13 +312,13 @@
 | 叙事性示例 | ❌ 3 个完整场景 | ✅ 无 | ❌ 完整报告模板 |
 | 闸门/检查点设计 | ✅ 高质量 | ⚠️ 基础 | ⚠️ 基础 |
 
-**关键发现：** gitflow-workflow 在流程复杂度上远超其他 skills——四阶段 + 闸门 + 合规检查 + 回退机制的完整设计在项目中独一无二。其禁止行为清单质量与 gitflow-autoreport-bug 并列最高。但 token 超标 245% 也是所有 skill 中最严重的——它承载了太多"计划文档模板"和"叙事性示例"这类应移至独立文件的内容。
+**关键发现：** gf-workflow 在流程复杂度上远超其他 skills——四阶段 + 闸门 + 合规检查 + 回退机制的完整设计在项目中独一无二。其禁止行为清单质量与 gf-autoreport-bug 并列最高。但 token 超标 245% 也是所有 skill 中最严重的——它承载了太多"计划文档模板"和"叙事性示例"这类应移至独立文件的内容。
 
 ---
 
 ## 九、总结
 
-gitflow-workflow 当前的定位是"全流程编排手册 + 计划文档模板库 + 使用教程"混合体——它尝试在一个 SKILL.md 中同时扮演流程规范、执行指令、教学文档和模板仓库四个角色。
+gf-workflow 当前的定位是"全流程编排手册 + 计划文档模板库 + 使用教程"混合体——它尝试在一个 SKILL.md 中同时扮演流程规范、执行指令、教学文档和模板仓库四个角色。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"我想加个功能"？"修复 #42"？"开始一个 workflow"？）
@@ -331,7 +331,7 @@ gitflow-workflow 当前的定位是"全流程编排手册 + 计划文档模板�
 - 分离至模板文件：计划文档模板（→ `docs/templates/workflow-plan.md`）、使用示例（→ `docs/templates/workflow-examples.md`）
 - 添加缺失结构：Overview / When to Use / Quick Reference / See Also / Red Flags / Rationalization Rebuttal / Common Mistakes
 - 添加 Mermaid flowchart 展示四阶段闸门流转
-- 添加测试场景和成功标准（→ `docs/superpowers/tests/skills/gitflow-workflow-test.md`）
+- 添加测试场景和成功标准（→ `docs/superpowers/tests/skills/gf-workflow-test.md`）
 - 重写 description 为触发条件格式
 
 重构后预期 token 从 1725 词降至 ~450 词（不含模板文件），同时添加职责边界、红旗、反制借口、测试场景等必备章节，使其从"编排手册"转型为符合 Superpowers 规范的完整 skill。

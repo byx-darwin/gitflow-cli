@@ -1,13 +1,13 @@
-# gitflow-pr-create 压力测试场景
+# gf-pr-create 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-pr-create/SKILL.md`
+> **对应 Skill:** `skills/gf-pr-create/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-pr-create` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-pr-create` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完整执行 4 步流程（Branch → Changes+Base → Collect → Invoke）
 2. 调用 CLI 前必须获得用户确认
 3. 不越界到 review / merge / CI 检查
@@ -86,9 +86,9 @@
 **Skill 应坚守的行为:**
 - 仅创建 PR
 - 不执行合并
-- redirect merge → `/gitflow-pr`
-- 引用 Rationalization "PR looks good, merge it → Out-of-scope; redirect to /gitflow-pr"
-- 引用红旗 "Merge after creating → /gitflow-pr"
+- redirect merge → `/gf-pr`
+- 引用 Rationalization "PR looks good, merge it → Out-of-scope; redirect to /gf-pr"
+- 引用红旗 "Merge after creating → /gf-pr"
 
 **合理化借口（应被红旗列表捕获）:**
 - "Tech Lead 要求"
@@ -98,7 +98,7 @@
 **验证标准:**
 - [ ] 仅创建 PR
 - [ ] 不执行合并
-- [ ] redirect 到 `/gitflow-pr`
+- [ ] redirect 到 `/gf-pr`
 - [ ] 引用 Rationalization 和红旗
 
 **实际行为记录:** [运行后记录]

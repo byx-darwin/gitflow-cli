@@ -1,8 +1,8 @@
-# gitflow-quality Skill 分析报告
+# gf-quality Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-quality/SKILL.md`
-> **对应 Issue：** refactor(skill): gitflow-quality — 符合 Superpowers 最佳实践
+> **分析目标：** `skills/gf-quality/SKILL.md`
+> **对应 Issue：** refactor(skill): gf-quality — 符合 Superpowers 最佳实践
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
 ---
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试、压力测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践差距 | ⚠️ 需改进 | description 不合规（非触发条件）；无关键词覆盖；无跨引用；无流程图；fast-fail 逻辑清晰但执行流程未用分支结构；但多语言矩阵和 Quality Report 模板是高质量核心内容应保留 |
 
-**总体评估：** gitflow-quality 是一个"编排型教程 skill"——它告诉 Claude "按顺序运行这些命令、在第一个失败处停止、生成报告、可选发布到 Issue"。技术内容质量很高（多语言适配矩阵、fast-fail 策略、report 模板），但结构形态与 Superpowers 标准差距明显：无法准确判断何时触发、无边界约束（涉及写入 Issue 评论副作用）、无测试验证机制、token 超标近一倍。
+**总体评估：** gf-quality 是一个"编排型教程 skill"——它告诉 Claude "按顺序运行这些命令、在第一个失败处停止、生成报告、可选发布到 Issue"。技术内容质量很高（多语言适配矩阵、fast-fail 策略、report 模板），但结构形态与 Superpowers 标准差距明显：无法准确判断何时触发、无边界约束（涉及写入 Issue 评论副作用）、无测试验证机制、token 超标近一倍。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-quality` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-quality` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | "质量关卡 — 6 项质量检查闸门..." |
 | description 只描述触发条件 | ❌ | 混合了功能描述（"6 项质量检查闸门"）、效果承诺（"全部通过才能进入交付阶段"）和流程暗示 |
@@ -37,7 +37,7 @@
 | 含 Implementation 章节 | ✅ | 步骤 0-6 的完整工作流（高质量） |
 | 含 Common Mistakes | ⚠️ | "注意事项"段落（7 条）部分覆盖，但格式不标准 |
 | Token 效率 < 500 词 | ❌ | ~970 词（估算），超标约 470 词（94%） |
-| 无叙事性示例反模式 | ⚠️ | "使用示例"章节包含情景化叙述（"使用 gitflow-quality 技能..."），有更多结构化触发会更好 |
+| 无叙事性示例反模式 | ⚠️ | "使用示例"章节包含情景化叙述（"使用 gf-quality 技能..."），有更多结构化触发会更好 |
 | 无多语言稀释 | ⚠️ | 全中文，未提供英文 description |
 | 无流程图中嵌入代码 | ✅ | 无 Mermaid/AST 流程图嵌入 |
 
@@ -47,7 +47,7 @@
    - 当前：`质量关卡 — 6 项质量检查闸门（build / test / coverage / format / static / pre-commit），全部通过才能进入交付阶段`
    - 问题：功能描述 + 流程暗示 + 效果承诺，不是触发条件
    - 应为：`Use when the user wants to run the full 6-gate quality check (build, test, coverage, format, lint, pre-commit) before delivery, verify a branch is ready, or generate a Quality Report for an issue.`
-   - 后果：Claude 难以判断"帮我跑一下检查"、"分支能交付了吗"、"验证质量"、"pre-commit 挂了该查哪些"等不同表述应触发此 skill 还是 gitflow-precommit
+   - 后果：Claude 难以判断"帮我跑一下检查"、"分支能交付了吗"、"验证质量"、"pre-commit 挂了该查哪些"等不同表述应触发此 skill 还是 gf-precommit
 
 2. **Token 严重超标（~970 词 vs 500 词上限）**：
    - 主因 1：步骤 0 嵌入完整的多语言检测脚本（shell if/elif/else，15 行）+ 多语言矩阵表（4 列 × 7 行 = 28 数据单元）
@@ -124,7 +124,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确了"分析原因 ≠ 自动修复"的边界。gitflow-quality 的边界复杂度和副作用风险更高（涉及 Issue 写入、多文件读写检查、覆盖率信息暴露），职责边界声明缺失的风险等级也更高。
+**对比参考（gf-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确了"分析原因 ≠ 自动修复"的边界。gf-quality 的边界复杂度和副作用风险更高（涉及 Issue 写入、多文件读写检查、覆盖率信息暴露），职责边界声明缺失的风险等级也更高。
 
 ---
 
@@ -198,10 +198,10 @@
    - 建议关键词覆盖：用户可能表达为"质量检查"、"质量闸门"、"跑检查"、"能交付了吗"、"分支质量"、"quality gate"、"run checks"、"is this ready"、"pre-commit failed"、"coverage too low"、"clippy warnings"
 
 2. **缺少跨引用**：应明确引用：
-   - `gitflow-precommit`（pre-commit 检查是 quality gate 的子集）
-   - `gitflow-release`（quality gate 是 release 的前置条件）
-   - `gitflow-commit`（commit 前通常先通过 quality gate）
-   - `gitflow-security-check`（安全也是质量的一部分）
+   - `gf-precommit`（pre-commit 检查是 quality gate 的子集）
+   - `gf-release`（quality gate 是 release 的前置条件）
+   - `gf-commit`（commit 前通常先通过 quality gate）
+   - `gf-security-check`（安全也是质量的一部分）
    - `superpowers:test-driven-development`（TDD 循环与 quality gate 的关联）
 
 3. **内容组织偏向"教程文档"而非"执行指令"**：
@@ -246,7 +246,7 @@
 | P1-2 | 添加 Quick Reference 速查 | D1 | 6 核心命令（build/test/coverage/format/static/pre-commit）+ 失败修复命令 + 环境变量速查表 |
 | P1-3 | 添加双流分支结构 | D1, D4 | 场景 A（输出到终端）/ 场景 B（发布到 Issue）使用明确的 if/else 逻辑 |
 | P1-4 | 添加关键词覆盖 | D4 | 覆盖中文触发词："质量检查"、"质量闸门"、"跑检查"、"能交付了吗"、"分支质量"、"pre-commit 挂了"、"覆盖率不够"；覆盖英文触发词："quality gate"、"run checks"、"is this ready"、"coverage too low"、"clippy warnings" |
-| P1-5 | 添加跨引用 | D4 | 引用 gitflow-precommit、gitflow-release、gitflow-commit、gitflow-security-check、superpowers:test-driven-development |
+| P1-5 | 添加跨引用 | D4 | 引用 gf-precommit、gf-release、gf-commit、gf-security-check、superpowers:test-driven-development |
 | P1-6 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能只运行 cargo test，遗漏其他 5 项） |
 | P1-7 | 补充成功标准 | D3 | 完整检查的 6 维度、fast-fail 策略验证标志、Quality Report 最低字段、N/A 处理正确标志 |
 
@@ -280,7 +280,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-quality | gitflow-precommit | gitflow-autoreport-bug |
+| 对比项 | gf-quality | gf-precommit | gf-autoreport-bug |
 |--------|-----------------|-------------------|----------------------|
 | 边界风险等级 | 🔴 高（涉及 Issue 写入） | 🟡 中（涉及文件写入） | 🟡 中（涉及 Issue 创建） |
 | 职责边界 | ❌ 缺失 | ❌ 缺失 | ✅ 完整 |
@@ -293,13 +293,13 @@
 | 结构化程度 | ⚠️ 线性步骤完整 | ⚠️ 线性步骤完整 | ✅ 结构化最佳 |
 | 副作用风险 | 🔴 Issue 发布 | 🟡 文件写入 | 🟡 Issue 创建 |
 
-**关键发现：** gitflow-quality 在技术内容质量上是所有 skill 中最全面的（6 维度检查 + 多语言矩阵 + fast-fail 策略 + 完整报告模板），但其结构形态也是"教程文档"与"执行指令"差距最大的——优秀的技术内容需要通过 Superpowers 标准结构才能被 Claude 有效消费。
+**关键发现：** gf-quality 在技术内容质量上是所有 skill 中最全面的（6 维度检查 + 多语言矩阵 + fast-fail 策略 + 完整报告模板），但其结构形态也是"教程文档"与"执行指令"差距最大的——优秀的技术内容需要通过 Superpowers 标准结构才能被 Claude 有效消费。
 
 ---
 
 ## 九、总结
 
-gitflow-quality 当前的定位是"编排型教程 + 多语言模板库"混合体——它有清晰的 fast-fail 策略、完整的 Quality Report 模板、以及覆盖 5 种语言的多语言适配矩阵，但缺乏 Superpowers skill 所需的结构性要素。
+gf-quality 当前的定位是"编排型教程 + 多语言模板库"混合体——它有清晰的 fast-fail 策略、完整的 Quality Report 模板、以及覆盖 5 种语言的多语言适配矩阵，但缺乏 Superpowers skill 所需的结构性要素。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"质量检查"？"能交付了吗"？"pre-commit 挂了"？"覆盖率不够"？）

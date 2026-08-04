@@ -1,6 +1,6 @@
 # gf pipeline analyzer 完整参考
 
-> 本文档为 `gitflow-pipeline-analyzer` skill 的外部化引用。
+> 本文档为 `gf-pipeline-analyzer` skill 的外部化引用。
 
 ## 流水线相关命令速查
 

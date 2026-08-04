@@ -1,7 +1,7 @@
-# gitflow-precommit Skill 分析报告
+# gf-precommit Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-precommit/SKILL.md`
+> **分析目标：** `skills/gf-precommit/SKILL.md`
 > **对应 Issue：** #24
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 工作流程步骤明确可执行；但 description 不合规、无关键词覆盖、无跨引用、未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-precommit 是一个"操作教程型 skill"——它告诉 Claude "按这些步骤运行这些命令"，提供了高质量的检查工作流和 hook 脚本模板。但与 Superpowers 要求的 skill 形态差距在于：无法自动判断何时触发、无边界约束（尤其是涉及文件写入操作）、无测试验证机制。
+**总体评估：** gf-precommit 是一个"操作教程型 skill"——它告诉 Claude "按这些步骤运行这些命令"，提供了高质量的检查工作流和 hook 脚本模板。但与 Superpowers 要求的 skill 形态差距在于：无法自动判断何时触发、无边界约束（尤其是涉及文件写入操作）、无测试验证机制。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-precommit` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-precommit` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | "Pre-commit 检查工作流 — 在提交前运行格式化..."
 | description 只描述触发条件 | ❌ | 混合了功能描述（"确保代码质量达标"）和流程描述（"并可选配置 Git pre-commit hook"） |
@@ -119,7 +119,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确了"修复建议 ≠ 自动修复"的边界。gitflow-precommit 涉及更实际的副作用操作（写入 hook 文件、修改代码的 `--fix`、安装 pip 包），职责边界比 autoreport-bug（仅创建 Issue）更复杂，更需要声明。
+**对比参考（gf-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确了"修复建议 ≠ 自动修复"的边界。gf-precommit 涉及更实际的副作用操作（写入 hook 文件、修改代码的 `--fix`、安装 pip 包），职责边界比 autoreport-bug（仅创建 Issue）更复杂，更需要声明。
 
 ---
 
@@ -187,9 +187,9 @@
    - 建议关键词覆盖：用户可能表达为"提交前检查"、"质量检查"、"pre-commit"、"跑 lint"、"cargo fmt check"、"cargo clippy"、"setup pre-commit hook"、"commit failed checks"、"配置 git hook"、"hook 检查失败"
 
 2. **缺少跨引用**：应明确引用：
-   - `gitflow-commit`（commit 操作与 pre-commit 检查的对齐）
-   - `gitflow-quality`（quality 包含更多维度检查）
-   - `gitflow-security-check`（安全也是质量的一部分，可共享环境）
+   - `gf-commit`（commit 操作与 pre-commit 检查的对齐）
+   - `gf-quality`（quality 包含更多维度检查）
+   - `gf-security-check`（安全也是质量的一部分，可共享环境）
    - `superpowers:test-driven-development`（TDD 循环与 pre-commit 检查的关联）
 
 3. **内容组织偏向"教程文档"而非"执行指令"**：
@@ -232,7 +232,7 @@
 | P1-1b | 添加 Quick Reference 速查 | D1 | 3 核心命令（fmt + clippy + test）+ 失败修复命令 + hook 配置命令速查表 |
 | P1-2 | 添加双流分支结构 | D1, D4 | 场景 A（运行检查）/ 场景 B（配置 hook）使用明确的 if/else 逻辑 |
 | P1-3 | 添加关键词覆盖 | D4 | 覆盖中文触发词："提交前检查"、"质量检查"、"跑 lint"、"cargo fmt check"、"cargo clippy"、"配置 git hook"、"pre-commit hook"；覆盖英文触发词："pre-commit checks"、"setup hook"、"git hook" |
-| P1-4 | 添加跨引用 | D4 | 引用 gitflow-commit、gitflow-quality、gitflow-security-check、superpowers:test-driven-development |
+| P1-4 | 添加跨引用 | D4 | 引用 gf-commit、gf-quality、gf-security-check、superpowers:test-driven-development |
 | P1-5 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能只运行 cargo test，遗漏 fmt 和 clippy） |
 | P1-6 | 补充成功标准 | D3 | 完整检查的 3 维度、hook 验证标志、报告最低字段 |
 
@@ -266,7 +266,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-precommit | gitflow-autoreport-bug | gitflow-security-check |
+| 对比项 | gf-precommit | gf-autoreport-bug | gf-security-check |
 |--------|-------------------|----------------------|----------------------|
 | 边界风险等级 | 🟡 中（涉及文件写入） | 🟡 中（涉及 Issue 创建） | 🔴 高（涉及敏感数据） |
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 |
@@ -278,13 +278,13 @@
 | Token 数 | ⚠️ 高（885 词） | ⚠️ 中 | ⚠️ 中（~500） |
 | 结构化程度 | ⚠️ 线性步骤完整 | ✅ 结构化最佳 | ⚠️ checklist 为主 |
 
-**关键发现：** gitflow-precommit 在工作流步骤的可执行性上是所有 skill 中最强的（步骤 7 步明确，命令精确，含高级 flag 如 `--allow-dirty`），但其结构形态也是"教程文档"与"执行指令"差距最大的——优秀的技术内容需要通过 Superpowers 标准结构才能被 Claude 有效消费。
+**关键发现：** gf-precommit 在工作流步骤的可执行性上是所有 skill 中最强的（步骤 7 步明确，命令精确，含高级 flag 如 `--allow-dirty`），但其结构形态也是"教程文档"与"执行指令"差距最大的——优秀的技术内容需要通过 Superpowers 标准结构才能被 Claude 有效消费。
 
 ---
 
 ## 九、总结
 
-gitflow-precommit 当前的定位是"操作教程 + 模板库"混合体——它有清晰的工作流步骤和高质量的脚本模板，但缺乏 Superpowers skill 所需的结构性要素。
+gf-precommit 当前的定位是"操作教程 + 模板库"混合体——它有清晰的工作流步骤和高质量的脚本模板，但缺乏 Superpowers skill 所需的结构性要素。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"提交前检查"？"配置 hook"？"跑 lint"？）

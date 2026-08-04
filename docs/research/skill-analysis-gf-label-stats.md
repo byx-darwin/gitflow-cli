@@ -1,7 +1,7 @@
-# gitflow-label-stats Skill 分析报告
+# gf-label-stats Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-label-stats/SKILL.md`
+> **分析目标：** `skills/gf-label-stats/SKILL.md`
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
 ---
@@ -13,9 +13,9 @@
 | 维度 1：Skill 结构和文档规范 | ⚠️ 需改进 | frontmatter 基本合规，但 description 违反触发条件规范；文档结构以「工作流 + 模板 + 示例 + 注意事项」代替 Superpowers 核心章节；token 估算约 700-900 词当量（含模板与示例）；输出示例占大量篇幅 |
 | 维度 2：职责边界清晰度 | ❌ 不合格 | 完全缺失职责边界声明、禁止行为清单和红旗列表 |
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
-| 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 触发关键词完全缺失；未遵循 TDD；有跨引用（步骤 6 提及 `gitflow-issue-triage`）但无 See Also 章节；flowchart 非必要（线性步骤） |
+| 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 触发关键词完全缺失；未遵循 TDD；有跨引用（步骤 6 提及 `gf-issue-triage`）但无 See Also 章节；flowchart 非必要（线性步骤） |
 
-**总体评估：** gitflow-label-stats 当前是一份「统计模板 + 工作流说明」，它在报告模板结构（标签分组统计、优先级分布、分类覆盖率、改进建议四层）和具体健康度阈值判断上做得相当扎实，但不符合 Superpowers 对 skill 的结构性要求。它告诉 Claude "统计什么维度" 和 "输出什么样" ，但没有回答 "何时触发此 skill"、"报告质量如何验证"、"何时不应输出推断性结论"。
+**总体评估：** gf-label-stats 当前是一份「统计模板 + 工作流说明」，它在报告模板结构（标签分组统计、优先级分布、分类覆盖率、改进建议四层）和具体健康度阈值判断上做得相当扎实，但不符合 Superpowers 对 skill 的结构性要求。它告诉 Claude "统计什么维度" 和 "输出什么样" ，但没有回答 "何时触发此 skill"、"报告质量如何验证"、"何时不应输出推断性结论"。
 
 ---
 
@@ -25,7 +25,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-label-stats` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-label-stats` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "标签统计分析工作流 — 按标签分组统计 Issue 数量…" 功能描述 |
 | description 只描述触发条件 | ❌ | 混合功能描述与关键词，未使用触发条件格式 |
@@ -102,8 +102,8 @@
    - 职责边界风险等级：🟡 中（只读但可能产生评价性文本）
 
 2. **"改进建议"章节的行为边界模糊**：
-   - 步骤 6 的改进建议表："运行 `gitflow-issue-triage` 对所有 Open Issue 进行分类"
-   - "运行"是建议还是执行？Claude 是否应该在生成报告后自动执行 `gitflow-issue-triage`？
+   - 步骤 6 的改进建议表："运行 `gf-issue-triage` 对所有 Open Issue 进行分类"
+   - "运行"是建议还是执行？Claude 是否应该在生成报告后自动执行 `gf-issue-triage`？
    - 需要明确：本 skill 只生成报告和建议，是否自动触发行动取决于用户确认
 
 3. **缺少禁止行为清单** — 应明确：
@@ -117,11 +117,11 @@
    - 用户要求"看看代码质量如何"（误用统计 skill 评估）
    - 用户要求"给所有未分类的 issue 打标"（自动分类超出范围）
    - 用户要求"对比团队成员提交情况"（越界为绩效评估）
-   - 用户要求"生成周报"（应改用 `gitflow-weekly-report`）
+   - 用户要求"生成周报"（应改用 `gf-weekly-report`）
 
 5. **缺少职责范围说明**：
    - ✅ 负责：调用 issue list、label list 获取数据；计算分组统计；输出格式化报告；提供改进建议文本
-   - ❌ 不负责：修改 Issue 或 Label 状态；为 Issue 自动分类；评估团队绩效；替代 `gitflow-issue-triage`
+   - ❌ 不负责：修改 Issue 或 Label 状态；为 Issue 自动分类；评估团队绩效；替代 `gf-issue-triage`
 
 ### 3.3 评分：❌ 不合格
 
@@ -179,7 +179,7 @@
 | 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程记录 |
 | description 只描述触发条件，不描述流程 | ❌ | description 混合功能描述与工作流说明 |
 | 关键词覆盖（错误信息、症状、同义词、工具） | ❌ | 无显式关键词覆盖；description 未列出触发关键词 |
-| 跨引用其他 skills | ⚠️ | 步骤 6 提及 `gitflow-issue-triage`，但无独立 See Also 章节 |
+| 跨引用其他 skills | ⚠️ | 步骤 6 提及 `gf-issue-triage`，但无独立 See Also 章节 |
 | 必要时使用 flowchart | N/A | 工作流是线性步骤 + 判断表，无需流程图 |
 
 ### 5.2 具体问题
@@ -194,12 +194,12 @@
    - 未覆盖同义词：`标签健康度`、`标签管理`、`分类覆盖`、`标签使用统计`
 
 3. **跨引用不足**：
-   - 步骤 6 建议提及 `gitflow-issue-triage`，但未作为结构化引用
+   - 步骤 6 建议提及 `gf-issue-triage`，但未作为结构化引用
    - 应引用 3 个以上相关 skills：
-     - `gitflow-label-milestone`（标签 CRUD）
-     - `gitflow-issue-triage`（Issue 自动分类）
-     - `gitflow-weekly-report`（周报中可能引用统计结果）
-     - `gitflow-repo-onboarding`（首次设置仓库标签）
+     - `gf-label-milestone`（标签 CRUD）
+     - `gf-issue-triage`（Issue 自动分类）
+     - `gf-weekly-report`（周报中可能引用统计结果）
+     - `gf-repo-onboarding`（首次设置仓库标签）
 
 4. **内容组织偏向「模板 + 规则说明」而非「执行指令」**：
    - Superpowers skill 应告诉 Claude "做什么 + 怎么做 + 不做什么"
@@ -224,7 +224,7 @@
 | P0-2 | 添加职责边界声明章节 | D2 | 明确本 skill 只读统计、不修改 issue/label、不为未分类 issue 自动打标 |
 | P0-3 | 添加禁止行为清单 | D2 | 🚫 不得修改 Issue 或 Label；🚫 不得自动为 Issue 添加标签；🚫 不得基于标签分布推断团队/个人绩效；🚫 不得虚构或估算未获取的统计数字 |
 | P0-4 | 添加红旗列表 | D2 | 标识：用户要求评估代码质量、要求自动打标、要求对比团队成员产出 |
-| P0-5 | 添加"改进建议"与"自动执行"的边界 | D2 | 明确本 skill 只输出建议文本，不自动执行 `gitflow-issue-triage`，除非用户显式确认 |
+| P0-5 | 添加"改进建议"与"自动执行"的边界 | D2 | 明确本 skill 只输出建议文本，不自动执行 `gf-issue-triage`，除非用户显式确认 |
 | P0-6 | 替换虚构示例为明确占位符 | D1 | 输出模板移除具体仓库名、日期、数字，统一使用 `<repo-owner>/<repo-name>`、`<n>`、`<timestamp>` |
 
 ### P1（建议修复 — 提升质量）
@@ -234,8 +234,8 @@
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 提取输出模板至独立文件 | D1 | 将完整报告模板移至 `templates/label-stats-report.tmpl`，skill 中引用路径，降低 token 占用至 < 500 词 |
 | P1-3 | 添加前置条件检查 | D1 | 执行前验证：是否在 git 仓库中、`gf` 是否可用、是否有仓库读取权限 |
-| P1-4 | 添加决策逻辑（条件分支） | D1, D4 | 仓库无标签 → 报告"暂无标签，建议使用 gitflow-label-milestone 创建"；无 Issue → 报告"暂无 Issue" |
-| P1-5 | 添加跨引用章节 | D4 | 引用 gitflow-label-milestone、gitflow-issue-triage、gitflow-weekly-report、gitflow-repo-onboarding |
+| P1-4 | 添加决策逻辑（条件分支） | D1, D4 | 仓库无标签 → 报告"暂无标签，建议使用 gf-label-milestone 创建"；无 Issue → 报告"暂无 Issue" |
+| P1-5 | 添加跨引用章节 | D4 | 引用 gf-label-milestone、gf-issue-triage、gf-weekly-report、gf-repo-onboarding |
 | P1-6 | 补充关键词覆盖 | D4 | 添加中文触发词（标签分析、issue 分布、分类情况）和英文触发词（label analysis、issue health、label coverage） |
 | P1-7 | 定义成功标准 | D3 | 各数字必须与 CLI 返回一致、百分比总和 100%、分类覆盖率加总等于总数 |
 | P1-8 | 添加结构化 See Also | D4 | 显式列出 3-5 个相关 skill，避免仅隐式提及 |
@@ -272,7 +272,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-label-stats | gitflow-autoreport-bug | gitflow-weekly-report | gitflow-label-milestone |
+| 对比项 | gf-label-stats | gf-autoreport-bug | gf-weekly-report | gf-label-milestone |
 |--------|--------------------|----------------------|---------------------|----------------------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 | ❌ 缺失 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
@@ -284,13 +284,13 @@
 | 职责边界风险等级 | 🟡 中（可能推断团队绩效） | 🟡 中（Issue 创建） | 🟡 中-高（跨项目读取） | 🟡 中（CRUD 操作） |
 | Token 估算 | ❌ 700-900 词（超标） | ⚠️ 中等 | ❌ 700-900 词（超标） | ✅ ~300 词 |
 
-**关键发现：** gitflow-label-stats 与 gitflow-weekly-report 结构高度相似（模板 + 工作流 + 示例 + 注意事项），均以「报告生成」为定位。但 gitflow-label-stats 在职责边界风险上低于 weekly-report（前置读取 vs 跨项目读取），且健康度阈值判断有明确规则支撑（优于 weekly-report 的模糊推断空间）。两者共同的改进方向是：将报告模板提至独立文件以压缩 token。
+**关键发现：** gf-label-stats 与 gf-weekly-report 结构高度相似（模板 + 工作流 + 示例 + 注意事项），均以「报告生成」为定位。但 gf-label-stats 在职责边界风险上低于 weekly-report（前置读取 vs 跨项目读取），且健康度阈值判断有明确规则支撑（优于 weekly-report 的模糊推断空间）。两者共同的改进方向是：将报告模板提至独立文件以压缩 token。
 
 ---
 
 ## 九、总结
 
-gitflow-label-stats 当前的定位是"标签统计报告模板 + 工作流说明"，它在**报告模板结构的完整性**（标签分组统计、优先级分布、分类覆盖率、改进建议四层）和**健康度阈值判断的规则化**（urgent < 10% 正常、10%-20% 关注、>20% 告警）上表现优秀，在**标签分类参考**（类型、优先级、状态、平台、其他五类）上也较周全。
+gf-label-stats 当前的定位是"标签统计报告模板 + 工作流说明"，它在**报告模板结构的完整性**（标签分组统计、优先级分布、分类覆盖率、改进建议四层）和**健康度阈值判断的规则化**（urgent < 10% 正常、10%-20% 关注、>20% 告警）上表现优秀，在**标签分类参考**（类型、优先级、状态、平台、其他五类）上也较周全。
 
 核心差距：
 1. **触发条件完全缺失** → Claude 何时应加载此 skill？当前 description 是"工作流 + 功能"枚举

@@ -1,7 +1,7 @@
-# gitflow-pr-apply-feedback Skill 分析报告
+# gf-pr-apply-feedback Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-pr-apply-feedback/SKILL.md`（241 行）
+> **分析目标：** `skills/gf-pr-apply-feedback/SKILL.md`（241 行）
 > **对应 Issue：** #31
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 零测试覆盖；无基线对比；无压力测试场景；无成功标准定义 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | description 包含完整流程违反规范；关键词覆盖完全缺失；无跨引用；无 TDD for skills 流程记录；flowchart 缺失（条件分支未可视化） |
 
-**总体评估：** gitflow-pr-apply-feedback 是一个"PR 反馈处理工作流说明书"风格的文档。它在工作流完整性（6 步骤闭环：获取→列出→应用→标记→通知→汇总）和表格化优先级排序上表现优秀，但不符合 Superpowers 对 skill 的结构性要求。核心风险在于：**修改代码 + 提交 + push 是高副作用操作，当前文档对此无任何边界约束**，Claude 可能在未确认的情况下执行 `git push` 或创建 commit。
+**总体评估：** gf-pr-apply-feedback 是一个"PR 反馈处理工作流说明书"风格的文档。它在工作流完整性（6 步骤闭环：获取→列出→应用→标记→通知→汇总）和表格化优先级排序上表现优秀，但不符合 Superpowers 对 skill 的结构性要求。核心风险在于：**修改代码 + 提交 + push 是高副作用操作，当前文档对此无任何边界约束**，Claude 可能在未确认的情况下执行 `git push` 或创建 commit。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-pr-apply-feedback` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-pr-apply-feedback` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "PR 审查审查反馈应用工作流 — 获取 PR 评论和审查意见，列出待处理项，逐条在本地应用修改，并标记已处理的评论为 resolved" |
 | description 只描述触发条件 | ❌ | 包含完整 6 步流程描述（获取→列出→应用→标记→通知→汇总），非触发条件 |
@@ -115,7 +115,7 @@
      - Claude 在本地 master/main 分支上直接修改代码（应在 PR 分支上操作）
      - Claude 将未充分验证的修改标记为 resolved（绕过测试直接 resolved）
      - Claude 对"建议性评论"也进行不必要的代码修改
-     - Claude 在用户明确说"审查这条 PR"时误解为"处理审查意见"（应使用 gitflow-pr-review）
+     - Claude 在用户明确说"审查这条 PR"时误解为"处理审查意见"（应使用 gf-pr-review）
    - 职责边界风险等级：🔴 高（代码修改 + 提交 + push 三合一高副作用操作）
 
 2. **缺少禁止行为清单**：
@@ -153,7 +153,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-pr-apply-feedback 作为高副作用操作（代码修改+commit+push），比 autoreport-bug（仅创建 Issue）更需要严格的职责边界。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-pr-apply-feedback 作为高副作用操作（代码修改+commit+push），比 autoreport-bug（仅创建 Issue）更需要严格的职责边界。
 
 ---
 
@@ -238,12 +238,12 @@
 
 4. **缺少跨引用**：
    - 应引用以下相关 skills：
-     - `gitflow-pr-review`（审查他人 PR 的 skill，与本 skill 互补）
-     - `gitflow-pr-inline-review`（行内审查 skill，可能需配合使用）
-     - `gitflow-pr-create`（PR 创建 skill，理解 PR 上下文）
-     - `gitflow-commit`（修复提交时的 commit message 规范）
-     - `gitflow-precommit`（提交前检查）
-     - `gitflow-quality`（代码质量检查）
+     - `gf-pr-review`（审查他人 PR 的 skill，与本 skill 互补）
+     - `gf-pr-inline-review`（行内审查 skill，可能需配合使用）
+     - `gf-pr-create`（PR 创建 skill，理解 PR 上下文）
+     - `gf-commit`（修复提交时的 commit message 规范）
+     - `gf-precommit`（提交前检查）
+     - `gf-quality`（代码质量检查）
 
 5. **缺少 flowchart**：
    - 优先级排序决策（安全 > 逻辑 > 边界 > 性能 > 命名 > 风格 > 建议）适合用决策树表达
@@ -279,7 +279,7 @@
 | P1-3 | 添加前置条件检查 | D1 | 执行前验证：是否在 git 仓库中、`gf` 是否可用、是否已认证、是否有 PR 写权限 |
 | P1-4 | 添加错误处理章节 | D1 | 覆盖：PR 不存在、无审查意见、分支切换失败、测试失败、resolve 命令失败、push 冲突等 |
 | P1-5 | 添加 Keywords 覆盖小节 | D4 | When to Use 章节下添加触发关键词列表（中英文），含同义词和工具名 |
-| P1-6 | 添加跨引用章节 | D4 | See Also 章节引用 gitflow-pr-review、gitflow-pr-create、gitflow-commit、gitflow-precommit、gitflow-quality |
+| P1-6 | 添加跨引用章节 | D4 | See Also 章节引用 gf-pr-review、gf-pr-create、gf-commit、gf-precommit、gf-quality |
 | P1-7 | 添加决策 flowchart | D4 | 至少 1 个 flowchart：优先级排序决策树 或 修改流程条件判断（测试失败→重试；意见不明→询问审查者） |
 
 ### P2（可选改进 — 锦上添花）
@@ -318,7 +318,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-pr-apply-feedback | gitflow-autoreport-bug | gitflow-label-stats | gitflow-issue-triage |
+| 对比项 | gf-pr-apply-feedback | gf-autoreport-bug | gf-label-stats | gf-issue-triage |
 |--------|--------------------------|----------------------|---------------------|---------------------|
 | 职责边界 | ❌ 缺失（高风险：修改代码+commit+push） | ✅ 完整（最高标准） | ❌ 缺失 | ❌ 缺失 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
@@ -330,17 +330,17 @@
 | Token 估算 | ❌ 800-1000 词（超标） | ⚠️ ~300 词 | ❌ 700-900 词 | ⚠️ ~440 词 |
 | 错误处理 | ❌ 缺失 | ✅ 有异常处理章节 | ❌ 缺失 | ❌ 缺失 |
 
-**关键发现：** gitflow-pr-apply-feedback 是所有已分析 skills 中副作用等级最高的（代码修改 + git commit + git push 组合），但其职责边界缺失程度与低副作用的 gitflow-label-stats 相同——这是一个严重的安全/可靠性隐患。任何涉及写操作的 skill 都应以 gitflow-autoreport-bug 为最低标准，建立完整的职责边界声明。
+**关键发现：** gf-pr-apply-feedback 是所有已分析 skills 中副作用等级最高的（代码修改 + git commit + git push 组合），但其职责边界缺失程度与低副作用的 gf-label-stats 相同——这是一个严重的安全/可靠性隐患。任何涉及写操作的 skill 都应以 gf-autoreport-bug 为最低标准，建立完整的职责边界声明。
 
 ---
 
 ## 九、总结
 
-gitflow-pr-apply-feedback 当前的定位是"PR 反馈处理工作流说明书"。它在工作流完整性（6 步骤闭环包含优先级排序、处理结果汇总、通知审查者）和输出格式规范（4 类优先级 Markdown 表格）上表现优秀。
+gf-pr-apply-feedback 当前的定位是"PR 反馈处理工作流说明书"。它在工作流完整性（6 步骤闭环包含优先级排序、处理结果汇总、通知审查者）和输出格式规范（4 类优先级 Markdown 表格）上表现优秀。
 
 **核心差距：**
 
-1. **description 包含完整流程** → Claude 无法用此判断何时加载 skill（应使用 gitflow-pr-review 的场景可能被误触发此 skill）
+1. **description 包含完整流程** → Claude 无法用此判断何时加载 skill（应使用 gf-pr-review 的场景可能被误触发此 skill）
 2. **缺乏高副作用操作的职责边界** → 在所有已分析 skills 中副作用等级最高（代码修改+commit+push），但边界约束为零
 3. **缺乏可测试性设计** → 无法验证 Claude 是否正确处理了审查意见
 4. **Token 严重超标** → 完整叙事性示例 + 输出模板占据大量空间

@@ -16,7 +16,7 @@
 - crates.io: publish new `gf*` packages, old `gitflow-cli*` remain (no yank)
 - GitHub repo URL unchanged: `https://github.com/byx-darwin/gitflow-cli`
 - Directory structure unchanged: `crates/core`, `crates/github`, `apps/cli` keep names
-- Skill directory names unchanged: `.claude/skills/gitflow-workflow/` etc.
+- Skill directory names unchanged: `.claude/skills/gf-workflow/` etc.
 - CHANGELOG.md: historical entries preserve original names, new entry documents rename
 - contract.schema.json: `$id` URL changes to `https://gf.ai/schemas/...`
 
@@ -728,8 +728,8 @@ git commit -m "docs: update skill SKILL.md files for gf rename"
 ### Task 12: Skills — Schema and References
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/contract.schema.json`
-- Modify: `.claude/skills/gitflow-workflow/references.md`
+- Modify: `.claude/skills/gf-workflow/contract.schema.json`
+- Modify: `.claude/skills/gf-workflow/references.md`
 
 **Interfaces:**
 - Produces: Updated schema ID and reference documentation
@@ -746,17 +746,17 @@ git commit -m "docs: update skill SKILL.md files for gf rename"
 
 - [ ] **Step 2: Update references.md**
 
-Run: `sed -i '' 's/gitflow-cli/gf/g' .claude/skills/gitflow-workflow/references.md`
+Run: `sed -i '' 's/gitflow-cli/gf/g' .claude/skills/gf-workflow/references.md`
 
 - [ ] **Step 3: Verify**
 
-Run: `grep "gitflow-cli" .claude/skills/gitflow-workflow/contract.schema.json .claude/skills/gitflow-workflow/references.md`
+Run: `grep "gitflow-cli" .claude/skills/gf-workflow/contract.schema.json .claude/skills/gf-workflow/references.md`
 Expected: No output (or only repo URLs)
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/
+git add .claude/skills/gf-workflow/
 git commit -m "chore: update workflow schema $id and references for gf"
 ```
 

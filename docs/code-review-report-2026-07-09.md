@@ -2,7 +2,7 @@
 
 **PR**: https://github.com/byx-darwin/gitflow-cli/pull/86
 **日期**: 2026-07-09
-**审查者**: Claude Code (gitflow-workflow)
+**审查者**: Claude Code (gf-workflow)
 **状态**: 仅供参考（Self-review prohibited）
 
 ---
@@ -116,5 +116,5 @@
 
 ---
 
-**报告生成工具**: gitflow-review (manual review)
+**报告生成工具**: gf-review (manual review)
 **审查状态**: 仅供参考，未正式提交到 GitHub

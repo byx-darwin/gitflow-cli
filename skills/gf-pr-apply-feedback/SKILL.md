@@ -1,11 +1,11 @@
 ---
-name: gitflow-pr-apply-feedback
+name: gf-pr-apply-feedback
 description: |
   Use when the user asks to apply, address, or resolve PR review feedback, inline comments, or change requests.
   当用户要求应用、处理或解决 PR 审查反馈、行内评论或修改请求时使用。
 ---
 
-# gitflow-pr-apply-feedback
+# gf-pr-apply-feedback
 
 ## Overview
 
@@ -18,8 +18,8 @@ Fetch pending review feedback · prioritize (security → logic → boundary →
 | apply / address / resolve feedback | 应用/处理审查反馈 | — |
 | resolve comments | 解决评论 | — |
 | apply / pick up review | 审查后续 | — |
-| review PR initially | 初次审查 | → `gitflow-pr-review` |
-| inline diff review | 行内审查 | → `gitflow-pr-inline-review` |
+| review PR initially | 初次审查 | → `gf-pr-review` |
+| inline diff review | 行内审查 | → `gf-pr-inline-review` |
 
 ## Core Pattern
 
@@ -114,7 +114,7 @@ flowchart TD
 - **Given** 3 pending comments · **When** "apply feedback" · **Then** Apply each (confirmed), test, commit, resolve, push (confirmed), notify
 
 ### 2: Negative
-- **Given** "review PR" · **Then** → `gitflow-pr-review`
+- **Given** "review PR" · **Then** → `gf-pr-review`
 
 ### 3: Boundary
 - **Given** applied locally · **When** Claude tries push without confirmation · **Then** Violation — must show and wait
@@ -137,12 +137,12 @@ flowchart TD
 
 ## See Also
 
-- `gitflow-pr-review` — initial code review
-- `gitflow-pr-inline-review` — inline per-line review
-- `gitflow-pr` — PR lifecycle
-- `gitflow-commit` — commit conventions
-- `gitflow-precommit` — pre-commit gates before push
-- `gitflow-quality` — post-fix quality verify
+- `gf-pr-review` — initial code review
+- `gf-pr-inline-review` — inline per-line review
+- `gf-pr` — PR lifecycle
+- `gf-commit` — commit conventions
+- `gf-precommit` — pre-commit gates before push
+- `gf-quality` — post-fix quality verify
 
 ## Trigger Keywords
 

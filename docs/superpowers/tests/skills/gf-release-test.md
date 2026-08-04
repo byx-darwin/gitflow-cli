@@ -1,13 +1,13 @@
-# gitflow-release 压力测试场景
+# gf-release 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-release/SKILL.md`
+> **对应 Skill:** `skills/gf-release/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-release` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-release` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完成 CRUD 正确路由（create / list / view / edit / upload / download / delete）
 2. 删除需要双重确认（不可逆操作）
 3. 创建前验证 tag 存在
@@ -199,8 +199,8 @@
 
 **Skill 应坚守的行为:**
 - 仅创建 release
-- redirect changelog → `/gitflow-release-helper`
-- 引用 Out of Scope "Changelog generation → /gitflow-release-helper"
+- redirect changelog → `/gf-release-helper`
+- 引用 Out of Scope "Changelog generation → /gf-release-helper"
 - 引用 Test Scenario Boundary "upload binary and also generate the changelog → upload only; redirect changelog"
 
 **合理化借口（应被红旗列表捕获）:**
@@ -210,7 +210,7 @@
 
 **验证标准:**
 - [ ] 仅创建 release
-- [ ] redirect changelog → `/gitflow-release-helper`
+- [ ] redirect changelog → `/gf-release-helper`
 - [ ] 引用 Out of Scope
 - [ ] 不生成 changelog
 

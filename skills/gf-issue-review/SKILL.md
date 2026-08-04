@@ -1,11 +1,11 @@
 ---
-name: gitflow-issue-review
+name: gf-issue-review
 description: |
   Use when the user wants to analyze an Issue's requirement completeness (title clarity, description sufficiency, acceptance criteria) and post findings as an Issue comment.
   当用户希望分析 Issue 需求完整性（标题清晰度、描述充分度、验收标准）并回写评论时使用。
 ---
 
-# gitflow-issue-review
+# gf-issue-review
 
 Three-dimensional Issue requirement review — title clarity / description sufficiency / acceptance criteria — emits a structured analysis report, then posts it as an Issue comment. Does not edit the Issue itself.
 
@@ -16,7 +16,7 @@ Three-dimensional Issue requirement review — title clarity / description suffi
 | review the requirement | 审查需求质量 | check description completeness |
 | is this issue clear enough | 这个 Issue 描述够吗 | before triage/triage |
 | improve issue description | 改进 Issue 描述 | before development |
-| triage this issue | 对 Issue 进行分类 | **NOT** → `/gitflow-issue-triage` |
+| triage this issue | 对 Issue 进行分类 | **NOT** → `/gf-issue-triage` |
 
 ## Core Pattern
 
@@ -103,10 +103,10 @@ rm -f /tmp/issue-analysis.md
 
 ### ❌ Out of Scope
 
-- Classifying / triaging → `/gitflow-issue-triage`
-- Editing Issue body → `/gitflow-issue` (edit subcommand)
-- Code review → `/gitflow-pr-review`
-- Creating Issue → `/gitflow-issue-create`
+- Classifying / triaging → `/gf-issue-triage`
+- Editing Issue body → `/gf-issue` (edit subcommand)
+- Code review → `/gf-pr-review`
+- Creating Issue → `/gf-issue-create`
 
 ### 🚫 Do Not
 
@@ -135,7 +135,7 @@ rm -f /tmp/issue-analysis.md
 - **Given** "review issue #42" — **When** title/description/scores drafted — **Then** user confirms → `issue comment 42 --body-file ...`, report posted.
 
 ### 2: Negative
-- **Given** "create a new issue" — **Then** NOT loaded. → `/gitflow-issue-create`.
+- **Given** "create a new issue" — **Then** NOT loaded. → `/gf-issue-create`.
 
 ### 3: Boundary
 - **Given** "analyze and then fix the code" — **Then** analyze only; code fixes not in scope → stop.
@@ -160,7 +160,7 @@ rm -f /tmp/issue-analysis.md
 
 ## See Also
 
-- `/gitflow-issue-create` — create new Issues
-- `/gitflow-issue-triage` — classify and tag Issues
-- `/gitflow-issue` — CRUD reference
+- `/gf-issue-create` — create new Issues
+- `/gf-issue-triage` — classify and tag Issues
+- `/gf-issue` — CRUD reference
 - `docs/superpowers/templates/skill-conventions.md` — skill conventions

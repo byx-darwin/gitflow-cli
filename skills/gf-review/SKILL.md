@@ -1,14 +1,14 @@
 ---
-name: gitflow-review
+name: gf-review
 description: |
   Use when the user wants to submit a formal code review decision
   (approve, request changes, or comment) on a PR through gf.
   当用户希望通过 gf 提交正式 PR 审查结论时使用。
 ---
 
-# gitflow-review
+# gf-review
 
-Submits review verdicts via `gf review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gitflow-pr-review` or `/gitflow-pr-inline-review` first to form verdict, or supply verdict explicitly.
+Submits review verdicts via `gf review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gf-pr-review` or `/gf-pr-inline-review` first to form verdict, or supply verdict explicitly.
 
 ## When to Use
 
@@ -18,9 +18,9 @@ Submits review verdicts via `gf review`. Read-only skill — does not analyze co
 | request changes, reject | 要求修改、驳回 | blocking issues |
 | submit review | 提交审查 | after inline comments |
 | code review decision | 审查决策 | formal verdict |
-| merge / close | 合并/关闭 | → `/gitflow-pr` |
-| review analysis | 审查分析 | → `/gitflow-pr-review` |
-| inline review | 行内审查 | → `/gitflow-pr-inline-review` |
+| merge / close | 合并/关闭 | → `/gf-pr` |
+| review analysis | 审查分析 | → `/gf-pr-review` |
+| inline review | 行内审查 | → `/gf-pr-inline-review` |
 
 ## Core Pattern
 
@@ -64,7 +64,7 @@ flowchart TD
 ### Preconditions
 
 - PR `<n>` open — `gf pr view <n>`
-- Verdict justified by prior analysis (`/gitflow-pr-review` or `/gitflow-pr-inline-review`) or explicit user statement
+- Verdict justified by prior analysis (`/gf-pr-review` or `/gf-pr-inline-review`) or explicit user statement
 - Auth valid — `gf auth status`
 
 ### Steps
@@ -93,11 +93,11 @@ flowchart TD
 
 ### ❌ Out of Scope
 
-- Code analysis → `/gitflow-pr-review`
-- Inline comments → `/gitflow-pr-inline-review`
-- Apply feedback → `/gitflow-pr-apply-feedback`
-- Merge / close → `/gitflow-pr`
-- Security scan → `/gitflow-security-check`
+- Code analysis → `/gf-pr-review`
+- Inline comments → `/gf-pr-inline-review`
+- Apply feedback → `/gf-pr-apply-feedback`
+- Merge / close → `/gf-pr`
+- Security scan → `/gf-security-check`
 
 ### 🚫 Do Not
 
@@ -111,10 +111,10 @@ flowchart TD
 | Intent | Delegate To |
 |--------|-------------|
 | Submit verdict | This skill |
-| Form verdict | `/gitflow-pr-review` |
-| Inline comments | `/gitflow-pr-inline-review` |
-| Apply feedback | `/gitflow-pr-apply-feedback` |
-| Merge / close | `/gitflow-pr` |
+| Form verdict | `/gf-pr-review` |
+| Inline comments | `/gf-pr-inline-review` |
+| Apply feedback | `/gf-pr-apply-feedback` |
+| Merge / close | `/gf-pr` |
 
 ## Rationalization
 
@@ -126,7 +126,7 @@ flowchart TD
 
 ## Red Flags
 
-- 🚩 "Approve without review" — Refuse. Require `/gitflow-pr-review` first.
+- 🚩 "Approve without review" — Refuse. Require `/gf-pr-review` first.
 - 🚩 "Submit for me" — Refuse. User must confirm.
 - 🚩 "My own PR" — Refuse. Self-review prohibited.
 
@@ -141,13 +141,13 @@ flowchart TD
 
 ## Test Scenarios
 
-### 1: Happy Path — `/gitflow-pr-review` done, "approve #101" → present body, confirm, invoke `review approve`, output URL.
+### 1: Happy Path — `/gf-pr-review` done, "approve #101" → present body, confirm, invoke `review approve`, output URL.
 
 ### 2: Request Changes — 6-dim review found ⚠️ — "request changes on #101" → `review request-changes 101 --body "<conclusion w/ path:line>"`.
 
-### 3: Boundary — "approve #101" without analysis → refuse, require `/gitflow-pr-review`.
+### 3: Boundary — "approve #101" without analysis → refuse, require `/gf-pr-review`.
 
-### 4: Negative — "merge #101" → NOT loaded. → `/gitflow-pr`.
+### 4: Negative — "merge #101" → NOT loaded. → `/gf-pr`.
 
 ### 5: Self-Review — "approve my PR" → refuse.
 
@@ -162,13 +162,13 @@ flowchart TD
 
 - ❌ **Auto-submitting** — Step 3 confirmation is mandatory.
 - ❌ **Approving without analysis** — violates Preconditions.
-- ❌ **Using merge/close** — use `/gitflow-pr`.
+- ❌ **Using merge/close** — use `/gf-pr`.
 
 ## See Also
 
-- `/gitflow-pr-review` — 6-dim analysis
-- `/gitflow-pr-inline-review` — line-level comments
-- `/gitflow-pr-apply-feedback` — apply feedback
-- `/gitflow-pr` — PR lifecycle
-- `/gitflow-security-check` — pre-approve scan
+- `/gf-pr-review` — 6-dim analysis
+- `/gf-pr-inline-review` — line-level comments
+- `/gf-pr-apply-feedback` — apply feedback
+- `/gf-pr` — PR lifecycle
+- `/gf-security-check` — pre-approve scan
 - `docs/superpowers/templates/skill-conventions.md` — conventions

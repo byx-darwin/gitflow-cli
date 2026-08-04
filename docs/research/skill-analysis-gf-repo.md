@@ -1,7 +1,7 @@
-# gitflow-repo Skill 分析报告
+# gf-repo Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-repo/SKILL.md`
+> **分析目标：** `skills/gf-repo/SKILL.md`
 > **对应 Issue：** #19
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论，description 为功能描述，缺少关键词覆盖和跨引用 |
 
-**总体评估：** gitflow-repo 当前是一个"命令参考手册 + 使用示例合集"，而非符合 Superpowers 规范的 skill。它描述了 6 个子命令的功能和参数，但没有描述"何时触发""边界在哪""如何验证"。文档冗长（约 900+ 词），信息密度低，缺乏决策引导。
+**总体评估：** gf-repo 当前是一个"命令参考手册 + 使用示例合集"，而非符合 Superpowers 规范的 skill。它描述了 6 个子命令的功能和参数，但没有描述"何时触发""边界在哪""如何验证"。文档冗长（约 900+ 词），信息密度低，缺乏决策引导。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-repo` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-repo` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为"仓库操作核心命令工作流 — 封装 gf repo 的 clone、list、create、stats、sync、view 操作，提供统一的仓库管理入口"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述功能范围和命令列表，未描述触发场景 |
@@ -63,7 +63,7 @@
    - 使用说明（`sync` 需要先有 upstream）
    - 风险提示（合并冲突）
    - 过滤建议
-   - 跨引用（`gitflow-repo-onboarding`）
+   - 跨引用（`gf-repo-onboarding`）
    - 这些信息应分散到各自对应的结构化章节中
 
 ### 2.3 评分：⚠️ 需改进
@@ -84,7 +84,7 @@
 
 ### 3.2 具体问题
 
-1. **完全无职责边界**：gitflow-repo 涉及的 `create` 和 `sync` 操作具有副作用（远程创建、`git push`、`git merge`），但文档中没有任何边界声明。可能导致：
+1. **完全无职责边界**：gf-repo 涉及的 `create` 和 `sync` 操作具有副作用（远程创建、`git push`、`git merge`），但文档中没有任何边界声明。可能导致：
    - Claude 自动执行 `repo create` 创建仓库，而非向用户确认
    - Claude 执行 `repo sync` 时自动推送合并结果到 origin
    - Claude 在 `repo clone` 后自动修改远程配置
@@ -102,7 +102,7 @@
    - 用户要求"创建仓库但不初始化"
    - 自动化脚本中调用 `repo sync` 而无人工确认
 
-4. **对比参考（gitflow-autoreport-bug）**：autoreport-bug 是项目中唯一具备完整职责边界声明的 skill（含 🚫 禁止行为、✅ 职责范围、🔧 修复流程）。gitflow-repo 作为涉及远程写操作的 skill，比 report-bug 更需要边界声明。
+4. **对比参考（gf-autoreport-bug）**：autoreport-bug 是项目中唯一具备完整职责边界声明的 skill（含 🚫 禁止行为、✅ 职责范围、🔧 修复流程）。gf-repo 作为涉及远程写操作的 skill，比 report-bug 更需要边界声明。
 
 ### 3.3 评分：❌ 不合格
 
@@ -153,7 +153,7 @@
 | 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程 |
 | description 只描述触发条件，不描述流程 | ❌ | description 描述了功能范围和子命令列表 |
 | 关键词覆盖（错误信息、症状、同义词、工具） | ❌ | 无关键词覆盖 |
-| 跨引用其他 skills | ⚠️ | "注意事项"末尾提及 `gitflow-repo-onboarding`，但非结构化跨引用 |
+| 跨引用其他 skills | ⚠️ | "注意事项"末尾提及 `gf-repo-onboarding`，但非结构化跨引用 |
 | 必要时使用 flowchart | N/A | 6 个子命令是独立的线性关系，无需流程图 |
 
 ### 5.2 具体问题
@@ -177,13 +177,13 @@
    - "fork 同步"/"upstream sync"/"merge upstream"
 
 4. **跨引用不完整**：
-   - 现有仅提及 `gitflow-repo-onboarding`，缺少对以下 skills 的引用：
-     - `gitflow-workflow`（新仓库创建后启动工作流）
-     - `gitflow-commit`（查看仓库 commits）
-     - `gitflow-issue`（查看仓库 issues）
-     - `gitflow-pr`（查看/创建 PR）
-     - `gitflow-release`（查看/创建 Release）
-     - `gitflow-auth`（认证状态检查，clone/create 前需要）
+   - 现有仅提及 `gf-repo-onboarding`，缺少对以下 skills 的引用：
+     - `gf-workflow`（新仓库创建后启动工作流）
+     - `gf-commit`（查看仓库 commits）
+     - `gf-issue`（查看仓库 issues）
+     - `gf-pr`（查看/创建 PR）
+     - `gf-release`（查看/创建 Release）
+     - `gf-auth`（认证状态检查，clone/create 前需要）
 
 5. **缺少决策流程**：当前文档只是命令列表，缺少：
    - 如何判断用户意图属于哪个子命令的决策逻辑
@@ -203,7 +203,7 @@
 | P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式，只描述场景不含命令名列表 |
 | P0-2 | 添加职责边界声明章节 | D2 | create 和 sync 有远程写操作，必须明确 🚫 禁止行为和 ✅ 职责范围，防止 Claude 自动执行不可逆操作 |
 | P0-3 | 添加关键词覆盖 | D4 | 覆盖用户表达方式（克隆、同步 fork、仓库列表等）和同义词 |
-| P0-4 | 添加结构化跨引用 | D4 | 明确引用 gitflow-workflow、gitflow-auth、gitflow-commit、gitflow-issue、gitflow-pr 等相关 skills |
+| P0-4 | 添加结构化跨引用 | D4 | 明确引用 gf-workflow、gf-auth、gf-commit、gf-issue、gf-pr 等相关 skills |
 
 ### P1（建议修复 — 提升质量）
 
@@ -243,7 +243,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-repo | gitflow-autoreport-bug | 差距 |
+| 对比项 | gf-repo | gf-autoreport-bug | 差距 |
 |--------|-------------|----------------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | — |
@@ -256,7 +256,7 @@
 
 ## 九、总结
 
-gitflow-repo 当前的定位是"命令参考手册 + 使用示例合集"，信息全面但缺乏 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-repo 当前的定位是"命令参考手册 + 使用示例合集"，信息全面但缺乏 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **description 是功能列表** → Claude 无法准确判断触发时机

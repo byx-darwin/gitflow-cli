@@ -1,13 +1,13 @@
-# gitflow-quality 压力测试场景
+# gf-quality 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-quality/SKILL.md`
+> **对应 Skill:** `skills/gf-quality/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-quality` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-quality` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 坚守 6-gate 闸门（fmt / clippy / test / docs / tarpaulin / pre-commit）fast-fail 策略
 2. 生成完整 Quality Report 作为交付凭证
 3. 不修改代码、不代为 git add/commit、Issue 发布需确认

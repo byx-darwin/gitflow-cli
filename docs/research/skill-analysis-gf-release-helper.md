@@ -1,7 +1,7 @@
-# gitflow-release-helper Skill 分析报告
+# gf-release-helper Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-release-helper/SKILL.md`
+> **分析目标：** `skills/gf-release-helper/SKILL.md`
 > **对应 Issue：** #31
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论；description 描述流程而非触发条件；无关键词覆盖；无跨引用 |
 
-**总体评估：** gitflow-release-helper 当前是一份"发布工作流教程"，而非符合 Superpowers 规范的 skill。它描述了完整的 7 步发布流程，但 Claude 无法从中提取"何时触发""边界在哪""如何验证"等关键信息。与同系列的 `gitflow-release`（命令参考手册）存在定位重叠，两者之间无任何跨引用。
+**总体评估：** gf-release-helper 当前是一份"发布工作流教程"，而非符合 Superpowers 规范的 skill。它描述了完整的 7 步发布流程，但 Claude 无法从中提取"何时触发""边界在哪""如何验证"等关键信息。与同系列的 `gf-release`（命令参考手册）存在定位重叠，两者之间无任何跨引用。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-release-helper` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-release-helper` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "发布助手工作流 — 分析自上次 release 以来的 git log，按 conventional commits 分组生成 Release Note，调用 gf release create 创建发布并输出 release URL"——这是流程描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了完整工作流（分析 log → 分组 → 创建 → 输出 URL），违反"description 仅描述触发时机"的规范 |
@@ -111,13 +111,13 @@
    - 尝试批量发布多个版本
    - 尝试在发布前不展示 Release Note 供确认
 
-4. **与 gitflow-release 的职责关系未定义**：存在 `gitflow-release` skill 用于 Release CRUD 操作，但两者之间没有任何跨引用或分工说明。用户和 Claude 无法判断何时应使用哪个 skill：
-   - gitflow-release-helper：自动化发布工作流（分析 → 生成 → 创建）
-   - gitflow-release：Release CRUD 命令参考（create/view/edit/delete）
+4. **与 gf-release 的职责关系未定义**：存在 `gf-release` skill 用于 Release CRUD 操作，但两者之间没有任何跨引用或分工说明。用户和 Claude 无法判断何时应使用哪个 skill：
+   - gf-release-helper：自动化发布工作流（分析 → 生成 → 创建）
+   - gf-release：Release CRUD 命令参考（create/view/edit/delete）
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-release-helper 应参照此模式，明确定义其仅负责发布工作流编排，不负责 Release 删除、修改或凭据管理。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-release-helper 应参照此模式，明确定义其仅负责发布工作流编排，不负责 Release 删除、修改或凭据管理。
 
 ---
 
@@ -196,10 +196,10 @@
    - "自动生成" / "auto-generate" / "自动化发布"
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-release`（Release CRUD 命令参考，release-helper 依赖其 `release create` 命令）
-   - `gitflow-auth`（发布操作需要先认证）
-   - `gitflow-workflow`（完整的开发工作流中可能涉及发布）
-   - `gitflow-precommit`（确保提交符合 conventional commits 规范）
+   - `gf-release`（Release CRUD 命令参考，release-helper 依赖其 `release create` 命令）
+   - `gf-auth`（发布操作需要先认证）
+   - `gf-workflow`（完整的开发工作流中可能涉及发布）
+   - `gf-precommit`（确保提交符合 conventional commits 规范）
 
 5. **工作流步骤过于冗长**：7 步工作流中，步骤 1（确定版本号）和步骤 3（生成 Release Note）占据大量篇幅。应考虑：
    - 将版本号推断规则提取为 Quick Reference 表格
@@ -220,7 +220,7 @@
 | P0-2 | 添加职责边界声明章节 | D2 | 明确 release-helper 仅负责发布工作流编排（分析 → 生成 → 创建），不负责 Release 删除、tag 管理或凭据操作 |
 | P0-3 | 添加禁止行为清单 | D2 | 至少包含：不得自动决定版本数、不得在 CI 中自动发布、不得跳过用户确认、不得删除已发布 Release |
 | P0-4 | 添加关键词覆盖 | D4 | 覆盖常见表达（"发布"、"release"、"版本号"、"changelog"、"conventional commits"、"breaking change"） |
-| P0-5 | 添加跨引用 | D4 | 至少引用 gitflow-release（命令参考）、gitflow-auth（认证前置）、gitflow-precommit（conventional commits 规范） |
+| P0-5 | 添加跨引用 | D4 | 至少引用 gf-release（命令参考）、gf-auth（认证前置）、gf-precommit（conventional commits 规范） |
 | P0-6 | 精简文档至 500 词以内 | D1 | 移除 3 个叙事性示例（或精简为 1 个 5 行摘要），将 Release Note 模板提取为外部引用 |
 
 ### P1（建议修复 — 提升质量）
@@ -241,7 +241,7 @@
 | P2-2 | 定义成功标准 | D3 | 每个步骤的预期输出和完成判断 |
 | P2-3 | 添加压力测试场景 | D3 | 大量 commits、非 conventional commits、无 tag 仓库等 |
 | P2-4 | 提供英文版 description | D1 | 当前仅中文，可考虑 bilingual |
-| P2-5 | 添加与 gitflow-release 的关系图 | D4 | 明确两个 skill 的分工边界（helper = 工作流编排，release = CRUD 命令） |
+| P2-5 | 添加与 gf-release 的关系图 | D4 | 明确两个 skill 的分工边界（helper = 工作流编排，release = CRUD 命令） |
 | P2-6 | 添加简要 flowchart | D4 | 4 步核心工作流的简要 Mermaid 流程图 |
 
 ---
@@ -264,7 +264,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-release-helper | gitflow-release | gitflow-autoreport-bug | 差距 |
+| 对比项 | gf-release-helper | gf-release | gf-autoreport-bug | 差距 |
 |--------|----------------------|-----------------|----------------------|------|
 | 职责边界 | ❌ 缺失 | ❌ 缺失 | ✅ 完整 | 与 autoreport-bug 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | 整体均缺失 |
@@ -277,16 +277,16 @@
 
 ## 九、总结
 
-gitflow-release-helper 当前的定位是"发布工作流教程"，它描述了完整的 7 步发布流程，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-release-helper 当前的定位是"发布工作流教程"，它描述了完整的 7 步发布流程，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **description 描述流程而非触发条件** → Claude 何时应加载此 skill？
 2. **Token 严重超标（916 词）** → 3 个叙事性示例和完整 Release Note 模板占据大量篇幅
 3. **缺乏职责边界** → Claude 可能在未确认的情况下自动发布
 4. **缺乏错误处理** → 遇到无 tag 仓库或 CI 未通过时 Claude 应如何反应？
-5. **与 gitflow-release 无跨引用** → 两个 skill 的定位重叠但无分工说明
+5. **与 gf-release 无跨引用** → 两个 skill 的定位重叠但无分工说明
 
-重构方向：将其从"教程"转型为"可执行指令 + 边界声明 + 验证标准"的完整 skill，参考 gitflow-autoreport-bug 的结构化模板。特别需要：
+重构方向：将其从"教程"转型为"可执行指令 + 边界声明 + 验证标准"的完整 skill，参考 gf-autoreport-bug 的结构化模板。特别需要：
 - 精简至 500 词以内（移除叙事性示例，提取模板为引用）
-- 明确与 gitflow-release 的分工（helper = 工作流编排，release = CRUD 命令）
+- 明确与 gf-release 的分工（helper = 工作流编排，release = CRUD 命令）
 - 添加红旗列表（自动发布、CI 中发布等高风险场景）

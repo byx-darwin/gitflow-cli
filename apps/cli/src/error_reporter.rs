@@ -3,7 +3,7 @@
 //! Writes structured error reports to `.cache/bug-reports/pending.json`
 //! when the CLI is running in non-interactive mode (CI or subprocess).
 //! The Claude Code Stop Hook (`hooks/auto-report-bug.sh`) picks up the
-//! pending file and triggers the `gitflow-autoreport-bug` skill.
+//! pending file and triggers the `gf-autoreport-bug` skill.
 
 // The error reporter is deliberately sync: it is invoked from error
 // paths that may execute before the tokio runtime exists (e.g. remote
@@ -24,7 +24,7 @@ use serde::Serialize;
 
 /// Error report written to `pending.json`.
 ///
-/// Contains enough context for the `gitflow-autoreport-bug` skill
+/// Contains enough context for the `gf-autoreport-bug` skill
 /// to analyse, deduplicate, and file a GitHub Issue.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct ErrorReport {

@@ -1,5 +1,5 @@
 ---
-name: gitflow-release-helper
+name: gf-release-helper
 description: >
   Use when the user wants to create a new release, auto-generate release notes
   from conventional commits since the last tag, or decide SemVer version bumps.
@@ -7,10 +7,10 @@ description: >
   Release 时使用。
 ---
 
-# gitflow-release-helper — Semantic Release Helper
+# gf-release-helper — Semantic Release Helper
 
 Automates: determine next version → generate changelog → create release → output URL.
-Full reference: docs/references/gitflow-release-helper-params.md
+Full reference: docs/references/gf-release-helper-params.md
 
 ## Overview
 
@@ -91,7 +91,7 @@ flowchart TD
 ## Test Scenarios
 
 - **Happy**: "Release the next version" → infer Minor → confirm → changelog → create → URL
-- **Negative**: "Delete this release" → refuse; suggest gitflow-release CRUD
+- **Negative**: "Delete this release" → refuse; suggest gf-release CRUD
 - **Boundary**: breaking change but Patch still chosen → warn about the mismatch; insist on Major
 - **Error**: repo has no tag → suggest starting fresh at v0.1.0; create after the user confirms
 
@@ -104,7 +104,7 @@ flowchart TD
 
 ## See Also
 
-- gitflow-release — Release CRUD
-- gitflow-auth — pre-release status check
-- gitflow-pipeline-analyzer — confirm CI status before release
-- gitflow-label-milestone — associate version milestones
+- gf-release — Release CRUD
+- gf-auth — pre-release status check
+- gf-pipeline-analyzer — confirm CI status before release
+- gf-label-milestone — associate version milestones

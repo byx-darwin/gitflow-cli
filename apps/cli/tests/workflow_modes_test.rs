@@ -1,5 +1,5 @@
 //! Integration tests verifying the two workflow modes (complete and fast)
-//! described in the gitflow-workflow SKILL.md.
+//! described in the gf-workflow SKILL.md.
 
 mod common;
 

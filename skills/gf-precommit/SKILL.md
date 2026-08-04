@@ -1,5 +1,5 @@
 ---
-name: gitflow-precommit
+name: gf-precommit
 description: |
   Use when the user wants to run pre-commit quality checks, configure or
   verify a Git pre-commit hook, or their commit is rejected by a quality
@@ -7,13 +7,13 @@ description: |
   关卡拒绝时使用。
 ---
 
-# gitflow-precommit — Language-Agnostic Pre-commit Checks
+# gf-precommit — Language-Agnostic Pre-commit Checks
 
 Run language-appropriate fmt/lint/test before commit. Report results. Optionally configure Git hook.
 
 ## Step 1: Language Detection
 
-Same as `gitflow-quality`. Check marker files in project root:
+Same as `gf-quality`. Check marker files in project root:
 
 | Marker | Language | Reference |
 |--------|----------|-----------|
@@ -84,5 +84,5 @@ Result: ✅ all passed / ❌ <N> check(s) failed
 
 ## See Also
 
-- `gitflow-quality` — full 6-gate quality check (includes pre-commit as Gate 6)
-- `gitflow-commit` — bridges commit and pre-commit
+- `gf-quality` — full 6-gate quality check (includes pre-commit as Gate 6)
+- `gf-commit` — bridges commit and pre-commit

@@ -1,11 +1,11 @@
 ---
-name: gitflow-issue-triage
+name: gf-issue-triage
 description: |
   Use when the user wants to classify all open Issues by type and priority, then apply triage:done tags.
   当用户希望对所有 open Issue 按类型/优先级分类并打上 triage:done 标签时使用。
 ---
 
-# gitflow-issue-triage
+# gf-issue-triage
 
 Batch classification of all open Issues — assigns one `type:*` label and one `priority:*` label per Issue, then marks `triage:done`. Outputs a priority-ranked report. Idempotent — skip already-triaged Issues.
 
@@ -16,8 +16,8 @@ Batch classification of all open Issues — assigns one `type:*` label and one `
 | triage all issues | 对全部分类 | backlog grooming |
 | classify issues | 分类 Issue | sprint planning |
 | new issues since ... | 对近期新增分类 | `--since` flag |
-| analyze an issue's requirement | 分析需求质量 | **NOT** → `/gitflow-issue-review` |
-| label statistics | 标签统计 | **NOT** → `/gitflow-label-stats` |
+| analyze an issue's requirement | 分析需求质量 | **NOT** → `/gf-issue-review` |
+| label statistics | 标签统计 | **NOT** → `/gf-label-stats` |
 
 ## Core Pattern
 
@@ -98,9 +98,9 @@ gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:don
 
 ### ❌ Out of Scope
 
-- Requirement analysis → `/gitflow-issue-review`
-- Label statistics → `/gitflow-label-stats`
-- Editing Issue body → `/gitflow-issue`
+- Requirement analysis → `/gf-issue-review`
+- Label statistics → `/gf-label-stats`
+- Editing Issue body → `/gf-issue`
 
 ### 🚫 Do Not
 
@@ -129,7 +129,7 @@ gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:don
 - **Given** 8 open Issues — **When** "triage all" — **Then** each Issue gets type+priority+`triage:done`; report with % tables returned.
 
 ### 2: Negative
-- **Given** "analyze issue #42 depth" — **Then** NOT loaded. → `/gitflow-issue-review`.
+- **Given** "analyze issue #42 depth" — **Then** NOT loaded. → `/gf-issue-review`.
 
 ### 3: Boundary
 - **Given** "triage and also close duplicates" — **Then** triage only; label `duplicates` but do not close.
@@ -154,7 +154,7 @@ gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:don
 
 ## See Also
 
-- `gitflow-issue-review` — analyze requirement depth
-- `gitflow-label-stats` — label distribution statistics
-- `gitflow-issue` — Issue CRUD reference
-- `gitflow-label-milestone` — label CRUD
+- `gf-issue-review` — analyze requirement depth
+- `gf-label-stats` — label distribution statistics
+- `gf-issue` — Issue CRUD reference
+- `gf-label-milestone` — label CRUD

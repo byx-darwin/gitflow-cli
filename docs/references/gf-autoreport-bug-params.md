@@ -1,6 +1,6 @@
-# gitflow-autoreport-bug-params — 完整参考
+# gf-autoreport-bug-params — 完整参考
 
-> 本文档为 `gitflow-autoreport-bug` skill 的外部化引用。
+> 本文档为 `gf-autoreport-bug` skill 的外部化引用。
 
 ## pending.json Schema
 

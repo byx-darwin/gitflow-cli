@@ -7,7 +7,7 @@
 
 ### 当前问题
 
-现有 `skills/gitflow-workflow/SKILL.md` 是一个指导性 prompt，告诉 AI "应该按四阶段走"。但 AI 可以遵守也可以跳过，缺乏强制力。在实际执行中出现了以下问题：
+现有 `skills/gf-workflow/SKILL.md` 是一个指导性 prompt，告诉 AI "应该按四阶段走"。但 AI 可以遵守也可以跳过，缺乏强制力。在实际执行中出现了以下问题：
 
 - Phase 1（需求澄清）被跳过，直接进入设计
 - issue-create 和 issue-review 被延后
@@ -240,9 +240,9 @@ gf workflow archive <workflow_id>
 
 | 步骤 | 文件 | 改动 |
 |------|------|------|
-| 1 | `skills/gitflow-workflow/SKILL.md` | 重写为四阶段编排器 |
-| 2 | `skills/gitflow-workflow/contract.schema.json` | 合同 JSON Schema |
-| 3 | `skills/gitflow-workflow/gates.md` | 门控规则定义 |
+| 1 | `skills/gf-workflow/SKILL.md` | 重写为四阶段编排器 |
+| 2 | `skills/gf-workflow/contract.schema.json` | 合同 JSON Schema |
+| 3 | `skills/gf-workflow/gates.md` | 门控规则定义 |
 | 4 | `apps/cli/src/commands/workflow.rs` | CLI 子命令（可选） |
 
 ## 8. Skill 测试方案（writing-skills 流程）
@@ -251,7 +251,7 @@ gf workflow archive <workflow_id>
 
 ### 8.1 RED 阶段：压力场景
 
-在修改 `skills/gitflow-workflow/SKILL.md` 之前，先定义 3 个 pressure scenario 作为 failing test。
+在修改 `skills/gf-workflow/SKILL.md` 之前，先定义 3 个 pressure scenario 作为 failing test。
 
 #### Scenario A: 长上下文压力
 
@@ -305,7 +305,7 @@ gf workflow archive <workflow_id>
    - 重新测试
 3. 直到 5 次连续无失败
 
-- [ ] `skills/gitflow-workflow/SKILL.md` 包含完整的四阶段编排逻辑
+- [ ] `skills/gf-workflow/SKILL.md` 包含完整的四阶段编排逻辑
 - [ ] 合同 Schema 支持所有必需字段
 - [ ] 模式自动判定（full / fast）
 - [ ] 多流程并发（多个合同文件独立演进）

@@ -1,5 +1,5 @@
 //! Structure verification tests for Phase 3 (execution) and Phase 4 (post-delivery)
-//! of the gitflow-workflow SKILL.md.
+//! of the gf-workflow SKILL.md.
 
 mod common;
 

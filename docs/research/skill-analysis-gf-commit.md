@@ -1,7 +1,7 @@
-# gitflow-commit Skill 分析报告
+# gf-commit Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-commit/SKILL.md`
+> **分析目标：** `skills/gf-commit/SKILL.md`
 > **对应 Issue：** #16
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 合格 | 未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-commit 当前是一个纯命令参考手册，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。与 gitflow-auth 存在完全相同的结构性问题。
+**总体评估：** gf-commit 当前是一个纯命令参考手册，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。与 gf-auth 存在完全相同的结构性问题。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-commit` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-commit` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的 Commit 操作命令封装，支持查看、差异比较、补丁导出和行内评论"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
@@ -96,7 +96,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-commit 应参照此模式，明确定义其仅负责查看、获取 diff/patch 和添加评论，不负责代码修改或自动修复。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-commit 应参照此模式，明确定义其仅负责查看、获取 diff/patch 和添加评论，不负责代码修改或自动修复。
 
 ---
 
@@ -162,10 +162,10 @@
    - "导出 patch" / "commit patch" / "apply patch"
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-pr`（PR 中包含的 commit 检查）
-   - `gitflow-pr-review`（在 PR review 中查看 commit）
-   - `gitflow-review`（代码评审流程）
-   - `gitflow-precommit`（commit 前的质量检查）
+   - `gf-pr`（PR 中包含的 commit 检查）
+   - `gf-pr-review`（在 PR review 中查看 commit）
+   - `gf-review`（代码评审流程）
+   - `gf-precommit`（commit 前的质量检查）
 
 ### 5.3 评分：❌ 不合格
 
@@ -180,7 +180,7 @@
 | P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式 |
 | P0-2 | 添加职责边界声明章节 | D2 | 明确 commit skill 仅负责查看、diff/patch 导出和评论，不负责代码修改 |
 | P0-3 | 添加关键词覆盖 | D4 | 覆盖常见表达（"查看 commit"、"diff"、"行内评论"、"patch"）和工具名 |
-| P0-4 | 添加跨引用 | D4 | 引用 gitflow-pr、gitflow-pr-review、gitflow-review 等相关 skills |
+| P0-4 | 添加跨引用 | D4 | 引用 gf-pr、gf-pr-review、gf-review 等相关 skills |
 
 ### P1（建议修复 — 提升质量）
 
@@ -216,7 +216,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-commit | gitflow-autoreport-bug | 差距 |
+| 对比项 | gf-commit | gf-autoreport-bug | 差距 |
 |--------|---------------|----------------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | — |
@@ -228,7 +228,7 @@
 
 ## 九、总结
 
-gitflow-commit 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-commit 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？
@@ -236,4 +236,4 @@ gitflow-commit 当前的定位是"命令参考手册"，它描述了命令的输
 3. **缺乏错误处理** → 遇到无效 SHA 时 Claude 应如何反应？
 4. **缺乏边界** → Claude 不应修改代码（仅评论）？
 
-重构方向：将其从"参考手册"转型为"可执行指令 + 边界声明 + 验证标准"的完整 skill，参考 gitflow-autoreport-bug 的结构化模板。
+重构方向：将其从"参考手册"转型为"可执行指令 + 边界声明 + 验证标准"的完整 skill，参考 gf-autoreport-bug 的结构化模板。

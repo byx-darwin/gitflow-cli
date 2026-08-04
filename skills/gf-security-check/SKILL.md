@@ -1,11 +1,11 @@
 ---
-name: gitflow-security-check
+name: gf-security-check
 description: |
   Use when the user wants to audit the codebase for hardcoded secrets, dependency vulnerabilities, unsafe code, or license compliance.
   当用户需要检查密钥硬编码、依赖漏洞、unsafe 代码、或许可证合规时使用。
 ---
 
-# gitflow-security-check
+# gf-security-check
 
 Security audit checklist: dependency vulnerabilities, hardcoded secrets, unsafe code, license compliance. **Detection only — never auto-fix.**
 
@@ -78,8 +78,8 @@ Produce a Security Audit Report with sections per scan type. Suggest fix command
 
 - Auto-fixing vulnerabilities
 - Modifying `audit.toml` ignore list
-- Patching source code — `/gitflow-workflow`
-- Reporting vulns to Issue — `/gitflow-autoreport-bug`
+- Patching source code — `/gf-workflow`
+- Reporting vulns to Issue — `/gf-autoreport-bug`
 
 ### 🚫 Do Not
 
@@ -126,7 +126,7 @@ Produce a Security Audit Report with sections per scan type. Suggest fix command
 
 ### 2: Negative
 - **Given** "fix the unsafe code in src/foo.rs" — **When** user asks for fix
-- **Then** skill NOT loaded — redirect `/gitflow-workflow`
+- **Then** skill NOT loaded — redirect `/gf-workflow`
 
 ### 3: Boundary
 - **Given** CRITICAL vuln found — **When** "just patch it quickly"
@@ -145,7 +145,7 @@ Produce a Security Audit Report with sections per scan type. Suggest fix command
 
 ## See Also
 
-- `/gitflow-quality` — 6-gate pre-delivery check
-- `/gitflow-precommit` — pre-commit security hook
-- `/gitflow-pipeline-analyzer` — CI/CD security gates
-- `/gitflow-autoreport-bug` — file vuln as Issue
+- `/gf-quality` — 6-gate pre-delivery check
+- `/gf-precommit` — pre-commit security hook
+- `/gf-pipeline-analyzer` — CI/CD security gates
+- `/gf-autoreport-bug` — file vuln as Issue

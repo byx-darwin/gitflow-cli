@@ -1,13 +1,13 @@
-# gitflow-precommit 压力测试场景
+# gf-precommit 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-precommit/SKILL.md`
+> **对应 Skill:** `skills/gf-precommit/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-precommit` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-precommit` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完整运行 3 项检查（fmt + clippy + test）
 2. 不代为执行 `git add` / `git commit`
 3. 不自动 `cargo clippy --fix`（先展示 diff 再确认）

@@ -1,6 +1,6 @@
 # gf Workflow — 完整流程指南
 
-基于 `gitflow-workflow` 四阶段闸门编排器的实操指南。配合 [CLAUDE.md](../CLAUDE.md) 的强制规则阅读。
+基于 `gf-workflow` 四阶段闸门编排器的实操指南。配合 [CLAUDE.md](../CLAUDE.md) 的强制规则阅读。
 
 ## TL;DR
 
@@ -99,7 +99,7 @@ EOF
 
 | 来源 | 内容 |
 |---|---|
-| Phase 1 产出 | Issue URL / 编号 / 验收标准 / 需求分析报告（`gitflow-issue-review` 生成） |
+| Phase 1 产出 | Issue URL / 编号 / 验收标准 / 需求分析报告（`gf-issue-review` 生成） |
 | 代码上下文 | 相关文件清单（`rg`/`fd`/LSP 扫出来） |
 | CLAUDE.md 约束 | TDD、错误处理、依赖策略等硬规则 |
 
@@ -141,7 +141,7 @@ REFACTOR: 死分支 / 冗余 detect() / unreachable fallback 清理
 
 #### 2.3 Quality Gate 承诺
 
-从 `gitflow-quality` 的 6 道闸门里挑出**本次必须过的**：
+从 `gf-quality` 的 6 道闸门里挑出**本次必须过的**：
 
 | Gate | 验证命令 | 必过？ |
 |---|---|---|
@@ -186,7 +186,7 @@ Gate 2 → 3（计划 → 执行）的必备证据：
 - [ ] Commit: git add + commit -m "..."
 
 ### Task N+1: Quality Gate
-- [ ] 调 gitflow-quality 跑 6 项检查
+- [ ] 调 gf-quality 跑 6 项检查
 - [ ] 报告 = ALL CHECKS PASSED
 - [ ] 失败：修 → 重跑
 
@@ -287,16 +287,16 @@ PR:     #63 squash merge 到 main
 make build && make test && make fmt && make clippy
 
 # 4.2 流水线分析（必选）
-#    调用 gitflow-pipeline-analyzer：
+#    调用 gf-pipeline-analyzer：
 #    - 列出 PR 触发的所有 CI workflow 运行
 gf pipeline status --branch fix/issue-62-skills-agent-matrix
 
 # 4.3 Issue 分类（必选）
-#    调用 gitflow-issue-triage：
+#    调用 gf-issue-triage：
 #    - 给本次改动的 issue 打标签 / 分类 / 更新状态
 
 # 4.4 代码审查报告（必选）
-#    调用 gitflow-review：
+#    调用 gf-review：
 #    - 综合 Phase 3 的审查 findings
 #    - 输出最终审查结论
 

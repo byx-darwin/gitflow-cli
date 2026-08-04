@@ -1,6 +1,6 @@
 # Workflow Phase 1-4 详细描述
 
-> 由 `gitflow-workflow` skill 引用，包含四阶段完整执行细节。
+> 由 `gf-workflow` skill 引用，包含四阶段完整执行细节。
 
 ## Phase 1: 需求澄清
 
@@ -36,10 +36,10 @@ gf issue list --state open --label bug --limit 50 --output json
 
 ### 步骤 1.3：创建 Issue
 
-调用 `gitflow-issue-create` skill 创建 Issue：
+调用 `gf-issue-create` skill 创建 Issue：
 
 ```
-使用 gitflow-issue-create 技能，根据讨论产出创建 Issue。
+使用 gf-issue-create 技能，根据讨论产出创建 Issue。
 ```
 
 关键产出：
@@ -48,10 +48,10 @@ gf issue list --state open --label bug --limit 50 --output json
 
 ### 步骤 1.4：生成需求文档
 
-**完整模式**：调用 `gitflow-issue-review` 进行需求分析，生成需求文档
+**完整模式**：调用 `gf-issue-review` 进行需求分析，生成需求文档
 
 ```
-使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
+使用 gf-issue-review 技能，对 Issue #N 进行需求分析。
 ```
 
 产出：需求分析报告（Markdown 格式）
@@ -209,9 +209,9 @@ git branch --show-current
   - [ ] git commit -m "feat: ... (#N)"
 
 ### Task N+1: 质量关卡（完整计划闭环）
-- [ ] 调用 gitflow-quality 技能，运行 6 项质量检查
+- [ ] 调用 gf-quality 技能，运行 6 项质量检查
   ```
-  使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
+  使用 gf-quality 技能，对当前分支运行 6 项质量检查。
   ```
   检查项（语言自动检测，非 Rust 项目自动适配）：
   - Build 检查
@@ -337,26 +337,26 @@ Phase 2 合规检查:
 
 ### 步骤 4.1：流水线分析
 
-调用 `gitflow-pipeline-analyzer` 分析 CI/CD 流水线健康状况。
+调用 `gf-pipeline-analyzer` 分析 CI/CD 流水线健康状况。
 
 ```
-使用 gitflow-pipeline-analyzer 技能，分析当前仓库的 CI/CD 流水线健康状况。
+使用 gf-pipeline-analyzer 技能，分析当前仓库的 CI/CD 流水线健康状况。
 ```
 
 ### 步骤 4.2：Issue 分类
 
-调用 `gitflow-issue-triage` 对相关 issues 进行分类和优先级排序。
+调用 `gf-issue-triage` 对相关 issues 进行分类和优先级排序。
 
 ```
-使用 gitflow-issue-triage 技能，对当前仓库的 open issues 进行分类和优先级排序。
+使用 gf-issue-triage 技能，对当前仓库的 open issues 进行分类和优先级排序。
 ```
 
 ### 步骤 4.3：代码审查
 
-调用 `gitflow-review` 对整体变更进行代码审查。
+调用 `gf-review` 对整体变更进行代码审查。
 
 ```
-使用 gitflow-review 技能，对本次交付的整体变更进行代码审查。
+使用 gf-review 技能，对本次交付的整体变更进行代码审查。
 ```
 
 ### Phase 4 产出

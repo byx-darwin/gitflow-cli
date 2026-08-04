@@ -1,6 +1,6 @@
-# gitflow-workflow — Reference
+# gf-workflow — Reference
 
-Operations reference for the `gitflow-workflow` orchestrator. Main execution flow: see `SKILL.md`.
+Operations reference for the `gf-workflow` orchestrator. Main execution flow: see `SKILL.md`.
 
 ## Contract Operations API
 

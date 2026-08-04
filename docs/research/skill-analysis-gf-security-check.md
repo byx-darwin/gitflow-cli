@@ -1,7 +1,7 @@
-# gitflow-security-check Skill 分析报告
+# gf-security-check Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-security-check/SKILL.md`
+> **分析目标：** `skills/gf-security-check/SKILL.md`
 > **对应 Issue：** #21
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 部分内容（命令、检查项）具体可执行，但整体缺乏触发条件、关键词覆盖和跨引用 |
 
-**总体评估：** gitflow-security-check 当前是一份"安全审计 checklist 文档"，提供了有价值的检查项和命令，但不符合 Superpowers 对 skill 的结构性要求。它回答了"检查什么"和"用什么命令检查"，但没有回答"何时触发此 skill""Claude 如何一步步执行""边界在哪""如何验证执行正确"。
+**总体评估：** gf-security-check 当前是一份"安全审计 checklist 文档"，提供了有价值的检查项和命令，但不符合 Superpowers 对 skill 的结构性要求。它回答了"检查什么"和"用什么命令检查"，但没有回答"何时触发此 skill""Claude 如何一步步执行""边界在哪""如何验证执行正确"。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-security-check` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-security-check` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "安全审计工作流 — 检查密钥硬编码、依赖漏洞和输入验证，调用 cargo audit 执行依赖漏洞扫描"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了三类功能和工具调用，而非触发时机 |
@@ -110,7 +110,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确定义了职责范围、修复流程和安全约束。gitflow-security-check 作为涉及敏感数据扫描的 skill，职责边界声明比 autoreport-bug 更为重要，但目前完全缺失。
+**对比参考（gf-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确定义了职责范围、修复流程和安全约束。gf-security-check 作为涉及敏感数据扫描的 skill，职责边界声明比 autoreport-bug 更为重要，但目前完全缺失。
 
 ---
 
@@ -169,9 +169,9 @@
    - 缺少关键词覆盖：用户可能说"安全检查"、"安全扫描"、"代码安全"、"依赖有没有漏洞"、"有没有硬编码密码"、"cargo audit"、"安全审计"、"安全审查"等
 
 2. **缺少跨引用**：
-   - 应引用 `gitflow-auth`（凭据安全检查）
-   - 应引用 `gitflow-precommit`（作为 pre-commit hook 的延伸）
-   - 应引用 `gitflow-quality`（安全是质量的一部分）
+   - 应引用 `gf-auth`（凭据安全检查）
+   - 应引用 `gf-precommit`（作为 pre-commit hook 的延伸）
+   - 应引用 `gf-quality`（安全是质量的一部分）
    - 应引用 `superpowers:systematic-debugging`（安全漏洞也是一种"bug"）
 
 3. **未遵循 writing-skills 方法论**：
@@ -207,7 +207,7 @@
 | P1-2 | 添加前置条件检查 | D1 | 执行前验证：项目是否为 Rust 项目？是否安装了 `cargo audit` 和 `cargo deny`？是否在 git 仓库中？ |
 | P1-3 | 添加决策逻辑（条件分支） | D1, D4 | 发现 CRITICAL → 立即报告用户不得继续；发现硬编码真实凭据 → 升级处理；`cargo audit` 失败 → 提示更新数据库 |
 | P1-4 | 添加错误处理章节 | D1 | 覆盖：`rustsec-advisory-db` 更新失败、大型项目扫描超时、`cargo deny` 未安装 |
-| P1-5 | 添加跨引用 | D4 | 引用 gitflow-auth、gitflow-precommit、gitflow-quality、systematic-debugging |
+| P1-5 | 添加跨引用 | D4 | 引用 gf-auth、gf-precommit、gf-quality、systematic-debugging |
 | P1-6 | 补充基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能只运行 `cargo audit`，遗漏 5/6 的检查维度） |
 
 ### P2（可选改进 — 锦上添花）
@@ -239,7 +239,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-security-check | gitflow-autoreport-bug | gitflow-precommit |
+| 对比项 | gf-security-check | gf-autoreport-bug | gf-precommit |
 |--------|----------------------|----------------------|-------------------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ⚠️ 部分 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
@@ -248,13 +248,13 @@
 | 检查项/命令质量 | ✅ 高（6 维度 checklist） | ⚠️ 中 | ⚠️ 中 |
 | 职责边界风险等级 | 🔴 高（涉及敏感数据） | 🟡 中（涉及 Issue 创建） | 🟢 低（本地建检查） |
 
-**关键发现：** gitflow-security-check 在检查项质量上是项目中最详细的（6 维度审计清单，含具体命令），但其职责边界风险也是最高的——它扫描的正是最敏感的数据（硬编码密钥、凭据泄露）。高内容质量 + 高边界风险 = 最需要优先补充职责边界声明。
+**关键发现：** gf-security-check 在检查项质量上是项目中最详细的（6 维度审计清单，含具体命令），但其职责边界风险也是最高的——它扫描的正是最敏感的数据（硬编码密钥、凭据泄露）。高内容质量 + 高边界风险 = 最需要优先补充职责边界声明。
 
 ---
 
 ## 九、总结
 
-gitflow-security-check 当前的定位是"安全审计 checklist 知识库"，它在**检查项的完整性**上表现优秀（6 维度、每种都有具体命令和关注点），但在 Superpowers 要求的**结构性规范**上差距明显。
+gf-security-check 当前的定位是"安全审计 checklist 知识库"，它在**检查项的完整性**上表现优秀（6 维度、每种都有具体命令和关注点），但在 Superpowers 要求的**结构性规范**上差距明显。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"安全检查"？"依赖有漏洞吗"？）

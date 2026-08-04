@@ -1,13 +1,13 @@
-# Skill Analysis: `gitflow-issue-review`
+# Skill Analysis: `gf-issue-review`
 
 **Date:** 2026-07-07
-**Source:** `skills/gitflow-issue-review/SKILL.md`
+**Source:** `skills/gf-issue-review/SKILL.md`
 **GitHub Issue:** #33
 **Analyst:** implementer subagent
 
 ## Abstract
 
-The `gitflow-issue-review` skill is a six-step linear workflow that fetches an issue, evaluates its requirement completeness across three dimensions (title clarity, description sufficiency, acceptance criteria clarity), writes a report, posts it as a comment, and cleans up temp files. While the three-dimension analysis framework is well-structured and the skill has a clear single purpose, it lacks the structural rigor, boundary declarations, testability guarantees, and trigger-accuracy required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gf-issue-review` skill is a six-step linear workflow that fetches an issue, evaluates its requirement completeness across three dimensions (title clarity, description sufficiency, acceptance criteria clarity), writes a report, posts it as a comment, and cleans up temp files. While the three-dimension analysis framework is well-structured and the skill has a clear single purpose, it lacks the structural rigor, boundary declarations, testability guarantees, and trigger-accuracy required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -20,8 +20,8 @@ The `gitflow-issue-review` skill is a six-step linear workflow that fetches an i
 | Item | Status | Notes |
 |------|--------|-------|
 | YAML frontmatter present | ✅ | Has `name` and `description` fields |
-| `name` field correct | ✅ | `gitflow-issue-review` matches directory name |
-| File location | ✅ | `skills/gitflow-issue-review/SKILL.md` |
+| `name` field correct | ✅ | `gf-issue-review` matches directory name |
+| File location | ✅ | `skills/gf-issue-review/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Three-dimension framework | ✅ | Title / Description / Acceptance Criteria is a clear, memorable analysis model |
 | Quality grading system | ✅ | 🟢/🟡/🔴 three-level scale per dimension is concrete and actionable |
@@ -57,7 +57,7 @@ description: "Use when the user wants to evaluate the requirement completeness o
 |------------------|----------|-----|
 | Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never states what it owns vs. what the underlying CLI owns. |
 | Prohibition list (`🚫 Do not...`) | ❌ | No explicit prohibitions. Unclear whether the skill should: edit the issue title/body, close the issue, add labels, or modify assignees. |
-| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gitflow-issue-triage` (label management), `gitflow-issue` (issue editing), or `gitflow-pr-review` (code review). |
+| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gf-issue-triage` (label management), `gf-issue` (issue editing), or `gf-pr-review` (code review). |
 | "Rationalization excuse" counter-table | ❌ | No `## When NOT to use this skill` table that preempts common justifications for misapplication. |
 | Red Flags list | ❌ | No `## Red Flags` section warning about misapplication contexts. |
 
@@ -71,7 +71,7 @@ description: "Use when the user wants to evaluate the requirement completeness o
 
 2. **No idempotency declaration** — If the skill runs twice on the same issue, it will post a duplicate comment. The skill does not declare whether it should check for an existing review comment before posting.
 
-3. **Ambiguous relationship with `gitflow-issue-triage`** — Both skills operate on issues. Without a scope boundary, the agent might:
+3. **Ambiguous relationship with `gf-issue-triage`** — Both skills operate on issues. Without a scope boundary, the agent might:
    - Add labels during review (triage territory)
    - Reassign the issue (triage territory)
    - Close the issue if it's "not ready" (issue management territory)
@@ -89,11 +89,11 @@ description: "Use when the user wants to evaluate the requirement completeness o
 - Cleaning up temporary files
 
 ## ❌ Not Responsible For
-- Editing or closing issues (→ gitflow-issue)
-- Managing labels or milestones (→ gitflow-label-milestone, gitflow-issue-triage)
-- Triaging or prioritizing issues (→ gitflow-issue-triage)
-- Reviewing code or PRs (→ gitflow-pr-review, gitflow-pr-inline-review)
-- Implementing the suggested improvements (→ gitflow-workflow)
+- Editing or closing issues (→ gf-issue)
+- Managing labels or milestones (→ gf-label-milestone, gf-issue-triage)
+- Triaging or prioritizing issues (→ gf-issue-triage)
+- Reviewing code or PRs (→ gf-pr-review, gf-pr-inline-review)
+- Implementing the suggested improvements (→ gf-workflow)
 
 ## 🚫 Do Not
 - Post a review comment without user confirmation
@@ -207,7 +207,7 @@ persistent comment, no consistent evaluation framework.
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full 6-step workflow, not just the trigger condition. |
 | Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "review issue", "analyze issue", "issue quality", "需求分析", "issue 审查", `gf issue view`. |
-| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-issue`, `gitflow-issue-triage`, `gitflow-issue-create`, `gitflow-label-milestone`. |
+| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gf-issue`, `gf-issue-triage`, `gf-issue-create`, `gf-label-milestone`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary. The three-dimension criteria are embedded in step descriptions rather than extracted as a quick-reference table. |
 | Pattern-language over narrative | ⚠️ | The three-dimension framework is good pattern language, but the "使用示例" section uses narrative walkthroughs. |
 | Idempotency / re-entrance safety | ❌ | No declaration of what happens when the skill runs twice on the same issue. |
@@ -257,7 +257,7 @@ persistent comment, no consistent evaluation framework.
 
 | # | Item | Dimension | Description |
 |---|------|-----------|-------------|
-| P1-1 | Add cross-references | D4 | `## See Also` linking to `gitflow-issue`, `gitflow-issue-triage`, `gitflow-issue-create`, `gitflow-label-milestone`. |
+| P1-1 | Add cross-references | D4 | `## See Also` linking to `gf-issue`, `gf-issue-triage`, `gf-issue-create`, `gf-label-milestone`. |
 | P1-2 | Add Quick Reference section | D1, D4 | Extract the three-dimension criteria into a single-page cheat sheet. |
 | P1-3 | Add Common Mistakes section | D1 | e.g., posting without confirmation, reviewing closed issues, editing the issue during review, inconsistent grading. |
 | P1-4 | Add Red Flags section | D2 | Warnings about: reviewing bot-authored issues, reviewing in bulk, posting on issues you don't own, reviewing PRs as issues. |

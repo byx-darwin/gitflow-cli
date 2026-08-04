@@ -1,7 +1,7 @@
-# gitflow-weekly-report Skill 分析报告
+# gf-weekly-report Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-weekly-report/SKILL.md`
+> **分析目标：** `skills/gf-weekly-report/SKILL.md`
 > **对应 Issue：** #23
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 触发关键词存在但嵌入功能描述中；无跨引用；未遵循 TDD；分类逻辑和模板质量较高 |
 
-**总体评估：** gitflow-weekly-report 当前是一份"报告生成模板 + 分类指南"，在输出模板和分类逻辑上做得相当扎实（6 维度分类、明确模板、具体场景解析），但不符合 Superpowers 对 skill 的结构性要求。它告诉 Claude "输出什么样的报告" 和 "如何分类"，但没有回答"何时触发此 skill""跨项目读取时边界在哪""何时不应推断/虚构数据""如何验证报告质量"。
+**总体评估：** gf-weekly-report 当前是一份"报告生成模板 + 分类指南"，在输出模板和分类逻辑上做得相当扎实（6 维度分类、明确模板、具体场景解析），但不符合 Superpowers 对 skill 的结构性要求。它告诉 Claude "输出什么样的报告" 和 "如何分类"，但没有回答"何时触发此 skill""跨项目读取时边界在哪""何时不应推断/虚构数据""如何验证报告质量"。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-weekly-report` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-weekly-report` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "生成研发周报…" 功能描述，未使用触发条件格式 |
 | description 只描述触发条件 | ❌ | description 混合功能描述 + "TRIGGER when" 关键词，二者未分离 |
@@ -193,9 +193,9 @@
    - 缺失场景触发："这周干了啥"、"帮我整理一下"、"review the week"
 
 3. **缺少跨引用**：
-   - 应引用 `gitflow-commit`（commit message 规范影响分类准确性）
-   - 应引用 `gitflow-repo`（仓库管理和访问）
-   - 应引用 `gitflow-auth`（跨仓库场景下的权限问题）
+   - 应引用 `gf-commit`（commit message 规范影响分类准确性）
+   - 应引用 `gf-repo`（仓库管理和访问）
+   - 应引用 `gf-auth`（跨仓库场景下的权限问题）
    - 应引用 `superpowers:verification-before-completion`（周报数据需要验证，提交数不可编造）
 
 4. **内容组织偏向"模板 + 规则说明"而非"执行指令"**：
@@ -232,7 +232,7 @@
 | P1-2 | 提取输出模板至独立文件 | D1 | 将完整报告模板移至 `templates/weekly-report.tmpl`，skill 中引用路径，降低 token 占用至 < 500 词 |
 | P1-3 | 添加前置条件检查 | D1 | 执行前验证：路径是否存在、是否为 git 仓库、是否有读取权限 |
 | P1-4 | 添加决策逻辑（条件分支） | D1, D4 | 提交数 = 0 → 仍生成模板但注明"本周暂无提交"；路径不存在 → 跳过并警告 |
-| P1-5 | 添加跨引用 | D4 | 引用 gitflow-commit、gitflow-repo、gitflow-auth、superpowers:verification-before-completion |
+| P1-5 | 添加跨引用 | D4 | 引用 gf-commit、gf-repo、gf-auth、superpowers:verification-before-completion |
 | P1-6 | 补充关键词覆盖 | D4 | 添加英文触发词（weekly summary、commit recap、sprint summary）和同义中文词（提交汇总、工作量统计） |
 | P1-7 | 定义成功标准 | D3 | 报告章节完整性、分类覆盖率、提交数与 `git log | wc -l` 一致性、hash 真实性 |
 
@@ -245,7 +245,7 @@
 | P2-3 | 添加错误处理章节 | D1 | 覆盖：路径不存在、非 git 仓库、权限不足、无提交、含特殊字符的路径 |
 | P2-4 | 提供英文版 description | D1 | description 用英文 + 中文触发词混合，更符合 Superpowers 主流 |
 | P2-5 | 添加 TDD for skills 验证记录 | D3, D4 | 记录 baseline → 编写 → 测试 → 迭代的完整过程 |
-| P2-6 | 分类规则参考 gitflow-commit | D1, D4 | 将 Conventional Commits 类型映射直接关联，避免两套规范冲突 |
+| P2-6 | 分类规则参考 gf-commit | D1, D4 | 将 Conventional Commits 类型映射直接关联，避免两套规范冲突 |
 
 ---
 
@@ -262,13 +262,13 @@
 - [ ] 前置条件检查和错误处理章节
 - [ ] Token 数 < 500 词（输出模板移至独立文件）
 - [ ] 定义至少 3 个基线测试场景和成功标准
-- [ ] 分类规则与 gitflow-commit 的 Conventional Commits 规范一致
+- [ ] 分类规则与 gf-commit 的 Conventional Commits 规范一致
 
 ---
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-weekly-report | gitflow-autoreport-bug | gitflow-security-check |
+| 对比项 | gf-weekly-report | gf-autoreport-bug | gf-security-check |
 |--------|----------------------|----------------------|----------------------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
@@ -279,13 +279,13 @@
 | 职责边界风险等级 | 🟡 中-高（跨项目读取） | 🟡 中（Issue 创建） | 🔴 高（敏感数据） |
 | Token 估算 | ❌ 700-900 词（超标） | ⚠️ 中 | ⚠️ 接近上限 |
 
-**关键发现：** gitflow-weekly-report 在"输出模板 + 分类逻辑"维度上项目最佳（6 维度分类、3 个常见场景、完整模板），但其跨项目读取能力和数据推断需求使其职责边界风险高于普通的单项目 skill。高内容质量 + 中等边界风险 = 需要明确"推断"与"编造"的边界。
+**关键发现：** gf-weekly-report 在"输出模板 + 分类逻辑"维度上项目最佳（6 维度分类、3 个常见场景、完整模板），但其跨项目读取能力和数据推断需求使其职责边界风险高于普通的单项目 skill。高内容质量 + 中等边界风险 = 需要明确"推断"与"编造"的边界。
 
 ---
 
 ## 九、总结
 
-gitflow-weekly-report 当前的定位是"报告生成模板 + 分类规则指南"，它在**输出结构的完整性**（含统计、未完成事项、需要协调的问题、下周工作建议四层结构）和**分类逻辑的细致度**（6 维度分类 + 同方向合并原则）上表现优秀，在**常见场景覆盖**（多项目、指定截止时间、包含周日）上也有周全考虑。
+gf-weekly-report 当前的定位是"报告生成模板 + 分类规则指南"，它在**输出结构的完整性**（含统计、未完成事项、需要协调的问题、下周工作建议四层结构）和**分类逻辑的细致度**（6 维度分类 + 同方向合并原则）上表现优秀，在**常见场景覆盖**（多项目、指定截止时间、包含周日）上也有周全考虑。
 
 核心差距：
 1. **触发条件与功能描述混合** → Claude 何时应加载此 skill？当前 description 承载了过多职责

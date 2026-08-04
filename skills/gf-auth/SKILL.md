@@ -1,11 +1,11 @@
 ---
-name: gitflow-auth
+name: gf-auth
 description: |
   Use when the user needs to authenticate, check auth status, obtain an access token, or logout.
   当用户需要登录、检查认证状态、获取访问 Token 或登出时使用。
 ---
 
-# gitflow-auth
+# gf-auth
 
 Manages authentication lifecycle: login, logout, status, token retrieval. Does not revoke, rotate, or manage platform-side tokens.
 
@@ -86,7 +86,7 @@ gf auth logout                # 4. clear credentials
 ### ❌ Out of Scope
 
 - Token creation/revocation/rotation on platform → web console
-- Mutating resources with token → delegate to `/gitflow-issue`, `/gitflow-pr`
+- Mutating resources with token → delegate to `/gf-issue`, `/gf-pr`
 
 ### 🚫 Do Not
 
@@ -129,7 +129,7 @@ gf auth logout                # 4. clear credentials
 - **Given** installed, not logged in — **When** "Login" — **Then** `auth login`; `auth status` → `logged_in: true`
 
 ### 2: Negative
-- **Given** "Close issue #42" — **When** no auth intent — **Then** NOT loaded. → `/gitflow-issue`.
+- **Given** "Close issue #42" — **When** no auth intent — **Then** NOT loaded. → `/gf-issue`.
 
 ### 3: Boundary
 - **Given** "Print my token" — **When** user pushes — **Then** Refuses. Cites Token Safety.
@@ -145,6 +145,6 @@ gf auth logout                # 4. clear credentials
 
 ## See Also
 
-- `/gitflow-issue` — requires auth check
-- `/gitflow-pr` — requires auth check
-- `/gitflow-workflow` — Phase 1 preflight
+- `/gf-issue` — requires auth check
+- `/gf-pr` — requires auth check
+- `/gf-workflow` — Phase 1 preflight

@@ -1,7 +1,7 @@
-# gitflow-release Skill 分析报告
+# gf-release Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-release/SKILL.md`
+> **分析目标：** `skills/gf-release/SKILL.md`
 > **对应 Issue：** #18
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | 未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-release 当前是一个纯命令参考手册，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。与 gitflow-commit、gitflow-label-milestone 存在完全相同的结构性问题。
+**总体评估：** gf-release 当前是一个纯命令参考手册，而非符合 Superpowers 规范的 skill。它描述了"命令能做什么"，但没有描述"何时触发""如何执行""边界在哪""如何验证"。与 gf-commit、gf-label-milestone 存在完全相同的结构性问题。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-release` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-release` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
@@ -100,11 +100,11 @@
    - 尝试对非稳定分支创建正式 Release
    - 尝试批量操作多个 Release
 
-4. **与 gitflow-release-helper 的关系未定义**：存在 `gitflow-release-helper` skill 用于自动化发布流程，但两者之间没有任何跨引用或关系说明。用户和 Claude 无法判断何时应使用哪个 skill。
+4. **与 gf-release-helper 的关系未定义**：存在 `gf-release-helper` skill 用于自动化发布流程，但两者之间没有任何跨引用或关系说明。用户和 Claude 无法判断何时应使用哪个 skill。
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-release 应参照此模式，明确定义其仅负责 Release CRUD 操作，不负责版本号决策、changelog 生成或发布策略制定。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-release 应参照此模式，明确定义其仅负责 Release CRUD 操作，不负责版本号决策、changelog 生成或发布策略制定。
 
 ---
 
@@ -176,9 +176,9 @@
    - "草稿" / "draft release"
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-release-helper`（自动化发布工作流，分析和生成 changelog）
-   - `gitflow-auth`（发布操作需要先认证）
-   - `gitflow-workflow`（完整的发布流程中可能涉及 release）
+   - `gf-release-helper`（自动化发布工作流，分析和生成 changelog）
+   - `gf-auth`（发布操作需要先认证）
+   - `gf-workflow`（完整的发布流程中可能涉及 release）
 
 ### 5.3 评分：❌ 不合格
 
@@ -193,7 +193,7 @@
 | P0-1 | 重写 description 为触发条件 | D1, D4 | description 决定 Claude 何时加载 skill，必须改为 "Use when..." 格式 |
 | P0-2 | 添加职责边界声明章节 | D2 | 明确 release skill 仅负责 Release CRUD，不负责版本号决策、changelog 生成或发布策略 |
 | P0-3 | 添加关键词覆盖 | D4 | 覆盖常见表达（"创建 release"、"上传资源"、"预发布"、"draft"）和工具名 |
-| P0-4 | 添加跨引用 | D4 | 至少引用 gitflow-release-helper、gitflow-auth 等相关 skills |
+| P0-4 | 添加跨引用 | D4 | 至少引用 gf-release-helper、gf-auth 等相关 skills |
 
 ### P1（建议修复 — 提升质量）
 
@@ -213,7 +213,7 @@
 | P2-2 | 定义成功标准 | D3 | 每个子命令的预期输出和退出码 |
 | P2-3 | 添加压力测试场景 | D3 | 超大文件上传、批量操作、跨平台差异等 |
 | P2-4 | 提供英文版 description | D1 | 当前仅中文，可考虑 bilingual |
-| P2-5 | 添加与 gitflow-release-helper 的关系图 | D4 | 明确两个 skill 的分工边界 |
+| P2-5 | 添加与 gf-release-helper 的关系图 | D4 | 明确两个 skill 的分工边界 |
 
 ---
 
@@ -232,7 +232,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-release | gitflow-autoreport-bug | gitflow-commit | 差距 |
+| 对比项 | gf-release | gf-autoreport-bug | gf-commit | 差距 |
 |--------|-----------------|----------------------|----------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 | 与 autoreport-bug 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 | 整体均缺失 |
@@ -244,7 +244,7 @@
 
 ## 九、总结
 
-gitflow-release 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-release 当前的定位是"命令参考手册"，它描述了命令的输入输出，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？
@@ -252,4 +252,4 @@ gitflow-release 当前的定位是"命令参考手册"，它描述了命令的�
 3. **缺乏错误处理** → 遇到 tag 不存在或权限不足时 Claude 应如何反应？
 4. **缺乏边界** → Claude 不应决定版本号或自动生成 changelog（那是 release-helper 的职责）？
 
-重构方向：将其从"参考手册"转型为"可执行指令 + 边界声明 + 验证标准"的完整 skill，参考 gitflow-autoreport-bug 的结构化模板。特别需要关注高风险操作（删除、覆盖资产）的安全确认流程。
+重构方向：将其从"参考手册"转型为"可执行指令 + 边界声明 + 验证标准"的完整 skill，参考 gf-autoreport-bug 的结构化模板。特别需要关注高风险操作（删除、覆盖资产）的安全确认流程。

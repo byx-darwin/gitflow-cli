@@ -1,7 +1,7 @@
-# gitflow-regression Skill 分析报告
+# gf-regression Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-regression/SKILL.md`
+> **分析目标：** `skills/gf-regression/SKILL.md`
 > **对应 Issue：** #25
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试、压力测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 工作流步骤清晰、命令实用；但 description 偏离规范、无关键词覆盖、无跨引用、未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-regression 是一个"运行脚本 + 解析输出 + 上报失败"的实用型 skill。技术内容质量高（平台选项、失败分类、自动上报逻辑都有详细覆盖）。但与 Superpowers skill 形态的差距在于：**description 不合规导致触发边界模糊**，**职责边界完全缺失**（涉及跨平台副作用以及通过 autoreport-bug 间接创建 Issue），**无可测试性设计**。
+**总体评估：** gf-regression 是一个"运行脚本 + 解析输出 + 上报失败"的实用型 skill。技术内容质量高（平台选项、失败分类、自动上报逻辑都有详细覆盖）。但与 Superpowers skill 形态的差距在于：**description 不合规导致触发边界模糊**，**职责边界完全缺失**（涉及跨平台副作用以及通过 autoreport-bug 间接创建 Issue），**无可测试性设计**。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-regression` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-regression` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | "冒烟测试工作流 — 运行 scripts/smoke-test.sh..." |
 | description 只描述触发条件 | ❌ | 混合工作流描述（"运行...解析...失败时自动调用..."）和流程承诺 |
@@ -44,7 +44,7 @@
 ### 2.2 具体问题
 
 1. **description 违反 Superpowers 规范**：
-   - 当前：`冒烟测试工作流 — 运行 scripts/smoke-test.sh 执行端到端冒烟测试，解析测试结果，失败时自动调用 gitflow-autoreport-bug 上报`
+   - 当前：`冒烟测试工作流 — 运行 scripts/smoke-test.sh 执行端到端冒烟测试，解析测试结果，失败时自动调用 gf-autoreport-bug 上报`
    - 问题：这是功能描述 + 工作流承诺，不是触发条件
    - 应为：`Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results to find regressions, or wants automatic bug reporting for smoke-test failures.`
    - 后果：用户说"跑一下回归测试"、"smoke test"、"看看上次改动有没有破坏功能"都是潜在触发，但当前 description 无法帮助 Claude 判断
@@ -71,9 +71,9 @@
    - 建议：1 个核心示例 + 3 行变体速查
 
 5. **步骤 4 的失败上报逻辑过于详尽**：
-   - 详细描述 `pending.json` 结构、md5 求和、目录创建、JSON 写入——这些是 `gitflow-autoreport-bug` skill 自己的职责
+   - 详细描述 `pending.json` 结构、md5 求和、目录创建、JSON 写入——这些是 `gf-autoreport-bug` skill 自己的职责
    - 跨 skill 冗余：在 regression skill 中完整描述 autoreport-bug 的内部 JSON 格式违反 DRY
-   - 建议：upstream 直接引用 `gitflow-autoreport-bug` skill，不重述实现细节
+   - 建议：upstream 直接引用 `gf-autoreport-bug` skill，不重述实现细节
 
 ### 2.3 评分：⚠️ 需改进
 
@@ -94,7 +94,7 @@
 ### 3.2 具体问题
 
 1. **无职责边界 → 涉及跨平台副作用与间接 Issue 创建**：
-   - 本 skill 会调用 `gitflow-autoreport-bug`，间接导致 GitHub/GitLab/GitCode 上创建 Issue
+   - 本 skill 会调用 `gf-autoreport-bug`，间接导致 GitHub/GitLab/GitCode 上创建 Issue
    - 写入模式（`--write`）可能实际创建/修改远程资源
    - 没有边界声明时，Claude 可能在以下场景过度执行：
      - 用户仅询问"上次 CI 失败了吗"时，Claude 自动运行写模式 smoke test 并在远端创建 Issue
@@ -127,7 +127,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** autoreport-bug 本身有完整的"职责边界声明"章节。但 regression skill 调用 autoreport-bug 形成间接副作用链——regression 的"边界"不仅限于自身操作，还应约束下游调用。这是更复杂的链式边界场景，比 autoreport-bug 单 skill 更需要声明。
+**对比参考（gf-autoreport-bug）：** autoreport-bug 本身有完整的"职责边界声明"章节。但 regression skill 调用 autoreport-bug 形成间接副作用链——regression 的"边界"不仅限于自身操作，还应约束下游调用。这是更复杂的链式边界场景，比 autoreport-bug 单 skill 更需要声明。
 
 ---
 
@@ -183,23 +183,23 @@
 |--------|------|------|
 | 遵循 TDD for skills（RED-GREEN-REFACTOR） | ❌ | 无 TDD 流程记录 |
 | description 只描述触发条件，不描述流程 | ❌ | description 混合功能承诺和工作流描述 |
-| 关键词覆盖（错误信息、症状、同义词、工具） | ⚠️ | 提到 `smoke-test.sh`、`PASS/FAIL/SKICK`、`read-only`、`write`、`--platform`、`gitflow-autoreport-bug` 等工具/文件和选项 |
-| 跨引用其他 skills | ❌ | 仅文字提及调用 `gitflow-autoreport-bug`，无结构化 See Also / 相关 Skills |
+| 关键词覆盖（错误信息、症状、同义词、工具） | ⚠️ | 提到 `smoke-test.sh`、`PASS/FAIL/SKICK`、`read-only`、`write`、`--platform`、`gf-autoreport-bug` 等工具/文件和选项 |
+| 跨引用其他 skills | ❌ | 仅文字提及调用 `gf-autoreport-bug`，无结构化 See Also / 相关 Skills |
 | 必要时使用 flowchart | ⚠️ | 当前无流程图，但 5 步骤工作流 + 2 个决策点（认证检查、写入模式确认）其实需要简化流程图指导 |
 
 ### 5.2 具体问题
 
 1. **description 应为触发条件，当前是功能描述**：
-   - ❌ 当前：`冒烟测试工作流 — 运行 scripts/smoke-test.sh 执行端到端冒烟测试，解析测试结果，失败时自动调用 gitflow-autoreport-bug 上报`
+   - ❌ 当前：`冒烟测试工作流 — 运行 scripts/smoke-test.sh 执行端到端冒烟测试，解析测试结果，失败时自动调用 gf-autoreport-bug 上报`
    - ✅ 应为：`Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results for regressions, or wants automatic bug reporting for smoke-test failures.`
    - 关键词覆盖建议（中文）："跑回归测试"、"smoke test"、"回归"、"冒烟"、"验证 CLI 功能"、"跑 smoke"、"test against all platforms"
    - 关键词覆盖建议（英文）："smoke test"、"regression test"、"regression check"、"end-to-end check"、"verify gitflow works"、"pre-release check"
 
 2. **缺少结构化跨引用**：应明确引用：
-   - `gitflow-autoreport-bug`（下游依赖的 skill）
-   - `gitflow-release`（pre-release 冒烟测试是关联场景）
-   - `gitflow-quality`（质量检查与回归测试互补）
-   - `gitflow-pipeline-analyzer`（CI 失败时也可触发回归分析）
+   - `gf-autoreport-bug`（下游依赖的 skill）
+   - `gf-release`（pre-release 冒烟测试是关联场景）
+   - `gf-quality`（质量检查与回归测试互补）
+   - `gf-pipeline-analyzer`（CI 失败时也可触发回归分析）
    - `superpowers:systematic-debugging`（失败分类后的调试方法论）
 
 3. **内容组织偏向"操作手册"而非"执行指令"**：
@@ -243,7 +243,7 @@
 | P1-2 | 添加 Quick Reference 速查 | D1 | 3 行核心命令（read-only / write / version）+ 退出码处理决策 + 失败上报决策 |
 | P1-3 | 添加决策点分支结构 | D1, D4 | 认证检查 → 写模式确认 → 失败分类 → 上报/抑制 使用明确 if/else 分支 |
 | P1-4 | 添加关键词覆盖 | D4 | 覆盖中英触发词："跑回归测试"、"smoke test"、"冒烟"、"回归"、"pre-release check"、"regression test"、"verify CLI works"、"end-to-end check" |
-| P1-5 | 添加结构化跨引用 | D4 | 引用 gitflow-autoreport-bug（下游）、gitflow-release（pre-release 场景）、gitflow-quality、gitflow-pipeline-analyzer |
+| P1-5 | 添加结构化跨引用 | D4 | 引用 gf-autoreport-bug（下游）、gf-release（pre-release 场景）、gf-quality、gf-pipeline-analyzer |
 | P1-6 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能只运行脚本不解析输出、不生成结构化报告） |
 | P1-7 | 补充成功标准 | D3 | 成功报告的最低字段（PASS 数、FAIL 数、SKIP 数、一句话结论）；上报前的验证标志 |
 
@@ -265,7 +265,7 @@
 - [ ] 含职责边界声明章节（含 🚫 禁止行为、✅/❌ 职责范围）
 - [ ] 含红旗列表（认证缺失、CI 中调用 autoreport-bug、写入模式在非受控环境、flaky 重复上报等）
 - [ ] 含关键词覆盖（中英触发词、工具名、错误信息）
-- [ ] 含跨引用（至少引用 gitflow-autoreport-bug、gitflow-release、gitflow-quality）
+- [ ] 含跨引用（至少引用 gf-autoreport-bug、gf-release、gf-quality）
 - [ ] 文档结构包含 Overview / When to Use / Core Pattern / Quick Reference / Common Mistakes
 - [ ] 快速加载时 token 数 < 500 词
 - [ ] 含决策点分支结构（认证检查、写模式确认、失败分类）
@@ -277,7 +277,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-regression | gitflow-autoreport-bug | gitflow-precommit |
+| 对比项 | gf-regression | gf-autoreport-bug | gf-precommit |
 |--------|-------------------|----------------------|-------------------|
 | 边界风险等级 | 🟡 中（间接触发 Issue 创建、写入模式副作用） | 🟡 中（涉及 Issue 创建） | 🟡 中（涉及文件写入） |
 | 职责边界 | ❌ 缺失 | ✅ 完整 | ❌ 缺失 |
@@ -290,13 +290,13 @@
 | 结构化程度 | ⚠️ 线性步骤完整 | ✅ 结构化最佳 | ⚠️ 线性步骤完整 |
 | 下游依赖 | ✅ 调用 autoreport-bug（间接边界复杂） | — | — |
 
-**关键发现：** gitflow-regression 是唯一间接触发 another skill（autoreport-bug）的 clone skill——这带来链式边界风险：用户启动回归测试后，若无认证，Claude 仍会尝试 smoke-test→解析失败→触发 autoreport-bug 创建 Issue。这种跨 skill 副作用链需要在两个 skill 的文档中都明确声明。
+**关键发现：** gf-regression 是唯一间接触发 another skill（autoreport-bug）的 clone skill——这带来链式边界风险：用户启动回归测试后，若无认证，Claude 仍会尝试 smoke-test→解析失败→触发 autoreport-bug 创建 Issue。这种跨 skill 副作用链需要在两个 skill 的文档中都明确声明。
 
 ---
 
 ## 九、总结
 
-gitflow-regression 当前的定位是"操作手册 + shell 模板库"混合体——它有完整的工作流步骤和 5 个完整场景示例，但缺乏 Superpowers skill 所需的结构性要素。
+gf-regression 当前的定位是"操作手册 + shell 模板库"混合体——它有完整的工作流步骤和 5 个完整场景示例，但缺乏 Superpowers skill 所需的结构性要素。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"跑一下 smoke"？"回归了吗"？"改动后功能正常吗"？）
@@ -306,4 +306,4 @@ gitflow-regression 当前的定位是"操作手册 + shell 模板库"混合体�
 
 重构方向：将工作流步骤浓缩为 Quick Reference（3 行命令 + 3 个决策分支），保留失败分类的 DQA 级别描述但移至独立引用文档，添加职责边界声明和红旗列表，重写 description 为触发条件，添加跨引用和 Success Criteria。重构后预期 token 从 885 词降至 ~280 词，大幅提升加载效率。
 
-**特殊关注点（链式边界）：** gitflow-regression 在调用 autoreport-bug 时需要明确：认证和网络问题导致的失败不自动上报；写入模式需要用户确认；flaky 失败识别和抑制机制。这种"skill 调用 skill"的链式边界是所有 skill 中最需要声明清楚的场景。
+**特殊关注点（链式边界）：** gf-regression 在调用 autoreport-bug 时需要明确：认证和网络问题导致的失败不自动上报；写入模式需要用户确认；flaky 失败识别和抑制机制。这种"skill 调用 skill"的链式边界是所有 skill 中最需要声明清楚的场景。

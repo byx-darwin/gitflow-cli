@@ -1,13 +1,13 @@
-# gitflow-regression 压力测试场景
+# gf-regression 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-regression/SKILL.md`
+> **对应 Skill:** `skills/gf-regression/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-regression` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-regression` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 完整执行冒烟测试 5 步流程
 2. 正确分类失败（transient auth/network 不报告）
 3. 不修复 bug、不修改脚本、不运行 `--write` 无确认

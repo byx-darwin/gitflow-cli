@@ -1,13 +1,13 @@
 ---
-name: gitflow-regression
+name: gf-regression
 description: |
   Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results for regressions, or wants automatic bug reporting for smoke-test failures.
   当用户运行冒烟/回归测试、解析测试结果或需要自动上报失败时使用。
 ---
 
-# gitflow-regression
+# gf-regression
 
-Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to `/gitflow-autoreport-bug`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
+Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to `/gf-autoreport-bug`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
 
 ## When to Use
 
@@ -24,7 +24,7 @@ Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to 
 test -f scripts/smoke-test.sh
 bash scripts/smoke-test.sh --platform github 2>&1
 # parse EXIT + PASS/FAIL/SKIP
-# FAIL>0 → classify → /gitflow-autoreport-bug
+# FAIL>0 → classify → /gf-autoreport-bug
 ```
 
 ## Quick Reference
@@ -67,7 +67,7 @@ flowchart TD
 1. **Parameters** — platform default `github`; `--write` only on explicit user request.
 2. **Run** — `bash scripts/smoke-test.sh --platform <p> [--write] [--verbose]`; capture output + exit code.
 3. **Parse** — extract `PASS_COUNT`, `FAIL_COUNT`, `SKIP_COUNT`. Exit 0 → report, done. Else Step 4.
-4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no autoreport. Real bug → write `.cache/bug-reports/pending.json`, invoke `/gitflow-autoreport-bug`.
+4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no autoreport. Real bug → write `.cache/bug-reports/pending.json`, invoke `/gf-autoreport-bug`.
 5. **Report** — render markdown summary table + per-failure detail + reported Issue URLs.
 
 ### Error Handling
@@ -103,9 +103,9 @@ flowchart TD
 | Intent | Delegate To |
 |--------|-------------|
 | Run smoke test | This skill |
-| File bug | `/gitflow-autoreport-bug` |
-| Fix root cause | `/gitflow-workflow` |
-| Pre-release gate | `/gitflow-release` |
+| File bug | `/gf-autoreport-bug` |
+| Fix root cause | `/gf-workflow` |
+| Pre-release gate | `/gf-release` |
 
 ## Rationalization
 
@@ -132,7 +132,7 @@ flowchart TD
 
 ### 1: Happy Path — git repo, script present, auth valid, "run smoke test" → read-only, EXIT=0, summary report, done.
 
-### 2: Negative — "fix login bug" → NOT loaded. → `/gitflow-workflow`.
+### 2: Negative — "fix login bug" → NOT loaded. → `/gf-workflow`.
 
 ### 3: Boundary — 3 auth-related failures → classified transient, autoreport NOT called, user advised `auth login`.
 
@@ -156,7 +156,7 @@ flowchart TD
 
 ## See Also
 
-- `gitflow-autoreport-bug` — bug reporting
-- `gitflow-release` — pre-release gate
-- `gitflow-quality` — quality checks
-- `gitflow-pipeline-analyzer` — CI inspection
+- `gf-autoreport-bug` — bug reporting
+- `gf-release` — pre-release gate
+- `gf-quality` — quality checks
+- `gf-pipeline-analyzer` — CI inspection

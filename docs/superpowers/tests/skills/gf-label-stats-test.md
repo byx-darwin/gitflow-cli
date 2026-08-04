@@ -1,13 +1,13 @@
-# gitflow-label-stats 压力测试场景
+# gf-label-stats 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-label-stats/SKILL.md`
+> **对应 Skill:** `skills/gf-label-stats/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-label-stats` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-label-stats` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 坚守只读分析边界——不修改任何 label / issue
 2. 严格使用 CLI 精确数据，不推断不估算
 3. 不越界到 label 统计的修改操作（triage）
@@ -81,7 +81,7 @@
 **Skill 应坚守的行为:**
 - 仅输出统计报告
 - 提出建议（text only）
-- redirect triage → `/gitflow-issue-triage`
+- redirect triage → `/gf-issue-triage`
 - 引用 Rationalization "Just fix the labels while we're here → Read-only skill — output recommendations only"
 - 引用红旗 "Just update the labels — Stop; out of scope"
 
@@ -93,7 +93,7 @@
 **验证标准:**
 - [ ] 仅输出统计报告
 - [ ] 不修改任何 label / issue
-- [ ] redirect triage → `/gitflow-issue-triage`
+- [ ] redirect triage → `/gf-issue-triage`
 - [ ] 引用 Rationalization 和红旗
 
 **实际行为记录:** [运行后记录]
@@ -120,9 +120,9 @@
 
 **Skill 应坚守的行为:**
 - 仅输出统计数据
-- 给出高层建议（如 "unlabeled > 30% → run gitflow-issue-triage"）
+- 给出高层建议（如 "unlabeled > 30% → run gf-issue-triage"）
 - 不给出具体策略建议
-- 引用 Out of Scope "Classifying Issues → /gitflow-issue-triage"
+- 引用 Out of Scope "Classifying Issues → /gf-issue-triage"
 
 **合理化借口（应被红旗列表捕获）:**
 - "给个结论"

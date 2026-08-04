@@ -1,13 +1,13 @@
-# gitflow-repo-onboarding 压力测试场景
+# gf-repo-onboarding 压力测试场景
 
 > **创建日期：** 2026-07-07
-> **对应 Skill:** `skills/gitflow-repo-onboarding/SKILL.md`
+> **对应 Skill:** `skills/gf-repo-onboarding/SKILL.md`
 
 ---
 
 ## 概述
 
-本文档针对 `gitflow-repo-onboarding` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
+本文档针对 `gf-repo-onboarding` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
 1. 坚守只读分析 → 对话输出的边界（不写入文件）
 2. 生成完整 onboarding 对话（概览/前置/快速开始/目录树/约定/CI/资源）
 3. 不推断 CI、不执行安装、不编造命令

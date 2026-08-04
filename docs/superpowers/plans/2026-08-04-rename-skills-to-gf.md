@@ -12,7 +12,7 @@
 
 - **`gitflow-cli`（GitHub 仓库 URL）绝不改动** —— 如 `byx-darwin/gitflow-cli` 在 README、Rust 源码、CHANGELOG 中的出现均保留。
 - **CLI 配置标识符保留** —— `skills.rs` 中 `matcher: "gitflow"`、`gitflow.co_contribution` 是 settings.json/hook 配置字段，**不属于 skill 名，不改**。
-- 替换采用 **26 个 skill 名白名单**，按**名称长度降序**执行（最长先替换，避免 `gitflow-issue` 误伤 `gitflow-issue-create`）。
+- 替换采用 **26 个 skill 名白名单**，按**名称长度降序**执行（最长先替换，避免 `gf-issue` 误伤 `gf-issue-create`）。
 - 排除目录：`.cache/`、`target/`、`.git/`。
 - `.claude/skills/` 不被 git 跟踪（本地安装副本），仅用普通 `mv` 同步，不进 commit。
 - 禁止 `cargo clean`；禁止写 TODO/占位代码。
@@ -71,11 +71,11 @@ git commit -m "refactor(skills): update skill prefix filter from gitflow- to gf-
 ### Task 2: 更新 CLI 测试文件的 skill 名断言
 
 **Files:**
-- Modify: `apps/cli/tests/common/mod.rs:17`（`skills/gitflow-workflow/SKILL.md` → `skills/gf-workflow/SKILL.md`）
-- Modify: `apps/cli/tests/workflow_modes_test.rs`（`gitflow-issue-create` 等断言）
-- Modify: `apps/cli/tests/workflow_phase1_test.rs`（`gitflow-issue-create`/`gitflow-issue-review` 断言）
-- Modify: `apps/cli/tests/workflow_phase2_test.rs`（`gitflow-quality` 断言）
-- Modify: `apps/cli/tests/workflow_phase3_phase4_test.rs`（`gitflow-pipeline-analyzer`/`gitflow-issue-triage`/`gitflow-review` 断言）
+- Modify: `apps/cli/tests/common/mod.rs:17`（`skills/gf-workflow/SKILL.md` → `skills/gf-workflow/SKILL.md`）
+- Modify: `apps/cli/tests/workflow_modes_test.rs`（`gf-issue-create` 等断言）
+- Modify: `apps/cli/tests/workflow_phase1_test.rs`（`gf-issue-create`/`gf-issue-review` 断言）
+- Modify: `apps/cli/tests/workflow_phase2_test.rs`（`gf-quality` 断言）
+- Modify: `apps/cli/tests/workflow_phase3_phase4_test.rs`（`gf-pipeline-analyzer`/`gf-issue-triage`/`gf-review` 断言）
 
 **Interfaces:**
 - Consumes: Task 1 的过滤逻辑（`gf-` 前缀）
@@ -84,8 +84,8 @@ git commit -m "refactor(skills): update skill prefix filter from gitflow- to gf-
 - [ ] **Step 1: 更新断言字符串**
 
 对上述 5 个测试文件，将其中所有 skill 名断言从 `gitflow-<name>` 改为 `gf-<name>`（保持 `content.contains(...)` 断言结构不变）。示例：
-- `common/mod.rs:17`：`format!("{manifest_dir}/../../skills/gitflow-workflow/SKILL.md")` → `.../skills/gf-workflow/SKILL.md`
-- `workflow_modes_test.rs`：`md.contains("gitflow-issue-create")` → `md.contains("gf-issue-create")`（含失败消息字符串）
+- `common/mod.rs:17`：`format!("{manifest_dir}/../../skills/gf-workflow/SKILL.md")` → `.../skills/gf-workflow/SKILL.md`
+- `workflow_modes_test.rs`：`md.contains("gf-issue-create")` → `md.contains("gf-issue-create")`（含失败消息字符串）
 
 **注意**：`workflow_modes_test.rs` 中 `gitflow-cli` 出现的字符串（若有）保留不动。
 
@@ -144,9 +144,9 @@ git commit -m "refactor(skills): update Makefile and install.sh skill filters to
 
 - [ ] **Step 1: 替换 3 处 skill 引用（每个文件）**
 
-- 行 11：注释 `gitflow-autoreport-bug skill` → `gf-autoreport-bug skill`
-- 行 123：`请加载 gitflow-autoreport-bug Skill` → `请加载 gf-autoreport-bug Skill`
-- 行 124：`skills/gitflow-autoreport-bug/SKILL.md` → `skills/gf-autoreport-bug/SKILL.md`
+- 行 11：注释 `gf-autoreport-bug skill` → `gf-autoreport-bug skill`
+- 行 123：`请加载 gf-autoreport-bug Skill` → `请加载 gf-autoreport-bug Skill`
+- 行 124：`skills/gf-autoreport-bug/SKILL.md` → `skills/gf-autoreport-bug/SKILL.md`
 
 **保留不改**：行 93 的 `gitflow-cli` GitHub URL。
 
@@ -216,14 +216,14 @@ git commit -m "refactor(skills): rename skill directories from gitflow-* to gf-*
 - Rename: `docs/references/gitflow-*.md` → `docs/references/gf-*.md`（9 个）
 - Rename: `docs/research/skill-analysis-gitflow-*.md` → `docs/research/skill-analysis-gf-*.md`（26 个）
 - Rename: `docs/superpowers/tests/skills/gitflow-*-test.md` → `docs/superpowers/tests/skills/gf-*-test.md`（24 个）
-- Rename: `docs/gitflow-workflow-guide.md` → `docs/gf-workflow-guide.md`
-- Rename: `docs/superpowers/plans/2026-07-06-gitflow-workflow-refactor.md` → `2026-07-06-gf-workflow-refactor.md`
-- Rename: `docs/superpowers/plans/2026-07-09-gitflow-workflow-auto-trigger.md` → `2026-07-09-gf-workflow-auto-trigger.md`
-- Rename: `docs/superpowers/specs/2026-07-09-gitflow-workflow-auto-trigger-design.md` → `2026-07-09-gf-workflow-auto-trigger-design.md`
+- Rename: `docs/gf-workflow-guide.md` → `docs/gf-workflow-guide.md`
+- Rename: `docs/superpowers/plans/2026-07-06-gf-workflow-refactor.md` → `2026-07-06-gf-workflow-refactor.md`
+- Rename: `docs/superpowers/plans/2026-07-09-gf-workflow-auto-trigger.md` → `2026-07-09-gf-workflow-auto-trigger.md`
+- Rename: `docs/superpowers/specs/2026-07-09-gf-workflow-auto-trigger-design.md` → `2026-07-09-gf-workflow-auto-trigger-design.md`
 
 **Interfaces:**
 - Consumes: 无
-- Produces: 文档文件名与 skill 名一致；`docs/index.md:13` 对 guide 的链接需同步更新（由 Task 7 内容替换处理 `./gitflow-workflow-guide.md` → `./gf-workflow-guide.md`）
+- Produces: 文档文件名与 skill 名一致；`docs/index.md:13` 对 guide 的链接需同步更新（由 Task 7 内容替换处理 `./gf-workflow-guide.md` → `./gf-workflow-guide.md`）
 
 - [ ] **Step 1: 批量重命名全部文件（git mv）**
 
@@ -238,10 +238,10 @@ done
 for f in docs/superpowers/tests/skills/gitflow-*-test.md; do
   git mv "$f" "${f/gitflow-/gf-}"
 done
-git mv docs/gitflow-workflow-guide.md docs/gf-workflow-guide.md
-git mv docs/superpowers/plans/2026-07-06-gitflow-workflow-refactor.md docs/superpowers/plans/2026-07-06-gf-workflow-refactor.md
-git mv docs/superpowers/plans/2026-07-09-gitflow-workflow-auto-trigger.md docs/superpowers/plans/2026-07-09-gf-workflow-auto-trigger.md
-git mv docs/superpowers/specs/2026-07-09-gitflow-workflow-auto-trigger-design.md docs/superpowers/specs/2026-07-09-gf-workflow-auto-trigger-design.md
+git mv docs/gf-workflow-guide.md docs/gf-workflow-guide.md
+git mv docs/superpowers/plans/2026-07-06-gf-workflow-refactor.md docs/superpowers/plans/2026-07-06-gf-workflow-refactor.md
+git mv docs/superpowers/plans/2026-07-09-gf-workflow-auto-trigger.md docs/superpowers/plans/2026-07-09-gf-workflow-auto-trigger.md
+git mv docs/superpowers/specs/2026-07-09-gf-workflow-auto-trigger-design.md docs/superpowers/specs/2026-07-09-gf-workflow-auto-trigger-design.md
 ```
 
 - [ ] **Step 2: 验证**

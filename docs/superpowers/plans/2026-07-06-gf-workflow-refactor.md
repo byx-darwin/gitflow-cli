@@ -1,10 +1,10 @@
-# gitflow-workflow 改造 Implementation Plan
+# gf-workflow 改造 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 改造 gitflow-workflow skill，整合从 open issues 读取需求的流程，实现完整计划闭环（开发+质量+交付+收尾），并同步更新相关文档。
+**Goal:** 改造 gf-workflow skill，整合从 open issues 读取需求的流程，实现完整计划闭环（开发+质量+交付+收尾），并同步更新相关文档。
 
-**Architecture:** 按照 gitflow-workflow 的四阶段流程（需求探索 → 计划制定 → 执行 → 交付后）重新组织 skill，支持完整模式和快速模式。
+**Architecture:** 按照 gf-workflow 的四阶段流程（需求探索 → 计划制定 → 执行 → 交付后）重新组织 skill，支持完整模式和快速模式。
 
 **Tech Stack:** Markdown, bash, gf
 
@@ -13,7 +13,7 @@
 - 保持与现有 skills 的兼容性
 - 确保计划文档包含完整闭环（开发/质量/交付/收尾）
 - README.md 和 CLAUDE.md 必须与 SKILL.md 保持一致
-- 保留 gitflow-issue-create 和 gitflow-issue-review skills
+- 保留 gf-issue-create 和 gf-issue-review skills
 - 每个任务必须有明确的验证标准
 
 ---
@@ -24,7 +24,7 @@
 
 ```bash
 # 恢复 SKILL.md
-cp skills/gitflow-workflow/SKILL.md.bak skills/gitflow-workflow/SKILL.md
+cp skills/gf-workflow/SKILL.md.bak skills/gf-workflow/SKILL.md
 
 # 恢复 README.md
 git checkout HEAD -- README.md
@@ -40,7 +40,7 @@ git reset --hard HEAD~N  # N 为改造提交数量
 ### Task 1: 备份原始文件
 
 **Files:**
-- Create: `skills/gitflow-workflow/SKILL.md.bak`
+- Create: `skills/gf-workflow/SKILL.md.bak`
 
 **验证标准：**
 - ✅ 备份文件存在且与原始文件内容一致
@@ -48,8 +48,8 @@ git reset --hard HEAD~N  # N 为改造提交数量
 - [ ] **Step 1: 备份 SKILL.md**
 
 ```bash
-cp skills/gitflow-workflow/SKILL.md skills/gitflow-workflow/SKILL.md.bak
-diff skills/gitflow-workflow/SKILL.md skills/gitflow-workflow/SKILL.md.bak
+cp skills/gf-workflow/SKILL.md skills/gf-workflow/SKILL.md.bak
+diff skills/gf-workflow/SKILL.md skills/gf-workflow/SKILL.md.bak
 # 期望：无输出（文件相同）
 ```
 
@@ -58,7 +58,7 @@ diff skills/gitflow-workflow/SKILL.md skills/gitflow-workflow/SKILL.md.bak
 ### Task 2: 修改 Phase 1 - 添加 Open Issues 读取
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md:75-120`
+- Modify: `skills/gf-workflow/SKILL.md:75-120`
 
 **验证标准：**
 - ✅ Phase 1 包含"读取 Open Issues"步骤
@@ -67,7 +67,7 @@ diff skills/gitflow-workflow/SKILL.md skills/gitflow-workflow/SKILL.md.bak
 - [ ] **Step 1: 读取当前 Phase 1 内容**
 
 ```bash
-grep -n "## Phase 1" skills/gitflow-workflow/SKILL.md
+grep -n "## Phase 1" skills/gf-workflow/SKILL.md
 ```
 
 - [ ] **Step 2: 替换 Phase 1 内容**
@@ -95,7 +95,7 @@ gf issue list --state open --label bug --limit 50 --output json
 - [ ] **Step 3: 验证修改**
 
 ```bash
-grep -A 5 "读取 Open Issues" skills/gitflow-workflow/SKILL.md
+grep -A 5 "读取 Open Issues" skills/gf-workflow/SKILL.md
 # 期望：显示新增的内容
 ```
 
@@ -104,7 +104,7 @@ grep -A 5 "读取 Open Issues" skills/gitflow-workflow/SKILL.md
 ### Task 3: 修改 Phase 2 - 添加完整计划闭环模板
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md:121-200`
+- Modify: `skills/gf-workflow/SKILL.md:121-200`
 
 **验证标准：**
 - ✅ Phase 2 包含完整计划闭环模板
@@ -113,17 +113,17 @@ grep -A 5 "读取 Open Issues" skills/gitflow-workflow/SKILL.md
 - [ ] **Step 1: 读取当前 Phase 2 内容**
 
 ```bash
-grep -n "## Phase 2" skills/gitflow-workflow/SKILL.md
+grep -n "## Phase 2" skills/gf-workflow/SKILL.md
 ```
 
 - [ ] **Step 2: 替换 Phase 2 内容**
 
-添加完整计划闭环模板（包含质量关卡调用 gitflow-quality skill）
+添加完整计划闭环模板（包含质量关卡调用 gf-quality skill）
 
 - [ ] **Step 3: 验证修改**
 
 ```bash
-grep -A 5 "完整计划闭环" skills/gitflow-workflow/SKILL.md
+grep -A 5 "完整计划闭环" skills/gf-workflow/SKILL.md
 # 期望：显示新增的内容
 ```
 
@@ -132,7 +132,7 @@ grep -A 5 "完整计划闭环" skills/gitflow-workflow/SKILL.md
 ### Task 4: 修改 Phase 3 - 调用 subagent 执行
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md:201-250`
+- Modify: `skills/gf-workflow/SKILL.md:201-250`
 
 **验证标准：**
 - ✅ Phase 3 调用 superpowers:subagent-driven-development
@@ -141,7 +141,7 @@ grep -A 5 "完整计划闭环" skills/gitflow-workflow/SKILL.md
 - [ ] **Step 1: 读取当前 Phase 3 内容**
 
 ```bash
-grep -n "## Phase 3" skills/gitflow-workflow/SKILL.md
+grep -n "## Phase 3" skills/gf-workflow/SKILL.md
 ```
 
 - [ ] **Step 2: 替换为新的 Phase 3**
@@ -165,7 +165,7 @@ grep -n "## Phase 3" skills/gitflow-workflow/SKILL.md
 - [ ] **Step 3: 验证修改**
 
 ```bash
-grep -A 5 "subagent-driven-development" skills/gitflow-workflow/SKILL.md
+grep -A 5 "subagent-driven-development" skills/gf-workflow/SKILL.md
 # 期望：显示调用 subagent 的内容
 ```
 
@@ -174,7 +174,7 @@ grep -A 5 "subagent-driven-development" skills/gitflow-workflow/SKILL.md
 ### Task 5: 添加 Phase 4 - 交付后检查
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md`
+- Modify: `skills/gf-workflow/SKILL.md`
 
 **验证标准：**
 - ✅ 添加 Phase 4 交付后检查
@@ -189,15 +189,15 @@ grep -A 5 "subagent-driven-development" skills/gitflow-workflow/SKILL.md
 
 ### 步骤 4.1：流水线分析
 
-调用 `gitflow-pipeline-analyzer` 分析 CI/CD 流水线健康状况。
+调用 `gf-pipeline-analyzer` 分析 CI/CD 流水线健康状况。
 
 ### 步骤 4.2：Issue 分类
 
-调用 `gitflow-issue-triage` 对相关 issues 进行分类和优先级排序。
+调用 `gf-issue-triage` 对相关 issues 进行分类和优先级排序。
 
 ### 步骤 4.3：代码审查
 
-调用 `gitflow-review` 对整体变更进行代码审查。
+调用 `gf-review` 对整体变更进行代码审查。
 
 ### Phase 4 产出
 - 流水线分析报告
@@ -208,7 +208,7 @@ grep -A 5 "subagent-driven-development" skills/gitflow-workflow/SKILL.md
 - [ ] **Step 2: 验证修改**
 
 ```bash
-grep -A 5 "## Phase 4" skills/gitflow-workflow/SKILL.md
+grep -A 5 "## Phase 4" skills/gf-workflow/SKILL.md
 # 期望：显示新增的内容
 ```
 
@@ -220,13 +220,13 @@ grep -A 5 "## Phase 4" skills/gitflow-workflow/SKILL.md
 - Modify: `README.md`
 
 **验证标准：**
-- ✅ README.md 包含 gitflow-workflow 最新流程
+- ✅ README.md 包含 gf-workflow 最新流程
 - ✅ 包含完整模式和快速模式说明
 
-- [ ] **Step 1: 更新 README.md 中的 gitflow-workflow 描述**
+- [ ] **Step 1: 更新 README.md 中的 gf-workflow 描述**
 
 ```markdown
-## gitflow-workflow
+## gf-workflow
 
 全流程开发编排，整合需求探索、计划制定、执行、质量关卡、交付和交付后检查。
 
@@ -234,12 +234,12 @@ grep -A 5 "## Phase 4" skills/gitflow-workflow/SKILL.md
 
 **完整模式**（默认）：适用于新功能开发
 ```
-/gitflow-workflow
+/gf-workflow
 ```
 
 **快速模式**（--fast）：适用于 bug 修复
 ```
-/gitflow-workflow --fast
+/gf-workflow --fast
 ```
 
 ### 流程
@@ -251,7 +251,7 @@ grep -A 5 "## Phase 4" skills/gitflow-workflow/SKILL.md
 
 ### 质量关卡
 
-质量关卡调用 `gitflow-quality` skill，支持多语言自动检测：
+质量关卡调用 `gf-quality` skill，支持多语言自动检测：
 - Rust、Node.js、Python、Go、Java
 
 6 项检查：build、test、coverage、format、static、pre-commit
@@ -260,7 +260,7 @@ grep -A 5 "## Phase 4" skills/gitflow-workflow/SKILL.md
 - [ ] **Step 2: 验证修改**
 
 ```bash
-grep -A 10 "gitflow-workflow" README.md | head -15
+grep -A 10 "gf-workflow" README.md | head -15
 # 期望：显示更新后的内容
 ```
 
@@ -272,14 +272,14 @@ grep -A 10 "gitflow-workflow" README.md | head -15
 - Modify: `CLAUDE.md`
 
 **验证标准：**
-- ✅ CLAUDE.md 约束与 gitflow-workflow 一致
+- ✅ CLAUDE.md 约束与 gf-workflow 一致
 
-- [ ] **Step 1: 更新 CLAUDE.md 中的 gitflow-workflow 约束**
+- [ ] **Step 1: 更新 CLAUDE.md 中的 gf-workflow 约束**
 
 将约束更新为：
 
 ```markdown
-- **严格执行 gitflow-workflow 流程**：当使用 `/gitflow-workflow` 时，必须按照四阶段完整流程执行：
+- **严格执行 gf-workflow 流程**：当使用 `/gf-workflow` 时，必须按照四阶段完整流程执行：
   - **阶段 1：需求探索**（从 open issues 读取，支持完整模式和快速模式）
   - **阶段 2：计划制定**（生成完整计划闭环）
   - **阶段 3：执行**（调用 subagent-driven-development）
@@ -289,7 +289,7 @@ grep -A 10 "gitflow-workflow" README.md | head -15
 - [ ] **Step 2: 验证修改**
 
 ```bash
-grep -A 10 "gitflow-workflow 流程" CLAUDE.md
+grep -A 10 "gf-workflow 流程" CLAUDE.md
 # 期望：显示更新后的内容
 ```
 
@@ -385,21 +385,21 @@ cargo test --test workflow_integration_test
 - [ ] **Step 1: 验证 SKILL.md 结构**
 
 ```bash
-grep -c "## Phase" skills/gitflow-workflow/SKILL.md
+grep -c "## Phase" skills/gf-workflow/SKILL.md
 # 期望输出：4
 ```
 
 - [ ] **Step 2: 验证 README.md 一致性**
 
 ```bash
-grep "gitflow-workflow" README.md | head -5
+grep "gf-workflow" README.md | head -5
 # 期望：包含完整模式和快速模式说明
 ```
 
 - [ ] **Step 3: 验证 CLAUDE.md 约束**
 
 ```bash
-grep "gitflow-workflow" CLAUDE.md
+grep "gf-workflow" CLAUDE.md
 # 期望：包含四阶段流程说明
 ```
 
@@ -430,7 +430,7 @@ cargo test --workspace
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-07-06-gitflow-workflow-refactor.md`. Two execution options:
+Plan complete and saved to `docs/superpowers/plans/2026-07-06-gf-workflow-refactor.md`. Two execution options:
 
 **1. Subagent-Driven (recommended)** - 每个任务派发一个 fresh subagent，任务间审查
 

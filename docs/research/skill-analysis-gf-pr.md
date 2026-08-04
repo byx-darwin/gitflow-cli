@@ -1,13 +1,13 @@
-# Skill Analysis: `gitflow-pr`
+# Skill Analysis: `gf-pr`
 
 **Date:** 2026-07-07
-**Source:** `skills/gitflow-pr/SKILL.md`
+**Source:** `skills/gf-pr/SKILL.md`
 **GitHub Issue:** (to be created)
 **Analyst:** implementer subagent
 
 ## Abstract
 
-The `gitflow-pr` skill serves as a top-level command reference for the `gf pr` command family. It documents 11 subcommands (`create`, `list`, `view`, `close`, `reopen`, `comment`, `merge`, `checkout`, `ready`, `wip`, `sync`) with parameter tables and usage examples. However, the skill reads like flattened CLI `--help` output rather than a Superpowers writing-skills compliant guide. It lacks workflow guidance, boundary declarations, trigger-accuracy, testability harnesses, and all structural sections required by the writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gf-pr` skill serves as a top-level command reference for the `gf pr` command family. It documents 11 subcommands (`create`, `list`, `view`, `close`, `reopen`, `comment`, `merge`, `checkout`, `ready`, `wip`, `sync`) with parameter tables and usage examples. However, the skill reads like flattened CLI `--help` output rather than a Superpowers writing-skills compliant guide. It lacks workflow guidance, boundary declarations, trigger-accuracy, testability harnesses, and all structural sections required by the writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -20,8 +20,8 @@ The `gitflow-pr` skill serves as a top-level command reference for the `gf pr` c
 | Item | Status | Notes |
 |------|--------|-------|
 | YAML frontmatter present | ✅ | Has `name` and `description` fields |
-| `name` field correct | ✅ | `gitflow-pr` matches directory name |
-| File location | ✅ | `skills/gitflow-pr/SKILL.md` |
+| `name` field correct | ✅ | `gf-pr` matches directory name |
+| File location | ✅ | `skills/gf-pr/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Command examples | ✅ | Five concrete `gf pr <subcommand>` invocations with realistic flags |
 | Parameter tables | ✅ | Each subcommand has a consistent four-column parameter table |
@@ -52,7 +52,7 @@ description: "Use when the user wants to manage Pull Requests through gf — inc
 
 | Required Element | Present? | Gap |
 |------------------|----------|-----|
-| Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never articulates what it owns as a top-level entry point vs. what child skills (`gitflow-pr-create`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`) own. |
+| Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never articulates what it owns as a top-level entry point vs. what child skills (`gf-pr-create`, `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`) own. |
 | Prohibition list (`🚫 Do not...`) | ❌ | No explicit prohibitions. Unclear whether this skill should: resolve merge conflicts, write code, run CI, triage PRs, manage labels, or perform code review. |
 | Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope-creep into adjacent skills or over-simplification (acting as a dumb command wrapper). |
 | "Rationalization excuse" counter-table | ❌ | No `## When NOT to use this skill` table that preempts common misapplications (e.g., "I can call `pr merge` after running tests — should I also call `pipeline-analyzer`?"). |
@@ -70,13 +70,13 @@ description: "Use when the user wants to manage Pull Requests through gf — inc
 - Explaining the semantic difference between subcommands (e.g., `merge` strategies)
 
 ## ❌ Not Responsible For
-- Linear PR creation workflow with branch validation (→ gitflow-pr-create)
-- Inline code review with comment annotation (→ gitflow-pr-inline-review)
-- Applying reviewer feedback and resolving comments (→ gitflow-pr-apply-feedback)
-- Full PR review with approval/rejection (→ gitflow-pr-review)
-- Pipeline analysis and CI checking (→ gitflow-pipeline-analyzer)
-- Release management involving PRs (→ gitflow-release)
-- Label and milestone management (→ gitflow-label-milestone)
+- Linear PR creation workflow with branch validation (→ gf-pr-create)
+- Inline code review with comment annotation (→ gf-pr-inline-review)
+- Applying reviewer feedback and resolving comments (→ gf-pr-apply-feedback)
+- Full PR review with approval/rejection (→ gf-pr-review)
+- Pipeline analysis and CI checking (→ gf-pipeline-analyzer)
+- Release management involving PRs (→ gf-release)
+- Label and milestone management (→ gf-label-milestone)
 
 ## 🚫 Do Not
 - Merge a PR without confirming the user has reviewed the diff
@@ -84,14 +84,14 @@ description: "Use when the user wants to manage Pull Requests through gf — inc
 - Force-merge (rebase strategy) across forks without explicit user confirmation
 - Invoke merge strategies the user did not request (`squash` vs `merge` vs `rebase`)
 - Skip branch-protection checks before merging
-- Create PRs from protected branches (delegate to gitflow-pr-create for validation)
+- Create PRs from protected branches (delegate to gf-pr-create for validation)
 - Make API calls without confirming the target repository (`--repo` resolution)
 
 ## 🔁 Delegation Rules
-- If user wants to **create** a PR → delegate to `gitflow-pr-create`
-- If user wants to **review** a PR with inline comments → delegate to `gitflow-pr-inline-review`
-- If user wants to **apply feedback** from a review → delegate to `gitflow-pr-apply-feedback`
-- If user wants a **full review** (approve/reject) → delegate to `gitflow-pr-review`
+- If user wants to **create** a PR → delegate to `gf-pr-create`
+- If user wants to **review** a PR with inline comments → delegate to `gf-pr-inline-review`
+- If user wants to **apply feedback** from a review → delegate to `gf-pr-apply-feedback`
+- If user wants a **full review** (approve/reject) → delegate to `gf-pr-review`
 - For all other operations (list, view, close, reopen, comment, merge, checkout, ready, wip, sync) → remain in this skill and execute directly
 ```
 
@@ -146,7 +146,7 @@ Expect: skill detects merged state via `pr view 30 --state merged`,
 
 ### Scenario 6: Wrong delegation (negative probe)
 Input:  user says "create a draft PR for the auth feature"
-Expect: skill delegates to `gitflow-pr-create` instead of trying to
+Expect: skill delegates to `gf-pr-create` instead of trying to
         run `gf pr create --draft` inline.
 Baseline: user manually invokes `pr create` without branch validation,
           creates a PR from the wrong branch.
@@ -175,11 +175,11 @@ Baseline: user manually invokes `pr create` without branch validation,
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description lists supported operations instead of defining when the skill should be loaded. |
 | Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "merge pull request", "close this PR", "list open PRs", "checkout PR", "approve PR", "sync branch", "draft PR", `gf pr <subcommand>`, "pull request", "merge request" (GitLab context), "code review". |
-| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-pr-create`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-pipeline-analyzer`, `gitflow-release`, `gitflow-issue`. |
+| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gf-pr-create`, `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-pipeline-analyzer`, `gf-release`, `gf-issue`. |
 | Quick Reference / Cheat Sheet | ⚠️ | The command overview table functions as a pseudo quick-reference but lacks: per-subcommand one-liners, exit-code semantics, and common flag combinations. |
 | Pattern-language over narrative | ❌ | No pattern language at all — pure tabular reference with no decision guidance. |
 | Error handling section | ❌ | No `## Error Handling` section. CLI failure modes (auth, network, 404, 409, merge conflict) are not addressed. |
-| Delegation contract | ❌ | No guidance on when to invoke child skills (`gitflow-pr-create`, `gitflow-pr-review`, etc.) vs. executing inline. |
+| Delegation contract | ❌ | No guidance on when to invoke child skills (`gf-pr-create`, `gf-pr-review`, etc.) vs. executing inline. |
 
 ### Recommended Trigger Keywords
 
@@ -201,13 +201,13 @@ Baseline: user manually invokes `pr create` without branch validation,
 ```
 ## See Also
 
-- gitflow-pr-create         — linear workflow for creating a PR with validation
-- gitflow-pr-review         — full review workflow with approve/reject
-- gitflow-pr-inline-review  — inline code review with line-level comments
-- gitflow-pr-apply-feedback — resolve reviewer comments and apply changes
-- gitflow-pipeline-analyzer — check CI status before merging
-- gitflow-release           — release workflow involving PR merges
-- gitflow-issue             — create issues linked to PRs
+- gf-pr-create         — linear workflow for creating a PR with validation
+- gf-pr-review         — full review workflow with approve/reject
+- gf-pr-inline-review  — inline code review with line-level comments
+- gf-pr-apply-feedback — resolve reviewer comments and apply changes
+- gf-pipeline-analyzer — check CI status before merging
+- gf-release           — release workflow involving PR merges
+- gf-issue             — create issues linked to PRs
 ```
 
 ---
@@ -225,7 +225,7 @@ Baseline: user manually invokes `pr create` without branch validation,
 
 ### P1 (Should Fix — recommended for polish)
 
-7. **Add cross-references** — `## See Also` linking to all six adjacent skills (`gitflow-pr-create`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-pipeline-analyzer`, `gitflow-release`).
+7. **Add cross-references** — `## See Also` linking to all six adjacent skills (`gf-pr-create`, `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-pipeline-analyzer`, `gf-release`).
 8. **Add Quick Reference section** — compact one-liner per subcommand with the three most common flag combinations, ordered by frequency of use.
 9. **Add Common Mistakes section** — e.g., merging without confirming strategy, closing without comment, checking out a PR when local changes exist, forgetting `--repo` on monorepo, confusing `ready`/`wip` semantics after merge.
 10. **Add Red Flags section** — warnings about bypassing branch protection, merging across forks, force-merging without confirmation, closing others' PRs without team policy check, ignoring failing CI.

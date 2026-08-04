@@ -1,7 +1,7 @@
-# gitflow-issue-triage Skill 分析报告
+# gf-issue-triage Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-issue-triage/SKILL.md`
+> **分析目标：** `skills/gf-issue-triage/SKILL.md`
 > **对应 Issue：** #28
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线、成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ❌ 不合格 | description 包含完整流程，缺少 TDD 流程、关键词覆盖、跨引用 |
 
-**总体评估：** gitflow-issue-triage 是一个"工作流说明书"风格的文档，描述了分类流程步骤和报告模板，但不具备 Superpowers skill 所需的可执行性、边界清晰性和可测试性。description 字段包含了完整的 5 步流程，违反了"仅描述触发条件"的核心原则。
+**总体评估：** gf-issue-triage 是一个"工作流说明书"风格的文档，描述了分类流程步骤和报告模板，但不具备 Superpowers skill 所需的可执行性、边界清晰性和可测试性。description 字段包含了完整的 5 步流程，违反了"仅描述触发条件"的核心原则。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-issue-triage` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-issue-triage` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | 当前为 "Issue 分类分流工作流 — 获取所有 open issues，按类型和优先级分类，标记 triage 标签并输出分类报告" |
 | description 只描述触发条件 | ❌ | 描述了完整流程（获取→分类→评估→标记→报告），而非触发时机 |
@@ -98,7 +98,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gitflow-issue-triage 应参照此模式，尤其需要声明标签操作的边界。
+**对比参考（gf-autoreport-bug）：** 该 skill 是项目中唯一具备完整职责边界声明的文档。gf-issue-triage 应参照此模式，尤其需要声明标签操作的边界。
 
 ---
 
@@ -172,10 +172,10 @@
    - "标记分类" / "label issues" / "给 issue 打标签"
 
 4. **缺少跨引用**：应引用相关 skills：
-   - `gitflow-issue`（issue 列表和标签操作的基础命令）
-   - `gitflow-label-milestone`（标签和里程碑管理）
-   - `gitflow-issue-review`（issue 审查流程）
-   - `gitflow-weekly-report`（周报中可能引用 triage 报告）
+   - `gf-issue`（issue 列表和标签操作的基础命令）
+   - `gf-label-milestone`（标签和里程碑管理）
+   - `gf-issue-review`（issue 审查流程）
+   - `gf-weekly-report`（周报中可能引用 triage 报告）
 
 5. **缺少 flowchart**：分类决策逻辑（类型判断、优先级评估）是一个典型的决策树，适合用 flowchart 表达。当前用表格描述判断依据，但表格无法表达"如果已有类型标签则跳过"等条件逻辑。
 
@@ -212,7 +212,7 @@
 | P2-1 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（直接输出 issue list 原始结果） |
 | P2-2 | 定义成功标准 | D3 | 每个 issue 有且仅有 1 个 type + 1 个 priority 标签；报告统计与实际一致 |
 | P2-3 | 添加压力测试场景 | D3 | 空列表、100+ issues、混合中英文、已 triage 幂等性 |
-| P2-4 | 添加跨引用 | D4 | 引用 gitflow-issue、gitflow-label-milestone、gitflow-weekly-report |
+| P2-4 | 添加跨引用 | D4 | 引用 gf-issue、gf-label-milestone、gf-weekly-report |
 | P2-5 | 提供英文版 description | D1 | 当前仅中文，可考虑 bilingual |
 
 ---
@@ -233,7 +233,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-issue-triage | gitflow-autoreport-bug | 差距 |
+| 对比项 | gf-issue-triage | gf-autoreport-bug | 差距 |
 |--------|---------------------|----------------------|------|
 | 职责边界 | ❌ 缺失 | ✅ 完整 | 差距大 |
 | 测试场景 | ❌ 缺失 | ❌ 缺失 | — |
@@ -246,7 +246,7 @@
 
 ## 九、总结
 
-gitflow-issue-triage 当前的定位是"工作流说明书"，它描述了分类流程步骤和报告模板，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
+gf-issue-triage 当前的定位是"工作流说明书"，它描述了分类流程步骤和报告模板，但不具备 Superpowers skill 所需的**可执行性**、**边界清晰性**和**可测试性**。
 
 核心差距：
 1. **description 包含完整流程** → Claude 无法用此判断何时加载 skill

@@ -1,13 +1,13 @@
-# Skill Analysis: `gitflow-pr-review`
+# Skill Analysis: `gf-pr-review`
 
 **Date:** 2026-07-07
-**Source:** `skills/gitflow-pr-review/SKILL.md`
+**Source:** `skills/gf-pr-review/SKILL.md`
 **GitHub Issue:** #34
 **Analyst:** implementer subagent
 
 ## Abstract
 
-The `gitflow-pr-review` skill provides a 6-dimensional code review checklist workflow. It guides the reviewer through correctness, security, performance, maintainability, test-coverage, and documentation dimensions, then invokes `gf review` to submit the conclusion. While the checklist content is thorough and domain-appropriate, the skill is structured as a flat "checklist + sequential steps" document rather than a contract-driven Superpowers skill. It lacks trigger-accurate frontmatter, boundary declarations, test scenarios, and cross-references. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gf-pr-review` skill provides a 6-dimensional code review checklist workflow. It guides the reviewer through correctness, security, performance, maintainability, test-coverage, and documentation dimensions, then invokes `gf review` to submit the conclusion. While the checklist content is thorough and domain-appropriate, the skill is structured as a flat "checklist + sequential steps" document rather than a contract-driven Superpowers skill. It lacks trigger-accurate frontmatter, boundary declarations, test scenarios, and cross-references. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -20,8 +20,8 @@ The `gitflow-pr-review` skill provides a 6-dimensional code review checklist wor
 | Item | Status | Notes |
 |------|--------|-------|
 | YAML frontmatter present | ✅ | Has `name` and `description` fields |
-| `name` field correct | ✅ | `gitflow-pr-review` matches directory name |
-| File location | ✅ | `skills/gitflow-pr-review/SKILL.md` |
+| `name` field correct | ✅ | `gf-pr-review` matches directory name |
+| File location | ✅ | `skills/gf-pr-review/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Token efficiency | ✅ | ~168 lines, well under the 500-word threshold for a full guide |
 | Command examples | ✅ | Three concrete `gf review` invocations (approve, request-changes, comment) |
@@ -56,7 +56,7 @@ description: "Use when the user requests a code review of a Pull Request through
 |------------------|----------|-----|
 | Responsibility boundary declaration | ❌ | No `## Responsibility` or `## Boundary` section. The skill never declares what it owns vs. what the CLI or other skills own. |
 | Prohibition list (`🚫 Do not...`) | ❌ | No explicit prohibitions. Unclear whether the skill should: edit code, apply fixes, respond to review comments, merge PRs, or manage labels. |
-| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gitflow-pr-inline-review` (line-level comments), `gitflow-pr-apply-feedback` (applying fixes), `gitflow-pr` (merge/close), or `gitflow-security-check` (deep security audit). |
+| Scope matrix (`✅ In scope` / `❌ Out of scope`) | ❌ | No scope table. Without it, the skill risks scope creep into `gf-pr-inline-review` (line-level comments), `gf-pr-apply-feedback` (applying fixes), `gf-pr` (merge/close), or `gf-security-check` (deep security audit). |
 | "Rationalization excuse" counter-table | ❌ | No `## When NOT to use this skill` table preempting common misapplications (e.g., "I can also leave line-level comments directly — should I call pr-inline-review instead?"). |
 | Red Flags list | ❌ | No `## Red Flags` section warning about misapplication contexts (e.g., reviewing one's own PR, reviewing without reading the diff, running review in CI pipelines, or batch-reviewing multiple PRs). |
 
@@ -66,15 +66,15 @@ The PR review ecosystem in this repo has four distinct skills:
 
 | Skill | Purpose | Boundary |
 |-------|---------|----------|
-| `gitflow-pr-review` | High-level 6-dimensional assessment + overall verdict | Overall approve / request-changes / comment |
-| `gitflow-pr-inline-review` | Line-level inline comments on specific diff hunks | Per-file, per-line `[logic]`/`[security]`/`[naming]`/`[boundary]` labels |
-| `gitflow-pr-apply-feedback` | Apply review feedback as code changes | Modify code, run tests, mark comments resolved |
-| `gitflow-pr` | PR lifecycle operations (close, merge, ready, sync) | State transitions, not review content |
+| `gf-pr-review` | High-level 6-dimensional assessment + overall verdict | Overall approve / request-changes / comment |
+| `gf-pr-inline-review` | Line-level inline comments on specific diff hunks | Per-file, per-line `[logic]`/`[security]`/`[naming]`/`[boundary]` labels |
+| `gf-pr-apply-feedback` | Apply review feedback as code changes | Modify code, run tests, mark comments resolved |
+| `gf-pr` | PR lifecycle operations (close, merge, ready, sync) | State transitions, not review content |
 
-Without boundary declarations, an agent loaded with `gitflow-pr-review` may:
-- Start producing line-level `[logic]` comments (territory of `gitflow-pr-inline-review`).
-- Begin editing code to "fix" issues it found (territory of `gitflow-pr-apply-feedback`).
-- Decide to merge or close the PR after approving (territory of `gitflow-pr`).
+Without boundary declarations, an agent loaded with `gf-pr-review` may:
+- Start producing line-level `[logic]` comments (territory of `gf-pr-inline-review`).
+- Begin editing code to "fix" issues it found (territory of `gf-pr-apply-feedback`).
+- Decide to merge or close the PR after approving (territory of `gf-pr`).
 
 ### Recommended Scope Contract
 
@@ -87,15 +87,15 @@ Without boundary declarations, an agent loaded with `gitflow-pr-review` may:
 - Surfacing per-dimension findings with file:line references
 
 ## ❌ Not Responsible For
-- Line-level inline comments on diff hunks (→ gitflow-pr-inline-review)
-- Editing code to fix identified issues (→ gitflow-pr-apply-feedback)
-- Merging, closing, or reopening PRs (→ gitflow-pr)
-- Running security-audit tooling such as cargo audit/deny (→ gitflow-security-check)
-- Managing labels or assignees (→ gitflow-label-milestone)
+- Line-level inline comments on diff hunks (→ gf-pr-inline-review)
+- Editing code to fix identified issues (→ gf-pr-apply-feedback)
+- Merging, closing, or reopening PRs (→ gf-pr)
+- Running security-audit tooling such as cargo audit/deny (→ gf-security-check)
+- Managing labels or assignees (→ gf-label-milestone)
 
 ## 🚫 Do Not
 - Submit approval before reading the full diff
-- Leave line-level `[logic]`/`[security]` comments — that is gitflow-pr-inline-review's job
+- Leave line-level `[logic]`/`[security]` comments — that is gf-pr-inline-review's job
 - Edit source files or run `cargo fix` based on review findings
 - Merge or close the PR immediately after approving it
 - Review your own PR (conflict of interest)
@@ -141,14 +141,14 @@ Expect: skill runs `gf review comment 78 --body "<findings>"`,
 
 ### Scenario 4: User asks for inline line-level feedback
 Input:  user says "leave inline comments on PR #42"
-Expect: skill declines and redirects to `gitflow-pr-inline-review`
+Expect: skill declines and redirects to `gf-pr-inline-review`
         because line-level comments are out of scope.
 
 ### Scenario 5: User asks to fix issues found during review
 Input:  user says "review PR #30 and fix the problems you find"
 Expect: skill performs the review but does NOT edit code;
         after submitting the conclusion, it redirects code-fix
-        work to `gitflow-pr-apply-feedback` or the user.
+        work to `gf-pr-apply-feedback` or the user.
 
 ### Scenario 6: PR not found (CLI error)
 Input:  user says "review PR #99999" (non-existent)
@@ -185,7 +185,7 @@ file:line-citation discipline — low review quality, misses security issues.
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full 6-dimensional workflow, not the trigger condition. |
 | Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "review PR", "check pull request", "approve PR", "代码审查", "pr review", `gf review`, "LGTM". |
-| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-pr`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-security-check`, `gitflow-pipeline-analyzer`. |
+| Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gf-pr`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-security-check`, `gf-pipeline-analyzer`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
 | Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern. |
 | Error handling section | ⚠️ | The `## 注意事项` section lists cautions but does not define recovery paths (CLI auth failure, network timeout, nonexistent PR, empty diff). |
@@ -211,14 +211,14 @@ file:line-citation discipline — low review quality, misses security issues.
 ### P0 (Must Fix — blocking compliance)
 
 1. **Rewrite `description` frontmatter** — convert from workflow-description to `Use when...` trigger-only format.
-2. **Add Responsibility Boundary section** — `## ✅ Responsible For` / `## ❌ Not Responsible For` / `## 🚫 Do Not` lists that distinguish this skill from `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, and `gitflow-pr`.
+2. **Add Responsibility Boundary section** — `## ✅ Responsible For` / `## ❌ Not Responsible For` / `## 🚫 Do Not` lists that distinguish this skill from `gf-pr-inline-review`, `gf-pr-apply-feedback`, and `gf-pr`.
 3. **Add Trigger Keywords section** — list direct phrases, CLI commands, synonyms, symptoms.
 4. **Add Test Scenarios** — at least: happy-path approval, security-finding → request-changes, comment-only, redirect to inline-review, redirect to apply-feedback, and CLI-error propagation.
 5. **Add When-NOT-to-Use table** — with common rationalization excuses and counter-arguments.
 
 ### P1 (Should Fix — recommended for polish)
 
-6. **Add cross-references** — `## See Also` linking to `gitflow-pr`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-security-check`, `gitflow-pipeline-analyzer`.
+6. **Add cross-references** — `## See Also` linking to `gf-pr`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-security-check`, `gf-pipeline-analyzer`.
 7. **Add Quick Reference section** — one-page cheat-sheet for advanced users (6-dimension checklist + CLI flags only).
 8. **Add Common Mistakes section** — e.g., approving without reading the diff, conflating this skill with inline review, omitting file:line citations, skipping the security dimension.
 9. **Add Red Flags section** — warnings about reviewing own PR, batch-reviewing, reviewing in CI pipelines, approving with known security issues.

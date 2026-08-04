@@ -1,6 +1,6 @@
 # gf release-helper 完整参考
 
-> 本文档为 `gitflow-release-helper` skill 的外部化引用。
+> 本文档为 `gf-release-helper` skill 的外部化引用。
 
 ## SemVer 版本推断规则
 

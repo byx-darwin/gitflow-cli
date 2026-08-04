@@ -1,7 +1,7 @@
-# gitflow-pipeline-analyzer Skill 分析报告
+# gf-pipeline-analyzer Skill 分析报告
 
 > **分析日期：** 2026-07-07
-> **分析目标：** `skills/gitflow-pipeline-analyzer/SKILL.md`
+> **分析目标：** `skills/gf-pipeline-analyzer/SKILL.md`
 > **对应 Issue：** #28
 > **分析维度：** 4 个维度（结构规范、职责边界、可测试性、Superpowers 最佳实践）
 
@@ -16,7 +16,7 @@
 | 维度 3：可测试性 | ❌ 不合格 | 完全缺失测试场景、基线测试和成功标准 |
 | 维度 4：与 Superpowers 最佳实践的差距 | ⚠️ 需改进 | 工作流程步骤明确可执行，分析维度（成功率/失败模式/耗时）结构化程度高；但 description 不合规、无关键词覆盖、无跨引用、未遵循 writing-skills 方法论 |
 
-**总体评估：** gitflow-pipeline-analyzer 是一个"分析报告生成型 skill"——它定义了从数据采集到报告输出的完整分析流水线，三个分析维度（成功率趋势、失败模式、耗时分布）的结构化程度较高，输出模板清晰可操作。但与 Superpowers 要求的 skill 形态差距在于：无法自动判断何时触发、无边界约束（即使只读也应声明"不修改任何流水线配置"）、无测试验证机制、token 超标。
+**总体评估：** gf-pipeline-analyzer 是一个"分析报告生成型 skill"——它定义了从数据采集到报告输出的完整分析流水线，三个分析维度（成功率趋势、失败模式、耗时分布）的结构化程度较高，输出模板清晰可操作。但与 Superpowers 要求的 skill 形态差距在于：无法自动判断何时触发、无边界约束（即使只读也应声明"不修改任何流水线配置"）、无测试验证机制、token 超标。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-pipeline-analyzer` |
+| YAML frontmatter 含 name 字段 | ✅ | `name: gf-pipeline-analyzer` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
 | description 以 "Use when..." 开头 | ❌ | "流水线分析工作流 — 调用 gf pipeline report 获取流水线健康数据..." |
 | description 只描述触发条件 | ❌ | 混合了功能描述、流程描述和效果承诺 |
@@ -118,7 +118,7 @@
 
 ### 3.3 评分：❌ 不合格
 
-**对比参考（gitflow-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确了"修复建议 ≠ 自动修复"的边界。gitflow-pipeline-analyzer 虽然为只读分析型 skill（边界风险低于涉及写操作的 skill），但"分析后自动采取行动"是 Claude 常见的过度执行模式，仍需明确声明边界。
+**对比参考（gf-autoreport-bug）：** 该 skill 通过"职责边界声明"章节明确了"修复建议 ≠ 自动修复"的边界。gf-pipeline-analyzer 虽然为只读分析型 skill（边界风险低于涉及写操作的 skill），但"分析后自动采取行动"是 Claude 常见的过度执行模式，仍需明确声明边界。
 
 ---
 
@@ -188,10 +188,10 @@
    - 建议关键词覆盖：用户可能表达为"流水线老挂"、"CI 太慢"、"流水线健康检查"、"分析 CI 失败"、"flaky test"、"pipeline report"、"build 不稳定"、"测试超时"、"流水线优化"、"CI analysis"
 
 2. **缺少跨引用**：应明确引用：
-   - `gitflow-precommit`（pre-commit 检查与流水线失败的关联）
-   - `gitflow-quality`（代码质量检查与 CI 质量的关联）
-   - `gitflow-regression`（回归测试与流水线测试失败的关联）
-   - `gitflow-weekly-report`（周报中可引用流水线分析结果）
+   - `gf-precommit`（pre-commit 检查与流水线失败的关联）
+   - `gf-quality`（代码质量检查与 CI 质量的关联）
+   - `gf-regression`（回归测试与流水线测试失败的关联）
+   - `gf-weekly-report`（周报中可引用流水线分析结果）
    - `superpowers:systematic-debugging`（流水线失败的系统化调试方法）
 
 3. **内容组织偏向"教程文档"而非"执行指令"**：
@@ -235,7 +235,7 @@
 | P1-1b | 添加 Quick Reference 速查 | D1 | 核心命令（report/status/jobs/logs）+ 三维度分析框架 + 质量等级阈值速查表 |
 | P1-2 | 添加数据充足性分支结构 | D1, D4 | 场景 A（数据充足）/ 场景 B（数据不足）使用明确的 if/else 逻辑 |
 | P1-3 | 添加关键词覆盖 | D4 | 覆盖中文触发词："流水线老挂"、"CI 太慢"、"流水线健康检查"、"分析 CI 失败"、"flaky test"、"build 不稳定"、"测试超时"；覆盖英文触发词："pipeline health"、"CI analysis"、"flaky test"、"pipeline report"、"build failure" |
-| P1-4 | 添加跨引用 | D4 | 引用 gitflow-precommit、gitflow-quality、gitflow-regression、gitflow-weekly-report、superpowers:systematic-debugging |
+| P1-4 | 添加跨引用 | D4 | 引用 gf-precommit、gf-quality、gf-regression、gf-weekly-report、superpowers:systematic-debugging |
 | P1-5 | 添加基线测试场景 | D3 | 定义不用 skill 时 Claude 的基线行为（可能仅查看当前状态，不做趋势分析和失败模式归类） |
 | P1-6 | 补充成功标准 | D3 | 三维度分析清单、报告最低字段、质量等级阈值、数据不足时的降级输出 |
 
@@ -269,7 +269,7 @@
 
 ## 八、与同类 Skill 对比
 
-| 对比项 | gitflow-pipeline-analyzer | gitflow-precommit | gitflow-weekly-report |
+| 对比项 | gf-pipeline-analyzer | gf-precommit | gf-weekly-report |
 |--------|---------------------------|-------------------|----------------------|
 | 边界风险等级 | 🟢 低（只读分析） | 🟡 中（涉及文件写入） | 🟢 低（只读汇总） |
 | 职责边界 | ❌ 缺失 | ❌ 缺失 | ❌ 缺失 |
@@ -281,13 +281,13 @@
 | Token 数 | ⚠️ 高（813 词） | ⚠️ 高（885 词） | ⚠️ 中（~600） |
 | 结构化程度 | ✅ 高（三维度+阈值+优先级） | ⚠️ 线性步骤完整 | ⚠️ 汇总为主 |
 
-**关键发现：** gitflow-pipeline-analyzer 在分析框架的结构化程度上是所有 skill 中最高的——三维度分析（成功率趋势 + 失败模式 + 耗时分布）+ 质量等级阈值 + 改进建议优先级，形成了一个完整的分析闭环。但其结构形态也是"教程文档"与"执行指令"差距最大的——优秀的分析框架需要通过 Superpowers 标准结构才能被 Claude 有效消费。
+**关键发现：** gf-pipeline-analyzer 在分析框架的结构化程度上是所有 skill 中最高的——三维度分析（成功率趋势 + 失败模式 + 耗时分布）+ 质量等级阈值 + 改进建议优先级，形成了一个完整的分析闭环。但其结构形态也是"教程文档"与"执行指令"差距最大的——优秀的分析框架需要通过 Superpowers 标准结构才能被 Claude 有效消费。
 
 ---
 
 ## 九、总结
 
-gitflow-pipeline-analyzer 当前的定位是"分析报告生成器 + 模板库"混合体——它有清晰的分析维度和高质量的输出模板，但缺乏 Superpowers skill 所需的结构性要素。
+gf-pipeline-analyzer 当前的定位是"分析报告生成器 + 模板库"混合体——它有清晰的分析维度和高质量的输出模板，但缺乏 Superpowers skill 所需的结构性要素。
 
 核心差距：
 1. **缺乏触发条件** → Claude 何时应加载此 skill？（用户说"流水线老挂"？"CI 太慢"？"帮我看看流水线"？）

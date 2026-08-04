@@ -1,15 +1,15 @@
 ---
-name: gitflow-label-milestone
+name: gf-label-milestone
 description: >
   Use when the user manages repository labels or milestones via gf —
   create/list/edit/delete labels, create/list/edit/close/reopen milestones.
   当用户通过 gf 管理仓库 label 或 milestone 时使用。
 ---
 
-# gitflow-label-milestone — Label & Milestone CRUD
+# gf-label-milestone — Label & Milestone CRUD
 
 Encapsulates CRUD operations for `gf label` and `milestone` command families.
-Detailed parameters: docs/references/gitflow-label-milestone-params.md
+Detailed parameters: docs/references/gf-label-milestone-params.md
 
 ## Overview
 
@@ -106,7 +106,7 @@ See external docs for parameter types.
 
 ## See Also
 
-- gitflow-issue — assigns labels and milestones to issues
-- gitflow-issue-triage — relies on labels during triage
-- gitflow-release — associates milestones during release
-- gitflow-weekly-report — tracks milestone progress
+- gf-issue — assigns labels and milestones to issues
+- gf-issue-triage — relies on labels during triage
+- gf-release — associates milestones during release
+- gf-weekly-report — tracks milestone progress
