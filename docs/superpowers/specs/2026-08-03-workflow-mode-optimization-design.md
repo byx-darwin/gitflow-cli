@@ -1,4 +1,4 @@
-# gitflow-workflow Mode Optimization — Design Spec
+# gf-workflow Mode Optimization — Design Spec
 
 **Date:** 2026-08-03
 **Issue:** [#121](https://github.com/byx-darwin/gitflow-cli/issues/121)
@@ -25,7 +25,7 @@ Add a `standard` mode between existing `fast`/`full`, auto-detect mode from issu
 
 Detection priority (highest to lowest):
 
-1. **User explicit override** → `/gitflow-workflow --mode fast`
+1. **User explicit override** → `/gf-workflow --mode fast`
 2. **Issue labels** → `good-first-issue` / `kind/typo` → fast; `kind/feature` → full
 3. **Issue title prefix** → conventional commit format:
    - `fix: typo`, `docs:`, `chore:` → fast
@@ -119,7 +119,7 @@ def get_phase4_steps(mode):
 
 ### 3.1 Root Cause
 
-Current `gitflow-quality` Rust reference (`references/rust.md`) Gate 5:
+Current `gf-quality` Rust reference (`references/rust.md`) Gate 5:
 
 ```bash
 cargo clippy --workspace --all-targets -- -D warnings
@@ -140,7 +140,7 @@ This causes local pass but CI failure.
 
 ### 3.2 Fix
 
-**Update `gitflow-quality/references/rust.md` Gate 5:**
+**Update `gf-quality/references/rust.md` Gate 5:**
 
 ```markdown
 | 5 | static | `cargo clippy --workspace --all-targets --all-features -- -D warnings -W clippy::pedantic` | exit 0, no warnings |
@@ -171,7 +171,7 @@ If project has `Makefile` with `clippy` target:
 
 ### 3.4 Verification
 
-After fix, running `gitflow-quality` should produce CI-consistent results.
+After fix, running `gf-quality` should produce CI-consistent results.
 
 ---
 
@@ -276,12 +276,12 @@ User can override batching strategy during plan phase.
 
 | # | File | Change Type | Description |
 |---|------|-------------|-------------|
-| 1 | `.claude/skills/gitflow-workflow/contract.schema.json` | Modify | Add `standard` to mode enum |
-| 2 | `.claude/skills/gitflow-workflow/SKILL.md` | Modify | 3-mode definitions, auto-detect rules, Phase 4 matrix, batching strategy |
-| 3 | `.claude/skills/gitflow-workflow/gates.md` | Modify | Add standard mode gate exemptions |
-| 4 | `.claude/skills/gitflow-workflow/references.md` | Modify | Add mode-specific context to cross-session recovery |
-| 5 | `.claude/skills/gitflow-quality/references/rust.md` | Modify | Gate 5 add `-W clippy::pedantic --all-features`, remove Strict Mode section |
-| 6 | `docs/gitflow-workflow-guide.md` | Modify | 3-mode comparison table, Phase 4 matrix, batch execution docs |
+| 1 | `.claude/skills/gf-workflow/contract.schema.json` | Modify | Add `standard` to mode enum |
+| 2 | `.claude/skills/gf-workflow/SKILL.md` | Modify | 3-mode definitions, auto-detect rules, Phase 4 matrix, batching strategy |
+| 3 | `.claude/skills/gf-workflow/gates.md` | Modify | Add standard mode gate exemptions |
+| 4 | `.claude/skills/gf-workflow/references.md` | Modify | Add mode-specific context to cross-session recovery |
+| 5 | `.claude/skills/gf-quality/references/rust.md` | Modify | Gate 5 add `-W clippy::pedantic --all-features`, remove Strict Mode section |
+| 6 | `docs/gf-workflow-guide.md` | Modify | 3-mode comparison table, Phase 4 matrix, batch execution docs |
 | 7 | `CLAUDE.md` | Modify | Update Mode Comparison table to 3 modes |
 
 ### 5.2 Backward Compatibility
@@ -313,7 +313,7 @@ Adding `standard` value doesn't break existing `full`/`fast` contract validation
 |----------|----------------|
 | `SKILL.md` | Full rewrite of mode system section, add 3-mode table, auto-detect algorithm, batching strategy |
 | `gates.md` | Add standard mode gate exemptions column |
-| `gitflow-workflow-guide.md` | Add 3-mode comparison quick reference, update Phase 4 section |
+| `gf-workflow-guide.md` | Add 3-mode comparison quick reference, update Phase 4 section |
 | `CLAUDE.md` | Update "Mode Comparison" table |
 
 ### 5.4 Implementation Order
@@ -322,7 +322,7 @@ Adding `standard` value doesn't break existing `full`/`fast` contract validation
 Step 1: Schema update (contract.schema.json)
 Step 2: Quality gate fix (rust.md) — independently verifiable
 Step 3: Core skill update (SKILL.md + gates.md + references.md)
-Step 4: Documentation sync (gitflow-workflow-guide.md + CLAUDE.md)
+Step 4: Documentation sync (gf-workflow-guide.md + CLAUDE.md)
 Step 5: Verification — create test contract to validate schema
 ```
 
@@ -331,7 +331,7 @@ Step 5: Verification — create test contract to validate schema
 | Verification | Method | Expected Result |
 |--------------|--------|-----------------|
 | Schema compatibility | Create contracts with `full`/`standard`/`fast` | All pass JSON Schema validation |
-| Quality gate alignment | Run `gitflow-quality` on sample Rust project | clippy output matches CI |
+| Quality gate alignment | Run `gf-quality` on sample Rust project | clippy output matches CI |
 | Auto-detection | Simulate detection on different titles | Correct mode inferred |
 | Phase 4 steps | Execute per mode | Step matrix correctly skips |
 
@@ -348,9 +348,9 @@ Step 5: Verification — create test contract to validate schema
 
 ## Success Criteria
 
-- [ ] gitflow-workflow supports 3 modes: fast/standard/full
+- [ ] gf-workflow supports 3 modes: fast/standard/full
 - [ ] Auto-detect from issue title/labels with user confirmation
 - [ ] Local quality gate fully aligned with CI (includes pedantic)
 - [ ] Phase 4 dynamically adjusts steps based on mode
 - [ ] Subagent usage efficiency improved 50%+ (token consumption)
-- [ ] Documentation updated: SKILL.md, gates.md, gitflow-workflow-guide.md, CLAUDE.md
+- [ ] Documentation updated: SKILL.md, gates.md, gf-workflow-guide.md, CLAUDE.md

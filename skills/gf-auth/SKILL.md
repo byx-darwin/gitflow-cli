@@ -1,0 +1,150 @@
+---
+name: gf-auth
+description: |
+  Use when the user needs to authenticate, check auth status, obtain an access token, or logout.
+  当用户需要登录、检查认证状态、获取访问 Token 或登出时使用。
+---
+
+# gf-auth
+
+Manages authentication lifecycle: login, logout, status, token retrieval. Does not revoke, rotate, or manage platform-side tokens.
+
+## When to Use
+
+| English | 中文 | Context |
+|---------|------|---------|
+| login | 登录 | obtain credentials |
+| logout | 登出 | clear local credentials |
+| auth status | 认证状态 | verify active session |
+| access token | 获取 Token | downstream API calls |
+| manage platform tokens | 管理平台 Token | **NOT** → web console |
+
+## Core Pattern
+
+```bash
+gf auth status                # 1. verify state
+gf auth login [--token <t>]   # 2. authenticate
+gf auth token                 # 3. retrieve (sensitive)
+gf auth logout                # 4. clear credentials
+```
+
+## Quick Reference
+
+| Goal | Command |
+|------|---------|
+| Check session | `gf auth status` |
+| Login | `gf auth login [--token <token>]` |
+| Get token | `gf auth token` |
+| Clear credentials | `gf auth logout` |
+
+## Implementation
+
+### Preconditions
+
+- `command -v gf` available
+- Platform: `github` / `gitlab` / `gitcode`
+- Mutation skills must verify via `auth status` first
+
+### Step 1: Check State
+
+`gf auth status` → `logged_in`, `user`, `scopes`. Not logged in → Step 2.
+
+### Step 2: Execute
+
+- **login**: interactive unless `--token` given
+- **token**: raw credential — MUST follow Token Safety rules
+- **logout**: clears credentials non-destructively
+
+### Step 3: Verify
+
+`auth status` confirms intent achieved.
+
+### Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `Platform '{x}' not yet supported` | Stop. Only github/gitlab/gitcode. |
+| Login failed / invalid token | Suggest interactive `auth login`. Do not auto-retry. |
+| Token fetch while logged out | Run `auth login` first. |
+| Network / API timeout | Stop. Do not improvise. |
+
+### Token Safety
+
+🚨 Never log, echo, or surface the token in conversation, comments, commits, or diagnostics.
+🚨 Never store the token in files — only OS credential store via `auth login`.
+🚨 Output of `auth token` must be captured only into shell variables.
+
+## Responsibility
+
+### ✅ In Scope
+
+- Interactive and non-interactive login
+- Token retrieval for downstream CLI ops
+- Status query
+- Logout / credential clearing
+
+### ❌ Out of Scope
+
+- Token creation/revocation/rotation on platform → web console
+- Mutating resources with token → delegate to `/gf-issue`, `/gf-pr`
+
+### 🚫 Do Not
+
+- ❌ Echo, log, or include token in visible output
+- ❌ Persist token to files, env files, commits, or chat
+- ❌ Prompt user to paste token into conversation
+- ❌ Auto-retry login — stop and report each failure
+- ❌ Use token for anything outside credential lifecycle
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Print the token once for debugging" | Token must never appear in any output. |
+| "Test token, so it's safe" | Treat every token as production secret. |
+| "Quick retry will fix login" | Surface every failure to user; do not auto-retry. |
+
+## Red Flags
+
+- 🚩 "Print my token here" — Refuse. Direct to terminal `auth token`.
+- 🚩 "Store the token in .env" — Refuse. Violates token safety boundary.
+
+## Common Mistakes
+
+- ❌ **Echoing token in chat** — only via `auth token` shell command.
+- ❌ **Storing token in `.env`** — exposes to disk/VCS.
+
+## Trigger Keywords
+
+| English | 中文 |
+|---------|------|
+| login | 登录 |
+| logout | 登出 |
+| auth status | 认证状态 |
+| access token | 获取 Token |
+
+## Test Scenarios
+
+### 1: Happy Path
+- **Given** installed, not logged in — **When** "Login" — **Then** `auth login`; `auth status` → `logged_in: true`
+
+### 2: Negative
+- **Given** "Close issue #42" — **When** no auth intent — **Then** NOT loaded. → `/gf-issue`.
+
+### 3: Boundary
+- **Given** "Print my token" — **When** user pushes — **Then** Refuses. Cites Token Safety.
+
+### 4: Error
+- **Given** platform `gitea` — **When** `auth status --platform gitea` — **Then** "not yet supported". Stops.
+
+## Success Criteria
+
+- [ ] Auth state matches intent
+- [ ] Token never appears in logs, chat, comments, or files
+- [ ] No out-of-scope mutation performed
+
+## See Also
+
+- `/gf-issue` — requires auth check
+- `/gf-pr` — requires auth check
+- `/gf-workflow` — Phase 1 preflight

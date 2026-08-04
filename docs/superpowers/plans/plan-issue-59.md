@@ -56,9 +56,9 @@
 
 ### Task 2: 质量关卡
 
-- [ ] 调用 `gitflow-quality` 技能，运行 6 项质量检查
+- [ ] 调用 `gf-quality` 技能，运行 6 项质量检查
   ```
-  使用 gitflow-quality 技能，对当前分支运行 6 项质量检查。
+  使用 gf-quality 技能，对当前分支运行 6 项质量检查。
   ```
   检查项：
   - Build 检查
@@ -76,7 +76,7 @@
   ```bash
   gf pr create --title "fix(gitcode): remove unsupported strategy flags from pr merge" --body "## Issues Fixed\n- Closes #59\n\n## Changes\n- Remove --merge/--squash/--rebase flags from GitCode pr merge implementation\n- Add warning log when merge strategy is specified\n- Update documentation to reflect current limitation"
   ```
-- [ ] PR 审查：调用 `gitflow-pr-review` 技能
+- [ ] PR 审查：调用 `gf-pr-review` 技能
 - [ ] 合并 PR：
   ```bash
   gf pr merge <PR_NUMBER>

@@ -8,7 +8,7 @@
 #   2. Shallow-validates JSON
 #   3. Uses auth cache (24h TTL) to avoid redundant auth checks
 #   4. On auth failure: outputs login guide + Issue template and exits
-#   5. On auth success: outputs banner that triggers gitflow-autoreport-bug skill
+#   5. On auth success: outputs banner that triggers gf-autoreport-bug skill
 #
 # Exit codes: 0 always (silent no-op when nothing to do)
 
@@ -120,8 +120,8 @@ echo "  原始报告:"
 echo "$PENDING_CONTENT"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  请加载 gitflow-autoreport-bug Skill 执行自动 Bug 报告流程。"
-echo "  Skill 路径: skills/gitflow-autoreport-bug/SKILL.md"
+echo "  请加载 gf-autoreport-bug Skill 执行自动 Bug 报告流程。"
+echo "  Skill 路径: skills/gf-autoreport-bug/SKILL.md"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 

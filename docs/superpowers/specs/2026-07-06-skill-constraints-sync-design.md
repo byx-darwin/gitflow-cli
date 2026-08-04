@@ -1,4 +1,4 @@
-# gitflow-workflow skill 改造设计
+# gf-workflow skill 改造设计
 
 **日期**：2026-07-06
 **状态**：设计阶段
@@ -8,14 +8,14 @@
 
 ## 背景
 
-当前 gitflow-workflow skill 已有完整的四阶段流程，但缺乏以下能力：
+当前 gf-workflow skill 已有完整的四阶段流程，但缺乏以下能力：
 
 1. **从 open issues 读取需求**：用户需要手动描述需求，无法直接基于现有 issues 启动工作流
 2. **计划文档不完整**：开发计划缺少质量关卡、交付、收尾等后续任务
 3. **执行流程分散**：阶段 4 的执行逻辑不够清晰
-4. **README.md 未对齐**：README.md 没有反映 gitflow-workflow 的最新流程和用法
+4. **README.md 未对齐**：README.md 没有反映 gf-workflow 的最新流程和用法
 
-目标：改造 gitflow-workflow skill，使其更加自动化和完整，并同步更新 README.md。
+目标：改造 gf-workflow skill，使其更加自动化和完整，并同步更新 README.md。
 
 ---
 
@@ -24,7 +24,7 @@
 ### 核心思路
 
 ```
-gitflow-workflow
+gf-workflow
 
 完整模式:
 ├─ Phase 1: 需求澄清
@@ -90,10 +90,10 @@ gf issue list --state open --label bug --limit 50 --output json
 
 ### 步骤 1.2：标签分析
 
-调用 `gitflow-label-stats` 分析现有标签使用情况：
+调用 `gf-label-stats` 分析现有标签使用情况：
 
 ```
-使用 gitflow-label-stats 技能，分析现有标签，识别未分类的 issues。
+使用 gf-label-stats 技能，分析现有标签，识别未分类的 issues。
 ```
 
 ### 步骤 1.3：需求讨论
@@ -112,22 +112,22 @@ gf issue list --state open --label bug --limit 50 --output json
 
 如果用户选择的是已有 issue，则跳过创建。
 
-如果需要创建新 issue，调用 `gitflow-issue-create` skill。
+如果需要创建新 issue，调用 `gf-issue-create` skill。
 
 ### 步骤 1.5：需求分析
 
-调用 `gitflow-issue-review` 进行需求分析：
+调用 `gf-issue-review` 进行需求分析：
 
 ```
-使用 gitflow-issue-review 技能，对 Issue #N 进行需求分析。
+使用 gf-issue-review 技能，对 Issue #N 进行需求分析。
 ```
 
 ### 步骤 1.6：安全审计（可选）
 
-调用 `gitflow-security-check` 进行安全审计：
+调用 `gf-security-check` 进行安全审计：
 
 ```
-使用 gitflow-security-check 技能，对需求进行安全审计。
+使用 gf-security-check 技能，对需求进行安全审计。
 ```
 
 ### 步骤 1.7：发布审计日志
@@ -169,7 +169,7 @@ gf issue list --state open --label bug --limit 50 --output json
   - [ ] 调用 superpowers:requesting-code-review
   - [ ] 审查并修复问题
 - [ ] 提交
-  - [ ] 调用 gitflow-commit skill
+  - [ ] 调用 gf-commit skill
   - [ ] git commit -m "feat: ... (#N)"
 
 ### Task N: 质量关卡
@@ -178,20 +178,20 @@ gf issue list --state open --label bug --limit 50 --output json
 - [ ] Coverage 检查：cargo tarpaulin --workspace
 - [ ] Format 检查：cargo +nightly fmt --check
 - [ ] Static 检查：cargo clippy --workspace -- -D warnings
-- [ ] Pre-commit 检查：调用 gitflow-precommit skill
+- [ ] Pre-commit 检查：调用 gf-precommit skill
 
 ### Task N+1: 交付
-- [ ] 创建 PR：调用 gitflow-pr-create skill
-- [ ] PR 审查：调用 gitflow-pr-review skill
-- [ ] 审查反馈：调用 gitflow-pr-apply-feedback skill（如需要）
+- [ ] 创建 PR：调用 gf-pr-create skill
+- [ ] PR 审查：调用 gf-pr-review skill
+- [ ] 审查反馈：调用 gf-pr-apply-feedback skill（如需要）
 - [ ] 合并 PR：gf pr merge
 
 ### Task N+2: 收尾
 - [ ] 同步 Issue 状态为 done
 - [ ] 关闭 Issue
 - [ ] 更新验收标准
-- [ ] 回归测试：调用 gitflow-regression skill
-- [ ] 发布（可选）：调用 gitflow-release-helper skill
+- [ ] 回归测试：调用 gf-regression skill
+- [ ] 发布（可选）：调用 gf-release-helper skill
 ```
 
 ### Phase 2 产出
@@ -214,7 +214,7 @@ gf issue list --state open --label bug --limit 50 --output json
 - 按计划文档逐任务执行
 - 每个任务完成后标记 checkbox
 - 遇到阻塞时暂停，不跳过任务
-- 错误自动上报：调用 gitflow-autoreport-bug skill
+- 错误自动上报：调用 gf-autoreport-bug skill
 
 ### Phase 3 产出
 
@@ -229,50 +229,50 @@ gf issue list --state open --label bug --limit 50 --output json
 
 ### 步骤 4.1：流水线分析
 
-调用 `gitflow-pipeline-analyzer` 分析 CI/CD 流水线：
+调用 `gf-pipeline-analyzer` 分析 CI/CD 流水线：
 
 ```
-使用 gitflow-pipeline-analyzer 技能，分析流水线健康状况。
+使用 gf-pipeline-analyzer 技能，分析流水线健康状况。
 ```
 
 ### 步骤 4.2：仓库分析
 
-调用 `gitflow-repo` 分析仓库状态：
+调用 `gf-repo` 分析仓库状态：
 
 ```
-使用 gitflow-repo 技能，分析仓库整体状态。
+使用 gf-repo 技能，分析仓库整体状态。
 ```
 
 ### 步骤 4.3：Issue 分类
 
-调用 `gitflow-issue-triage` 对相关 issues 进行分类：
+调用 `gf-issue-triage` 对相关 issues 进行分类：
 
 ```
-使用 gitflow-issue-triage 技能，对 issues 进行分类和优先级排序。
+使用 gf-issue-triage 技能，对 issues 进行分类和优先级排序。
 ```
 
 ### 步骤 4.4：代码审查
 
-调用 `gitflow-review` 进行整体代码审查：
+调用 `gf-review` 进行整体代码审查：
 
 ```
-使用 gitflow-review 技能，对整体变更进行代码审查。
+使用 gf-review 技能，对整体变更进行代码审查。
 ```
 
 ### 步骤 4.5：周报生成（可选）
 
-调用 `gitflow-weekly-report` 生成周报：
+调用 `gf-weekly-report` 生成周报：
 
 ```
-使用 gitflow-weekly-report 技能，生成开发周报。
+使用 gf-weekly-report 技能，生成开发周报。
 ```
 
 ### 步骤 4.6：仓库入门（可选）
 
-调用 `gitflow-repo-onboarding` 更新仓库入门文档：
+调用 `gf-repo-onboarding` 更新仓库入门文档：
 
 ```
-使用 gitflow-repo-onboarding 技能，更新仓库入门文档。
+使用 gf-repo-onboarding 技能，更新仓库入门文档。
 ```
 
 ### Phase 4 产出
@@ -352,13 +352,13 @@ gf issue list --state open --label bug --limit 50 --output json
 - [ ] 需求文档生成正确（完整模式：详细设计；快速模式：修复方案）
 - [ ] 计划文档包含完整闭环（开发/质量/交付/收尾）
 - [ ] 阶段 3 正确调用 subagent-driven-development
-- [ ] **README.md 同步更新，对齐 gitflow-workflow 最新流程**
+- [ ] **README.md 同步更新，对齐 gf-workflow 最新流程**
 - [ ] 完整的测试覆盖
 
 ---
 
 ## 参考资料
 
-- 当前 gitflow-workflow SKILL.md
+- 当前 gf-workflow SKILL.md
 - ncgo-code-skills 项目中的 brainstorm-from-issue
 - ncgo-code-skills 项目中的 writing-plans-with-issue

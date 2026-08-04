@@ -26,7 +26,7 @@
 | Modify | `apps/cli/src/commands/skills.rs` | Add `confirm()`, `merge_co_contribution()`, co-contribution flow in `install_skills()` |
 | Modify | `apps/cli/src/error_reporter.rs` | Add `is_co_contribution_enabled()`, `read_co_contribution_flag()` |
 | Modify | `hooks/auto-report-bug.sh` | Add auth-failure fallback with login guide + Issue template |
-| Modify | `skills/gitflow-autoreport-bug/SKILL.md` | Add unauthenticated fallback branch to decision flow |
+| Modify | `skills/gf-autoreport-bug/SKILL.md` | Add unauthenticated fallback branch to decision flow |
 
 ---
 
@@ -855,7 +855,7 @@ git commit -m "feat(hook): add auth failure fallback with login guide and Issue 
 ### Task 8: Update SKILL.md for Unauthenticated Fallback
 
 **Files:**
-- Modify: `skills/gitflow-autoreport-bug/SKILL.md`
+- Modify: `skills/gf-autoreport-bug/SKILL.md`
 
 **Interfaces:**
 - Consumes: nothing new
@@ -902,7 +902,7 @@ Add after the "Decision Flow" section:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add skills/gitflow-autoreport-bug/SKILL.md
+git add skills/gf-autoreport-bug/SKILL.md
 git commit -m "docs(autoreport-bug): add unauthenticated fallback branch to skill"
 ```
 

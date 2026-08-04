@@ -27,11 +27,11 @@ cargo install gf
 gf skills install
 
 # 2. 验证
-gf skills list     # 应看到 26 个 gitflow-* skills
+gf skills list     # 应看到 26 个 gf-* skills
 gf --version
 
 # 3. 在 Agent 平台中进入四阶段工作流
-/gitflow-workflow 我要做 X
+/gf-workflow 我要做 X
 ```
 
 ## 平台支持
@@ -69,12 +69,12 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 
 | 层 | Skill | 做什么 |
 |----|-------|--------|
-| 编排 | `gitflow-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查 |
-| 编排 | `gitflow-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit |
-| Issue | `gitflow-issue-create` / `gitflow-issue-review` / `gitflow-issue-triage` | 创建 / 需求审查 / 分类分流 |
-| PR | `gitflow-pr-create` / `gitflow-pr-review` / `gitflow-pr-inline-review` / `gitflow-pr-apply-feedback` | 创建 / 6 维审查 / 逐行评论 / 应用反馈 |
-| 交付 | `gitflow-release-helper` / `gitflow-label-stats` / `gitflow-pipeline-analyzer` | Release Note / 标签统计 / 流水线健康 |
-| 辅助 | `gitflow-security-check` / `gitflow-precommit` / `gitflow-regression` / `gitflow-repo-onboarding` / `gitflow-autoreport-bug` | 安全审计 / 预提交 / 回归 / 入门 / 自动报障 |
+| 编排 | `gf-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查 |
+| 编排 | `gf-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit |
+| Issue | `gf-issue-create` / `gf-issue-review` / `gf-issue-triage` | 创建 / 需求审查 / 分类分流 |
+| PR | `gf-pr-create` / `gf-pr-review` / `gf-pr-inline-review` / `gf-pr-apply-feedback` | 创建 / 6 维审查 / 逐行评论 / 应用反馈 |
+| 交付 | `gf-release-helper` / `gf-label-stats` / `gf-pipeline-analyzer` | Release Note / 标签统计 / 流水线健康 |
+| 辅助 | `gf-security-check` / `gf-precommit` / `gf-regression` / `gf-repo-onboarding` / `gf-autoreport-bug` | 安全审计 / 预提交 / 回归 / 入门 / 自动报障 |
 
 ## CLI 命令一览
 

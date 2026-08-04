@@ -3,7 +3,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现编排层三大核心 Skill（gitflow-workflow 全流程编排、gitflow-quality 质量关卡、gitflow-autoreport-bug 自动错误反馈完整版），配合 install.sh 一键安装脚本和 Superpowers 集成指南，使 gf 成为完整的开发工作流指挥中心。
+**Goal:** 实现编排层三大核心 Skill（gf-workflow 全流程编排、gf-quality 质量关卡、gf-autoreport-bug 自动错误反馈完整版），配合 install.sh 一键安装脚本和 Superpowers 集成指南，使 gf 成为完整的开发工作流指挥中心。
 
 **Architecture:** 三个编排 Skill 通过 subprocess 调用 `gitflow` CLI，按阶段闸门驱动需求→开发→质量关卡→交付的完整流程。install.sh 负责 CLI 编译 + Skills 安装 + Hook 注册的一键部署。
 
@@ -23,7 +23,7 @@
 **Issue 标签:** enhancement,skills,orchestration,docs,phase-4
 
 **Issue 描述:**
-实现 gf 的编排层三大核心 Skill：gitflow-workflow（全流程指挥，从需求分析到质量关卡再到交付）、gitflow-quality（5 项质量检查闸门：build/test/coverage/format/static）、gitflow-autoreport-bug（完整版，集成 Skills 侧 ERR trap + Claude 分析 + 去重创建 Issue）。同时提供 `scripts/install.sh` 一键安装脚本和 Superpowers 集成指南。
+实现 gf 的编排层三大核心 Skill：gf-workflow（全流程指挥，从需求分析到质量关卡再到交付）、gf-quality（5 项质量检查闸门：build/test/coverage/format/static）、gf-autoreport-bug（完整版，集成 Skills 侧 ERR trap + Claude 分析 + 去重创建 Issue）。同时提供 `scripts/install.sh` 一键安装脚本和 Superpowers 集成指南。
 
 **验收标准:**
 - [ ] 所有任务完成
@@ -44,9 +44,9 @@
 ```
 gf/
 ├── skills/
-│   ├── gitflow-workflow/SKILL.md           # 新增：全流程编排
-│   ├── gitflow-quality/SKILL.md            # 新增：质量关卡
-│   ├── gitflow-autoreport-bug/SKILL.md     # 新增：自动错误反馈（完整版）
+│   ├── gf-workflow/SKILL.md           # 新增：全流程编排
+│   ├── gf-quality/SKILL.md            # 新增：质量关卡
+│   ├── gf-autoreport-bug/SKILL.md     # 新增：自动错误反馈（完整版）
 │   └── _common.sh                          # 新增：共享函数库（report_error + ERR trap）
 ├── scripts/
 │   ├── install.sh                          # 新增：一键安装脚本
@@ -118,17 +118,17 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 > **Commit:** `feat(skills): add shared shell function library with error reporting (#N)`
 
-### Task 4: skills/ — gitflow-workflow 全流程编排
+### Task 4: skills/ — gf-workflow 全流程编排
 
-**Description:** 新建 `skills/gitflow-workflow/SKILL.md`。这是 gf 的顶层指挥中心，按照设计规格的阶段闸门驱动完整开发流程。
+**Description:** 新建 `skills/gf-workflow/SKILL.md`。这是 gf 的顶层指挥中心，按照设计规格的阶段闸门驱动完整开发流程。
 
 **Dependencies:** Task 3
 
 - [ ] **Step 1: 编写 SKILL.md**
   - **Phase 1: 需求澄清**
     - 触发 Superpowers brainstorming（如未执行）
-    - 调用 `gitflow-issue-create` 引导创建 Issue
-    - 调用 `gitflow-issue-review` 进行需求分析
+    - 调用 `gf-issue-create` 引导创建 Issue
+    - 调用 `gf-issue-review` 进行需求分析
     - 产出：Issue URL + 需求分析报告 → 评论到 Issue
   - **Phase 2: 开发实现**
     - 调用 Superpowers writing-plans 拆解为原子任务
@@ -137,14 +137,14 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
     - 执行 requesting-code-review
     - 产出：全绿原子任务清单 → 评论到 Issue
   - **Phase 3: 质量关卡**
-    - 调用 `gitflow-quality` 运行 5 项检查
+    - 调用 `gf-quality` 运行 5 项检查
     - 不通过 → 返回 Phase 2 修复
     - 产出：质量报告 → 评论到 Issue
   - **Phase 4: 交付**
-    - 调用 `gitflow-pr-create` 创建 PR
-    - 调用 `gitflow-pr-review` 请求审查
+    - 调用 `gf-pr-create` 创建 PR
+    - 调用 `gf-pr-review` 请求审查
     - 调用 Superpowers finishing-a-development-branch
-    - 调用 `gitflow-release-helper`（如需要 release）
+    - 调用 `gf-release-helper`（如需要 release）
     - 产出：Merged PR + Release（如适用）
 
 - [ ] **Step 2: 定义阶段闸门**
@@ -158,11 +158,11 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
   - 典型场景 2：修复一个 Bug
   - 典型场景 3：已有关联 Issue 的增量开发
 
-> **Commit:** `feat(skills): add gitflow-workflow orchestration skill (#N)`
+> **Commit:** `feat(skills): add gf-workflow orchestration skill (#N)`
 
-### Task 5: skills/ — gitflow-quality 质量关卡
+### Task 5: skills/ — gf-quality 质量关卡
 
-**Description:** 新建 `skills/gitflow-quality/SKILL.md`。5 项质量检查闸门，全部通过才能进入交付阶段。
+**Description:** 新建 `skills/gf-quality/SKILL.md`。5 项质量检查闸门，全部通过才能进入交付阶段。
 
 **Dependencies:** Task 3
 
@@ -196,11 +196,11 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
   - 检测 `.claude/gh-issue/current-issue.txt`
   - 存在 → `gitflow issue comment N --body-file quality-report.md`
 
-> **Commit:** `feat(skills): add gitflow-quality gate skill (#N)`
+> **Commit:** `feat(skills): add gf-quality gate skill (#N)`
 
-### Task 6: skills/ — gitflow-autoreport-bug 完整版
+### Task 6: skills/ — gf-autoreport-bug 完整版
 
-**Description:** 新建 `skills/gitflow-autoreport-bug/SKILL.md`。实现五层架构的完整处理层：读取 pending.json → Claude 分析错误上下文 → 去重检查 → 创建 Issue → 清理。
+**Description:** 新建 `skills/gf-autoreport-bug/SKILL.md`。实现五层架构的完整处理层：读取 pending.json → Claude 分析错误上下文 → 去重检查 → 创建 Issue → 清理。
 
 **Dependencies:** Task 3
 
@@ -233,9 +233,9 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
     - 检查 pending.json 存在
     - 检查是否为交互式终端（交互式跳过）
     - 输出带格式的提示信息
-    - 引导 Claude 加载 gitflow-autoreport-bug skill
+    - 引导 Claude 加载 gf-autoreport-bug skill
 
-> **Commit:** `feat(skills): add gitflow-autoreport-bug complete skill with deduplication (#N)`
+> **Commit:** `feat(skills): add gf-autoreport-bug complete skill with deduplication (#N)`
 
 ### Task 7: scripts/install.sh — 一键安装脚本
 
@@ -280,13 +280,13 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 - [ ] **Step 1: 编写 integration-guide.md**
   - **概览：** gf 与 Superpowers 的关系图
   - **开发流程集成：**
-    - brainstorming + gitflow-issue-create → Issue
-    - writing-plans + gitflow-workflow → 原子任务
+    - brainstorming + gf-issue-create → Issue
+    - writing-plans + gf-workflow → 原子任务
     - TDD + subagent-dev → 实现
-    - gitflow-quality → 质量闸门
-    - gitflow-pr-create + finishing-a-dev-branch → 交付
+    - gf-quality → 质量闸门
+    - gf-pr-create + finishing-a-dev-branch → 交付
   - **错误反馈集成：**
-    - gitflow CLI 错误 → pending.json → gitflow-autoreport-bug → Issue
+    - gitflow CLI 错误 → pending.json → gf-autoreport-bug → Issue
   - **配置示例：**
     - `.claude/settings.json` Hook 配置示例
     - 个人化配置建议

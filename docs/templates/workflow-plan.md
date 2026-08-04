@@ -1,6 +1,6 @@
 # Workflow Plan Template
 
-> **Companion:** `skills/gitflow-workflow/SKILL.md`
+> **Companion:** `skills/gf-workflow/SKILL.md`
 > **Version:** 1.0.0
 
 Use this template when Phase 2 (Plan) generates the plan document via `superpowers:writing-plans`.
@@ -33,14 +33,14 @@ Use this template when Phase 2 (Plan) generates the plan document via `superpowe
   - [ ] `git commit -m "feat: ... (#N)"`
 
 ### Task N+1: Quality Gate
-- [ ] Call `/gitflow-quality` — run 6 checks
+- [ ] Call `/gf-quality` — run 6 checks
   - Build / Test / Coverage (>80%) / Format / Static / Pre-commit
 - [ ] Confirm report = `ALL CHECKS PASSED`
 - [ ] On failure: apply fixes, rerun
 
 ### Task N+2: Delivery
-- [ ] Create PR via `/gitflow-pr-create`
-- [ ] PR review via `/gitflow-pr-review`
+- [ ] Create PR via `/gf-pr-create`
+- [ ] PR review via `/gf-pr-review`
 - [ ] Merge via `gf pr merge`
 
 ### Task N+3: Closure

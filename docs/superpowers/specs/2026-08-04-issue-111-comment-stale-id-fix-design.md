@@ -205,7 +205,7 @@ The bug was discovered in workflow `wf-2026-07-31-003` Phase 1 when `issue-revie
 - `gf pr comment <number> --body <text>`
 
 ### Affected Workflows
-- `gitflow-workflow` Phase 1 `issue-review` step (creates review comments)
+- `gf-workflow` Phase 1 `issue-review` step (creates review comments)
 - Any automation relying on returned `comment_id`
 
 ### Backward Compatibility

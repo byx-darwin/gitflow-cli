@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add automated branch lifecycle closure (Branch Finish) to gitflow-workflow Phase 4, so worktrees are cleaned, feature branches deleted, and the base branch updated after PR merge.
+**Goal:** Add automated branch lifecycle closure (Branch Finish) to gf-workflow Phase 4, so worktrees are cleaned, feature branches deleted, and the base branch updated after PR merge.
 
-**Architecture:** Documentation-only enhancement to the gitflow-workflow skill files. Three new evidence fields in the contract schema (`base_branch`, `worktree_path`, `branch_cleaned`), Phase 3 records the fork point, Phase 4 gains a new Step 5 that detects PR merge status and performs user-confirmed cleanup.
+**Architecture:** Documentation-only enhancement to the gf-workflow skill files. Three new evidence fields in the contract schema (`base_branch`, `worktree_path`, `branch_cleaned`), Phase 3 records the fork point, Phase 4 gains a new Step 5 that detects PR merge status and performs user-confirmed cleanup.
 
 **Tech Stack:** JSON Schema, Markdown (skill documentation), bash (reference commands), jq (validation)
 
@@ -14,7 +14,7 @@
 - User confirmation required before any delete/cleanup operation (CLAUDE.md non-negotiable)
 - Never delete branch when PR is unmerged
 - No hardcoded branch names — always read `base_branch` from contract
-- `skills/gitflow-workflow/` and `.claude/skills/gitflow-workflow/` must stay in sync (identical content)
+- `skills/gf-workflow/` and `.claude/skills/gf-workflow/` must stay in sync (identical content)
 - Contract schema version bumps from `"1.0"` const to `"1.1"` const (already set in schema `$id`)
 
 ---
@@ -23,26 +23,26 @@
 
 | File | Responsibility |
 |------|---------------|
-| `skills/gitflow-workflow/contract.schema.json` | Add 3 evidence fields, bump version const |
-| `skills/gitflow-workflow/SKILL.md` | Phase 3 Step 1 (record base_branch/worktree_path), Phase 4 step table (insert Step 5, renumber 5→6, 6→7) |
-| `skills/gitflow-workflow/references.md` | Add "Branch Finish Operations" section with bash commands |
-| `.claude/skills/gitflow-workflow/contract.schema.json` | Mirror of above |
-| `.claude/skills/gitflow-workflow/SKILL.md` | Mirror of above |
-| `.claude/skills/gitflow-workflow/references.md` | Mirror of above |
+| `skills/gf-workflow/contract.schema.json` | Add 3 evidence fields, bump version const |
+| `skills/gf-workflow/SKILL.md` | Phase 3 Step 1 (record base_branch/worktree_path), Phase 4 step table (insert Step 5, renumber 5→6, 6→7) |
+| `skills/gf-workflow/references.md` | Add "Branch Finish Operations" section with bash commands |
+| `.claude/skills/gf-workflow/contract.schema.json` | Mirror of above |
+| `.claude/skills/gf-workflow/SKILL.md` | Mirror of above |
+| `.claude/skills/gf-workflow/references.md` | Mirror of above |
 
 ---
 
 ### Task 1: Update Contract Schema
 
 **Files:**
-- Modify: `skills/gitflow-workflow/contract.schema.json:83-103`
+- Modify: `skills/gf-workflow/contract.schema.json:83-103`
 
 **Interfaces:**
 - Produces: Schema fields `base_branch` (string), `worktree_path` (string), `branch_cleaned` (boolean) available in evidence objects
 
 - [ ] **Step 1: Add three new fields to evidence properties**
 
-In `skills/gitflow-workflow/contract.schema.json`, inside `$defs.phase.properties.evidence.properties`, add after `"review_report_path"`:
+In `skills/gf-workflow/contract.schema.json`, inside `$defs.phase.properties.evidence.properties`, add after `"review_report_path"`:
 
 ```json
 "base_branch": {
@@ -67,7 +67,7 @@ Note: `dogfooding_passed` is referenced in SKILL.md Phase 4 but was missing from
 
 - [ ] **Step 2: Validate schema is well-formed JSON**
 
-Run: `jq . skills/gitflow-workflow/contract.schema.json > /dev/null && echo "VALID"`
+Run: `jq . skills/gf-workflow/contract.schema.json > /dev/null && echo "VALID"`
 Expected: `VALID`
 
 - [ ] **Step 3: Validate schema structure with a sample contract**
@@ -81,7 +81,7 @@ Expected: `SAMPLE VALID`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add skills/gitflow-workflow/contract.schema.json
+git add skills/gf-workflow/contract.schema.json
 git commit -m "feat(workflow): add base_branch, worktree_path, branch_cleaned to contract schema"
 ```
 
@@ -90,7 +90,7 @@ git commit -m "feat(workflow): add base_branch, worktree_path, branch_cleaned to
 ### Task 2: Update SKILL.md Phase 3
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md:183-190`
+- Modify: `skills/gf-workflow/SKILL.md:183-190`
 
 **Interfaces:**
 - Consumes: Schema fields from Task 1 (`base_branch`, `worktree_path`)
@@ -105,7 +105,7 @@ Replace the Phase 3 step table (lines starting with `| Step | Action | Output |`
 |------|--------|--------|
 | 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`, then create worktree: `feat/<issue-number>-<short-description>` | `branch`, `base_branch`, `worktree_path` |
 | 2 | **[AUTO]** `superpowers:subagent-driven-development` (TDD: RED → GREEN → REFACTOR) | implementation |
-| 3 | **[AUTO]** `gitflow-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
+| 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
 | 5 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, pr_url, tests_passed }` | — |
 | 6 | **[AUTO]** Gate 3→4 — `pr_url` + `tests_passed = true` → **AUTO-ADVANCE to Phase 4** | — |
@@ -113,13 +113,13 @@ Replace the Phase 3 step table (lines starting with `| Step | Action | Output |`
 
 - [ ] **Step 2: Verify no other references to old Phase 3 evidence format**
 
-Run: `grep -n "evidence = { branch, pr_url" skills/gitflow-workflow/SKILL.md`
+Run: `grep -n "evidence = { branch, pr_url" skills/gf-workflow/SKILL.md`
 Expected: No output (old format removed)
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add skills/gitflow-workflow/SKILL.md
+git add skills/gf-workflow/SKILL.md
 git commit -m "feat(workflow): Phase 3 records base_branch and worktree_path in evidence"
 ```
 
@@ -128,7 +128,7 @@ git commit -m "feat(workflow): Phase 3 records base_branch and worktree_path in 
 ### Task 3: Update SKILL.md Phase 4
 
 **Files:**
-- Modify: `skills/gitflow-workflow/SKILL.md:192-203`
+- Modify: `skills/gf-workflow/SKILL.md:192-203`
 
 **Interfaces:**
 - Consumes: Phase 3 evidence (`base_branch`, `branch`, `worktree_path`, `pr_url`)
@@ -141,9 +141,9 @@ Replace the Phase 4 step table with:
 ```markdown
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gitflow-pipeline-analyzer` — generates pipeline analysis report | `pipeline_ok` |
-| 2 | **[AUTO]** `gitflow-issue-triage` — produces Issue triage report | — |
-| 3 | **[AUTO]** `gitflow-review` — creates code review report | `review_report_path` |
+| 1 | **[AUTO]** `gf-pipeline-analyzer` — generates pipeline analysis report | `pipeline_ok` |
+| 2 | **[AUTO]** `gf-issue-triage` — produces Issue triage report | — |
+| 3 | **[AUTO]** `gf-review` — creates code review report | `review_report_path` |
 | 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) | `dogfooding_passed` |
 | 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (see below) | `branch_cleaned` |
 | 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned }` | — |
@@ -175,13 +175,13 @@ Insert after the step table (before `## Enforcement Rules`):
 
 - [ ] **Step 3: Verify Phase 4 now has 7 steps**
 
-Run: `grep -c "^\| [0-9]" skills/gitflow-workflow/SKILL.md` (count step rows in Phase 4 table)
+Run: `grep -c "^\| [0-9]" skills/gf-workflow/SKILL.md` (count step rows in Phase 4 table)
 Expected: 7 rows in the Phase 4 table section
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add skills/gitflow-workflow/SKILL.md
+git add skills/gf-workflow/SKILL.md
 git commit -m "feat(workflow): add Branch Finish step to Phase 4 with PR merge detection"
 ```
 
@@ -190,7 +190,7 @@ git commit -m "feat(workflow): add Branch Finish step to Phase 4 with PR merge d
 ### Task 4: Update references.md
 
 **Files:**
-- Modify: `skills/gitflow-workflow/references.md` (append new section)
+- Modify: `skills/gf-workflow/references.md` (append new section)
 
 **Interfaces:**
 - Consumes: Phase 3/4 evidence field names from Tasks 2-3
@@ -198,7 +198,7 @@ git commit -m "feat(workflow): add Branch Finish step to Phase 4 with PR merge d
 
 - [ ] **Step 1: Append Branch Finish Operations section**
 
-Add at the end of `skills/gitflow-workflow/references.md`:
+Add at the end of `skills/gf-workflow/references.md`:
 
 ```markdown
 ## Branch Finish Operations
@@ -246,13 +246,13 @@ git fetch --prune origin
 
 - [ ] **Step 2: Verify markdown renders (no broken code fences)**
 
-Run: `grep -c '```' skills/gitflow-workflow/references.md`
+Run: `grep -c '```' skills/gf-workflow/references.md`
 Expected: Even number (all fences closed)
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add skills/gitflow-workflow/references.md
+git add skills/gf-workflow/references.md
 git commit -m "docs(workflow): add Branch Finish operations reference"
 ```
 
@@ -261,29 +261,29 @@ git commit -m "docs(workflow): add Branch Finish operations reference"
 ### Task 5: Sync .claude/skills/ Mirror
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/contract.schema.json`
-- Modify: `.claude/skills/gitflow-workflow/SKILL.md`
-- Modify: `.claude/skills/gitflow-workflow/references.md`
+- Modify: `.claude/skills/gf-workflow/contract.schema.json`
+- Modify: `.claude/skills/gf-workflow/SKILL.md`
+- Modify: `.claude/skills/gf-workflow/references.md`
 
 **Interfaces:**
-- Consumes: Final state of `skills/gitflow-workflow/` files from Tasks 1-4
-- Produces: Identical copies in `.claude/skills/gitflow-workflow/`
+- Consumes: Final state of `skills/gf-workflow/` files from Tasks 1-4
+- Produces: Identical copies in `.claude/skills/gf-workflow/`
 
 - [ ] **Step 1: Copy all three files to .claude/skills mirror**
 
 ```bash
-cp skills/gitflow-workflow/contract.schema.json .claude/skills/gitflow-workflow/contract.schema.json
-cp skills/gitflow-workflow/SKILL.md .claude/skills/gitflow-workflow/SKILL.md
-cp skills/gitflow-workflow/references.md .claude/skills/gitflow-workflow/references.md
+cp skills/gf-workflow/contract.schema.json .claude/skills/gf-workflow/contract.schema.json
+cp skills/gf-workflow/SKILL.md .claude/skills/gf-workflow/SKILL.md
+cp skills/gf-workflow/references.md .claude/skills/gf-workflow/references.md
 ```
 
 - [ ] **Step 2: Verify mirrors are identical**
 
 Run:
 ```bash
-diff skills/gitflow-workflow/contract.schema.json .claude/skills/gitflow-workflow/contract.schema.json && \
-diff skills/gitflow-workflow/SKILL.md .claude/skills/gitflow-workflow/SKILL.md && \
-diff skills/gitflow-workflow/references.md .claude/skills/gitflow-workflow/references.md && \
+diff skills/gf-workflow/contract.schema.json .claude/skills/gf-workflow/contract.schema.json && \
+diff skills/gf-workflow/SKILL.md .claude/skills/gf-workflow/SKILL.md && \
+diff skills/gf-workflow/references.md .claude/skills/gf-workflow/references.md && \
 echo "MIRRORS IN SYNC"
 ```
 Expected: `MIRRORS IN SYNC`
@@ -291,8 +291,8 @@ Expected: `MIRRORS IN SYNC`
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/
-git commit -m "chore: sync .claude/skills/gitflow-workflow mirror with branch-finish changes"
+git add .claude/skills/gf-workflow/
+git commit -m "chore: sync .claude/skills/gf-workflow mirror with branch-finish changes"
 ```
 
 ---
@@ -304,22 +304,22 @@ git commit -m "chore: sync .claude/skills/gitflow-workflow mirror with branch-fi
 
 - [ ] **Step 1: Validate all JSON is parseable**
 
-Run: `jq . skills/gitflow-workflow/contract.schema.json > /dev/null && echo OK`
+Run: `jq . skills/gf-workflow/contract.schema.json > /dev/null && echo OK`
 Expected: `OK`
 
 - [ ] **Step 2: Verify Phase 3 evidence includes new fields in SKILL.md**
 
-Run: `grep "base_branch, worktree_path" skills/gitflow-workflow/SKILL.md`
+Run: `grep "base_branch, worktree_path" skills/gf-workflow/SKILL.md`
 Expected: Match in Phase 3 Step 5 evidence line
 
 - [ ] **Step 3: Verify Phase 4 has Branch Finish step**
 
-Run: `grep "Branch Finish" skills/gitflow-workflow/SKILL.md`
+Run: `grep "Branch Finish" skills/gf-workflow/SKILL.md`
 Expected: Match in Phase 4 Step 5 row
 
 - [ ] **Step 4: Verify references.md has Branch Finish section**
 
-Run: `grep "Branch Finish Operations" skills/gitflow-workflow/references.md`
+Run: `grep "Branch Finish Operations" skills/gf-workflow/references.md`
 Expected: Match
 
 - [ ] **Step 5: Run make check-agent-sync (if available)**

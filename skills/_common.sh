@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # _common.sh — 共享函数库
 #
-# 为所有 gitflow Skill 脚本提供标准化的错误捕获、pending.json 写入、
+# 为所有 gf Skill 脚本提供标准化的错误捕获、pending.json 写入、
 # 平台检测等共享函数。
 #
 # 用法：在 Skill 脚本顶部 source 此文件

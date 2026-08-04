@@ -1,7 +1,7 @@
 # Issue 分类报告
 
 **日期**: 2026-07-09
-**分析者**: Claude Code (gitflow-workflow)
+**分析者**: Claude Code (gf-workflow)
 
 ---
 

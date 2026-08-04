@@ -268,11 +268,11 @@ toon-format = "0.5"
 
 | Skill | 当前用法 | 更新后 |
 |-------|---------|--------|
-| `gitflow-workflow` | `issue list --state open --output json` | `issue list --state open --output auto` |
-| `gitflow-issue` | `issue list/view` 默认 JSON | `issue list/view --output auto` |
-| `gitflow-pr` | `pr view/list` 默认 JSON | `pr view/list --output auto` |
-| `gitflow-release` | `release list/view` 默认 JSON | `release list/view --output auto` |
-| `gitflow-issue-triage` | `issue list` 默认 JSON | `issue list --output auto` |
+| `gf-workflow` | `issue list --state open --output json` | `issue list --state open --output auto` |
+| `gf-issue` | `issue list/view` 默认 JSON | `issue list/view --output auto` |
+| `gf-pr` | `pr view/list` 默认 JSON | `pr view/list --output auto` |
+| `gf-release` | `release list/view` 默认 JSON | `release list/view --output auto` |
+| `gf-issue-triage` | `issue list` 默认 JSON | `issue list --output auto` |
 
 ### 8.2 文档更新策略
 
@@ -314,4 +314,4 @@ toon-format = "0.5"
 - [ ] `cargo fmt` 格式化通过
 - [ ] `gf --help` 显示新的 `--output toon/auto` 选项
 - [ ] Skills 文档更新：所有命令示例使用 `--output auto`
-- [ ] gitflow-workflow SKILL.md 更新 `--output json` → `--output auto`
+- [ ] gf-workflow SKILL.md 更新 `--output json` → `--output auto`

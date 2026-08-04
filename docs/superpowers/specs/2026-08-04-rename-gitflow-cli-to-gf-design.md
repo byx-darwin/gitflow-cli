@@ -26,7 +26,7 @@ Rename all `gitflow-cli*` packages and binaries to `gf*`:
 - **GitHub repository rename** — `byx-darwin/gitflow-cli` stays unchanged. All repo URLs remain as-is.
 - **crates.io old package yanking** — Old `gitflow-cli*` packages remain on crates.io with an archived/deprecated notice. No yank operations.
 - **Directory structure rename** — `crates/core`, `crates/github`, `apps/cli` etc. keep their directory names. Only Cargo `name` fields and all references change.
-- **Skill directory rename** — `.claude/skills/gitflow-workflow/` etc. keep their names (skill identifiers are decoupled from CLI command names).
+- **Skill directory rename** — `.claude/skills/gf-workflow/` etc. keep their names (skill identifiers are decoupled from CLI command names).
 
 ## crates.io Strategy
 
@@ -171,7 +171,7 @@ Rename all `gitflow-cli*` packages and binaries to `gf*`:
 | Precondition checks | `command -v gitflow-cli` → `command -v gf` |
 | `contract.schema.json` | `$id` URL: `https://gitflow-cli.ai/schemas/...` → `https://gf.ai/schemas/...` |
 | `references.md` | CLI command references updated |
-| Skill directory names | **Unchanged** — `.claude/skills/gitflow-workflow/` etc. keep their names |
+| Skill directory names | **Unchanged** — `.claude/skills/gf-workflow/` etc. keep their names |
 
 ### Part 7: Local Configuration (optional)
 

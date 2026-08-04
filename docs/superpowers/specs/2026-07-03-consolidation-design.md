@@ -11,7 +11,7 @@
 - **gitcode-dev-workflow**（9 skills，纯 SKILL.md）：GitCode 专属，强项是**工作流编排**和**质量关卡**的严格执行（闸门、审计日志、TDD 强制）
 - **ncgo-code-skills**（7 skills + hooks + bash provider）：纯 Bash 实现，强项是 brainstorm-from-issue、weekly-report、auto-report-bug hooks
 
-gitcode-dev-workflow 的编排逻辑与 gf 现有 `gitflow-workflow` / `gitflow-quality` 高度重叠（4 阶段闸门结构、Issue 审计日志、TDD 强制如出一辙）。ncgo-code-skills 的 auto-report-bug 实现比 gf 现有版本更成熟（hooks 触发 + auth cache + JSON 验证）。
+gitcode-dev-workflow 的编排逻辑与 gf 现有 `gf-workflow` / `gf-quality` 高度重叠（4 阶段闸门结构、Issue 审计日志、TDD 强制如出一辙）。ncgo-code-skills 的 auto-report-bug 实现比 gf 现有版本更成熟（hooks 触发 + auth cache + JSON 验证）。
 
 **决策：** 以 gf 为唯一仓库，吸收两个源项目的增量能力，消除重复维护。
 
@@ -24,9 +24,9 @@ gitcode-dev-workflow 的编排逻辑与 gf 现有 `gitflow-workflow` / `gitflow-
 
 ## 变更清单
 
-### 变更 1：gitflow-workflow 强化
+### 变更 1：gf-workflow 强化
 
-**文件：** `skills/gitflow-workflow/SKILL.md`
+**文件：** `skills/gf-workflow/SKILL.md`
 
 从 gitcode-dev-workflow 吸收三个增量点：
 
@@ -64,9 +64,9 @@ Phase N 合规检查:
 以下规则不可跳过，任何一步不满足就不能进入下一步。
 ```
 
-### 变更 2：gitflow-quality 强化
+### 变更 2：gf-quality 强化
 
-**文件：** `skills/gitflow-quality/SKILL.md`
+**文件：** `skills/gf-quality/SKILL.md`
 
 从 gitcode-dev-quality 吸收增量：
 
@@ -84,22 +84,22 @@ fast-fail 兼容：pre-commit 在 static 之后运行。N/A 处理：无 `.pre-c
 
 报告表格增加 pre-commit 行。
 
-### 变更 3：gitflow-weekly-report 迁入
+### 变更 3：gf-weekly-report 迁入
 
-**新文件：** `skills/gitflow-weekly-report/SKILL.md`
+**新文件：** `skills/gf-weekly-report/SKILL.md`
 
 从 ncgo-code-skills 迁入 `weekly-report` skill，保持纯 bash 实现。
 
 #### 3.1 文件结构
 
 ```
-skills/gitflow-weekly-report/
+skills/gf-weekly-report/
 └── SKILL.md              # 从 ncgo-code-skills/weekly-report/SKILL.md 迁入（自包含，无外部脚本）
 ```
 
 #### 3.2 命名适配
 
-- skill name：`weekly-report` → `gitflow-weekly-report`
+- skill name：`weekly-report` → `gf-weekly-report`
 - description TRIGGER 描述追加 gf 语境
 - 脚本中的命令保持 `git` 原生命令（天然三平台兼容）
 
@@ -107,7 +107,7 @@ skills/gitflow-weekly-report/
 
 weekly-report 扫描多个 git 仓库，是典型的跨项目工具。SKILL.md 安装说明中应标注：
 
-> 推荐使用用户级安装：`gf skills install -g gitflow-weekly-report`
+> 推荐使用用户级安装：`gf skills install -g gf-weekly-report`
 >
 > 用户级安装后，无论从哪个项目目录调用，都能正常扫描指定的多个仓库路径。
 
@@ -119,9 +119,9 @@ gf 现有安装系统已支持 `skills install -g`（安装到 `~/.claude/skills
 - 不改变输出格式（plain-text, no tables）
 - 不引入 platform provider 抽象
 
-### 变更 4：gitflow-autoreport-bug 双源合并
+### 变更 4：gf-autoreport-bug 双源合并
 
-**文件：** `skills/gitflow-autoreport-bug/SKILL.md`、`hooks/auto-report-bug.sh`
+**文件：** `skills/gf-autoreport-bug/SKILL.md`、`hooks/auto-report-bug.sh`
 
 取两边优点合并为单一 skill + hook。
 
@@ -205,7 +205,7 @@ PENDING_FILE=".cache/bug-reports/pending.json"
 if [ -f "$PENDING_FILE" ]; then
     cat "$PENDING_FILE"
     echo ""
-    echo "⚠️ Detected pending bug report. Running gitflow-autoreport-bug..."
+    echo "⚠️ Detected pending bug report. Running gf-autoreport-bug..."
 fi
 ```
 
@@ -249,10 +249,10 @@ ncgo-code 的 `auto-smoke-test.sh` 监控其 bash `_provider.sh` 脚本变更。
 
 | 动作 | 文件路径 |
 |------|---------|
-| 修改 | `skills/gitflow-workflow/SKILL.md` |
-| 修改 | `skills/gitflow-quality/SKILL.md` |
-| 新增 | `skills/gitflow-weekly-report/SKILL.md` |
-| 修改 | `skills/gitflow-autoreport-bug/SKILL.md` |
+| 修改 | `skills/gf-workflow/SKILL.md` |
+| 修改 | `skills/gf-quality/SKILL.md` |
+| 新增 | `skills/gf-weekly-report/SKILL.md` |
+| 修改 | `skills/gf-autoreport-bug/SKILL.md` |
 | 新增 | `hooks/auto-report-bug.sh` |
 | 新增 | `hooks/sync-readme-check.sh` |
 | 修改 | `.claude/settings.json`（追加 hooks 注册） |

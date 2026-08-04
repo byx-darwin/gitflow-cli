@@ -2,11 +2,11 @@
 
 **Date:** 2026-07-31
 **Status:** Approved
-**Scope:** gitflow-workflow skill (documentation-only change, no Rust code)
+**Scope:** gf-workflow skill (documentation-only change, no Rust code)
 
 ## Problem
 
-The current gitflow-workflow Phase 3 creates a worktree and PR, Phase 4 runs
+The current gf-workflow Phase 3 creates a worktree and PR, Phase 4 runs
 pipeline/triage/review/dogfooding checks, then archives the contract. After the
 workflow completes, the user is still sitting inside the worktree, the feature
 branch still exists locally, and the base branch has not been updated. There is
@@ -54,9 +54,9 @@ renumbered to Step 6). New numbering:
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | `gitflow-pipeline-analyzer` | `pipeline_ok` |
-| 2 | `gitflow-issue-triage` | — |
-| 3 | `gitflow-review` | `review_report_path` |
+| 1 | `gf-pipeline-analyzer` | `pipeline_ok` |
+| 2 | `gf-issue-triage` | — |
+| 3 | `gf-review` | `review_report_path` |
 | 4 | Dogfooding checklist | `dogfooding_passed` |
 | **5** | **Branch Finish** (new) | **`branch_cleaned`** |
 | 6 | Update contract + archive | — |
@@ -109,11 +109,11 @@ PR <pr_url> 已合并。是否执行分支收尾？
 
 | File | Change |
 |------|--------|
-| `skills/gitflow-workflow/SKILL.md` | Phase 3 Step 1 (record base_branch/worktree_path), Phase 4 step table (insert Step 5, renumber) |
-| `skills/gitflow-workflow/contract.schema.json` | Add `base_branch`, `worktree_path`, `branch_cleaned` to evidence properties |
-| `skills/gitflow-workflow/references.md` | Add Branch Finish command reference section |
-| `skills/gitflow-workflow/gates.md` | No change (Gate 3→4 conditions unchanged) |
-| `.claude/skills/gitflow-workflow/` | Mirror all above changes to the `.claude/skills` copy |
+| `skills/gf-workflow/SKILL.md` | Phase 3 Step 1 (record base_branch/worktree_path), Phase 4 step table (insert Step 5, renumber) |
+| `skills/gf-workflow/contract.schema.json` | Add `base_branch`, `worktree_path`, `branch_cleaned` to evidence properties |
+| `skills/gf-workflow/references.md` | Add Branch Finish command reference section |
+| `skills/gf-workflow/gates.md` | No change (Gate 3→4 conditions unchanged) |
+| `.claude/skills/gf-workflow/` | Mirror all above changes to the `.claude/skills` copy |
 
 ### 5. Constraints
 

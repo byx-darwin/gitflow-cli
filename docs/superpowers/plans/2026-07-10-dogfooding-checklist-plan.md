@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 创建 Phase 4 Dogfooding Checklist 文档，并集成到 gitflow-workflow Phase 4 流程中。
+**Goal:** 创建 Phase 4 Dogfooding Checklist 文档，并集成到 gf-workflow Phase 4 流程中。
 
-**Architecture:** 创建手动 checklist 文档，按平台分节列出风险驱动的验证步骤。更新 gitflow-workflow SKILL.md 的 Phase 4 执行步骤引用该 checklist。更新 docs/index.md 添加索引。
+**Architecture:** 创建手动 checklist 文档，按平台分节列出风险驱动的验证步骤。更新 gf-workflow SKILL.md 的 Phase 4 执行步骤引用该 checklist。更新 docs/index.md 添加索引。
 
 **Tech Stack:** Markdown, JSON (pending.json schema)
 
@@ -195,10 +195,10 @@ git commit -m "docs: add Phase 4 dogfooding checklist (#73)"
 
 ---
 
-### Task 2: 更新 gitflow-workflow SKILL.md — Phase 4 新增 Dogfooding 步骤
+### Task 2: 更新 gf-workflow SKILL.md — Phase 4 新增 Dogfooding 步骤
 
 **Files:**
-- Modify: `.claude/skills/gitflow-workflow/SKILL.md:280-303` (Phase 4 执行步骤区域)
+- Modify: `.claude/skills/gf-workflow/SKILL.md:280-303` (Phase 4 执行步骤区域)
 
 **Interfaces:**
 - Consumes: `docs/specs/phase4-dogfooding-checklist.md`（Task 1 创建）
@@ -206,7 +206,7 @@ git commit -m "docs: add Phase 4 dogfooding checklist (#73)"
 
 - [ ] **Step 1: 在 Phase 4 执行步骤中添加 dogfooding 步骤**
 
-在 `.claude/skills/gitflow-workflow/SKILL.md` 的 Phase 4 部分，找到现有步骤 3（`gitflow-review`）之后，步骤 4（Update contract）之前，插入新的 dogfooding 步骤。
+在 `.claude/skills/gf-workflow/SKILL.md` 的 Phase 4 部分，找到现有步骤 3（`gf-review`）之后，步骤 4（Update contract）之前，插入新的 dogfooding 步骤。
 
 将现有的步骤 4（Update contract）改为步骤 5，步骤 5（Archive contract）改为步骤 6，步骤 6（COMPLETE）改为步骤 7。
 
@@ -241,12 +241,12 @@ git commit -m "docs: add Phase 4 dogfooding checklist (#73)"
 
 将：
 ```
-| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review` | Post-delivery checks |
+| 4 | `gf-pipeline-analyzer → gf-issue-triage → gf-review` | Post-delivery checks |
 ```
 
 改为：
 ```
-| 4 | `gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review → dogfooding-checklist` | Post-delivery checks |
+| 4 | `gf-pipeline-analyzer → gf-issue-triage → gf-review → dogfooding-checklist` | Post-delivery checks |
 ```
 
 - [ ] **Step 3: 更新 Fast Mode 的 Phase 4 描述**
@@ -255,25 +255,25 @@ git commit -m "docs: add Phase 4 dogfooding checklist (#73)"
 
 将：
 ```
-Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review (required)
+Phase 4: gf-pipeline-analyzer → gf-issue-triage → gf-review (required)
 ```
 
 改为：
 ```
-Phase 4: gitflow-pipeline-analyzer → gitflow-issue-triage → gitflow-review → dogfooding-checklist (required)
+Phase 4: gf-pipeline-analyzer → gf-issue-triage → gf-review → dogfooding-checklist (required)
 ```
 
 - [ ] **Step 4: 验证文档格式**
 
 ```bash
 # 验证 dogfooding 步骤已添加
-grep -c "Execute Dogfooding Checklist" .claude/skills/gitflow-workflow/SKILL.md
+grep -c "Execute Dogfooding Checklist" .claude/skills/gf-workflow/SKILL.md
 
 # 验证 dogfooding_passed 字段已添加
-grep -c "dogfooding_passed" .claude/skills/gitflow-workflow/SKILL.md
+grep -c "dogfooding_passed" .claude/skills/gf-workflow/SKILL.md
 
 # 验证表格已更新
-grep -c "dogfooding-checklist" .claude/skills/gitflow-workflow/SKILL.md
+grep -c "dogfooding-checklist" .claude/skills/gf-workflow/SKILL.md
 ```
 
 Expected: 所有 grep 返回 >= `1`
@@ -281,7 +281,7 @@ Expected: 所有 grep 返回 >= `1`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .claude/skills/gitflow-workflow/SKILL.md
+git add .claude/skills/gf-workflow/SKILL.md
 git commit -m "docs(workflow): add dogfooding checklist to Phase 4 (#73)"
 ```
 
@@ -326,7 +326,7 @@ git commit -m "docs: add dogfooding checklist to docs index (#73)"
 
 **Files:**
 - Validate: `docs/specs/phase4-dogfooding-checklist.md`
-- Validate: `.claude/skills/gitflow-workflow/SKILL.md`
+- Validate: `.claude/skills/gf-workflow/SKILL.md`
 - Validate: `docs/index.md`
 
 - [ ] **Step 1: 运行文档完整性验证**
@@ -339,12 +339,12 @@ for section in "GitHub Dogfooding" "GitLab Dogfooding" "GitCode Dogfooding" "Bug
   grep -q "$section" docs/specs/phase4-dogfooding-checklist.md && echo "✅ Section: $section" || echo "❌ Missing section: $section"
 done
 
-# 2. gitflow-workflow SKILL.md 包含 dogfooding 引用
+# 2. gf-workflow SKILL.md 包含 dogfooding 引用
 echo ""
-echo "=== gitflow-workflow SKILL.md ==="
-grep -q "Execute Dogfooding Checklist" .claude/skills/gitflow-workflow/SKILL.md && echo "✅ Dogfooding step added" || echo "❌ Dogfooding step missing"
-grep -q "dogfooding_passed" .claude/skills/gitflow-workflow/SKILL.md && echo "✅ dogfooding_passed field added" || echo "❌ dogfooding_passed field missing"
-grep -q "dogfooding-checklist" .claude/skills/gitflow-workflow/SKILL.md && echo "✅ Table updated" || echo "❌ Table not updated"
+echo "=== gf-workflow SKILL.md ==="
+grep -q "Execute Dogfooding Checklist" .claude/skills/gf-workflow/SKILL.md && echo "✅ Dogfooding step added" || echo "❌ Dogfooding step missing"
+grep -q "dogfooding_passed" .claude/skills/gf-workflow/SKILL.md && echo "✅ dogfooding_passed field added" || echo "❌ dogfooding_passed field missing"
+grep -q "dogfooding-checklist" .claude/skills/gf-workflow/SKILL.md && echo "✅ Table updated" || echo "❌ Table not updated"
 
 # 3. docs/index.md 包含索引
 echo ""
@@ -361,7 +361,7 @@ grep -q ".cache/bug-reports/pending.json" docs/specs/phase4-dogfooding-checklist
 - [ ] **Step 2: 运行 pre-commit hooks**
 
 ```bash
-pre-commit run --files docs/specs/phase4-dogfooding-checklist.md .claude/skills/gitflow-workflow/SKILL.md docs/index.md
+pre-commit run --files docs/specs/phase4-dogfooding-checklist.md .claude/skills/gf-workflow/SKILL.md docs/index.md
 ```
 
 Expected: 所有 hooks 通过

@@ -72,4 +72,4 @@
 
 ## 审查方法说明
 
-本报告未提交 PR review verdict:PR 由当前维护账号创建,自审禁止(gitflow-review 红线);verdict 留给独立审查者或维护者按流程提交。
+本报告未提交 PR review verdict:PR 由当前维护账号创建,自审禁止(gf-review 红线);verdict 留给独立审查者或维护者按流程提交。

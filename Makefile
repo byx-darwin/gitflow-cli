@@ -68,13 +68,13 @@ install-hooks: ## Register hook config in .claude/settings.json
 install: completions-install ## Full install: build binary + skills + hooks + completions (delegates to install.sh)
 	@bash scripts/install.sh --no-build
 
-list-skills: ## List installed gitflow skills
-	@ls ~/.claude/skills/ 2>/dev/null | grep gitflow || echo "No gitflow skills installed."
+list-skills: ## List installed gf skills
+	@ls ~/.claude/skills/ 2>/dev/null | grep gf || echo "No gf skills installed."
 
-uninstall-skills: ## Remove gitflow skills from ~/.claude/skills/
-	@echo "Removing gitflow skills from ~/.claude/skills/..."
-	@rm -rf ~/.claude/skills/gitflow-*
-	@echo "Gitflow skills removed."
+uninstall-skills: ## Remove gf skills from ~/.claude/skills/
+	@echo "Removing gf skills from ~/.claude/skills/..."
+	@rm -rf ~/.claude/skills/gf-*
+	@echo "gf skills removed."
 
 completions: build ## Generate shell completions (bash, zsh, fish) into ./completions/
 	@bash scripts/generate-completions.sh

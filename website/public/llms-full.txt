@@ -53,7 +53,7 @@ Cargo：
 ## FAQ
 
 - gf 和 gh 有什么区别？gh 只服务 GitHub 单一平台；gf 用统一命令面封装 GitHub / GitLab / GitCode 三平台，并叠加面向 AI Agent 的 Skills 工作流。
-- 如何给 AI 编程加工程纪律？安装 Skills 后，用 gitflow-workflow 四阶段编排（需求澄清 → 计划 → 执行 → 交付检查），每阶段有质量门禁。
+- 如何给 AI 编程加工程纪律？安装 Skills 后，用 gf-workflow 四阶段编排（需求澄清 → 计划 → 执行 → 交付检查），每阶段有质量门禁。
 - 支持哪些 AI Agent 平台？Claude Code / Codex / OpenCode / Gemini CLI / Copilot CLI。
 
 ## 许可

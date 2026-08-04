@@ -13,7 +13,7 @@ echo ''
 echo '=== Step 2: 检查哪些 skills 还有 trigger format ==='
 MISSING=''
 for skill in auth autoreport-bug commit issue-create issue-review issue-triage issue label-milestone label-stats pipeline-analyzer pr-apply-feedback pr-create pr-inline-review pr-review pr precommit quality regression release-helper release repo-onboarding repo review security-check weekly-report workflow; do
-  if ! grep -q 'Use when' "skills/gitflow-/SKILL.md" 2>/dev/null; then
+  if ! grep -q 'Use when' "skills/gf-/SKILL.md" 2>/dev/null; then
     MISSING="$MISSING $skill"
   fi
 done

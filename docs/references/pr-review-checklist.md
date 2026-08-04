@@ -1,6 +1,6 @@
 # PR Review Checklist (6 Dimensions)
 
-> **Source:** Externalized from `gitflow-pr-review` skill.
+> **Source:** Externalized from `gf-pr-review` skill.
 > **Purpose:** Per-dimension review items to cite during PR assessments.
 
 ---
@@ -57,9 +57,9 @@
 
 ---
 
-## Distinction from `gitflow-pr-inline-review`
+## Distinction from `gf-pr-inline-review`
 
-| Aspect | `gitflow-pr-review` (this document) | `gitflow-pr-inline-review` |
+| Aspect | `gf-pr-review` (this document) | `gf-pr-inline-review` |
 |--------|-------------------------------------|----------------------------|
 | Scope | Overall PR verdict | Per-line inline comments on diff |
 | Output | `review approve` / `request-changes` / `comment` | `comment <sha> --path <f> --line <l>` |

@@ -2,7 +2,7 @@
 
 > **Date:** 2026-07-07
 > **Scope:** 26 gf skills × 4 evaluation dimensions
-> **Sources:** `docs/research/skill-analysis-gitflow-*.md` (26 analysis docs), GitHub Issues #15–#41
+> **Sources:** `docs/research/skill-analysis-gf-*.md` (26 analysis docs), GitHub Issues #15–#41
 > **Methodology:** Superpowers writing-skills 4-dimension framework (Structure & Documentation, Responsibility Boundaries, Testability, Superpowers Best Practices)
 
 ---
@@ -21,32 +21,32 @@
 
 | # | Skill | Issue | D1 Structure | D2 Boundaries | D3 Testability | D4 Best Practice | Overall |
 |---|-------|-------|--------------|---------------|----------------|------------------|---------|
-| 1 | gitflow-auth | #15 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 2 | gitflow-autoreport-bug | #38 | ⚠️ | ⚠️ | ❌ | ⚠️ | ⚠️ |
-| 3 | gitflow-commit | #16 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 4 | gitflow-issue-create | #26 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 5 | gitflow-issue-review | #33 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 6 | gitflow-issue-triage | #29 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 7 | gitflow-issue | #36 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 8 | gitflow-label-milestone | #17 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 9 | gitflow-label-stats | #30 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 10 | gitflow-pipeline-analyzer | #28 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 11 | gitflow-pr-apply-feedback | #33 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 12 | gitflow-pr-create | #27 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 13 | gitflow-pr-inline-review | #41 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 14 | gitflow-pr-review | #34 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 15 | gitflow-pr | #32 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| 16 | gitflow-precommit | #24 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 17 | gitflow-quality | #35 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 18 | gitflow-regression | #25 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 19 | gitflow-release-helper | #31 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| 20 | gitflow-release | #18 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 21 | gitflow-repo-onboarding | #20 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| 22 | gitflow-repo | #19 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 23 | gitflow-review | #39 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
-| 24 | gitflow-security-check | #22 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 25 | gitflow-weekly-report | #23 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
-| 26 | gitflow-workflow | #37 | ❌ | ⚠️ | ❌ | ⚠️ | ❌ |
+| 1 | gf-auth | #15 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 2 | gf-autoreport-bug | #38 | ⚠️ | ⚠️ | ❌ | ⚠️ | ⚠️ |
+| 3 | gf-commit | #16 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 4 | gf-issue-create | #26 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 5 | gf-issue-review | #33 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 6 | gf-issue-triage | #29 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 7 | gf-issue | #36 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 8 | gf-label-milestone | #17 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 9 | gf-label-stats | #30 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 10 | gf-pipeline-analyzer | #28 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 11 | gf-pr-apply-feedback | #33 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 12 | gf-pr-create | #27 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 13 | gf-pr-inline-review | #41 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 14 | gf-pr-review | #34 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 15 | gf-pr | #32 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 16 | gf-precommit | #24 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 17 | gf-quality | #35 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 18 | gf-regression | #25 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 19 | gf-release-helper | #31 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 20 | gf-release | #18 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 21 | gf-repo-onboarding | #20 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| 22 | gf-repo | #19 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 23 | gf-review | #39 | ⚠️ | ❌ | ❌ | ❌ | ❌ |
+| 24 | gf-security-check | #22 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 25 | gf-weekly-report | #23 | ⚠️ | ❌ | ❌ | ⚠️ | ❌ |
+| 26 | gf-workflow | #37 | ❌ | ⚠️ | ❌ | ⚠️ | ❌ |
 
 ### 1.3 Score Distribution
 
@@ -57,7 +57,7 @@
 | D3: Testability | 0 | 0 | 26 |
 | D4: Superpowers Best Practices | 0 | 10 | 16 |
 
-**Key finding:** No skill passes any dimension at "Good" level. Testability (D3) is universally zero. Only `gitflow-autoreport-bug` reaches ⚠️ on D2 (the project's boundary-declaration benchmark).
+**Key finding:** No skill passes any dimension at "Good" level. Testability (D3) is universally zero. Only `gf-autoreport-bug` reaches ⚠️ on D2 (the project's boundary-declaration benchmark).
 
 ---
 
@@ -184,32 +184,32 @@ Skills ranked by: side-effect risk (🔴=3, 🟡=2, 🟢=1) × P0 gap count. Hig
 
 | Priority | Skill | Risk | P0 Gaps | Score | Issue |
 |----------|-------|------|---------|-------|-------|
-| 1 | gitflow-pr-inline-review | 🔴 | 6 | 18 | #41 |
-| 2 | gitflow-security-check | 🔴 | 5 | 15 | #22 |
-| 3 | gitflow-quality | 🔴 | 5 | 15 | #35 |
-| 4 | gitflow-review | 🔴 | 5 | 15 | #39 |
-| 5 | gitflow-pr-apply-feedback | 🔴 | 6 | 18 | #33 |
-| 6 | gitflow-workflow | 🟡 | 5 | 10 | #37 |
-| 7 | gitflow-release-helper | 🟡 | 6 | 12 | #31 |
-| 8 | gitflow-regression | 🟡 | 5 | 10 | #25 |
-| 9 | gitflow-precommit | 🟡 | 5 | 10 | #24 |
-| 10 | gitflow-release | 🟡 | 4 | 8 | #18 |
-| 11 | gitflow-repo | 🟡 | 4 | 8 | #19 |
-| 12 | gitflow-autoreport-bug | 🟡 | 4 | 8 | #38 |
-| 13 | gitflow-issue | 🟡 | 5 | 10 | #36 |
-| 14 | gitflow-issue-triage | 🟡 | 4 | 8 | #29 |
-| 15 | gitflow-label-milestone | 🟡 | 4 | 8 | #17 |
-| 16 | gitflow-pipeline-analyzer | 🟢 | 5 | 5 | #28 |
-| 17 | gitflow-pr-create | 🟢 | 5 | 5 | #27 |
-| 18 | gitflow-pr-review | 🟢 | 5 | 5 | #34 |
-| 19 | gitflow-pr | 🟢 | 6 | 6 | #32 |
-| 20 | gitflow-issue-create | 🟢 | 5 | 5 | #26 |
-| 21 | gitflow-issue-review | 🟢 | 6 | 6 | #33 |
-| 22 | gitflow-label-stats | 🟢 | 6 | 6 | #30 |
-| 23 | gitflow-repo-onboarding | 🟢 | 4 | 4 | #20 |
-| 24 | gitflow-weekly-report | 🟢 | 6 | 6 | #23 |
-| 25 | gitflow-auth | 🟢 | 4 | 4 | #15 |
-| 26 | gitflow-commit | 🟢 | 4 | 4 | #16 |
+| 1 | gf-pr-inline-review | 🔴 | 6 | 18 | #41 |
+| 2 | gf-security-check | 🔴 | 5 | 15 | #22 |
+| 3 | gf-quality | 🔴 | 5 | 15 | #35 |
+| 4 | gf-review | 🔴 | 5 | 15 | #39 |
+| 5 | gf-pr-apply-feedback | 🔴 | 6 | 18 | #33 |
+| 6 | gf-workflow | 🟡 | 5 | 10 | #37 |
+| 7 | gf-release-helper | 🟡 | 6 | 12 | #31 |
+| 8 | gf-regression | 🟡 | 5 | 10 | #25 |
+| 9 | gf-precommit | 🟡 | 5 | 10 | #24 |
+| 10 | gf-release | 🟡 | 4 | 8 | #18 |
+| 11 | gf-repo | 🟡 | 4 | 8 | #19 |
+| 12 | gf-autoreport-bug | 🟡 | 4 | 8 | #38 |
+| 13 | gf-issue | 🟡 | 5 | 10 | #36 |
+| 14 | gf-issue-triage | 🟡 | 4 | 8 | #29 |
+| 15 | gf-label-milestone | 🟡 | 4 | 8 | #17 |
+| 16 | gf-pipeline-analyzer | 🟢 | 5 | 5 | #28 |
+| 17 | gf-pr-create | 🟢 | 5 | 5 | #27 |
+| 18 | gf-pr-review | 🟢 | 5 | 5 | #34 |
+| 19 | gf-pr | 🟢 | 6 | 6 | #32 |
+| 20 | gf-issue-create | 🟢 | 5 | 5 | #26 |
+| 21 | gf-issue-review | 🟢 | 6 | 6 | #33 |
+| 22 | gf-label-stats | 🟢 | 6 | 6 | #30 |
+| 23 | gf-repo-onboarding | 🟢 | 4 | 4 | #20 |
+| 24 | gf-weekly-report | 🟢 | 6 | 6 | #23 |
+| 25 | gf-auth | 🟢 | 4 | 4 | #15 |
+| 26 | gf-commit | 🟢 | 4 | 4 | #16 |
 
 ---
 
@@ -227,15 +227,15 @@ Skills ranked by: side-effect risk (🔴=3, 🟡=2, 🟢=1) × P0 gap count. Hig
 **Goal:** Every skill has trigger-condition description, boundary declaration, prohibition list, keyword coverage, cross-references, and testability hooks.
 
 **Batch A — High-risk skills (🔴 side-effect risk, 5 skills):**
-- gitflow-pr-inline-review, gitflow-security-check, gitflow-quality, gitflow-review, gitflow-pr-apply-feedback
+- gf-pr-inline-review, gf-security-check, gf-quality, gf-review, gf-pr-apply-feedback
 - Estimated: ~20h
 
 **Batch B — Medium-risk skills (🟡 side-effect risk, 11 skills):**
-- gitflow-workflow, gitflow-release-helper, gitflow-regression, gitflow-precommit, gitflow-release, gitflow-repo, gitflow-autoreport-bug, gitflow-issue, gitflow-issue-triage, gitflow-label-milestone, gitflow-issue-review
+- gf-workflow, gf-release-helper, gf-regression, gf-precommit, gf-release, gf-repo, gf-autoreport-bug, gf-issue, gf-issue-triage, gf-label-milestone, gf-issue-review
 - Estimated: ~44h
 
 **Batch C — Low-risk skills (🟢 read-only, 10 skills):**
-- gitflow-pipeline-analyzer, gitflow-pr-create, gitflow-pr-review, gitflow-pr, gitflow-issue-create, gitflow-label-stats, gitflow-repo-onboarding, gitflow-weekly-report, gitflow-auth, gitflow-commit
+- gf-pipeline-analyzer, gf-pr-create, gf-pr-review, gf-pr, gf-issue-create, gf-label-stats, gf-repo-onboarding, gf-weekly-report, gf-auth, gf-commit
 - Estimated: ~40h
 
 **Phase 1 total estimate:** ~104h
@@ -280,7 +280,7 @@ Skills ranked by: side-effect risk (🔴=3, 🟡=2, 🟢=1) × P0 gap count. Hig
 
 1. **Universal description violation** — All 26 skills use functional/workflow description instead of trigger-condition format. This is the single highest-impact fix.
 2. **Universal testability gap** — Zero skills have any testability surface. This is the deepest systemic gap.
-3. **Near-universal boundary gap** — 24/26 skills lack boundary declarations. Only `gitflow-autoreport-bug` has a complete one; `gitflow-workflow` has partial.
+3. **Near-universal boundary gap** — 24/26 skills lack boundary declarations. Only `gf-autoreport-bug` has a complete one; `gf-workflow` has partial.
 4. **Token bloat pattern** — 10 skills exceed the 500-word limit due to embedded templates, narrative examples, and full scripts. These should be externalized.
 5. **Cross-reference vacuum** — 24/26 skills have no structured cross-references, fragmenting the skill ecosystem.
 
@@ -294,9 +294,9 @@ Skills ranked by: side-effect risk (🔴=3, 🟡=2, 🟢=1) × P0 gap count. Hig
 | Quality | precommit, quality, security-check | Must define scope boundaries (pre-commit vs gate vs audit) |
 | Repo | repo, repo-onboarding | Must define read vs write boundaries |
 
-### 5.3 Reference: gitflow-autoreport-bug as Benchmark
+### 5.3 Reference: gf-autoreport-bug as Benchmark
 
-`gitflow-autoreport-bug` is the project's only skill with a complete responsibility boundary declaration. It should serve as the structural benchmark for all other skills. However, it still has gaps:
+`gf-autoreport-bug` is the project's only skill with a complete responsibility boundary declaration. It should serve as the structural benchmark for all other skills. However, it still has gaps:
 - Description is workflow description, not trigger condition
 - Missing Red Flags list
 - Missing rationalization excuse counter-table

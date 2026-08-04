@@ -650,4 +650,4 @@ jobs:
 
 **文档版本**: 1.0
 **最后更新**: 2026-07-09
-**作者**: Claude Code (gitflow-workflow)
+**作者**: Claude Code (gf-workflow)

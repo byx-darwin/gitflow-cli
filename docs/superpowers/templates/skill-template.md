@@ -1,11 +1,11 @@
 ---
-name: gitflow-{skill-name}
+name: gf-{skill-name}
 description: |
   Use when <english trigger condition — past-tense adjective + damaged object>.
   当 <中文触发条件> 时使用。
 ---
 
-# gitflow-{skill-name}
+# gf-{skill-name}
 
 <One sentence describing what this skill does. Second sentence clarifying what it does NOT do.>
 

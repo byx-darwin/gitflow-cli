@@ -4,7 +4,7 @@
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 OUT="${ROOT}/docs/assets/demo.svg"
-CAST="$(mktemp /tmp/gitflow-demo.XXXXXX.cast)"
+CAST="$(mktemp /tmp/gf-demo.XXXXXX.cast)"
 mkdir -p "${ROOT}/docs/assets"
 cargo build -p gf
 GF_BIN="${ROOT}/target/debug/gf" \

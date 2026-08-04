@@ -16,32 +16,32 @@ Every skill in the project requires P0 (blocking) refactoring. No skill currentl
 
 | Skill | Issue | Current State | P0 Scope |
 |-------|-------|---------------|----------|
-| gitflow-auth | #15 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-autoreport-bug | #38 | ⚠️ D2 only | description, red flags, rationalization table, testability |
-| gitflow-commit | #16 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-issue-create | #26 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-issue-review | #33 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, idempotency, testability |
-| gitflow-issue-triage | #29 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, idempotency, testability |
-| gitflow-issue | #36 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, flowchart, testability |
-| gitflow-label-milestone | #17 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, split recommendation, testability |
-| gitflow-label-stats | #30 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-pipeline-analyzer | #28 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-pr-apply-feedback | #33 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-pr-create | #27 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-pr-inline-review | #41 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, publish-confirm mechanism, testability |
-| gitflow-pr-review | #34 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-pr | #32 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, delegation model, testability |
-| gitflow-precommit | #24 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-quality | #35 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-regression | #25 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-release-helper | #31 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-release | #18 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-repo-onboarding | #20 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-repo | #19 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-review | #39 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, flowchart, testability |
-| gitflow-security-check | #22 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
-| gitflow-weekly-report | #23 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
-| gitflow-workflow | #37 | ❌ D1, D3; ⚠️ D2, D4 | description, token compression, rationalization table, red flags, testability |
+| gf-auth | #15 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-autoreport-bug | #38 | ⚠️ D2 only | description, red flags, rationalization table, testability |
+| gf-commit | #16 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-issue-create | #26 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-issue-review | #33 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, idempotency, testability |
+| gf-issue-triage | #29 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, idempotency, testability |
+| gf-issue | #36 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, flowchart, testability |
+| gf-label-milestone | #17 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, split recommendation, testability |
+| gf-label-stats | #30 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-pipeline-analyzer | #28 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-pr-apply-feedback | #33 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-pr-create | #27 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-pr-inline-review | #41 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, publish-confirm mechanism, testability |
+| gf-pr-review | #34 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-pr | #32 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, delegation model, testability |
+| gf-precommit | #24 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-quality | #35 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-regression | #25 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-release-helper | #31 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-release | #18 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-repo-onboarding | #20 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-repo | #19 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-review | #39 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, flowchart, testability |
+| gf-security-check | #22 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, testability |
+| gf-weekly-report | #23 | ❌ All 4 dimensions | description, boundaries, keywords, cross-refs, token compression, testability |
+| gf-workflow | #37 | ❌ D1, D3; ⚠️ D2, D4 | description, token compression, rationalization table, red flags, testability |
 
 ### 1.2 Skills Requiring P1 Refactoring (all 26)
 
@@ -161,7 +161,7 @@ Sub-tasks:
 
 #### Batch A: High-Risk Skills (side-effect risk)
 
-**Task 1: Refactor gitflow-pr-inline-review**
+**Task 1: Refactor gf-pr-inline-review**
 
 | Field | Value |
 |-------|-------|
@@ -174,7 +174,7 @@ Sub-tasks:
 P0 items: description, boundaries (with publish-confirm mechanism), prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart, Quick Reference
 
-**Task 2: Refactor gitflow-security-check**
+**Task 2: Refactor gf-security-check**
 
 | Field | Value |
 |-------|-------|
@@ -187,7 +187,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (no auto-fix, no data exfiltration), prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 3: Refactor gitflow-quality**
+**Task 3: Refactor gf-quality**
 
 | Field | Value |
 |-------|-------|
@@ -200,7 +200,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (Issue publish requires confirmation), prohibition list, red flags, keywords, cross-refs, token compression, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart, Quick Reference
 
-**Task 4: Refactor gitflow-review**
+**Task 4: Refactor gf-review**
 
 | Field | Value |
 |-------|-------|
@@ -213,7 +213,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (approve requires prior analysis), prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart (approve vs submit), Quick Reference
 
-**Task 5: Refactor gitflow-pr-apply-feedback**
+**Task 5: Refactor gf-pr-apply-feedback**
 
 | Field | Value |
 |-------|-------|
@@ -230,7 +230,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 
 #### Batch B: Medium-Risk Skills
 
-**Task 6: Refactor gitflow-workflow**
+**Task 6: Refactor gf-workflow**
 
 | Field | Value |
 |-------|-------|
@@ -243,7 +243,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, token compression (1725 → < 500), structured boundaries, rationalization table, red flags, testability hooks
 P1 items: structured template, Mermaid flowchart, Quick Reference, See Also (11+ skills), error handling
 
-**Task 7: Refactor gitflow-release-helper**
+**Task 7: Refactor gf-release-helper**
 
 | Field | Value |
 |-------|-------|
@@ -256,7 +256,7 @@ P1 items: structured template, Mermaid flowchart, Quick Reference, See Also (11+
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, token compression (916 → < 500), testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 8: Refactor gitflow-regression**
+**Task 8: Refactor gf-regression**
 
 | Field | Value |
 |-------|-------|
@@ -269,7 +269,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (chain boundary with autoreport-bug), prohibition list, red flags, keywords, cross-refs, token compression, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart, Quick Reference
 
-**Task 9: Refactor gitflow-precommit**
+**Task 9: Refactor gf-precommit**
 
 | Field | Value |
 |-------|-------|
@@ -282,7 +282,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (no auto-write hooks, no --fix without confirmation), prohibition list, red flags, keywords, cross-refs, token compression, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart, Quick Reference
 
-**Task 10: Refactor gitflow-release**
+**Task 10: Refactor gf-release**
 
 | Field | Value |
 |-------|-------|
@@ -295,7 +295,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 11: Refactor gitflow-repo**
+**Task 11: Refactor gf-repo**
 
 | Field | Value |
 |-------|-------|
@@ -308,7 +308,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, token compression (900+ → < 500), testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 12: Refactor gitflow-autoreport-bug**
+**Task 12: Refactor gf-autoreport-bug**
 
 | Field | Value |
 |-------|-------|
@@ -321,7 +321,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description (currently workflow description), red flags, rationalization table, testability hooks
 P1 items: structured template, token compression, Quick Reference, See Also
 
-**Task 13: Refactor gitflow-issue**
+**Task 13: Refactor gf-issue**
 
 | Field | Value |
 |-------|-------|
@@ -334,7 +334,7 @@ P1 items: structured template, token compression, Quick Reference, See Also
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart (subcommand selection), Quick Reference
 
-**Task 14: Refactor gitflow-issue-triage**
+**Task 14: Refactor gf-issue-triage**
 
 | Field | Value |
 |-------|-------|
@@ -347,7 +347,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, idempotency declaration, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, flowchart, Quick Reference
 
-**Task 15: Refactor gitflow-label-milestone**
+**Task 15: Refactor gf-label-milestone**
 
 | Field | Value |
 |-------|-------|
@@ -360,7 +360,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference, split recommendation
 
-**Task 16: Refactor gitflow-issue-review**
+**Task 16: Refactor gf-issue-review**
 
 | Field | Value |
 |-------|-------|
@@ -377,7 +377,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 
 #### Batch C: Low-Risk Skills (read-only)
 
-**Task 17: Refactor gitflow-pipeline-analyzer**
+**Task 17: Refactor gf-pipeline-analyzer**
 
 | Field | Value |
 |-------|-------|
@@ -390,7 +390,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (read-only declaration), prohibition list, red flags, keywords, cross-refs, token compression, testability hooks
 P1 items: structured template, error handling, preconditions, Quick Reference
 
-**Task 18: Refactor gitflow-pr-create**
+**Task 18: Refactor gf-pr-create**
 
 | Field | Value |
 |-------|-------|
@@ -403,7 +403,7 @@ P1 items: structured template, error handling, preconditions, Quick Reference
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 19: Refactor gitflow-pr-review**
+**Task 19: Refactor gf-pr-review**
 
 | Field | Value |
 |-------|-------|
@@ -416,7 +416,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (distinguish from pr-inline-review), prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 20: Refactor gitflow-pr**
+**Task 20: Refactor gf-pr**
 
 | Field | Value |
 |-------|-------|
@@ -429,7 +429,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (delegation model to child skills), prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference, delegation rules
 
-**Task 21: Refactor gitflow-issue-create**
+**Task 21: Refactor gf-issue-create**
 
 | Field | Value |
 |-------|-------|
@@ -442,7 +442,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries, prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 22: Refactor gitflow-label-stats**
+**Task 22: Refactor gf-label-stats**
 
 | Field | Value |
 |-------|-------|
@@ -455,7 +455,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (read-only, no inference), prohibition list, red flags, keywords, cross-refs, token compression, testability hooks
 P1 items: structured template, error handling, preconditions, Quick Reference
 
-**Task 23: Refactor gitflow-repo-onboarding**
+**Task 23: Refactor gf-repo-onboarding**
 
 | Field | Value |
 |-------|-------|
@@ -468,7 +468,7 @@ P1 items: structured template, error handling, preconditions, Quick Reference
 P0 items: description, boundaries (no auto-write files), prohibition list, red flags, keywords, cross-refs, token compression (968 → < 500), testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 24: Refactor gitflow-weekly-report**
+**Task 24: Refactor gf-weekly-report**
 
 | Field | Value |
 |-------|-------|
@@ -481,7 +481,7 @@ P1 items: structured template, error handling, preconditions, rationalization ta
 P0 items: description, boundaries (no fabrication, no performance evaluation), prohibition list, red flags, keywords, cross-refs, token compression, testability hooks
 P1 items: structured template, error handling, preconditions, Quick Reference
 
-**Task 25: Refactor gitflow-auth**
+**Task 25: Refactor gf-auth**
 
 | Field | Value |
 |-------|-------|
@@ -494,7 +494,7 @@ P1 items: structured template, error handling, preconditions, Quick Reference
 P0 items: description, boundaries (token safety), prohibition list, red flags, keywords, cross-refs, testability hooks
 P1 items: structured template, error handling, preconditions, rationalization table, Quick Reference
 
-**Task 26: Refactor gitflow-commit**
+**Task 26: Refactor gf-commit**
 
 | Field | Value |
 |-------|-------|

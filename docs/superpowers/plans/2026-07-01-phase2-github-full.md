@@ -84,16 +84,16 @@ gf/
 │   ├── commit.rs               # 新增：commit 命令模块
 │   └── mod.rs                  # 修改：新增模块声明
 ├── skills/
-│   ├── gitflow-issue/SKILL.md          # 新增：Issue 核心命令层
-│   ├── gitflow-pr/SKILL.md             # 新增：PR 核心命令层
-│   ├── gitflow-release/SKILL.md        # 新增：Release 核心命令层
-│   ├── gitflow-auth/SKILL.md           # 新增：Auth 核心命令层
-│   ├── gitflow-review/SKILL.md         # 新增：Review 核心命令层
-│   ├── gitflow-label-milestone/SKILL.md  # 新增：标签/里程碑核心命令层
-│   ├── gitflow-commit/SKILL.md         # 新增：Commit 核心命令层
-│   ├── gitflow-issue-create/SKILL.md   # 新增：引导创建 Issue
-│   ├── gitflow-pr-create/SKILL.md      # 新增：引导创建 PR
-│   └── gitflow-pr-review/SKILL.md      # 新增：PR 工程审查
+│   ├── gf-issue/SKILL.md          # 新增：Issue 核心命令层
+│   ├── gf-pr/SKILL.md             # 新增：PR 核心命令层
+│   ├── gf-release/SKILL.md        # 新增：Release 核心命令层
+│   ├── gf-auth/SKILL.md           # 新增：Auth 核心命令层
+│   ├── gf-review/SKILL.md         # 新增：Review 核心命令层
+│   ├── gf-label-milestone/SKILL.md  # 新增：标签/里程碑核心命令层
+│   ├── gf-commit/SKILL.md         # 新增：Commit 核心命令层
+│   ├── gf-issue-create/SKILL.md   # 新增：引导创建 Issue
+│   ├── gf-pr-create/SKILL.md      # 新增：引导创建 PR
+│   └── gf-pr-review/SKILL.md      # 新增：PR 工程审查
 └── scripts/
     └── smoke-test.sh           # 修改：扩展冒烟测试覆盖新增命令
 ```
@@ -369,53 +369,53 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 **Dependencies:** Task 11（所有 CLI 命令就绪）
 
-- [ ] **Step 1: 新建 gitflow-issue/SKILL.md**
+- [ ] **Step 1: 新建 gf-issue/SKILL.md**
   - 封装 `gitflow issue {create,list,view,close,reopen,comment,label}` 的调用方式
   - 包含参数说明和 2-3 个典型场景
 
-- [ ] **Step 2: 新建 gitflow-pr/SKILL.md**
+- [ ] **Step 2: 新建 gf-pr/SKILL.md**
   - 封装 `gitflow pr {create,list,view,close,reopen,comment,merge,checkout,ready,wip,sync}`
 
-- [ ] **Step 3: 新建 gitflow-release/SKILL.md**
+- [ ] **Step 3: 新建 gf-release/SKILL.md**
   - 封装 `gitflow release {create,list,view,edit,upload,download,delete}`
 
-- [ ] **Step 4: 新建 gitflow-auth/SKILL.md**
+- [ ] **Step 4: 新建 gf-auth/SKILL.md**
   - 封装 `gitflow auth {login,logout,status,token}`
 
-- [ ] **Step 5: 新建 gitflow-review/SKILL.md**
+- [ ] **Step 5: 新建 gf-review/SKILL.md**
   - 封装 `gitflow review {comment,approve,request-changes,submit}`
 
-- [ ] **Step 6: 新建 gitflow-label-milestone/SKILL.md**
+- [ ] **Step 6: 新建 gf-label-milestone/SKILL.md**
   - 封装 `gitflow label` 和 `gitflow milestone` 命令
 
-- [ ] **Step 7: 新建 gitflow-commit/SKILL.md**
+- [ ] **Step 7: 新建 gf-commit/SKILL.md**
   - 封装 `gitflow commit {view,diff,patch,comment}`
 
 > **Commit:** `feat(skills): add core command layer skills for all resource types (#N)`
 
 ### Task 13: skills/ — 创建工作流层 Skills
 
-**Description:** 新建 3 个工作流层 Skill 文件（gitflow-issue-create, gitflow-pr-create, gitflow-pr-review）和 gitflow-security-check。
+**Description:** 新建 3 个工作流层 Skill 文件（gf-issue-create, gf-pr-create, gf-pr-review）和 gf-security-check。
 
 **Dependencies:** Task 12
 
-- [ ] **Step 1: 新建 gitflow-issue-create/SKILL.md**
+- [ ] **Step 1: 新建 gf-issue-create/SKILL.md**
   - 引导用户填写 Issue 模板（标题、描述、标签、里程碑）
   - 调用 `gitflow issue create` 创建
   - 输出 Issue URL
 
-- [ ] **Step 2: 新建 gitflow-pr-create/SKILL.md**
+- [ ] **Step 2: 新建 gf-pr-create/SKILL.md**
   - 检查当前分支 + 变更
   - 引导填写 PR 标题和描述（conventional commits 格式）
   - 检查 base branch 是否最新
   - 调用 `gitflow pr create` 创建
 
-- [ ] **Step 3: 新建 gitflow-pr-review/SKILL.md**
+- [ ] **Step 3: 新建 gf-pr-review/SKILL.md**
   - 6 维度审查清单（代码正确性、安全性、性能、可维护性、测试覆盖、文档）
   - 调用 `gitflow pr view` 获取 PR 详情
   - 调用 `gitflow review {approve,request-changes,comment}` 提交审查结果
 
-- [ ] **Step 4: 新建 gitflow-security-check/SKILL.md**
+- [ ] **Step 4: 新建 gf-security-check/SKILL.md**
   - 安全审计 checklist（密钥硬编码检查、依赖漏洞、输入验证）
   - 调用 `cargo audit` 进行检查
 

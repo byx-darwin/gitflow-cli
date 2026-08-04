@@ -1,4 +1,4 @@
-//! Structure verification tests for Phase 1 (needs clarification) of the gitflow-workflow SKILL.md.
+//! Structure verification tests for Phase 1 (needs clarification) of the gf-workflow SKILL.md.
 
 mod common;
 
@@ -62,8 +62,8 @@ fn test_should_contain_brainstorming_skill_reference() {
 fn test_should_contain_issue_create_skill_reference() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("gitflow-issue-create"),
-        "SKILL.md must reference 'gitflow-issue-create' skill"
+        content.contains("gf-issue-create"),
+        "SKILL.md must reference 'gf-issue-create' skill"
     );
 }
 
@@ -71,7 +71,7 @@ fn test_should_contain_issue_create_skill_reference() {
 fn test_should_contain_issue_review_skill_reference() {
     let content = common::load_skill_md();
     assert!(
-        content.contains("gitflow-issue-review"),
-        "SKILL.md must reference 'gitflow-issue-review' skill"
+        content.contains("gf-issue-review"),
+        "SKILL.md must reference 'gf-issue-review' skill"
     );
 }

@@ -1,7 +1,7 @@
 # Dogfooding Summary — wf-2026-07-31-001（Issue #97 / PR #112）
 
 **Date:** 2026-08-01
-**Executor:** byx-darwin（+ Claude gitflow-workflow 编排）
+**Executor:** byx-darwin（+ Claude gf-workflow 编排）
 **Result:** PASS（范围化：只读 / 已演练项）
 **Release Decision:** N/A（本 PR 非发布；发布风险项归入 #97-B 的发布前闸门）
 

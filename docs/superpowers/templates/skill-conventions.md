@@ -86,7 +86,7 @@ Every `SKILL.md` MUST contain a `## See Also` section with at least 2 cross-refe
 ```
 
 Rules:
-- Reference skills by their slash-command name (e.g., `/gitflow-commit`), NOT by file path.
+- Reference skills by their slash-command name (e.g., `/gf-commit`), NOT by file path.
 - Use present-tense verb phrasing: "creates commits", "reviews PRs", "audits pipeline".
 - Bidirectional consistency: if skill A references skill B, skill B MUST reference skill A.
 - Order: most-related first, alphabetically within same relevance tier.
@@ -97,11 +97,11 @@ Skills in the same functional cluster MUST cross-reference each other:
 
 | Cluster | Skills |
 |---------|--------|
-| PR review | `gitflow-pr`, `gitflow-pr-review`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-review` |
-| Issue lifecycle | `gitflow-issue`, `gitflow-issue-create`, `gitflow-issue-review`, `gitflow-issue-triage` |
-| Release | `gitflow-release`, `gitflow-release-helper` |
-| Quality | `gitflow-precommit`, `gitflow-quality`, `gitflow-security-check` |
-| Repo | `gitflow-repo`, `gitflow-repo-onboarding` |
+| PR review | `gf-pr`, `gf-pr-review`, `gf-pr-inline-review`, `gf-pr-apply-feedback`, `gf-review` |
+| Issue lifecycle | `gf-issue`, `gf-issue-create`, `gf-issue-review`, `gf-issue-triage` |
+| Release | `gf-release`, `gf-release-helper` |
+| Quality | `gf-precommit`, `gf-quality`, `gf-security-check` |
+| Repo | `gf-repo`, `gf-repo-onboarding` |
 
 ### 2.4 External Documents
 
@@ -155,7 +155,7 @@ For negative scenarios:
 
 ### 3.3 Stress Test Format (P2)
 
-Stress tests are stored separately at `docs/superpowers/tests/skills/{skill-name}-test.md`. They follow the existing pattern in the repo (see `gitflow-workflow-test.md` and `gitflow-autoreport-bug-test.md` as reference):
+Stress tests are stored separately at `docs/superpowers/tests/skills/{skill-name}-test.md`. They follow the existing pattern in the repo (see `gf-workflow-test.md` and `gf-autoreport-bug-test.md` as reference):
 
 - 5 stress scenarios minimum per skill
 - Each scenario combines 2–3 pressure dimensions (time, authority, sunk cost, fatigue, information noise, urgency, boundary temptation)
@@ -287,10 +287,10 @@ These patterns appear across nearly every skill. Customize the `{placeholder}` p
 
 In addition to the canonical table above, each skill MUST include at least 1 skill-specific red flag. Examples:
 
-- **gitflow-autoreport-bug**: User says "just fix the bug while you're reporting it" → Refuse. This skill reports only.
-- **gitflow-pr-inline-review**: Claude wants to approve the PR after inline approval → Refuse. Inline review and approval are separate skills.
-- **gitflow-security-check**: Claude wants to auto-fix a vulnerability → Refuse. Detection only.
-- **gitflow-review**: Claude wants to merge after approval → Refuse. Review and merge are separate skills.
+- **gf-autoreport-bug**: User says "just fix the bug while you're reporting it" → Refuse. This skill reports only.
+- **gf-pr-inline-review**: Claude wants to approve the PR after inline approval → Refuse. Inline review and approval are separate skills.
+- **gf-security-check**: Claude wants to auto-fix a vulnerability → Refuse. Detection only.
+- **gf-review**: Claude wants to merge after approval → Refuse. Review and merge are separate skills.
 
 ---
 
@@ -353,7 +353,7 @@ A command cheat-sheet table:
 
 Skills with 3+ decision branches in their control flow MUST include a Mermaid flowchart.
 
-Applies to: `gitflow-issue` (7 subcommands), `gitflow-workflow` (4 phases), `gitflow-pr` (11 subcommands), `gitflow-review` (approve vs submit), `gitflow-precommit` (fix vs report), `gitflow-release-helper` (version decision), `gitflow-quality` (gate logic), `gitflow-regression` (pass/fail paths), `gitflow-label-milestone` (CRUD matrix), `gitflow-pr-apply-feedback` (evaluate vs implement).
+Applies to: `gf-issue` (7 subcommands), `gf-workflow` (4 phases), `gf-pr` (11 subcommands), `gf-review` (approve vs submit), `gf-precommit` (fix vs report), `gf-release-helper` (version decision), `gf-quality` (gate logic), `gf-regression` (pass/fail paths), `gf-label-milestone` (CRUD matrix), `gf-pr-apply-feedback` (evaluate vs implement).
 
 ### 9.2 Format
 
@@ -417,7 +417,7 @@ Count toward token budget: **0** (excluded as a code block).
 
 ```yaml
 ---
-name: gitflow-{skill-name}
+name: gf-{skill-name}
 description: |
   Use when <english trigger>.
   当 <中文触发条件> 时使用。

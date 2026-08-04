@@ -14,6 +14,6 @@ use std::fs;
 )]
 pub fn load_skill_md() -> String {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let path = format!("{manifest_dir}/../../skills/gitflow-workflow/SKILL.md");
+    let path = format!("{manifest_dir}/../../skills/gf-workflow/SKILL.md");
     fs::read_to_string(&path).unwrap_or_else(|e| panic!("Failed to read SKILL.md at {path}: {e}"))
 }
