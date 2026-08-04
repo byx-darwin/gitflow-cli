@@ -1233,7 +1233,7 @@ mod tests {
             .unwrap();
 
         // The returned id must be the NEW comment's id, not a stale one
-        assert_eq!(result.id, 9999999999);
+        assert_eq!(result.id, 9_999_999_999);
         assert_eq!(result.body, "This is the NEW comment");
         assert_eq!(result.author.login, "testuser");
     }
