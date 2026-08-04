@@ -652,7 +652,7 @@ post_release() {
     echo -e "${GREEN}=== Release Complete ===${NC}"
     echo ""
     echo "Tag:            v${RELEASE_VERSION}"
-    echo "Release URL:    https://github.com/byx-darwin/gitflow-cli/releases/tag/v${RELEASE_VERSION}"
+    echo "Release URL:    https://github.com/byx-darwin/gf/releases/tag/v${RELEASE_VERSION}"
     echo ""
     echo "Next steps:"
     echo "  • GitHub Release should be auto-created by CI"
@@ -690,7 +690,7 @@ print_rehearsal_report() {
 main() {
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   gitflow-cli Release Workflow         ║${NC}"
+    echo -e "${CYAN}║   gf Release Workflow         ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
     echo ""
 

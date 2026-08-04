@@ -2,19 +2,19 @@
 # generate-completions.sh — 为 bash/zsh/fish 预生成 shell 补全脚本
 #
 # 功能：
-#   生成 gitflow-cli 三种 shell 的 tab 补全文件，输出到 `completions/`
+#   生成 gf 三种 shell 的 tab 补全文件，输出到 `completions/`
 #   目录，供打包分发或手工 source 使用。
 #
 # 二进制解析优先级：
-#   1. `target/release/gitflow-cli`   (release 构建产物)
-#   2. `target/debug/gitflow-cli`     (debug 构建产物)
-#   3. `gitflow-cli`                  (PATH 中可执行的安装版本)
+#   1. `target/release/gf`   (release 构建产物)
+#   2. `target/debug/gf`     (debug 构建产物)
+#   3. `gf`                  (PATH 中可执行的安装版本)
 #
 # 用法：
 #   ./scripts/generate-completions.sh
 #   make completions
 #
-# 依赖：bash 5+, gitflow-cli 二进制（任意来源）
+# 依赖：bash 5+, gf 二进制（任意来源）
 
 set -euo pipefail
 
@@ -23,7 +23,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 readonly SCRIPT_NAME="generate-completions.sh"
-readonly BINARY_NAME="gitflow-cli"
+readonly BINARY_NAME="gf"
 readonly OUTPUT_DIR="completions"
 
 # ---------------------------------------------------------------------------
@@ -89,17 +89,17 @@ main() {
 
     mkdir -p "$OUTPUT_DIR"
 
-    generate_for_shell "bash" "gitflow-cli.bash" "$binary"
-    generate_for_shell "zsh"  "_gitflow-cli"     "$binary"
-    generate_for_shell "fish" "gitflow-cli.fish" "$binary"
+    generate_for_shell "bash" "gf.bash" "$binary"
+    generate_for_shell "zsh"  "_gf"     "$binary"
+    generate_for_shell "fish" "gf.fish" "$binary"
 
     echo ""
     success "所有 shell 补全已生成到 ./$OUTPUT_DIR/"
     echo ""
     echo "使用方式："
-    echo "  bash: source $OUTPUT_DIR/gitflow-cli.bash"
+    echo "  bash: source $OUTPUT_DIR/gf.bash"
     echo "  zsh:  将 $OUTPUT_DIR 加入 fpath，例如 fpath=($OUTPUT_DIR \$fpath)"
-    echo "  fish: cp $OUTPUT_DIR/gitflow-cli.fish ~/.config/fish/completions/"
+    echo "  fish: cp $OUTPUT_DIR/gf.fish ~/.config/fish/completions/"
 }
 
 main "$@"
