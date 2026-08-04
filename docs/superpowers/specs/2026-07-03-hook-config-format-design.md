@@ -163,7 +163,7 @@ if args.report_bug {
 
 ## 验证方式
 
-1. `cargo test -p gitflow-cli --lib` — 新测试全部通过
+1. `cargo test -p gf --lib` — 新测试全部通过
 2. `cargo clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` — 无新警告
 3. 手动运行 `gitflow skills install -f` 后检查 `.claude/settings.json` 格式正确
 4. 手动运行 `gitflow skills install --report-bug=false` 验证 hook 未注册

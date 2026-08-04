@@ -41,7 +41,7 @@ Use this template when Phase 2 (Plan) generates the plan document via `superpowe
 ### Task N+2: Delivery
 - [ ] Create PR via `/gitflow-pr-create`
 - [ ] PR review via `/gitflow-pr-review`
-- [ ] Merge via `gitflow-cli pr merge`
+- [ ] Merge via `gf pr merge`
 
 ### Task N+3: Closure
 - [ ] Set Issue status to done
@@ -54,7 +54,7 @@ Use this template when Phase 2 (Plan) generates the plan document via `superpowe
 ### Gate 1 → 2 (Requirement → Plan)
 - [ ] Issue URL accessible
 - [ ] Requirement analysis posted as Issue comment
-- [ ] Verify: `gitflow-cli issue view <number>`
+- [ ] Verify: `gf issue view <number>`
 
 ### Gate 2 → 3 (Plan → Execution)
 - [ ] Plan document exists
@@ -90,14 +90,14 @@ cat > /tmp/phase-report.md << 'REPORT'
 ✅ Gate passed — proceed to Phase N+1
 REPORT
 
-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+gf issue comment <number> --body-file /tmp/phase-report.md
 rm -f /tmp/phase-report.md
 ```
 
 ## Rollback Template
 
 ```bash
-gitflow-cli issue comment <number> --body "## Rollback
+gf issue comment <number> --body "## Rollback
 
 **From Phase X → Phase Y**
 

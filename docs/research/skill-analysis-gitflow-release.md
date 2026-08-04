@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-release` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "gitflow-cli 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除"——这是功能描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节 |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -128,7 +128,7 @@
    - 如何判断 "Claude 正确选择了 create/view/edit/upload/download/delete 子命令"？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
-   - 不使用 skill 时，Claude 可能使用 `gh release` 或 `hub release` 而非 `gitflow-cli release`
+   - 不使用 skill 时，Claude 可能使用 `gh release` 或 `hub release` 而非 `gf release`
    - 不使用 skill 时，Claude 可能不知道 upload/download 的具体参数格式
 
 3. **无压力测试场景**：应覆盖：
@@ -162,7 +162,7 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非功能描述**：
-   - ❌ 当前：`gitflow-cli 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除`
+   - ❌ 当前：`gf 的 Release 操作命令封装，支持创建、列表、查看、编辑、上传/下载资源和删除`
    - ✅ 应为：`Use when the user needs to manage releases: create, list, view, edit, upload/download assets, or delete a release on GitHub/GitLab/GitCode`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
@@ -201,7 +201,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加错误处理章节 | D1 | 覆盖 tag 不存在、Release 不存在、权限不足、网络超时、资源文件不存在等异常场景 |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gitflow-cli` 是否可用、是否在 git 仓库中、认证状态 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gf` 是否可用、是否在 git 仓库中、认证状态 |
 | P1-4 | 添加红旗列表 | D2 | 标识需要用户确认的场景（删除 Release、覆盖已有资产、正式发布等） |
 | P1-5 | 添加安全确认流程 | D2 | 删除操作、覆盖操作、正式发布操作前必须用户二次确认 |
 

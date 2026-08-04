@@ -2,7 +2,7 @@
 
 **日期**：2026-07-06
 **状态**：设计阶段
-**作者**：gitflow-cli team
+**作者**：gf team
 
 ---
 
@@ -69,7 +69,7 @@ gitflow-workflow
 
 ```bash
 # 获取所有 open issues
-gitflow-cli issue list --state open --limit 100 --output json
+gf issue list --state open --limit 100 --output json
 ```
 
 按类型分组显示：
@@ -81,7 +81,7 @@ gitflow-cli issue list --state open --limit 100 --output json
 
 ```bash
 # 获取 bug 类型的 open issues
-gitflow-cli issue list --state open --label bug --limit 50 --output json
+gf issue list --state open --label bug --limit 50 --output json
 ```
 
 按优先级排序显示。
@@ -184,7 +184,7 @@ gitflow-cli issue list --state open --label bug --limit 50 --output json
 - [ ] 创建 PR：调用 gitflow-pr-create skill
 - [ ] PR 审查：调用 gitflow-pr-review skill
 - [ ] 审查反馈：调用 gitflow-pr-apply-feedback skill（如需要）
-- [ ] 合并 PR：gitflow-cli pr merge
+- [ ] 合并 PR：gf pr merge
 
 ### Task N+2: 收尾
 - [ ] 同步 Issue 状态为 done

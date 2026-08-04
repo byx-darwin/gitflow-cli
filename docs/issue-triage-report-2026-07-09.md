@@ -49,4 +49,4 @@
 
 ---
 
-**报告生成工具**: gitflow-cli issue triage
+**报告生成工具**: gf issue triage

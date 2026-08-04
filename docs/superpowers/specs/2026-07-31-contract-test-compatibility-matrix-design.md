@@ -82,9 +82,9 @@ pub enum CoreError {
 
 | crate | 现有类型 | 迁移方式 |
 |-------|---------|---------|
-| `gitflow-cli-github` | `GhError` + `parse_gh_error()` | `parse_gh_error()` 返回 `PlatformCliError`，删除 `GhError` |
-| `gitflow-cli-gitlab` | `GlabError` + `parse_glab_error()` | 同上 |
-| `gitflow-cli-gitcode` | `GitcodeError` + `parse_gitcode_error()` | 同上 |
+| `gf-github` | `GhError` + `parse_gh_error()` | `parse_gh_error()` 返回 `PlatformCliError`，删除 `GhError` |
+| `gf-gitlab` | `GlabError` + `parse_glab_error()` | 同上 |
+| `gf-gitcode` | `GitcodeError` + `parse_gitcode_error()` | 同上 |
 
 各 `parse_*_error()` 的解析逻辑不变（JSON → 回退文本），但：
 - `user_message` 映射为中文（常见错误码查表 + 通用回退）

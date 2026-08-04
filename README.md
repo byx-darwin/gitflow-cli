@@ -1,4 +1,4 @@
-# gitflow-cli
+# gf
 
 [![CI](https://img.shields.io/github/actions/workflow/status/byx-darwin/gitflow-cli/ci.yml?branch=main)](https://github.com/byx-darwin/gitflow-cli/actions)
 [![Release](https://img.shields.io/github/v/release/byx-darwin/gitflow-cli)](https://github.com/byx-darwin/gitflow-cli/releases/latest)
@@ -7,28 +7,28 @@
 
 **跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。**
 
-![gitflow-cli 演示](docs/assets/demo.svg)
+![gf 演示](docs/assets/demo.svg)
 
 ## 安装
 
 ```bash
 # Homebrew (macOS)
 brew tap byx-darwin/gitflow-cli
-brew install gitflow-cli
+brew install gf
 
 # 或 Cargo
-cargo install gitflow-cli
+cargo install gf
 ```
 
 ## 30 秒上手
 
 ```bash
 # 1. 安装 Skills（项目级，跟随仓库）
-gitflow-cli skills install
+gf skills install
 
 # 2. 验证
-gitflow-cli skills list     # 应看到 26 个 gitflow-* skills
-gitflow-cli --version
+gf skills list     # 应看到 26 个 gitflow-* skills
+gf --version
 
 # 3. 在 Agent 平台中进入四阶段工作流
 /gitflow-workflow 我要做 X
@@ -38,7 +38,7 @@ gitflow-cli --version
 
 ### Git 平台
 
-`gitflow-cli` 统一封装三大 Git 平台差异，`--platform` 自动检测或手动指定：
+`gf` 统一封装三大 Git 平台差异，`--platform` 自动检测或手动指定：
 
 | 平台 | CLI 依赖 | 特性 |
 |------|---------|------|
@@ -47,8 +47,8 @@ gitflow-cli --version
 | **GitCode** | `gitcode` (v0.6.0+) | Issue / PR(MR) / Release / Review / Pipeline / Repo |
 
 ```bash
-gitflow-cli issue list                                  # 自动检测（基于 git remote）
-gitflow-cli issue list --platform gitlab --output text  # 手动指定平台
+gf issue list                                  # 自动检测（基于 git remote）
+gf issue list --platform gitlab --output text  # 手动指定平台
 ```
 
 详见官网[兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/)。
@@ -80,17 +80,17 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 
 | 命令 | 用途 |
 |------|------|
-| `gitflow-cli issue {create,list,view,close,reopen,comment}` | Issue 管理 |
-| `gitflow-cli pr {create,list,view,close,merge,checkout}` | PR 管理 |
-| `gitflow-cli release {create,list,view,edit}` | 发布管理 |
-| `gitflow-cli review {comment,approve,request-changes,submit}` | 代码审查 |
-| `gitflow-cli auth {login,logout,status,token}` | 认证管理 |
-| `gitflow-cli pipeline {status,logs,jobs,report}` | CI/CD 流水线 |
-| `gitflow-cli commit {view,diff,patch,comment}` | 提交操作 |
-| `gitflow-cli label/milestone` | 标签/里程碑管理 |
-| `gitflow-cli repo {clone,list,create,stats,sync,view}` | 仓库操作 |
-| `gitflow-cli skills {install,list,uninstall}` | Skills 管理 |
-| `gitflow-cli completions {bash,zsh,fish}` | Shell 补全 |
+| `gf issue {create,list,view,close,reopen,comment}` | Issue 管理 |
+| `gf pr {create,list,view,close,merge,checkout}` | PR 管理 |
+| `gf release {create,list,view,edit}` | 发布管理 |
+| `gf review {comment,approve,request-changes,submit}` | 代码审查 |
+| `gf auth {login,logout,status,token}` | 认证管理 |
+| `gf pipeline {status,logs,jobs,report}` | CI/CD 流水线 |
+| `gf commit {view,diff,patch,comment}` | 提交操作 |
+| `gf label/milestone` | 标签/里程碑管理 |
+| `gf repo {clone,list,create,stats,sync,view}` | 仓库操作 |
+| `gf skills {install,list,uninstall}` | Skills 管理 |
+| `gf completions {bash,zsh,fish}` | Shell 补全 |
 
 支持 `--platform github|gitlab|gitcode` 与 `--output json|text|toon|auto`。
 
@@ -107,7 +107,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 
 - **步骤化工作流**：每个 skill 有明确步骤顺序，不跳步。
 - **先验证再行动**：PR 创建前检查分支与变更；Issue 创建前引导填写模板。
-- **生态互补**：本地开发循环（Superpowers）+ 远端协作（gitflow-cli）明确分工。
+- **生态互补**：本地开发循环（Superpowers）+ 远端协作（gf）明确分工。
 - **多 Agent 兼容**：skills 可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot。
 - **质量闸门**：build → test → coverage → format → static → pre-commit 全部通过才能交付。
 

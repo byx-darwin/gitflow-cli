@@ -55,7 +55,7 @@
 
 3. **Token 数超标**（约 680 词）：对于 Stop Hook 触发的 skill（非高频对话加载），这个体量可以接受，但如果要适配"Claude 自主加载"的路径，需要压缩到 < 500 词。
 
-4. **代码块中的 bash 逻辑过于具体**：Step 2 的 auth cache 检查是一个完整的 shell if-then 块——如果 skill 的目标是让 Claude 执行，这段 shell 逻辑是合适的；如果目标是让 Claude 调用 `gitflow-cli` 命令完成，这段就是越界（把实现细节写在 skill 里）。
+4. **代码块中的 bash 逻辑过于具体**：Step 2 的 auth cache 检查是一个完整的 shell if-then 块——如果 skill 的目标是让 Claude 执行，这段 shell 逻辑是合适的；如果目标是让 Claude 调用 `gf` 命令完成，这段就是越界（把实现细节写在 skill 里）。
 
 ### 2.3 评分：⚠️ 需改进
 

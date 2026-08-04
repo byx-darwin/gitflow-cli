@@ -6,7 +6,7 @@
 
 ## 概述
 
-为 `gitflow-cli skills install` 添加"共建计划"功能。用户加入共建计划后，CLI 在非交互模式下遇到的错误将自动上报为 GitHub Issue，形成用户-项目的正向反馈循环。
+为 `gf skills install` 添加"共建计划"功能。用户加入共建计划后，CLI 在非交互模式下遇到的错误将自动上报为 GitHub Issue，形成用户-项目的正向反馈循环。
 
 ## 动机
 
@@ -19,7 +19,7 @@
 
 ## 核心场景
 
-共建计划主要服务于 **Agent/CI 工作流**（Claude Code / Codex 等非交互调用 gitflow-cli 的场景）。在这些场景中，CLI 错误对用户不可见，自动上报是唯一的质量反馈渠道。
+共建计划主要服务于 **Agent/CI 工作流**（Claude Code / Codex 等非交互调用 gf 的场景）。在这些场景中，CLI 错误对用户不可见，自动上报是唯一的质量反馈渠道。
 
 普通控制台使用（交互模式）不受影响——用户能直接看到错误，不需要自动上报。
 
@@ -61,7 +61,7 @@ Install 阶段:
     │       └── gh binary 不存在 → 打印安装指引
 
 运行阶段（CLI 报错）:
-  gitflow-cli <command> 失败（非交互模式）
+  gf <command> 失败（非交互模式）
     ├── error_reporter 检查 co_contribution 标记
     │   ├── 有标记 → 写 pending.json
     │   └── 无标记 → 静默跳过（不上报）
@@ -96,7 +96,7 @@ Install 阶段:
 }
 ```
 
-`gitflow` 字段为 gitflow-cli 自定义命名空间，不影响 Claude Code 或其他 Agent 的配置解析。
+`gitflow` 字段为 gf 自定义命名空间，不影响 Claude Code 或其他 Agent 的配置解析。
 
 ## 详细设计
 
@@ -113,7 +113,7 @@ if !std::io::stderr().is_terminal() {
 
 // 2. 打印共建计划说明
 println!();
-println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。");
 println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
 println!();
 
@@ -306,7 +306,7 @@ flowchart TD
 
 Skill 正文中增加未登录处理说明：
 
-> **Auth 失败处理**：当 `gitflow-cli auth status` 返回未登录时，不要尝试创建 Issue。改为：
+> **Auth 失败处理**：当 `gf auth status` 返回未登录时，不要尝试创建 Issue。改为：
 > 1. 输出登录提示：`gh auth login`
 > 2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`
 > 3. 格式化 pending.json 内容为可复制的 Issue 模板

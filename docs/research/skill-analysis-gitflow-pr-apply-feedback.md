@@ -77,12 +77,12 @@
    - 属于完整叙事性示例——描述了整个"故事"（从获取到推送），应提炼为模式化示例：
      ```
      # Pattern: view PR → checkout branch → fix per comment → commit → mark resolved → push → notify
-     gitflow-cli pr view <pr>
+     gf pr view <pr>
      git checkout <branch>
      # for each comment: edit → test → commit
-     gitflow-cli pr resolve-comment <pr> --comment-id <id>
+     gf pr resolve-comment <pr> --comment-id <id>
      git push origin <branch>
-     gitflow-cli pr comment <pr> --body "<summary>"
+     gf pr comment <pr> --body "<summary>"
      ```
 
 ### 2.3 评分：⚠️ 需改进
@@ -276,7 +276,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为 Superpowers 标准结构 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加"合理化借口"反制表格 | D2 | 针对5 个常见跳过确认的借口提供反制（"小改动不用确认"、"紧急不用验证"等） |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证：是否在 git 仓库中、`gitflow-cli` 是否可用、是否已认证、是否有 PR 写权限 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证：是否在 git 仓库中、`gf` 是否可用、是否已认证、是否有 PR 写权限 |
 | P1-4 | 添加错误处理章节 | D1 | 覆盖：PR 不存在、无审查意见、分支切换失败、测试失败、resolve 命令失败、push 冲突等 |
 | P1-5 | 添加 Keywords 覆盖小节 | D4 | When to Use 章节下添加触发关键词列表（中英文），含同义词和工具名 |
 | P1-6 | 添加跨引用章节 | D4 | See Also 章节引用 gitflow-pr-review、gitflow-pr-create、gitflow-commit、gitflow-precommit、gitflow-quality |

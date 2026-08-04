@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-commit` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "gitflow-cli 的 Commit 操作命令封装，支持查看、差异比较、补丁导出和行内评论"——这是功能描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的 Commit 操作命令封装，支持查看、差异比较、补丁导出和行内评论"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节（仅有"命令概览"表格） |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -120,7 +120,7 @@
    - 如何判断 "Claude 正确选择了 view/diff/patch/comment 子命令"？
 
 2. **缺少基线对比**：应定义不使用 skill 时 Claude 的典型行为作为对照基线。例如：
-   - 不使用 skill 时，Claude 可能使用 `git show` 而非 `gitflow-cli commit view`
+   - 不使用 skill 时，Claude 可能使用 `git show` 而非 `gf commit view`
    - 不使用 skill 时，Claude 可能不知道可以添加行内评论
 
 3. **无压力测试场景**：应覆盖：
@@ -152,7 +152,7 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非功能描述**：
-   - ❌ 当前：`gitflow-cli 的 Commit 操作命令封装，支持查看、差异比较、补丁导出和行内评论`
+   - ❌ 当前：`gf 的 Commit 操作命令封装，支持查看、差异比较、补丁导出和行内评论`
    - ✅ 应为：`Use when the user needs to view commit details, inspect diffs/patches, or add inline comments to a specific commit line`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
@@ -188,7 +188,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 添加错误处理章节 | D1 | 覆盖无效 SHA、Commit 不存在、文件路径不匹配等异常场景 |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gitflow-cli` 是否可用、是否在 git 仓库中 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证 `gf` 是否可用、是否在 git 仓库中 |
 | P1-4 | 添加红旗列表 | D2 | 标识需要用户确认的场景（对 merge commit 评论、大文件 diff 等） |
 
 ### P2（可选改进 — 锦上添花）

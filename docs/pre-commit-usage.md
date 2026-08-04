@@ -78,7 +78,7 @@ pre-commit autoupdate
 - Prefer Makefile targets for normal development checks: `make fmt`, `make clippy`, `make lint`, and `make test`.
 - Use `pre-commit` as the local safety net before commits.
 - Do not bypass hooks unless the user explicitly asks and the reason is documented.
-- Preserve template placeholders such as `gitflow-cli`.
+- Preserve template placeholders such as `gf`.
 
 ---
 
@@ -162,4 +162,4 @@ pre-commit autoupdate
 - 日常开发优先使用 Makefile targets：`make fmt`、`make clippy`、`make lint`、`make test`。
 - `pre-commit` 作为提交前本地安全网。
 - 除非用户明确要求且记录原因，不要绕过 hooks。
-- 保留 `gitflow-cli` 等模板占位符。
+- 保留 `gf` 等模板占位符。

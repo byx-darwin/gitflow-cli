@@ -73,11 +73,11 @@ merge_co_contribution(platform)?;
 
 ```
 // Before
-🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。
+🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。
    仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。
 
 // After
-🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。
+🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。
    用户级设置，加入一次即所有项目生效。
 ```
 

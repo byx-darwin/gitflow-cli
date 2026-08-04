@@ -1,11 +1,11 @@
 # Architecture
 
-This document describes the workspace layout of `gitflow-cli` and the rationale behind it.
+This document describes the workspace layout of `gf` and the rationale behind it.
 
 ## Workspace Layout
 
 ```
-gitflow-cli/
+gf/
 ├── apps/
 │   └── cli/          # Binary crate — CLI entry point
 ├── crates/

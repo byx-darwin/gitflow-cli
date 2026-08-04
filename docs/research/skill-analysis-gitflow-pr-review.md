@@ -7,7 +7,7 @@
 
 ## Abstract
 
-The `gitflow-pr-review` skill provides a 6-dimensional code review checklist workflow. It guides the reviewer through correctness, security, performance, maintainability, test-coverage, and documentation dimensions, then invokes `gitflow-cli review` to submit the conclusion. While the checklist content is thorough and domain-appropriate, the skill is structured as a flat "checklist + sequential steps" document rather than a contract-driven Superpowers skill. It lacks trigger-accurate frontmatter, boundary declarations, test scenarios, and cross-references. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gitflow-pr-review` skill provides a 6-dimensional code review checklist workflow. It guides the reviewer through correctness, security, performance, maintainability, test-coverage, and documentation dimensions, then invokes `gf review` to submit the conclusion. While the checklist content is thorough and domain-appropriate, the skill is structured as a flat "checklist + sequential steps" document rather than a contract-driven Superpowers skill. It lacks trigger-accurate frontmatter, boundary declarations, test scenarios, and cross-references. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -24,7 +24,7 @@ The `gitflow-pr-review` skill provides a 6-dimensional code review checklist wor
 | File location | ✅ | `skills/gitflow-pr-review/SKILL.md` |
 | Language consistency | ✅ | Entirely in Chinese, no dilution |
 | Token efficiency | ✅ | ~168 lines, well under the 500-word threshold for a full guide |
-| Command examples | ✅ | Three concrete `gitflow-cli review` invocations (approve, request-changes, comment) |
+| Command examples | ✅ | Three concrete `gf review` invocations (approve, request-changes, comment) |
 | Checklist quality | ✅ | 6 dimensions with 5-6 concrete items each; maps closely to `CLAUDE.md` code-quality section |
 | Review conclusion template | ✅ | Structured markdown template with per-dimension pass/fail and inline file:line references |
 
@@ -32,7 +32,7 @@ The `gitflow-pr-review` skill provides a 6-dimensional code review checklist wor
 
 | Item | Status | Details |
 |------|--------|---------|
-| `description` format | ❌ | Current: `"6 维度代码审查工作流 — 获取 PR 详情，按清单逐项审查，调用 gitflow-cli review 提交审查结论"` — describes the *entire workflow*, not the *trigger condition*. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
+| `description` format | ❌ | Current: `"6 维度代码审查工作流 — 获取 PR 详情，按清单逐项审查，调用 gf review 提交审查结论"` — describes the *entire workflow*, not the *trigger condition*. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
 | Structural sections | ⚠️ | Missing canonical sections: `When to Use`, `Core Pattern`, `Quick Reference`, `Implementation`, `Common Mistakes`. Current structure is "checklist → linear steps → examples → notes" without layered design. |
 | Trigger keywords | ❌ | No `Trigger Keywords` section enumerating user phrases, error messages, or contextual cues. |
 | Anti-patterns present | ⚠️ | The 6-dimension checklist is presented as reference content rather than an executable algorithm. Steps 1-5 are narrative prose ("调用...记录...汇总...撰写...") rather than pattern-language with decision branches. |
@@ -41,7 +41,7 @@ The `gitflow-pr-review` skill provides a 6-dimensional code review checklist wor
 ### Recommended Description Rewrite
 
 ```yaml
-description: "Use when the user requests a code review of a Pull Request through gitflow-cli — including approval, request-changes, and comment-only reviews. Triggers on phrases like 'review PR', 'check this pull request', 'approve PR', 'request changes on PR', or direct invocation of `gitflow-cli review`."
+description: "Use when the user requests a code review of a Pull Request through gf — including approval, request-changes, and comment-only reviews. Triggers on phrases like 'review PR', 'check this pull request', 'approve PR', 'request changes on PR', or direct invocation of `gf review`."
 ```
 
 ---
@@ -80,10 +80,10 @@ Without boundary declarations, an agent loaded with `gitflow-pr-review` may:
 
 ```
 ## ✅ Responsible For
-- Fetching PR metadata and diff via `gitflow-cli pr view`
+- Fetching PR metadata and diff via `gf pr view`
 - Performing a structured 6-dimensional assessment (correctness, security, performance, maintainability, test coverage, documentation)
 - Producing a review conclusion in the prescribed markdown template
-- Submitting the conclusion via `gitflow-cli review approve`, `request-changes`, or `comment`
+- Submitting the conclusion via `gf review approve`, `request-changes`, or `comment`
 - Surfacing per-dimension findings with file:line references
 
 ## ❌ Not Responsible For
@@ -125,18 +125,18 @@ Without boundary declarations, an agent loaded with `gitflow-pr-review` may:
 
 ### Scenario 1: Happy-path feature PR approval
 Input:  user says "review PR #101"
-Expect: skill runs `gitflow-cli pr view 101`, reads the diff,
+Expect: skill runs `gf pr view 101`, reads the diff,
         evaluates all 6 dimensions, produces conclusion markdown,
-        runs `gitflow-cli review approve 101 --body "<conclusion>"`.
+        runs `gf review approve 101 --body "<conclusion>"`.
 
 ### Scenario 2: PR with security findings → request-changes
 Input:  user says "please review PR #55"
 Expect: skill detects hardcoded secret in diff, marks security as ⚠️,
-        runs `gitflow-cli review request-changes 55 --body "<concluding SECURITY: ⚠️>"`.
+        runs `gf review request-changes 55 --body "<concluding SECURITY: ⚠️>"`.
 
 ### Scenario 3: Comment-only review (no verdict)
 Input:  user says "leave a comment on PR #78, don't approve or reject"
-Expect: skill runs `gitflow-cli review comment 78 --body "<findings>"`,
+Expect: skill runs `gf review comment 78 --body "<findings>"`,
         does NOT call approve or request-changes.
 
 ### Scenario 4: User asks for inline line-level feedback
@@ -156,7 +156,7 @@ Expect: skill surfaces the CLI error message, does NOT fabricate
         a review conclusion, advises user to verify the PR number.
 
 ### Baseline (without skill)
-User manually types `gitflow-cli review approve <n> --body "LGTM"` without
+User manually types `gf review approve <n> --body "LGTM"` without
 reading the diff, without structured 6-dimensional analysis, and without
 file:line-citation discipline — low review quality, misses security issues.
 ```
@@ -184,7 +184,7 @@ file:line-citation discipline — low review quality, misses security issues.
 |----------|--------|---------|
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full 6-dimensional workflow, not the trigger condition. |
-| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "review PR", "check pull request", "approve PR", "代码审查", "pr review", `gitflow-cli review`, "LGTM". |
+| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "review PR", "check pull request", "approve PR", "代码审查", "pr review", `gf review`, "LGTM". |
 | Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-pr`, `gitflow-pr-inline-review`, `gitflow-pr-apply-feedback`, `gitflow-security-check`, `gitflow-pipeline-analyzer`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
 | Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern. |
@@ -197,8 +197,8 @@ file:line-citation discipline — low review quality, misses security issues.
 
 - Direct:   "review PR", "check pull request", "approve PR",
            "request changes on PR", "代码审查", "审查 PR"
-- CLI:      `gitflow-cli review approve`, `gitflow-cli review request-changes`,
-           `gitflow-cli review comment`
+- CLI:      `gf review approve`, `gf review request-changes`,
+           `gf review comment`
 - Symptoms: user has opened a PR and wants reviewer feedback before merging
 - Synonyms: "code review", "pull request review", "PR review",
            "look at this PR", "审查一下这个 PR"

@@ -53,7 +53,7 @@
    - 主因 1：步骤 0 嵌入完整的多语言检测脚本（shell if/elif/else，15 行）+ 多语言矩阵表（4 列 × 7 行 = 28 数据单元）
    - 主因 2：自动发布到关联 Issue 的完整 bash 脚本（~20 行）
    - 主因 3：Quality Report 模板和失败处理修复建议表
-   - 多语言矩阵的核心价值是"非 Rust 项目替代命令参考"——对于以 Rust 为主的 gitflow-cli 项目，Node/Python/Go/Java 的适配信息偶尔才用到，不应占据主要 token 预算
+   - 多语言矩阵的核心价值是"非 Rust 项目替代命令参考"——对于以 Rust 为主的 gf 项目，Node/Python/Go/Java 的适配信息偶尔才用到，不应占据主要 token 预算
    - 建议：将多语言矩阵移至 `docs/research/quality-gate-commands.md`，skill 仅保留 Rust 的 6 个核心命令 + 一行说明"非 Rust 项目参考 docs/research/quality-gate-commands.md"
 
 3. **缺少结构化快速导航**：
@@ -62,7 +62,7 @@
    - 建议：添加 Quick Reference 速查表（6 核心命令 + 环境变量说明 + 失败修复命令速查）
 
 4. **"步骤 0 检测项目语言"的定位模糊**：
-   - 对于 gitflow-cli 这个 Rust-only 项目，语言检测步骤 99% 走的都是 Rust 分支
+   - 对于 gf 这个 Rust-only 项目，语言检测步骤 99% 走的都是 Rust 分支
    - 多语言检测逻辑增加了认知负载和 token 成本，但对实际执行增益有限
    - 应简化为"项目为 Rust，使用以下命令"（硬编码 Rust 路径），保留多语言矩阵作为外部参考
 

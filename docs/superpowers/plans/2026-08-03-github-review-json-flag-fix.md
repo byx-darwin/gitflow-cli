@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 修复 `gitflow-cli review` 的全部 4 个方法在 GitHub 平台因使用不支持的 `--json` 标志而失败的问题。
+**Goal:** 修复 `gf review` 的全部 4 个方法在 GitHub 平台因使用不支持的 `--json` 标志而失败的问题。
 
 **Architecture:** 遵循 `issue.rs` 的修复模式：执行 `gh pr review` 命令（不期望 JSON 输出），然后使用 `gh api` 获取最新 review 数据，解析为 `GitHubReviewApiResponse` 并转换为 `ReviewData`。
 
-**Tech Stack:** Rust 2024, tokio, serde, async-trait, gitflow-cli-core
+**Tech Stack:** Rust 2024, tokio, serde, async-trait, gf-core
 
 ## Global Constraints
 
@@ -57,7 +57,7 @@ fn test_should_deserialize_github_review_api_response() {
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_deserialize_github_review_api_response
+cargo test --package gf-github test_should_deserialize_github_review_api_response
 ```
 
 预期：FAIL — `GitHubReviewApiResponse` 未定义
@@ -98,7 +98,7 @@ pub struct GitHubUser {
 - [ ] **Step 4: 运行测试验证通过**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_deserialize_github_review_api_response
+cargo test --package gf-github test_should_deserialize_github_review_api_response
 ```
 
 预期：PASS
@@ -132,7 +132,7 @@ fn test_should_convert_github_review_api_response_to_review_data() {
 - [ ] **Step 6: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_convert_github_review_api_response_to_review_data
+cargo test --package gf-github test_should_convert_github_review_api_response_to_review_data
 ```
 
 预期：FAIL — `From` trait 未实现
@@ -163,7 +163,7 @@ impl From<GitHubReviewApiResponse> for ReviewData {
 - [ ] **Step 8: 运行测试验证通过**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_convert_github_review_api_response_to_review_data
+cargo test --package gf-github test_should_convert_github_review_api_response_to_review_data
 ```
 
 预期：PASS
@@ -200,7 +200,7 @@ fn test_should_convert_all_review_states() {
 - [ ] **Step 10: 运行所有新测试**
 
 ```bash
-cargo test --package gitflow-cli-github
+cargo test --package gf-github
 ```
 
 预期：所有测试 PASS
@@ -326,7 +326,7 @@ async fn test_should_comment_on_pr_using_gh_api() {
 - [ ] **Step 3: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_comment_on_pr_using_gh_api
+cargo test --package gf-github test_should_comment_on_pr_using_gh_api
 ```
 
 预期：FAIL — `comment` 方法仍使用旧实现
@@ -393,7 +393,7 @@ async fn comment(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
 - [ ] **Step 5: 运行测试验证通过**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_comment_on_pr_using_gh_api
+cargo test --package gf-github test_should_comment_on_pr_using_gh_api
 ```
 
 预期：PASS
@@ -454,7 +454,7 @@ async fn test_should_approve_pr_using_gh_api() {
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_approve_pr_using_gh_api
+cargo test --package gf-github test_should_approve_pr_using_gh_api
 ```
 
 预期：FAIL
@@ -479,7 +479,7 @@ async fn test_should_handle_own_pr_approval_error() {
 - [ ] **Step 4: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_handle_own_pr_approval_error
+cargo test --package gf-github test_should_handle_own_pr_approval_error
 ```
 
 预期：FAIL
@@ -555,8 +555,8 @@ async fn approve(&self, pr_number: u64, body: Option<&str>) -> Result<ReviewData
 - [ ] **Step 6: 运行测试验证通过**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_approve_pr_using_gh_api
-cargo test --package gitflow-cli-github test_should_handle_own_pr_approval_error
+cargo test --package gf-github test_should_approve_pr_using_gh_api
+cargo test --package gf-github test_should_handle_own_pr_approval_error
 ```
 
 预期：两个测试都 PASS
@@ -616,7 +616,7 @@ async fn test_should_request_changes_using_gh_api() {
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_request_changes_using_gh_api
+cargo test --package gf-github test_should_request_changes_using_gh_api
 ```
 
 预期：FAIL
@@ -681,7 +681,7 @@ async fn request_changes(&self, pr_number: u64, body: &str) -> Result<ReviewData
 - [ ] **Step 4: 运行测试验证通过**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_request_changes_using_gh_api
+cargo test --package gf-github test_should_request_changes_using_gh_api
 ```
 
 预期：PASS
@@ -741,7 +741,7 @@ async fn test_should_submit_review_using_gh_api() {
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_submit_review_using_gh_api
+cargo test --package gf-github test_should_submit_review_using_gh_api
 ```
 
 预期：FAIL
@@ -832,7 +832,7 @@ async fn submit_review(
 - [ ] **Step 4: 运行测试验证通过**
 
 ```bash
-cargo test --package gitflow-cli-github test_should_submit_review_using_gh_api
+cargo test --package gf-github test_should_submit_review_using_gh_api
 ```
 
 预期：PASS
@@ -873,7 +873,7 @@ const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
 - [ ] **Step 2: 运行 cargo check 确保无编译错误**
 
 ```bash
-cargo check --package gitflow-cli-github
+cargo check --package gf-github
 ```
 
 预期：无错误

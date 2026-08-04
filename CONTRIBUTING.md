@@ -1,6 +1,6 @@
-# Contributing to gitflow-cli
+# Contributing to gf
 
-感谢您对 gitflow-cli 的关注！本项目是一个多平台 Git 锻造 CLI 工具，统一 GitHub、GitLab 和 GitCode 的操作接口。
+感谢您对 gf 的关注！本项目是一个多平台 Git 锻造 CLI 工具，统一 GitHub、GitLab 和 GitCode 的操作接口。
 
 ## 开发环境搭建
 
@@ -60,7 +60,7 @@ make test
 ## 项目结构
 
 ```
-gitflow-cli/
+gf/
 ├── apps/cli/          # CLI 二进制（clap + miette）
 ├── crates/
 │   ├── core/          # 领域类型 + trait 抽象
@@ -80,7 +80,7 @@ gitflow-cli/
 3. **开发**：遵循 TDD 循环，保持提交原子化
 4. **自检**：运行 `make lint && make test`
 5. **推送**：`git push origin feat/my-feature`
-6. **创建 PR**：使用 `gitflow pr create` 或 GitHub Web UI
+6. **创建 PR**：使用 `gf pr create` 或 GitHub Web UI
 7. **代码审查**：等待审查，根据反馈修改
 8. **合并**：审查通过后合并到 `main`
 
@@ -135,4 +135,4 @@ gitflow-cli/
 
 - 查阅 `CLAUDE.md` 了解完整的代码规范
 - 查阅 `specs/` 了解设计决策
-- 使用 `gitflow issue create` 提交问题
+- 使用 `gf issue create` 提交问题

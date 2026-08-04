@@ -1,4 +1,4 @@
-# gitflow-cli label / milestone 完整参考
+# gf label / milestone 完整参考
 
 > 本文档为 `gitflow-label-milestone` skill 的外部化引用。
 

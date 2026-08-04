@@ -1,4 +1,4 @@
-# gitflow-cli 多角色项目评估与产品路线图设计文档
+# gf 多角色项目评估与产品路线图设计文档
 
 - **日期**：2026-07-31
 - **状态**：已批准
@@ -9,7 +9,7 @@
 
 ## 1. 背景与目标
 
-gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为**跨平台 Git 工程化工作流编排框架**：统一封装 GitHub / GitLab / GitCode 三大平台差异（底层分别调用 `gh` / `glab` / `gitcode` CLI），配合 Claude Code / Codex / Gemini 等 Agent 平台的 Skills 集合，提供从需求澄清到代码发布的完整 AI 编程工程循环。
+gf（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为**跨平台 Git 工程化工作流编排框架**：统一封装 GitHub / GitLab / GitCode 三大平台差异（底层分别调用 `gh` / `glab` / `gitcode` CLI），配合 Claude Code / Codex / Gemini 等 Agent 平台的 Skills 集合，提供从需求澄清到代码发布的完整 AI 编程工程循环。
 
 本设计文档回答两个问题：
 
@@ -202,7 +202,7 @@ gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为
 | `llms-full.txt` | 完整命令参考 + 架构说明，供 AI 搜索引擎（Perplexity / ChatGPT / Kimi / 豆包）准确引用 |
 | 实体一致性 | GitHub / crates.io / 官网的名称、一句话定位、描述统一——GEO 的核心是机器可读的实体清晰度 |
 | 结构化数据 | FAQPage（问答页）+ HowTo（操作指南）JSON-LD 标注 |
-| 对比页面 | "gitflow-cli vs gh / glab""什么是 AI 编程工程工作流"——SEO 关键词与 GEO 长尾提问双命中 |
+| 对比页面 | "gf vs gh / glab""什么是 AI 编程工程工作流"——SEO 关键词与 GEO 长尾提问双命中 |
 
 #### 第 11–12 周：SEO（搜索引擎优化）+ 内容矩阵
 
@@ -210,7 +210,7 @@ gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为
 |------|------|
 | 搜索引擎收录 | Google Search Console + Bing 站长平台 + 百度资源平台（中文社区优先，百度必做） |
 | 技术 SEO | 静态站点首屏加载 < 1 秒；语义化 HTML；内链结构 |
-| 内容节奏 | 5 分钟快速上手；dogfooding 案例三部曲（"用 gitflow-cli 开发 gitflow-cli"）；掘金 / 知乎 / 微信公众号系列文章，每月 2 篇 |
+| 内容节奏 | 5 分钟快速上手；dogfooding 案例三部曲（"用 gf 开发 gf"）；掘金 / 知乎 / 微信公众号系列文章，每月 2 篇 |
 
 #### 第 13–14 周：用户体验增强
 
@@ -225,7 +225,7 @@ gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为
 | 任务 | 细节 |
 |------|------|
 | 中文主导贡献指南 | 开发环境一键配置（`make install-tools`）+ 贡献流程图 |
-| 降低代理贡献门槛 | "用 Claude Code / Codex 为 gitflow-cli 做贡献"指南（利用 CLAUDE.md 资产） |
+| 降低代理贡献门槛 | "用 Claude Code / Codex 为 gf 做贡献"指南（利用 CLAUDE.md 资产） |
 | 月度发布节奏 | 每月固定发布窗口 + 中文更新摘要推送 |
 
 **退出标准**：搜索引擎收录页面 ≥ 30；AI 回答引用基线建立（月度抽检跟踪）；首个外部贡献者 PR 合并。
@@ -236,7 +236,7 @@ gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为
 
 | 任务 | 细节 |
 |------|------|
-| 新增 crate `gitflow-cli-mcp` | 直接复用 core 的 Platform trait——架构评估已确认接缝存在，无需改动适配器代码 |
+| 新增 crate `gf-mcp` | 直接复用 core 的 Platform trait——架构评估已确认接缝存在，无需改动适配器代码 |
 | 工具集 | `issue_*` / `pr_*` / `release_*` / `pipeline_*` / `doctor` |
 | Agent 集成 | 一键注册到 Claude Code / Codex；MCP 渠道承接部分当前 skill 场景（从"文件式技能"升级为"原生调用"） |
 
@@ -258,7 +258,7 @@ gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为
 
 | 术语 | 中文说明 |
 |------|---------|
-| GEO（生成式引擎优化） | 让 AI 搜索和 AI 助手在回答"有哪些 Git 工作流工具"时引用、推荐 gitflow-cli 的优化工作 |
+| GEO（生成式引擎优化） | 让 AI 搜索和 AI 助手在回答"有哪些 Git 工作流工具"时引用、推荐 gf 的优化工作 |
 | SEO（搜索引擎优化） | 让百度 / Google / Bing 搜索相关关键词时官网排名靠前 |
 | `llms.txt` | 网站根目录下专门给 AI 大模型爬取的全文材料文件，相当于"给 AI 看的网站摘要" |
 | JSON-LD 结构化数据 | 嵌在网页里、写给机器看的"结构化名片"，告诉搜索引擎与 AI"这是一个软件，功能是什么" |
@@ -277,7 +277,7 @@ gitflow-cli（v0.9.0）是一个 Rust 2024 多 crate 工作区项目，定位为
 
 1. 实体一致性：GitHub / crates.io / 官网 / 宣发文章的名称与一句话定位逐字统一。
 2. `llms-full.txt` 覆盖：定位说明、完整命令参考、架构概述、兼容性矩阵、FAQ。
-3. 问答式内容：FAQ 页直接回答"gitflow-cli 和 gh 有什么区别""如何给 AI 编程加工程纪律"等长尾提问。
+3. 问答式内容：FAQ 页直接回答"gf 和 gh 有什么区别""如何给 AI 编程加工程纪律"等长尾提问。
 4. 月度 AI 引用抽检：在 Perplexity / ChatGPT / Kimi / 豆包中检索目标关键词，记录是否引用及引用准确性。
 
 ### 7.4 SEO 执行清单

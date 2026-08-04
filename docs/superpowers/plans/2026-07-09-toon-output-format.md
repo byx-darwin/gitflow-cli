@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add TOON (Token-Oriented Object Notation) output format to gitflow-cli, reducing token consumption by 15-40% for LLM consumers.
+**Goal:** Add TOON (Token-Oriented Object Notation) output format to gf, reducing token consumption by 15-40% for LLM consumers.
 
 **Architecture:** A new `crates/core/src/toon.rs` module provides structure analysis (`analyze`), strategy selection (`select_strategy`), and TOON encoding (`encode`) via the `toon-format` crate. The CLI's `OutputFormat` enum gains `Toon` and `Auto` variants; `print_output` dispatches accordingly. Skills documentation is updated to default to `--output auto`.
 
@@ -46,7 +46,7 @@ toon-format.workspace = true
 
 - [ ] **Step 3: Verify build**
 
-Run: `cargo build -p gitflow-cli-core`
+Run: `cargo build -p gf-core`
 Expected: BUILD SUCCESS
 
 - [ ] **Step 4: Commit**
@@ -377,7 +377,7 @@ mod tests {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test -p gitflow-cli-core --lib toon`
+Run: `cargo test -p gf-core --lib toon`
 Expected: FAIL — module `toon` not yet declared in `lib.rs`
 
 - [ ] **Step 3: Register module in lib.rs**
@@ -386,7 +386,7 @@ Add `pub mod toon;` to `crates/core/src/lib.rs` after `pub mod types;` (line 37)
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test -p gitflow-cli-core --lib toon`
+Run: `cargo test -p gf-core --lib toon`
 Expected: All 12 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -425,7 +425,7 @@ use predicates::prelude::*;
 
 #[test]
 fn test_should_accept_output_toon_flag() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary exists");
+    let mut cmd = Command::cargo_bin("gf").expect("binary exists");
     cmd.args(["--help"]);
     cmd.assert()
         .success()
@@ -434,7 +434,7 @@ fn test_should_accept_output_toon_flag() {
 
 #[test]
 fn test_should_accept_output_auto_flag() {
-    let mut cmd = Command::cargo_bin("gitflow-cli").expect("binary exists");
+    let mut cmd = Command::cargo_bin("gf").expect("binary exists");
     cmd.args(["--help"]);
     cmd.assert()
         .success()
@@ -444,7 +444,7 @@ fn test_should_accept_output_auto_flag() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli --test toon_output_test`
+Run: `cargo test -p gf --test toon_output_test`
 Expected: FAIL — `toon` and `auto` not in help output
 
 - [ ] **Step 3: Add Toon and Auto variants to OutputFormat**
@@ -479,7 +479,7 @@ Also update the `--output` arg help text (line 414):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cargo test -p gitflow-cli --test toon_output_test`
+Run: `cargo test -p gf --test toon_output_test`
 Expected: Both tests PASS
 
 - [ ] **Step 5: Commit**
@@ -534,7 +534,7 @@ Add to `apps/cli/src/commands/output.rs` in the `tests` module (after existing t
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli --lib commands::output`
+Run: `cargo test -p gf --lib commands::output`
 Expected: FAIL — `Toon`/`Auto` arms missing in `print_output`
 
 - [ ] **Step 3: Implement print_toon and print_auto**
@@ -910,7 +910,7 @@ mod tests {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test -p gitflow-cli --lib commands::output`
+Run: `cargo test -p gf --lib commands::output`
 Expected: All tests PASS (including the 2 new ones)
 
 - [ ] **Step 5: Run full test suite**
@@ -972,11 +972,11 @@ git commit -m "style: fix clippy pedantic warnings and formatting for TOON modul
 
 Change line 25 from:
 ```
-gitflow-cli issue list --state open --output json
+gf issue list --state open --output json
 ```
 to:
 ```
-gitflow-cli issue list --state open --output auto
+gf issue list --state open --output auto
 ```
 
 - [ ] **Step 2: Update gitflow-issue SKILL.md**
@@ -984,8 +984,8 @@ gitflow-cli issue list --state open --output auto
 Find the command examples section (around line 32-33) and add `--output auto` to list/view commands:
 
 ```
-gitflow-cli issue list [--state open|closed|all] [--label <l>] [--limit <n>] [--output auto]
-gitflow-cli issue view <number> [--output auto]
+gf issue list [--state open|closed|all] [--label <l>] [--limit <n>] [--output auto]
+gf issue view <number> [--output auto]
 ```
 
 - [ ] **Step 3: Update gitflow-pr SKILL.md**
@@ -993,7 +993,7 @@ gitflow-cli issue view <number> [--output auto]
 Find the command examples (around line 41) and update:
 
 ```
-| List/View | `gitflow-cli pr list --output auto` / `pr view <n> --output auto` |
+| List/View | `gf pr list --output auto` / `pr view <n> --output auto` |
 ```
 
 - [ ] **Step 4: Update gitflow-release SKILL.md**
@@ -1001,8 +1001,8 @@ Find the command examples (around line 41) and update:
 Find the command table (around lines 35-36) and update:
 
 ```
-| List | `gitflow-cli release list --output auto` |
-| View | `gitflow-cli release view <tag> --output auto` |
+| List | `gf release list --output auto` |
+| View | `gf release view <tag> --output auto` |
 ```
 
 - [ ] **Step 5: Update gitflow-issue-triage SKILL.md**
@@ -1010,12 +1010,12 @@ Find the command table (around lines 35-36) and update:
 Find the command examples (around lines 25, 33, 35) and add `--output auto`:
 
 ```
-gitflow-cli issue list --state open [--since <date>] --output auto
+gf issue list --state open [--since <date>] --output auto
 ```
 
 ```
-| List open | `gitflow-cli issue list --state open [--since <date>] --output auto` |
-| Filter by label | `gitflow-cli issue list --label "<l>" --state open --output auto` |
+| List open | `gf issue list --state open [--since <date>] --output auto` |
+| Filter by label | `gf issue list --label "<l>" --state open --output auto` |
 ```
 
 - [ ] **Step 6: Commit**

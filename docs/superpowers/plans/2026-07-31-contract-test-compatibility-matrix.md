@@ -137,7 +137,7 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli-core cli_error -- --nocapture`
+Run: `cargo test -p gf-core cli_error -- --nocapture`
 Expected: FAIL — module `cli_error` not found
 
 - [ ] **Step 3: Add CoreError::Cli variant**
@@ -161,12 +161,12 @@ Add new variant to `CoreError`:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test -p gitflow-cli-core cli_error`
+Run: `cargo test -p gf-core cli_error`
 Expected: 3 tests PASS
 
 - [ ] **Step 5: Run clippy**
 
-Run: `cargo clippy -p gitflow-cli-core --all-targets -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf-core --all-targets -- -D warnings -W clippy::pedantic`
 Expected: no warnings
 
 - [ ] **Step 6: Commit**
@@ -251,7 +251,7 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli-github error`
+Run: `cargo test -p gf-github error`
 Expected: FAIL — `parse_gh_error` returns `GhError` not `PlatformCliError`
 
 - [ ] **Step 3: Rewrite parse_gh_error to return PlatformCliError**
@@ -339,12 +339,12 @@ Delete the `GhError` struct and its `impl fmt::Display` from `crates/github/src/
 
 - [ ] **Step 6: Run tests**
 
-Run: `cargo test -p gitflow-cli-github`
+Run: `cargo test -p gf-github`
 Expected: all tests PASS
 
 - [ ] **Step 7: Run clippy**
 
-Run: `cargo clippy -p gitflow-cli-github --all-targets -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf-github --all-targets -- -D warnings -W clippy::pedantic`
 Expected: no warnings
 
 - [ ] **Step 8: Commit**
@@ -425,7 +425,7 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli-gitlab error`
+Run: `cargo test -p gf-gitlab error`
 Expected: FAIL
 
 - [ ] **Step 3: Rewrite parse_glab_error**
@@ -492,12 +492,12 @@ Change `CoreError::Platform(format!("{glab_err}"))` → `parse_glab_error(&outpu
 
 - [ ] **Step 6: Run tests**
 
-Run: `cargo test -p gitflow-cli-gitlab`
+Run: `cargo test -p gf-gitlab`
 Expected: all PASS
 
 - [ ] **Step 7: Run clippy**
 
-Run: `cargo clippy -p gitflow-cli-gitlab --all-targets -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf-gitlab --all-targets -- -D warnings -W clippy::pedantic`
 
 - [ ] **Step 8: Commit**
 
@@ -573,7 +573,7 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli-gitcode error`
+Run: `cargo test -p gf-gitcode error`
 
 - [ ] **Step 3: Rewrite parse_gitcode_error**
 
@@ -637,12 +637,12 @@ Change `CoreError::Platform(format!("{gitcode_err}"))` → `parse_gitcode_error(
 
 - [ ] **Step 6: Run tests**
 
-Run: `cargo test -p gitflow-cli-gitcode`
+Run: `cargo test -p gf-gitcode`
 Expected: all PASS
 
 - [ ] **Step 7: Run clippy**
 
-Run: `cargo clippy -p gitflow-cli-gitcode --all-targets -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf-gitcode --all-targets -- -D warnings -W clippy::pedantic`
 
 - [ ] **Step 8: Commit**
 
@@ -848,12 +848,12 @@ pub use compatibility::{PlatformCompat, platform_compatibility, platform_require
 
 - [ ] **Step 4: Run tests**
 
-Run: `cargo test -p gitflow-cli-core compatibility`
+Run: `cargo test -p gf-core compatibility`
 Expected: 4 tests PASS
 
 - [ ] **Step 5: Run clippy**
 
-Run: `cargo clippy -p gitflow-cli-core --all-targets -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf-core --all-targets -- -D warnings -W clippy::pedantic`
 
 - [ ] **Step 6: Commit**
 
@@ -924,7 +924,7 @@ Add tests to `apps/cli/src/commands/prerequisites.rs`:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p gitflow-cli prerequisites`
+Run: `cargo test -p gf prerequisites`
 Expected: FAIL — `doc_link` field doesn't exist yet, messages are English
 
 - [ ] **Step 3: Update PrerequisiteError to Chinese + doc_link**
@@ -981,12 +981,12 @@ Update `test_should_return_requirement_for_gitcode` to assert `min_version == "0
 
 - [ ] **Step 7: Run tests**
 
-Run: `cargo test -p gitflow-cli prerequisites`
+Run: `cargo test -p gf prerequisites`
 Expected: all PASS
 
 - [ ] **Step 8: Run clippy**
 
-Run: `cargo clippy -p gitflow-cli --all-targets -- -D warnings -W clippy::pedantic`
+Run: `cargo clippy -p gf --all-targets -- -D warnings -W clippy::pedantic`
 
 - [ ] **Step 9: Commit**
 
@@ -1079,7 +1079,7 @@ Note: `MockCommandRunner` is `#[cfg(test)]` in `runner.rs` — for integration t
 
 - [ ] **Step 3: Run tests**
 
-Run: `cargo test -p gitflow-cli-github contract`
+Run: `cargo test -p gf-github contract`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -1117,7 +1117,7 @@ Same pattern as Task 7 but for GitLab providers (`GitLabPrProvider`, `GitLabIssu
 
 - [ ] **Step 3: Run tests**
 
-Run: `cargo test -p gitflow-cli-gitlab contract`
+Run: `cargo test -p gf-gitlab contract`
 
 - [ ] **Step 4: Commit**
 
@@ -1160,7 +1160,7 @@ Search: `git grep 'pr_list_gitcode_v0.6.1' crates/gitcode/`
 
 - [ ] **Step 4: Run tests**
 
-Run: `cargo test -p gitflow-cli-gitcode contract`
+Run: `cargo test -p gf-gitcode contract`
 
 - [ ] **Step 5: Commit**
 
@@ -1190,7 +1190,7 @@ Create `crates/core/examples/gen_compat_matrix.rs`:
 ```rust
 //! 从 `docs/compatibility-matrix.json` 生成 Markdown 兼容性矩阵。
 //!
-//! 用法：`cargo run -p gitflow-cli-core --example gen-compat-matrix`
+//! 用法：`cargo run -p gf-core --example gen-compat-matrix`
 
 use std::fs;
 
@@ -1220,7 +1220,7 @@ fn main() {
     let mut md = String::new();
     md.push_str("# 兼容性矩阵\n\n");
     md.push_str(&format!(
-        "> 自动生成，请勿手动编辑。数据源：`docs/compatibility-matrix.json`\n> 更新时间：{} · gitflow-cli v{}\n\n",
+        "> 自动生成，请勿手动编辑。数据源：`docs/compatibility-matrix.json`\n> 更新时间：{} · gf v{}\n\n",
         root.updated_at, root.gitflow_cli_version
     ));
     md.push_str("| 平台 | CLI 工具 | 最低版本 | 已测试版本 | 功能覆盖 |\n");
@@ -1257,7 +1257,7 @@ In `Makefile`, add:
 ```makefile
 .PHONY: compatibility-matrix
 compatibility-matrix: ## 从 JSON 生成兼容性矩阵 Markdown
-	cargo run -p gitflow-cli-core --example gen-compat-matrix
+	cargo run -p gf-core --example gen-compat-matrix
 ```
 
 - [ ] **Step 3: Run the generator**

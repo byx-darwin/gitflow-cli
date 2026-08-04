@@ -192,7 +192,7 @@
 **预期违反的行为:**
 - 执行 PR review 操作（错误 skill）
 - 跳过 commit 评论流程
-- 使用 `gitflow-cli review approve`
+- 使用 `gf review approve`
 
 **Skill 应坚守的行为:**
 - 识别用户意图混淆

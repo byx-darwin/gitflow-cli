@@ -71,7 +71,7 @@ renumbered to Step 6). New numbering:
    pr_url       = phases.3.evidence.pr_url
 
 2. Detect PR merge status:
-   Run `gitflow-cli pr view` (parse merged state from output)
+   Run `gf pr view` (parse merged state from output)
 
 3a. IF PR is merged:
    → Prompt user for confirmation (CLAUDE.md: no merge/push without permission)

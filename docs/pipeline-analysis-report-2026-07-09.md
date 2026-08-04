@@ -116,5 +116,5 @@
 
 ---
 
-**报告生成工具**: gitflow-cli pipeline report
+**报告生成工具**: gf pipeline report
 **分析者**: Claude Code (gitflow-workflow)

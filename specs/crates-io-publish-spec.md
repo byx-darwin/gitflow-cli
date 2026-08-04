@@ -11,11 +11,11 @@
 ## 需要发布的 Crates
 
 ### 核心库（发布）
-1. `gitflow-cli-core` — 核心功能库
-2. `gitflow-cli-github` — GitHub 平台支持
-3. `gitflow-cli-gitlab` — GitLab 平台支持
-4. `gitflow-cli-gitcode` — GitCode 平台支持
-5. `gitflow-cli` — CLI 应用程序
+1. `gf-core` — 核心功能库
+2. `gf-github` — GitHub 平台支持
+3. `gf-gitlab` — GitLab 平台支持
+4. `gf-gitcode` — GitCode 平台支持
+5. `gf` — CLI 应用程序
 
 ### 测试/内部 crate（不发布）
 - `e2e-core` — 端到端测试核心
@@ -29,7 +29,7 @@
 
 ```toml
 [package]
-name = "gitflow-cli"
+name = "gf"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -113,7 +113,7 @@ cargo package --no-verify
 git status --porcelain
 
 # 检查版本号是否已存在
-cargo search gitflow-cli --limit 1
+cargo search gf --limit 1
 ```
 
 ## 发布流程
@@ -144,11 +144,11 @@ git push origin main --tags
 ### 1. Crate 发布顺序
 
 依赖关系决定发布顺序：
-1. `gitflow-cli-core` (无依赖)
-2. `gitflow-cli-github` (依赖 core)
-3. `gitflow-cli-gitlab` (依赖 core)
-4. `gitflow-cli-gitcode` (依赖 core)
-5. `gitflow-cli` (依赖所有)
+1. `gf-core` (无依赖)
+2. `gf-github` (依赖 core)
+3. `gf-gitlab` (依赖 core)
+4. `gf-gitcode` (依赖 core)
+5. `gf` (依赖所有)
 
 cargo-release 会自动处理依赖顺序。
 
@@ -207,13 +207,13 @@ cargo release patch --execute
 
 ```bash
 # 检查 crates.io
-cargo search gitflow-cli
+cargo search gf
 
 # 检查文档
-open https://docs.rs/gitflow-cli/0.8.0
+open https://docs.rs/gf/0.8.0
 
 # 测试安装
-cargo install gitflow-cli --version 0.8.0
+cargo install gf --version 0.8.0
 ```
 
 ## CI/CD 集成

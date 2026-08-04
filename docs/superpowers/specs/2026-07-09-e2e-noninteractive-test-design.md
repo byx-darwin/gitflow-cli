@@ -13,7 +13,7 @@
 
 在 v0.6.0 全量测试中，GitCode `pr merge` 缺少 `--yes` 参数的问题没有被发现，因为测试只在交互模式下进行。同类问题可能仍存在于其他命令中。
 
-需要建立非交互式 E2E 测试框架，模拟 CI/Agent 环境（无 TTY）运行每个 gitflow-cli 命令，确保所有命令在非交互模式下也能正常工作。
+需要建立非交互式 E2E 测试框架，模拟 CI/Agent 环境（无 TTY）运行每个 gf 命令，确保所有命令在非交互模式下也能正常工作。
 
 ### 1.2 目标
 
@@ -35,7 +35,7 @@
 ### 2.1 Workspace 结构扩展
 
 ```
-gitflow-cli/
+gf/
 ├── crates/
 │   ├── core/              # 现有
 │   ├── github/            # 现有
@@ -180,7 +180,7 @@ impl TtyRunner {
             pixel_height: 0,
         })?;
 
-        let mut cmd = CommandBuilder::new("gitflow-cli");
+        let mut cmd = CommandBuilder::new("gf");
         cmd.args(args);
         cmd.cwd(&self.working_dir);
 
@@ -203,7 +203,7 @@ impl TtyRunner {
     async fn run_without_pty(&self, args: &[&str]) -> Result<CommandOutput> {
         use tokio::process::Command;
 
-        let mut cmd = Command::new("gitflow-cli");
+        let mut cmd = Command::new("gf");
         cmd.args(args);
         cmd.current_dir(&self.working_dir);
         cmd.stdin(std::process::Stdio::null()); // 关键：重定向 stdin

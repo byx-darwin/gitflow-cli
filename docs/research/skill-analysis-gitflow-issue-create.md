@@ -7,7 +7,7 @@
 
 ## Abstract
 
-The `gitflow-issue-create` skill is a straightforward linear workflow guide for creating GitHub issues through the `gitflow-cli issue create` command. It follows a sequential six-step flow (title → description → labels → assignee → execute → present result). While functionally adequate, it lacks the structure, boundary declarations, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
+The `gitflow-issue-create` skill is a straightforward linear workflow guide for creating GitHub issues through the `gf issue create` command. It follows a sequential six-step flow (title → description → labels → assignee → execute → present result). While functionally adequate, it lacks the structure, boundary declarations, and testability guarantees required by the Superpowers writing-skills methodology. This document provides a four-dimension analysis with prioritized improvement recommendations.
 
 ---
 
@@ -29,7 +29,7 @@ The `gitflow-issue-create` skill is a straightforward linear workflow guide for 
 
 | Item | Status | Details |
 |------|--------|---------|
-| `description` format | ❌ | Current: `"引导用户完成 Issue 创建工作流 — 从模板填写到调用 gitflow-cli issue create 并输出 Issue URL"` — describes *what* it does, not *when* to trigger. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
+| `description` format | ❌ | Current: `"引导用户完成 Issue 创建工作流 — 从模板填写到调用 gf issue create 并输出 Issue URL"` — describes *what* it does, not *when* to trigger. Superpowers convention requires `"Use when..."` trigger-only phrasing. |
 | Structural sections | ⚠️ | Missing canonical sections: `When to Use`, `Core Pattern`, `Quick Reference`, `Implementation`, `Common Mistakes`. Current structure is a flat workflow list without the layered design writing-skills prescribes. |
 | Trigger keywords | ❌ | No `Trigger` section enumerating error messages, user phrases, or contextual cues (e.g., "create issue", "new bug report", `issue create` command). |
 | Anti-patterns present | ⚠️ | Uses narrative prose for workflow steps instead of pattern-language. Step descriptions read like tutorial rather than like a skill contract. |
@@ -37,7 +37,7 @@ The `gitflow-issue-create` skill is a straightforward linear workflow guide for 
 ### Recommended Description Rewrite
 
 ```yaml
-description: "Use when the user wants to create a new GitHub issue through gitflow-cli — including bug reports, feature requests, and chores. Triggers on phrases like 'create an issue', 'new bug', 'file an issue', or direct invocation of `gitflow-cli issue create`."
+description: "Use when the user wants to create a new GitHub issue through gf — including bug reports, feature requests, and chores. Triggers on phrases like 'create an issue', 'new bug', 'file an issue', or direct invocation of `gf issue create`."
 ```
 
 ---
@@ -62,7 +62,7 @@ description: "Use when the user wants to create a new GitHub issue through gitfl
 ## ✅ Responsible For
 - Interactive collection of title, description, labels, assignee
 - Recommending conventional-commit prefix for titles
-- Invoking `gitflow-cli issue create` with collected parameters
+- Invoking `gf issue create` with collected parameters
 - Presenting the resulting Issue URL
 
 ## ❌ Not Responsible For
@@ -105,7 +105,7 @@ Expect: skill collects title (fix: prefix), description with 背景/目标/验�
         assigns `bug` label, invokes CLI, returns Issue URL.
 
 ### Scenario 2: Minimal title-only creation
-Input:  user runs `gitflow-cli issue create --title "docs: update CLAUDE.md"`
+Input:  user runs `gf issue create --title "docs: update CLAUDE.md"`
 Expect: skill does not force additional fields, passes through, returns URL.
 
 ### Scenario 3: Long description with Unicode
@@ -117,7 +117,7 @@ Input:  user requests label "urgent-现在"
 Expect: skill warns that label may not exist, offers to proceed or correct.
 
 ### Baseline (without skill)
-User manually types `gitflow-cli issue create` — must recall flag names,
+User manually types `gf issue create` — must recall flag names,
 conventional-commit prefix convention, and Markdown body format from memory.
 ```
 
@@ -142,7 +142,7 @@ conventional-commit prefix convention, and Markdown body format from memory.
 |----------|--------|---------|
 | TDD for skills (RED-GREEN-REFACTOR) | ❌ | No evidence of test-first design. No test section at all. |
 | Description describes triggers only | ❌ | Description describes the full workflow, not just the trigger condition. |
-| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "new issue", "file a bug", "open a ticket", "issue create", `gitflow-cli issue create`, "create ticket", "bug report". |
+| Keyword coverage (errors, symptoms, synonyms, tools) | ❌ | No trigger keyword table. Missing: "new issue", "file a bug", "open a ticket", "issue create", `gf issue create`, "create ticket", "bug report". |
 | Cross-references to related skills | ❌ | No `## See Also` or `## Related Skills` section. Should reference: `gitflow-issue`, `gitflow-issue-triage`, `gitflow-issue-review`, `gitflow-label-milestone`. |
 | Quick Reference / Cheat Sheet | ❌ | No single-page summary for experienced users. |
 | Pattern-language over narrative | ❌ | Uses tutorial prose rather than pattern + example + anti-pattern structure. |
@@ -153,7 +153,7 @@ conventional-commit prefix convention, and Markdown body format from memory.
 ## Trigger Keywords
 
 - Direct:   "create an issue", "new issue", "file a bug", "open a ticket"
-- CLI:      `gitflow-cli issue create`
+- CLI:      `gf issue create`
 - Symptoms: user describes a problem or feature request but has not yet formalized it
 - Synonyms: "bug report", "feature request", "chore", "ticket"
 ```

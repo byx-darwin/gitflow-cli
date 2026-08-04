@@ -2,7 +2,7 @@
 
 ## 问题描述
 
-`gitflow-cli pr merge` 命令在 GitCode 平台下无法正常工作，所有合并策略（merge/squash/rebase）均报错：
+`gf pr merge` 命令在 GitCode 平台下无法正常工作，所有合并策略（merge/squash/rebase）均报错：
 
 ```
 × Failed to merge pr #13: platform error: gitcode: Error: unknown flag: --merge
@@ -74,27 +74,27 @@
 
 - [ ] 创建 PR：
   ```bash
-  gitflow-cli pr create --title "fix(gitcode): remove unsupported strategy flags from pr merge" --body "## Issues Fixed\n- Closes #59\n\n## Changes\n- Remove --merge/--squash/--rebase flags from GitCode pr merge implementation\n- Add warning log when merge strategy is specified\n- Update documentation to reflect current limitation"
+  gf pr create --title "fix(gitcode): remove unsupported strategy flags from pr merge" --body "## Issues Fixed\n- Closes #59\n\n## Changes\n- Remove --merge/--squash/--rebase flags from GitCode pr merge implementation\n- Add warning log when merge strategy is specified\n- Update documentation to reflect current limitation"
   ```
 - [ ] PR 审查：调用 `gitflow-pr-review` 技能
 - [ ] 合并 PR：
   ```bash
-  gitflow-cli pr merge <PR_NUMBER>
+  gf pr merge <PR_NUMBER>
   ```
 
 ### Task 4: 收尾
 
 - [ ] 同步 Issue 状态为 done：
   ```bash
-  gitflow-cli issue update 59 --state done
+  gf issue update 59 --state done
   ```
 - [ ] 关闭 Issue：
   ```bash
-  gitflow-cli issue close 59
+  gf issue close 59
   ```
 - [ ] 验证所有关联 Issue 已关闭：
   ```bash
-  gitflow-cli issue view 59
+  gf issue view 59
   ```
 - [ ] 清理 worktree 和分支：
   ```bash
@@ -107,7 +107,7 @@
 
 ## 验收标准
 
-- [ ] `gitflow-cli pr merge <NUMBER>` 在 GitCode 平台可以正常执行
+- [ ] `gf pr merge <NUMBER>` 在 GitCode 平台可以正常执行
 - [ ] 当用户指定 `--strategy` 参数时，命令仍能执行（忽略策略参数）
 - [ ] 警告日志正确记录 "Merge strategies are not yet supported on GitCode platform"
 - [ ] 所有测试通过

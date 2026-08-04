@@ -147,7 +147,7 @@ pub mod runner;
 - [ ] **Step 3: Run cargo build to verify**
 
 ```bash
-cargo build -p gitflow-cli-github
+cargo build -p gf-github
 ```
 
 Expected: Build succeeds with no errors.
@@ -288,7 +288,7 @@ pub mod runner;
 - [ ] **Step 3: Run cargo build to verify**
 
 ```bash
-cargo build -p gitflow-cli-gitlab
+cargo build -p gf-gitlab
 ```
 
 Expected: Build succeeds with no errors.
@@ -429,7 +429,7 @@ pub mod runner;
 - [ ] **Step 3: Run cargo build to verify**
 
 ```bash
-cargo build -p gitflow-cli-gitcode
+cargo build -p gf-gitcode
 ```
 
 Expected: Build succeeds with no errors.
@@ -478,7 +478,7 @@ async fn test_should_return_platform_error_when_gh_fails_for_view() {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cargo test -p gitflow-cli-github test_should_return_platform_error_when_gh_fails_for_view
+cargo test -p gf-github test_should_return_platform_error_when_gh_fails_for_view
 ```
 
 Expected: FAIL — `with_runner` method doesn't exist yet.
@@ -535,7 +535,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cargo test -p gitflow-cli-github test_should_return_platform_error_when_gh_fails_for_view
+cargo test -p gf-github test_should_return_platform_error_when_gh_fails_for_view
 ```
 
 Expected: PASS
@@ -586,7 +586,7 @@ async fn test_should_return_serialization_error_on_invalid_json_for_list() {
 - [ ] **Step 6: Run all GitHub issue tests**
 
 ```bash
-cargo test -p gitflow-cli-github issue
+cargo test -p gf-github issue
 ```
 
 Expected: All tests pass (existing + new failure tests).
@@ -594,7 +594,7 @@ Expected: All tests pass (existing + new failure tests).
 - [ ] **Step 7: Run cargo clippy**
 
 ```bash
-cargo clippy -p gitflow-cli-github --all-targets --all-features -- -D warnings -W clippy::pedantic
+cargo clippy -p gf-github --all-targets --all-features -- -D warnings -W clippy::pedantic
 ```
 
 Expected: No warnings.

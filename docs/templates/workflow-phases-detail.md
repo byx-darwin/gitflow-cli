@@ -10,13 +10,13 @@
 
 **完整模式**：读取所有 open issues
 ```bash
-gitflow-cli issue list --state open --limit 100 --output json
+gf issue list --state open --limit 100 --output json
 ```
 按类型分组显示：feature/enhancement、bug、question/discussion
 
 **快速模式**：只读取 bug 类型 issues
 ```bash
-gitflow-cli issue list --state open --label bug --limit 50 --output json
+gf issue list --state open --label bug --limit 50 --output json
 ```
 按优先级排序显示
 
@@ -102,7 +102,7 @@ cat > /tmp/phase-report.md << 'REPORT'
 ✅ 已通过阶段闸门，可进入 Phase 2: 计划制定
 REPORT
 
-gitflow-cli issue comment <number> --body-file /tmp/phase-report.md
+gf issue comment <number> --body-file /tmp/phase-report.md
 rm -f /tmp/phase-report.md
 ```
 
@@ -117,7 +117,7 @@ rm -f /tmp/phase-report.md
 **校验方法**：
 ```bash
 # 确认 Issue 存在且可访问
-gitflow-cli issue view <number>
+gf issue view <number>
 ```
 
 **违规处理**：
@@ -164,7 +164,7 @@ Phase 1 合规检查:
 
 ```bash
 # 确定 worktree 路径和工作分支名
-WORKTREE_DIR="../gitflow-cli-<issue-number>"
+WORKTREE_DIR="../gf-<issue-number>"
 BRANCH_NAME="fix/issue-<issue-number>"  # 或 feat/issue-<number>
 
 # 创建 worktree 和分支
@@ -224,7 +224,7 @@ git branch --show-current
 - [ ] 如有失败项，按报告修复建议修复后重新运行
 
 ### Task N+2: 交付
-- [ ] 创建 PR：gitflow-cli pr create
+- [ ] 创建 PR：gf pr create
   - PR 描述必须包含 "## Issues Fixed" 章节，列出所有要关闭的 Issue
   - 使用 `Closes #N` 或 `Fixes #N` 格式
   - 示例：
@@ -233,8 +233,8 @@ git branch --show-current
     - Closes #11
     - Closes #12
     ```
-- [ ] PR 审查：gitflow-cli pr-review
-- [ ] 合并 PR：gitflow-cli pr merge
+- [ ] PR 审查：gf pr-review
+- [ ] 合并 PR：gf pr merge
 
 ### Task N+3: 收尾
 - [ ] 同步 Issue 状态为 done
@@ -243,9 +243,9 @@ git branch --show-current
   ```bash
   # 检查 PR 描述中 "Closes #N" 对应的所有 Issue 是否已关闭
   # 如果 GitHub auto-close 未生效，手动关闭
-  gitflow-cli issue view <number>
+  gf issue view <number>
   # 如果仍然 OPEN
-  gitflow-cli issue close <number> --yes
+  gf issue close <number> --yes
   ```
 - [ ] 验证：所有验收标准已满足
 - [ ] **清理 worktree 和分支**
@@ -258,7 +258,7 @@ git branch --show-current
   git pull origin main
 
   # 删除 worktree
-  git worktree remove ../gitflow-cli-<issue-number>
+  git worktree remove ../gf-<issue-number>
 
   # 删除本地分支
   git branch -d fix/issue-<number>
@@ -390,7 +390,7 @@ Phase 4 合规检查:
 回退时，在 Issue 上记录回退原因：
 
 ```bash
-gitflow-cli issue comment <number> --body "## 阶段回退
+gf issue comment <number> --body "## 阶段回退
 
 **从 Phase <X> 回退到 Phase <Y>**
 

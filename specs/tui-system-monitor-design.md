@@ -427,19 +427,19 @@ tracing-appender = "0.2"
 
 ```toml
 [package]
-name = "gitflow-cli-tui"
+name = "gf-tui"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "gitflow-cli"
+name = "gf"
 path = "src/main.rs"
 
 [dependencies]
 # Template core lib (reuse SafePath, etc.)
-gitflow-cli-core = { workspace = true }
+gf-core = { workspace = true }
 
 # TUI
 ratatui = { workspace = true }
@@ -574,7 +574,7 @@ apps/
 ```makefile
 # New target for running the TUI app
 run-tui: build
-	@cargo run --bin gitflow-cli -- --demo
+	@cargo run --bin gf -- --demo
 
 # Or if the TUI is the default binary:
 run: build

@@ -7,9 +7,9 @@
 
 ## Problem Statement
 
-`gitflow-cli issue comment <n> --body ...` 成功创建评论后，返回的 `data.id` 和 `data.createdAt` 是该 Issue 的**第一条评论**（最旧），而非刚创建的新评论。
+`gf issue comment <n> --body ...` 成功创建评论后，返回的 `data.id` 和 `data.createdAt` 是该 Issue 的**第一条评论**（最旧），而非刚创建的新评论。
 
-同样的 bug 也存在于 `gitflow-cli pr comment` 命令。
+同样的 bug 也存在于 `gf pr comment` 命令。
 
 ## Root Cause Analysis
 
@@ -188,7 +188,7 @@ fn test_should_create_comment_via_gh_api_post() {
 ### Integration Tests
 
 E2E test workflow:
-1. Create comment via `gitflow-cli issue comment`
+1. Create comment via `gf issue comment`
 2. Verify returned `id` matches actual new comment (via `gh api` query)
 3. Verify `id` does NOT match first comment
 
@@ -201,8 +201,8 @@ The bug was discovered in workflow `wf-2026-07-31-003` Phase 1 when `issue-revie
 ## Impact Analysis
 
 ### Affected Commands
-- `gitflow-cli issue comment <number> --body <text>`
-- `gitflow-cli pr comment <number> --body <text>`
+- `gf issue comment <number> --body <text>`
+- `gf pr comment <number> --body <text>`
 
 ### Affected Workflows
 - `gitflow-workflow` Phase 1 `issue-review` step (creates review comments)

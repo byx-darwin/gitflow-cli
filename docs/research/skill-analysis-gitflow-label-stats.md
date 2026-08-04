@@ -36,7 +36,7 @@
 | 含 Implementation 章节 | ⚠️ | 有 6 步骤工作流，但偏描述性说明而非命令式指令 |
 | 含 Common Mistakes | ❌ | 无结构化常见错误说明 |
 | Token 效率 < 500 词 | ❌ | 估算约 700-900 词当量（含输出模板、示例、多表格），远超建议上限 |
-| 无叙事性示例反模式 | ⚠️ | 使用示例中出现具体仓库名 `org/gitflow-cli`、具体数字（47 个 Issue）、具体仓库路径 `/tmp/*.txt`，属于虚构示例 |
+| 无叙事性示例反模式 | ⚠️ | 使用示例中出现具体仓库名 `org/gf`、具体数字（47 个 Issue）、具体仓库路径 `/tmp/*.txt`，属于虚构示例 |
 | 无多语言稀释 | ⚠️ | 内容纯中文，未提供英文对照；Superpowers 主流为英文 |
 | 无流程图中嵌入代码 | ✅ | 无流程图 |
 
@@ -52,7 +52,7 @@
    - 当前结构：工作流 6 步骤 → 使用示例 3 段 → 输出示例 → 注意事项 8 条
    - 输出模板 + 完整示例占据文档近 50% 篇幅（完整报告模板 + 具体数据填充示例）
    - 缺少 Superpowers 要求的核心章节：
-     - 前置条件（是否需要 `gitflow-cli` 认证）
+     - 前置条件（是否需要 `gf` 认证）
      - 输入验证（仓库不存在时的处理）
      - 条件分支（仓库无标签时如何报告）
      - 输出汇总（"用户最终收到什么"一句话摘要）
@@ -66,7 +66,7 @@
    - 优化方向：将完整输出模板移至独立文件（如 `templates/label-stats-report.tmpl`），skill 中仅保留模板引用和关键约束
 
 4. **虚构示例违反零虚构原则**：
-   - 输出示例中出现 `org/gitflow-cli` 仓库名、`2026-07-02` 具体日期、具体数字（47、12、28、40 等）
+   - 输出示例中出现 `org/gf` 仓库名、`2026-07-02` 具体日期、具体数字（47、12、28、40 等）
    - 虽然是"示例"，但可能被 GitHub Copilot 等工具直接引用为真实数据
    - 应使用明确占位符（`<repo-owner>/<repo-name>`、`<n>`、`<timestamp>`）
 
@@ -148,7 +148,7 @@
    - 如何判断"Claude 在标签体系不一致时（如 `bug` vs `type:bug`）正确合并了同类统计"？
 
 2. **缺少基线对比**：
-   - 不使用 skill 时，Claude 的典型行为是：直接运行 `gitflow-cli issue list`，统计标签出现频次，输出无序列表
+   - 不使用 skill 时，Claude 的典型行为是：直接运行 `gf issue list`，统计标签出现频次，输出无序列表
    - 差距正是 skill 价值：按状态分组、健康度阈值、覆盖率分析、改进建议
    - 基线行为未明确记录，无法定义 skill 的增量价值
 
@@ -160,7 +160,7 @@
    - 所有 Issue 均未分类
 
 4. **无成功标准**：
-   - 应定义：每个标签的 Issue 数量必须与 `gitflow-cli issue list --label <label> --state open` 实际返回一致
+   - 应定义：每个标签的 Issue 数量必须与 `gf issue list --label <label> --state open` 实际返回一致
    - 应定义：优先级分布百分比总和必须等于 100%
    - 应定义：分类覆盖率各分项加总必须等于总 Issue 数
    - 应定义：健康度判断必须严格遵循阈值表（urgent < 10% → 正常）
@@ -233,7 +233,7 @@
 |---|--------|------|------|
 | P1-1 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-2 | 提取输出模板至独立文件 | D1 | 将完整报告模板移至 `templates/label-stats-report.tmpl`，skill 中引用路径，降低 token 占用至 < 500 词 |
-| P1-3 | 添加前置条件检查 | D1 | 执行前验证：是否在 git 仓库中、`gitflow-cli` 是否可用、是否有仓库读取权限 |
+| P1-3 | 添加前置条件检查 | D1 | 执行前验证：是否在 git 仓库中、`gf` 是否可用、是否有仓库读取权限 |
 | P1-4 | 添加决策逻辑（条件分支） | D1, D4 | 仓库无标签 → 报告"暂无标签，建议使用 gitflow-label-milestone 创建"；无 Issue → 报告"暂无 Issue" |
 | P1-5 | 添加跨引用章节 | D4 | 引用 gitflow-label-milestone、gitflow-issue-triage、gitflow-weekly-report、gitflow-repo-onboarding |
 | P1-6 | 补充关键词覆盖 | D4 | 添加中文触发词（标签分析、issue 分布、分类情况）和英文触发词（label analysis、issue health、label coverage） |

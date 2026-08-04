@@ -74,11 +74,11 @@ To:
 
 Change line 3:
 ```json
-"$id": "https://gitflow-cli.ai/schemas/workflow-contract-v1.json",
+"$id": "https://gf.ai/schemas/workflow-contract-v1.json",
 ```
 To:
 ```json
-"$id": "https://gitflow-cli.ai/schemas/workflow-contract-v1.1.json",
+"$id": "https://gf.ai/schemas/workflow-contract-v1.1.json",
 ```
 
 - [ ] **Step 4: Add design_doc_path to evidence properties**

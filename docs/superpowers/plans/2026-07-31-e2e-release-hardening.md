@@ -22,7 +22,7 @@
 
 计划制定期间验证 CLI 实际接口,发现设计文档两处假设与代码不符,本计划已修正:
 
-1. **`issue list` / `pr list` 没有 `--repo` flag**(仅 `--platform`/`--state`/`--output`/`--limit`,作用于当前仓库 remote)。设计 §4.2 的 `--repo $E2E_TEST_REPO` 机制不可行 → **实测测试对当前仓库运行**(CI checkout 的 gitflow-cli 仓库 / 开发者本地 clone),断言升级为 **JSON schema 严格校验**(实测捕获的形状:`{success, data: [{number, title, state, ...}], platform, command}`)。e2e-test-repo fixture seed 机制废弃;`E2E_TEST_REPO` 从 workflow env 移除(secret 保留不引用)。
+1. **`issue list` / `pr list` 没有 `--repo` flag**(仅 `--platform`/`--state`/`--output`/`--limit`,作用于当前仓库 remote)。设计 §4.2 的 `--repo $E2E_TEST_REPO` 机制不可行 → **实测测试对当前仓库运行**(CI checkout 的 gf 仓库 / 开发者本地 clone),断言升级为 **JSON schema 严格校验**(实测捕获的形状:`{success, data: [{number, title, state, ...}], platform, command}`)。e2e-test-repo fixture seed 机制废弃;`E2E_TEST_REPO` 从 workflow env 移除(secret 保留不引用)。
 2. **e2e-core 需小幅 API 扩展**支撑 hermetic 测试:新增 `TestConfig::from_env_lenient()`、`TtyRunner::env_remove()`、`TestFixture::with_config()`、lib.rs 补充导出 `TestMode`/`TtyError`。设计 §4.1 的"fixture 生命周期(依赖 env 操控)"改为 `with_config` + 空清理测试(Rust 2024 forbid unsafe 无法在测试内操控环境变量)。
 
 另:实测确认未认证时 `auth status` 与 `issue list` 均 **exit 1**,输出 miette 诊断(含 `gh auth login` 引导);并发现两个潜在 bug(Phase 4 triage):① `issue comment` 返回 stale comment id;② 未认证诊断中 `[[PLATFORM]]` 占位符未替换。
@@ -416,7 +416,7 @@ Refs #96"
 ```rust
 //! E2E harness 自测:二进制发现与错误传播。
 //!
-//! 需要 `gitflow-cli` 在 PATH 中:`cargo build --release` 后
+//! 需要 `gf` 在 PATH 中:`cargo build --release` 后
 //! `export PATH="$PWD/target/release:$PATH"`;CI 由 e2e-tests.yml
 //! 的构建步骤保证。二进制缺失时测试 skip(不 fail)。
 
@@ -435,7 +435,7 @@ async fn test_should_run_help_successfully_in_both_tty_modes() {
         let output = match runner.run(&["--help"]).await {
             Ok(output) => output,
             Err(e) if is_missing_binary(&e) => {
-                eprintln!("skipped: gitflow-cli not in PATH (cargo build --release first)");
+                eprintln!("skipped: gf not in PATH (cargo build --release first)");
                 return;
             }
             Err(e) => panic!("unexpected runner error: {e}"),
@@ -460,7 +460,7 @@ async fn test_should_propagate_nonzero_exit_for_unknown_subcommand() {
     let output = match runner.run(&["definitely-not-a-real-subcommand"]).await {
         Ok(output) => output,
         Err(e) if is_missing_binary(&e) => {
-            eprintln!("skipped: gitflow-cli not in PATH (cargo build --release first)");
+            eprintln!("skipped: gf not in PATH (cargo build --release first)");
             return;
         }
         Err(e) => panic!("unexpected runner error: {e}"),
@@ -476,7 +476,7 @@ async fn test_should_propagate_nonzero_exit_for_unknown_subcommand() {
 - [ ] **Step 2: Verify tests skip without the binary (RED-equivalent for harness tests)**
 
 Run: `env PATH="/usr/bin:/bin" cargo nextest run -p e2e-core --test harness`
-Expected: 2 tests 通过且输出 `skipped: gitflow-cli not in PATH`(证明门控逻辑;若 PATH 中恰好有 gitflow-cli 则直接 PASS,同样合格)
+Expected: 2 tests 通过且输出 `skipped: gf not in PATH`(证明门控逻辑;若 PATH 中恰好有 gf 则直接 PASS,同样合格)
 
 - [ ] **Step 3: Build the binary and verify tests pass (GREEN)**
 
@@ -742,7 +742,7 @@ Run:
 ```bash
 env E2E_GITHUB_TOKEN="$(gh auth token)" cargo nextest run -p e2e-github --test issue --test pr
 ```
-Expected: PASS;若 schema 断言失败,对照 `gitflow-cli issue list --output json | head -30` 的实际形状修正(本计划已按实测形状编写:`data` 数组 + `number`/`title` 字段)
+Expected: PASS;若 schema 断言失败,对照 `gf issue list --output json | head -30` 的实际形状修正(本计划已按实测形状编写:`data` 数组 + `number`/`title` 字段)
 
 - [ ] **Step 5: Lint + fmt**
 
@@ -978,19 +978,19 @@ Refs #96"
 
 **Files:**
 - Create: `.github/workflows/upstream-patrol.yml`
-- Runtime: 仓库标签 `upstream-drift`(本地用 gitflow-cli 创建,dogfooding)
+- Runtime: 仓库标签 `upstream-drift`(本地用 gf 创建,dogfooding)
 
 **Interfaces:**
-- Consumes: `docs/compatibility-matrix.json`(`min_version`/`tested_versions`,jq 解析)、`scripts/smoke-test.sh --platform github --read-only`(优先使用 `./target/release/gitflow-cli`)
+- Consumes: `docs/compatibility-matrix.json`(`min_version`/`tested_versions`,jq 解析)、`scripts/smoke-test.sh --platform github --read-only`(优先使用 `./target/release/gf`)
 - Produces: nightly 双 job 巡检;`upstream-drift` 标签下的去重预警 Issue
 
 - [ ] **Step 1: Create the upstream-drift label (dogfooding)**
 
 Run(在仓库根目录,已登录 gh):
 ```bash
-gitflow-cli label create upstream-drift --color "FBCA04"
+gf label create upstream-drift --color "FBCA04"
 ```
-Expected: 成功创建(若已存在会报错,忽略)。验证:`gitflow-cli label list | grep upstream-drift`
+Expected: 成功创建(若已存在会报错,忽略)。验证:`gf label list | grep upstream-drift`
 
 - [ ] **Step 2: Write the workflow**
 
@@ -1123,7 +1123,7 @@ jobs:
           sudo cp "gh_${LATEST}_linux_amd64/bin/gh" /usr/local/bin/gh
           gh --version
 
-      - name: Build gitflow-cli
+      - name: Build gf
         run: cargo build --release
 
       - name: Run read-only smoke test against latest gh

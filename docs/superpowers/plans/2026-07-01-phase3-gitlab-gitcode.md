@@ -3,7 +3,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 新增 GitLab 和 GitCode 两个平台的完整实现，使 gitflow-cli 成为真正的跨平台工具。同时补充 Pipeline 通用接口和三平台冒烟测试。
+**Goal:** 新增 GitLab 和 GitCode 两个平台的完整实现，使 gf 成为真正的跨平台工具。同时补充 Pipeline 通用接口和三平台冒烟测试。
 
 **Architecture:** 新建 `crates/gitlab`（调用 `glab` CLI）和 `crates/gitcode`（调用 `gitcode` CLI），均实现 core 中定义的全部 trait。同时在 core 中新增 `PipelineProvider` trait，三个平台 crate 各自实现。依赖流保持 `apps/cli → crates/{github,gitlab,gitcode} → crates/core`。
 
@@ -47,7 +47,7 @@
 ## File Structure
 
 ```
-gitflow-cli/
+gf/
 ├── crates/
 │   ├── core/src/
 │   │   ├── pipeline.rs          # 新增：PipelineProvider trait + PipelineData + args
@@ -169,7 +169,7 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 **Dependencies:** Task 3, Task 4（参考 GitHub 实现模式）
 
 - [ ] **Step 1: 新建 Cargo.toml**
-  - `name = "gitflow-cli-gitlab"`，依赖 `gitflow-cli-core`、`tokio`、`serde_json`、`async-trait` 等
+  - `name = "gf-gitlab"`，依赖 `gf-core`、`tokio`、`serde_json`、`async-trait` 等
 
 - [ ] **Step 2: 新建 error.rs**
   - `GlabError` 结构 + `parse_glab_error()` — 解析 `glab` CLI 的错误输出
@@ -211,7 +211,7 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 **Dependencies:** Task 5（参考 GitLab 实现模式，保持三平台对称）
 
 - [ ] **Step 1: 新建 Cargo.toml**
-  - `name = "gitflow-cli-gitcode"`
+  - `name = "gf-gitcode"`
 
 - [ ] **Step 2: 新建 error.rs**
   - `GcError` 结构 + `parse_gc_error()`

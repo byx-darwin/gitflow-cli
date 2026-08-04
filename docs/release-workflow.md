@@ -101,11 +101,11 @@ cargo publish --all-features
 ### Published Crates
 
 The following crates are published to crates.io:
-- `gitflow-cli` — Main CLI application
-- `gitflow-cli-core` — Core library
-- `gitflow-cli-github` — GitHub platform support
-- `gitflow-cli-gitlab` — GitLab platform support
-- `gitflow-cli-gitcode` — GitCode platform support
+- `gf` — Main CLI application
+- `gf-core` — Core library
+- `gf-github` — GitHub platform support
+- `gf-gitlab` — GitLab platform support
+- `gf-gitcode` — GitCode platform support
 
 Internal test crates (`e2e-core`, `e2e-github`) are **not** published.
 
@@ -113,16 +113,16 @@ Internal test crates (`e2e-core`, `e2e-github`) are **not** published.
 
 ```bash
 # Search for the crate
-cargo search gitflow-cli
+cargo search gf
 
 # Check specific version
-cargo search gitflow-cli --limit 1
+cargo search gf --limit 1
 
 # View on crates.io
-open https://crates.io/crates/gitflow-cli
+open https://crates.io/crates/gf
 
 # View documentation
-open https://docs.rs/gitflow-cli/0.8.0
+open https://docs.rs/gf/0.8.0
 ```
 
 ### Troubleshooting
@@ -234,11 +234,11 @@ Once published to crates.io:
 ### Publish Order
 
 cargo-release automatically handles dependency order:
-1. `gitflow-cli-core` (no dependencies)
-2. `gitflow-cli-github` (depends on core)
-3. `gitflow-cli-gitlab` (depends on core)
-4. `gitflow-cli-gitcode` (depends on core)
-5. `gitflow-cli` (depends on all)
+1. `gf-core` (no dependencies)
+2. `gf-github` (depends on core)
+3. `gf-gitlab` (depends on core)
+4. `gf-gitcode` (depends on core)
+5. `gf` (depends on all)
 
 ### License Compliance
 
@@ -252,7 +252,7 @@ Ensure:
 After publishing:
 - docs.rs will auto-generate documentation
 - May take 10-30 minutes to appear
-- Check: https://docs.rs/gitflow-cli/
+- Check: https://docs.rs/gf/
 
 ## 事故复盘:`v{{version}}` 模板未替换
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a co-contribution plan to `gitflow-cli skills install` that verifies GitHub auth, writes an opt-in marker to settings.json, and gates automatic bug reporting on that marker.
+**Goal:** Add a co-contribution plan to `gf skills install` that verifies GitHub auth, writes an opt-in marker to settings.json, and gates automatic bug reporting on that marker.
 
 **Architecture:** The install flow gains an interactive co-contribution prompt after skills/hooks are installed. The marker is stored in `settings.json` under `gitflow.co_contribution`. The error reporter checks this marker before writing `pending.json`. The Stop Hook gains an auth-failure fallback that outputs a login guide and Issue template.
 
@@ -61,7 +61,7 @@ fn test_should_default_report_bug_to_true() {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_parse_report_bug_false -- --nocapture`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_parse_report_bug_false -- --nocapture`
 Expected: FAIL — `ArgAction::SetTrue` cannot accept `=false`
 
 - [ ] **Step 3: Fix the flag definition**
@@ -80,8 +80,8 @@ To:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_parse_report_bug_false`
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_default_report_bug_to_true`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_parse_report_bug_false`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_default_report_bug_to_true`
 Expected: Both PASS
 
 - [ ] **Step 5: Commit**
@@ -183,12 +183,12 @@ fn install_single_skill_bundled(
 
 - [ ] **Step 3: Run tests to verify they pass**
 
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_count_overwritten_in_bundled_path`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_count_overwritten_in_bundled_path`
 Expected: PASS
 
 - [ ] **Step 4: Run all skills tests**
 
-Run: `cargo test -p gitflow-cli --lib commands::skills`
+Run: `cargo test -p gf --lib commands::skills`
 Expected: All PASS
 
 - [ ] **Step 5: Commit**
@@ -304,10 +304,10 @@ fn confirm_with_reader(
 
 - [ ] **Step 3: Run tests**
 
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_return_default_on_empty_input`
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_accept_yes_variants`
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_accept_no_variants`
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_return_default_on_eof`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_return_default_on_empty_input`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_accept_yes_variants`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_accept_no_variants`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_return_default_on_eof`
 Expected: All PASS
 
 - [ ] **Step 4: Commit**
@@ -483,7 +483,7 @@ fn iso8601_utc_now_co_contribution() -> String {
 
 - [ ] **Step 3: Run tests**
 
-Run: `cargo test -p gitflow-cli --lib commands::skills::tests::test_should_merge_co_contribution`
+Run: `cargo test -p gf --lib commands::skills::tests::test_should_merge_co_contribution`
 Expected: All 3 tests PASS
 
 - [ ] **Step 4: Commit**
@@ -516,7 +516,7 @@ At the end of `install_skills()`, after the `if args.report_bug { ... }` block, 
     }
 
     println!();
-    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gitflow-cli。");
+    println!("🤝 共建计划：加入后，CLI 错误将自动上报为 GitHub Issue，帮助改进 gf。");
     println!("   仅非交互模式（Agent/CI）下生效，普通控制台使用不受影响。");
     println!();
 
@@ -563,8 +563,8 @@ use is_terminal::IsTerminal;
 
 - [ ] **Step 3: Build and run all tests**
 
-Run: `cargo build -p gitflow-cli`
-Run: `cargo test -p gitflow-cli --lib commands::skills`
+Run: `cargo build -p gf`
+Run: `cargo test -p gf --lib commands::skills`
 Expected: Build succeeds, all tests pass
 
 - [ ] **Step 4: Commit**
@@ -724,7 +724,7 @@ use std::path::Path;
 
 - [ ] **Step 5: Run tests**
 
-Run: `cargo test -p gitflow-cli --lib error_reporter::tests`
+Run: `cargo test -p gf --lib error_reporter::tests`
 Expected: All tests PASS (including the 6 new ones)
 
 - [ ] **Step 6: Commit**
@@ -886,7 +886,7 @@ Add after the "Decision Flow" section:
 ```markdown
 ## Auth 失败处理
 
-当 `gitflow-cli auth status` 返回未登录时，不要尝试创建 Issue。改为：
+当 `gf auth status` 返回未登录时，不要尝试创建 Issue。改为：
 
 1. 输出登录提示：`gh auth login`
 2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`

@@ -3,7 +3,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 补全剩余 Skills、增强 Shell 自动补全、输出 `--output text` 格式化、创建 Homebrew formula 和社区文档，使 gitflow-cli 达到社区项目的完成度标准。
+**Goal:** 补全剩余 Skills、增强 Shell 自动补全、输出 `--output text` 格式化、创建 Homebrew formula 和社区文档，使 gf 达到社区项目的完成度标准。
 
 **Architecture:** 剩余 Skills 遵循 Phase 2/4 已建立的模式。Shell 补全通过 clap 内置生成器增强。Homebrew formula 通过 GitHub Releases + Ruby 公式分发。社区文档补齐 CONTRIBUTING 等内容。
 
@@ -42,7 +42,7 @@
 ## File Structure
 
 ```
-gitflow-cli/
+gf/
 ├── skills/
 │   ├── gitflow-issue-review/SKILL.md        # 新增：Issue 需求分析
 │   ├── gitflow-issue-triage/SKILL.md        # 新增：Issue 分类分流
@@ -69,7 +69,7 @@ gitflow-cli/
 │   ├── CONTRIBUTING.md                      # 增强：贡献指南
 │   └── CHANGELOG.md                         # 已有，维护
 ├── HomebrewFormula/
-│   └── gitflow-cli.rb                       # 新增：Homebrew formula
+│   └── gf.rb                       # 新增：Homebrew formula
 └── Makefile                                 # 修改：新增 completions/release targets
 ```
 
@@ -239,11 +239,11 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
 
 ### Task 7: Homebrew formula
 
-**Description:** 创建 `HomebrewFormula/gitflow-cli.rb`，支持 macOS 用户通过 `brew install` 安装。配置 GitHub Release workflow 自动更新 formula。
+**Description:** 创建 `HomebrewFormula/gf.rb`，支持 macOS 用户通过 `brew install` 安装。配置 GitHub Release workflow 自动更新 formula。
 
 **Dependencies:** 无（独立任务）
 
-- [ ] **Step 1: 创建 HomebrewFormula/gitflow-cli.rb**
+- [ ] **Step 1: 创建 HomebrewFormula/gf.rb**
   - `class GitflowCli < Formula`
   - `desc`, `homepage`, `url`, `license`, `sha256`
   - `depends_on "rust" => :build`
@@ -261,8 +261,8 @@ echo "✅ Issue #$(cat .claude/gh-issue/current-issue.txt) 已标记为 in-progr
   - Step 5: 更新 Homebrew formula 中的 url + sha256
 
 - [ ] **Step 3: 写 README 安装说明**
-  - `brew install byx-darwin/gitflow-cli/gitflow-cli`（自定义 tap）
-  - 或 `brew install gitflow-cli`（如合并到 homebrew-core）
+  - `brew install byx-darwin/gitflow-cli/gf`（自定义 tap）
+  - 或 `brew install gf`（如合并到 homebrew-core）
 
 > **Commit:** `feat: add Homebrew formula and GitHub Release workflow (#N)`
 

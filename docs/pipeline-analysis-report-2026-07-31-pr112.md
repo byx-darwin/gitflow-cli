@@ -2,7 +2,7 @@
 
 - **日期**：2026-07-31
 - **关联**：PR #112 · 分支 `feat/97-v1.0-metadata-website-geo` → `main` · 工作流 `wf-2026-07-31-001` Phase 4
-- **分析方式**：只读（`gh pr checks` + `gitflow-cli pipeline report/status`），未触发/重跑任何流水线
+- **分析方式**：只读（`gh pr checks` + `gf pipeline report/status`），未触发/重跑任何流水线
 
 ## 三维分析
 

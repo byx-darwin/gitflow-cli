@@ -1,14 +1,14 @@
-# gitflow-cli-gitcode
+# gf-gitcode
 
-[![Crates.io](https://img.shields.io/crates/v/gitflow-cli-gitcode)](https://crates.io/crates/gitflow-cli-gitcode)
-[![Documentation](https://docs.rs/gitflow-cli-gitcode/badge.svg)](https://docs.rs/gitflow-cli-gitcode)
+[![Crates.io](https://img.shields.io/crates/v/gf-gitcode)](https://crates.io/crates/gf-gitcode)
+[![Documentation](https://docs.rs/gf-gitcode/badge.svg)](https://docs.rs/gf-gitcode)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-GitCode platform implementation for [gitflow-cli](https://github.com/byx-darwin/gitflow-cli) — Issue, PR, Release, and Review providers via `gc` CLI.
+GitCode platform implementation for [gf](https://github.com/byx-darwin/gitflow-cli) — Issue, PR, Release, and Review providers via `gc` CLI.
 
 ## Overview
 
-`gitflow-cli-gitcode` provides GitCode-specific implementations of the core platform traits defined in `gitflow-cli-core`. It uses the [`gc`](https://gitcode.com) CLI under the hood for all GitCode API interactions.
+`gf-gitcode` provides GitCode-specific implementations of the core platform traits defined in `gf-core`. It uses the [`gc`](https://gitcode.com) CLI under the hood for all GitCode API interactions.
 
 ## Features
 
@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gitflow-cli-gitcode = "0.8"
+gf-gitcode = "0.8"
 ```
 
 ### Prerequisites
@@ -112,13 +112,13 @@ provider.merge_pr("owner/repo", pr.number).await?;
 
 ```
 ┌─────────────────────────────────────┐
-│     gitflow-cli-core (traits)       │
+│     gf-core (traits)       │
 │  IssueProvider, PrProvider, etc.    │
 └──────────────────┬──────────────────┘
                    │ implements
                    ▼
 ┌─────────────────────────────────────┐
-│   gitflow-cli-gitcode (this crate)  │
+│   gf-gitcode (this crate)  │
 │      GitCodeProvider                │
 └──────────────────┬──────────────────┘
                    │ uses
@@ -152,17 +152,17 @@ match provider.list_issues("owner/repo", "open").await {
 
 ## Ecosystem
 
-This crate is part of the gitflow-cli workspace:
+This crate is part of the gf workspace:
 
-- [gitflow-cli-core](https://crates.io/crates/gitflow-cli-core) — Core types and traits
-- [gitflow-cli-github](https://crates.io/crates/gitflow-cli-github) — GitHub platform implementation
-- [gitflow-cli-gitlab](https://crates.io/crates/gitflow-cli-gitlab) — GitLab platform implementation
-- **gitflow-cli-gitcode** (this crate) — GitCode platform implementation
-- [gitflow-cli](https://crates.io/crates/gitflow-cli) — CLI application
+- [gf-core](https://crates.io/crates/gf-core) — Core types and traits
+- [gf-github](https://crates.io/crates/gf-github) — GitHub platform implementation
+- [gf-gitlab](https://crates.io/crates/gf-gitlab) — GitLab platform implementation
+- **gf-gitcode** (this crate) — GitCode platform implementation
+- [gf](https://crates.io/crates/gf) — CLI application
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/gitflow-cli-gitcode)
+- [API Documentation](https://docs.rs/gf-gitcode)
 - [Main Project](https://github.com/byx-darwin/gitflow-cli)
 
 ## Contributing

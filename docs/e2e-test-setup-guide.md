@@ -17,7 +17,7 @@
 2. **创建新仓库**
    - 点击右上角 "+" → "New repository"
    - 仓库名称：`e2e-test-repo`
-   - 描述：`E2E test repository for gitflow-cli`
+   - 描述：`E2E test repository for gf`
    - 可见性：**Public**（或 Private，根据需求）
    - 初始化：**仅添加 README**
    - 点击 "Create repository"
@@ -243,9 +243,9 @@ export E2E_GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 - [GitHub Actions Secrets 文档](https://docs.github.com/en/actions/security-guides/encrypted-secrets)
 - [GitHub 个人访问令牌](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
-- [gitflow-cli E2E 测试设计文档](./docs/superpowers/specs/2026-07-09-e2e-noninteractive-test-design.md)
+- [gf E2E 测试设计文档](./docs/superpowers/specs/2026-07-09-e2e-noninteractive-test-design.md)
 
 ---
 
 **最后更新**: 2026-07-09
-**维护者**: gitflow-cli 团队
+**维护者**: gf 团队

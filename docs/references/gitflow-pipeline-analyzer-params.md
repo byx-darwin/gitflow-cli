@@ -1,14 +1,14 @@
-# gitflow-cli pipeline analyzer 完整参考
+# gf pipeline analyzer 完整参考
 
 > 本文档为 `gitflow-pipeline-analyzer` skill 的外部化引用。
 
 ## 流水线相关命令速查
 
 ```bash
-gitflow-cli pipeline report --branch <BRANCH> --days <N>
-gitflow-cli pipeline status --branch <BRANCH>
-gitflow-cli pipeline jobs --pipeline-id <ID>
-gitflow-cli pipeline logs --pipeline-id <ID>
+gf pipeline report --branch <BRANCH> --days <N>
+gf pipeline status --branch <BRANCH>
+gf pipeline jobs --pipeline-id <ID>
+gf pipeline logs --pipeline-id <ID>
 ```
 
 ## 默认分析参数

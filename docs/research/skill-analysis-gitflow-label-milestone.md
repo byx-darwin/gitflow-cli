@@ -28,7 +28,7 @@
 |--------|------|------|
 | YAML frontmatter 含 name 字段 | ✅ | `name: gitflow-label-milestone` |
 | YAML frontmatter 含 description 字段 | ✅ | 存在 description |
-| description 以 "Use when..." 开头 | ❌ | 当前为 "gitflow-cli 的 Label 和 Milestone 操作命令封装，支持仓库标签和里程碑的增删改查"——这是功能描述而非触发条件 |
+| description 以 "Use when..." 开头 | ❌ | 当前为 "gf 的 Label 和 Milestone 操作命令封装，支持仓库标签和里程碑的增删改查"——这是功能描述而非触发条件 |
 | description 只描述触发条件 | ❌ | 描述了功能而非触发时机 |
 | 含 Overview 章节 | ❌ | 无 Overview 章节 |
 | 含 When to Use 章节 | ❌ | 无触发条件说明 |
@@ -161,7 +161,7 @@
    - 未迭代验证
 
 2. **description 应是触发条件而非功能描述**：
-   - ❌ 当前：`gitflow-cli 的 Label 和 Milestone 操作命令封装，支持仓库标签和里程碑的增删改查`
+   - ❌ 当前：`gf 的 Label 和 Milestone 操作命令封装，支持仓库标签和里程碑的增删改查`
    - ✅ 应为：`Use when the user needs to manage repository labels or milestones (create, list, edit, delete, close/reopen) via CLI`
 
 3. **缺少关键词覆盖**：应覆盖用户可能的表达方式：
@@ -203,7 +203,7 @@
 | P1-2 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-3 | 添加错误处理章节 | D1 | 覆盖重复标签冲突、不存在的资源、无效颜色格式等异常场景 |
 | P1-4 | 添加红旗列表 | D2 | 标识高风险操作（批量删除、删除被引用的标签等） |
-| P1-5 | 添加前置条件检查 | D1 | 执行前验证 `gitflow-cli` 是否可用、是否在 git 仓库中、是否有仓库写权限 |
+| P1-5 | 添加前置条件检查 | D1 | 执行前验证 `gf` 是否可用、是否在 git 仓库中、是否有仓库写权限 |
 
 ### P2（可选改进 — 锦上添花）
 
