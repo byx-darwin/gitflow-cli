@@ -47,8 +47,8 @@ glab auth login
 ### Creating a GitLab Provider
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::IssueProvider;
+use gf_gitlab::GitLabProvider;
+use gf_core::IssueProvider;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,8 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Working with Issues
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::{IssueProvider, IssueState};
+use gf_gitlab::GitLabProvider;
+use gf_core::{IssueProvider, IssueState};
 
 let provider = GitLabProvider::new()?;
 
@@ -91,8 +91,8 @@ provider.update_issue_state(
 ### Working with Merge Requests
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::PrProvider;
+use gf_gitlab::GitLabProvider;
+use gf_core::PrProvider;
 
 let provider = GitLabProvider::new()?;
 
@@ -112,8 +112,8 @@ provider.merge_pr("owner/repo", mr.number).await?;
 ### Working with Pipelines
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::{PipelineProvider, PipelineStatus};
+use gf_gitlab::GitLabProvider;
+use gf_core::{PipelineProvider, PipelineStatus};
 
 let provider = GitLabProvider::new()?;
 
@@ -144,11 +144,11 @@ println!("Pipeline status: {:?}", pipeline.status);
 
 ## Error Handling
 
-All operations return `Result<T, gitflow_cli_core::Error>`:
+All operations return `Result<T, gf_core::Error>`:
 
 ```rust
-use gitflow_cli_gitlab::GitLabProvider;
-use gitflow_cli_core::Error;
+use gf_gitlab::GitLabProvider;
+use gf_core::Error;
 
 let provider = GitLabProvider::new()?;
 match provider.list_issues("owner/repo", "open").await {

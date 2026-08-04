@@ -2,12 +2,12 @@
   <rect width="720" height="300" rx="10" fill="#0d1117"/>
   <rect width="720" height="34" rx="10" fill="#161b22"/>
   <circle cx="20" cy="17" r="6" fill="#ff5f56"/><circle cx="40" cy="17" r="6" fill="#ffbd2e"/><circle cx="60" cy="17" r="6" fill="#27c93f"/>
-  <text x="20" y="66" fill="#7ee787">$ gitflow-cli skills install</text>
+  <text x="20" y="66" fill="#7ee787">$ gf skills install</text>
   <text x="20" y="90" fill="#c9d1d9">✔ 已安装 26 个 gitflow-* skills（项目级 .claude/skills/）</text>
-  <text x="20" y="122" fill="#7ee787">$ gitflow-cli issue list --output toon</text>
+  <text x="20" y="122" fill="#7ee787">$ gf issue list --output toon</text>
   <text x="20" y="146" fill="#c9d1d9">platform: github · 3 open issues</text>
-  <text x="20" y="178" fill="#7ee787">$ gitflow-cli --version</text>
-  <text x="20" y="202" fill="#c9d1d9">gitflow-cli 0.9.0</text>
+  <text x="20" y="178" fill="#7ee787">$ gf --version</text>
+  <text x="20" y="202" fill="#c9d1d9">gf 0.9.0</text>
   <text x="20" y="234" fill="#8b949e"># 统一封装 GitHub / GitLab / GitCode，配合 AI Agent Skills</text>
   <text x="20" y="258" fill="#8b949e"># 覆盖从需求到发布的完整工程循环</text>
 </svg>

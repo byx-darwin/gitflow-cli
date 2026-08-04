@@ -12,7 +12,7 @@ gf 不是又一个 gh 封装，而是"AI 编程工程循环编排器"：统一�
 
 Homebrew（macOS）：
   brew tap byx-darwin/gitflow-cli
-  brew install gitflow-cli
+  brew install gf
 
 Cargo：
   cargo install gf

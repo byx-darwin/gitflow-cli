@@ -46,8 +46,8 @@ gc auth login
 ### Creating a GitCode Provider
 
 ```rust
-use gitflow_cli_gitcode::GitCodeProvider;
-use gitflow_cli_core::IssueProvider;
+use gf_gitcode::GitCodeProvider;
+use gf_core::IssueProvider;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,8 +66,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Working with Issues
 
 ```rust
-use gitflow_cli_gitcode::GitCodeProvider;
-use gitflow_cli_core::{IssueProvider, IssueState};
+use gf_gitcode::GitCodeProvider;
+use gf_core::{IssueProvider, IssueState};
 
 let provider = GitCodeProvider::new()?;
 
@@ -90,8 +90,8 @@ provider.update_issue_state(
 ### Working with Pull Requests
 
 ```rust
-use gitflow_cli_gitcode::GitCodeProvider;
-use gitflow_cli_core::PrProvider;
+use gf_gitcode::GitCodeProvider;
+use gf_core::PrProvider;
 
 let provider = GitCodeProvider::new()?;
 
@@ -130,11 +130,11 @@ provider.merge_pr("owner/repo", pr.number).await?;
 
 ## Error Handling
 
-All operations return `Result<T, gitflow_cli_core::Error>`:
+All operations return `Result<T, gf_core::Error>`:
 
 ```rust
-use gitflow_cli_gitcode::GitCodeProvider;
-use gitflow_cli_core::Error;
+use gf_gitcode::GitCodeProvider;
+use gf_core::Error;
 
 let provider = GitCodeProvider::new()?;
 match provider.list_issues("owner/repo", "open").await {

@@ -47,8 +47,8 @@ gh auth login
 ### Creating a GitHub Provider
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::IssueProvider;
+use gf_github::GitHubProvider;
+use gf_core::IssueProvider;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,8 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Working with Issues
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::{IssueProvider, IssueState};
+use gf_github::GitHubProvider;
+use gf_core::{IssueProvider, IssueState};
 
 let provider = GitHubProvider::new()?;
 
@@ -91,8 +91,8 @@ provider.update_issue_state(
 ### Working with Pull Requests
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::PrProvider;
+use gf_github::GitHubProvider;
+use gf_core::PrProvider;
 
 let provider = GitHubProvider::new()?;
 
@@ -112,8 +112,8 @@ provider.merge_pr("owner/repo", pr.number).await?;
 ### Working with Releases
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::ReleaseProvider;
+use gf_github::GitHubProvider;
+use gf_core::ReleaseProvider;
 
 let provider = GitHubProvider::new()?;
 
@@ -132,8 +132,8 @@ let releases = provider.list_releases("owner/repo").await?;
 ### Code Reviews
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::{ReviewProvider, ReviewState};
+use gf_github::GitHubProvider;
+use gf_core::{ReviewProvider, ReviewState};
 
 let provider = GitHubProvider::new()?;
 
@@ -168,11 +168,11 @@ provider.submit_review(
 
 ## Error Handling
 
-All operations return `Result<T, gitflow_cli_core::Error>`:
+All operations return `Result<T, gf_core::Error>`:
 
 ```rust
-use gitflow_cli_github::GitHubProvider;
-use gitflow_cli_core::Error;
+use gf_github::GitHubProvider;
+use gf_core::Error;
 
 let provider = GitHubProvider::new()?;
 match provider.list_issues("owner/repo", "open").await {

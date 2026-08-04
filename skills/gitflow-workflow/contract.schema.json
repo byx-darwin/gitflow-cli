@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitflow-cli.ai/schemas/workflow-contract-v1.1.json",
+  "$id": "https://gf.ai/schemas/workflow-contract-v1.1.json",
   "title": "Workflow Contract",
   "description": "Phase 间传递的结构化合同，用于 gitflow-workflow 四阶段编排器",
   "type": "object",

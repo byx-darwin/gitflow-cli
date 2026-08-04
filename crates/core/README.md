@@ -33,7 +33,7 @@ gf-core = "0.8"
 ### Domain Types
 
 ```rust
-use gitflow_cli_core::{Issue, IssueState, IssueProvider};
+use gf_core::{Issue, IssueState, IssueProvider};
 
 // Work with issues
 let issue = Issue {
@@ -47,7 +47,7 @@ let issue = Issue {
 ### Platform Traits
 
 ```rust
-use gitflow_cli_core::{IssueProvider, PrProvider, ReleaseProvider};
+use gf_core::{IssueProvider, PrProvider, ReleaseProvider};
 
 // Implement platform-specific providers
 struct MyPlatform;
@@ -64,7 +64,7 @@ impl PrProvider for MyPlatform {
 ### Error Handling
 
 ```rust
-use gitflow_cli_core::Error;
+use gf_core::Error;
 
 fn do_something() -> Result<(), Error> {
     // Use the core error type
@@ -75,7 +75,7 @@ fn do_something() -> Result<(), Error> {
 ### Output Formatting
 
 ```rust
-use gitflow_cli_core::{CliOutput, CliError};
+use gf_core::{CliOutput, CliError};
 
 // Format CLI output
 let output = CliOutput::success("Operation completed");
