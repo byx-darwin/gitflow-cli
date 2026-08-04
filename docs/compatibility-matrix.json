@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "updated_at": "2026-08-04",
-  "gitflow_cli_version": "0.9.0",
+  "gitflow_cli_version": "1.0.0",
   "platforms": [
     {
       "name": "GitHub",
