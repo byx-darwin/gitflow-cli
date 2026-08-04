@@ -91,6 +91,6 @@ jobs:
 
       - name: Smoke test (read-only)
         run: |
-          ./target/release/gitflow-cli --help
-          ./target/release/gitflow-cli issue list --help
-          ./target/release/gitflow-cli pr list --help
+          ./target/release/gf --help
+          ./target/release/gf issue list --help
+          ./target/release/gf pr list --help

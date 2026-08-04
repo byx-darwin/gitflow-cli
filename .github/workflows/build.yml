@@ -150,8 +150,8 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          BIN_NAME="gitflow-cli${{ matrix.ext }}"
-          ARCHIVE_NAME="gitflow-cli-${GITHUB_REF_NAME#v}-${{ matrix.target }}.${{ matrix.archive }}"
+          BIN_NAME="gf${{ matrix.ext }}"
+          ARCHIVE_NAME="gf-${GITHUB_REF_NAME#v}-${{ matrix.target }}.${{ matrix.archive }}"
 
           if [ "${{ matrix.archive }}" = "tar.gz" ]; then
             tar czf "$ARCHIVE_NAME" "$BIN_NAME"
@@ -165,7 +165,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/gitflow-cli-*.tar.gz*
+          path: target/${{ matrix.target }}/release/gf-*.tar.gz*
           if-no-files-found: error
 
   # ── GitHub Release ─────────────────────────────────────────

@@ -146,7 +146,7 @@ jobs:
           sudo cp "gh_${LATEST}_linux_amd64/bin/gh" /usr/local/bin/gh
           gh --version
 
-      - name: Build gitflow-cli
+      - name: Build gf
         if: steps.creds.outputs.available == 'true'
         run: cargo build --release
 
