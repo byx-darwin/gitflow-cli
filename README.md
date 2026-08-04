@@ -27,7 +27,7 @@ cargo install gf
 gf skills install
 
 # 2. 验证
-gf skills list     # 应看到 26 个 gitflow-* skills
+gf skills list     # 应看到 26 个 gf-* skills
 gf --version
 
 # 3. 在 Agent 平台中进入四阶段工作流

@@ -2,7 +2,7 @@
 
 > **Date:** 2026-07-07
 > **Scope:** 26 gf skills × 4 evaluation dimensions
-> **Sources:** `docs/research/skill-analysis-gitflow-*.md` (26 analysis docs), GitHub Issues #15–#41
+> **Sources:** `docs/research/skill-analysis-gf-*.md` (26 analysis docs), GitHub Issues #15–#41
 > **Methodology:** Superpowers writing-skills 4-dimension framework (Structure & Documentation, Responsibility Boundaries, Testability, Superpowers Best Practices)
 
 ---

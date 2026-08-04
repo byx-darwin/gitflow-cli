@@ -53,7 +53,7 @@
    - 当用户需要操作 label 时，会加载整个文件（包含无关的 milestone 内容），浪费 token
    - 一个 description 无法同时精确描述两个命令族的触发条件
    - 后续维护时两个命令族的变更会互相干扰
-   - 建议拆分为 `gitflow-label` 和 `gitflow-milestone` 两个独立 skill
+   - 建议拆分为 `gf-label` 和 `gf-milestone` 两个独立 skill
 
 3. **缺乏结构化章节**：当前文档是"命令参考手册"风格，不是"可执行指令"风格。缺少：
    - 前置条件（prerequisites）
@@ -199,7 +199,7 @@
 
 | # | 改进项 | 维度 | 说明 |
 |---|--------|------|------|
-| P1-1 | 拆分为两个独立 skill | D1 | 将 label 和 milestone 拆分为 `gitflow-label` 和 `gitflow-milestone`，各自有独立的 description、关键词和职责边界 |
+| P1-1 | 拆分为两个独立 skill | D1 | 将 label 和 milestone 拆分为 `gf-label` 和 `gf-milestone`，各自有独立的 description、关键词和职责边界 |
 | P1-2 | 重构为结构化模板 | D1 | 添加 Overview / When to Use / Core Pattern / Quick Reference / Implementation / Common Mistakes 章节 |
 | P1-3 | 添加错误处理章节 | D1 | 覆盖重复标签冲突、不存在的资源、无效颜色格式等异常场景 |
 | P1-4 | 添加红旗列表 | D2 | 标识高风险操作（批量删除、删除被引用的标签等） |
@@ -254,5 +254,5 @@ gf-label-milestone 当前的定位是"命令参考手册"，它描述了命令�
 5. **缺乏边界** → Claude 不应自动分类或批量删除？
 
 重构方向：
-1. **（推荐）拆分为 `gitflow-label` 和 `gitflow-milestone` 两个独立 skill**，各自遵循 Superpowers 最佳实践
+1. **（推荐）拆分为 `gf-label` 和 `gf-milestone` 两个独立 skill**，各自遵循 Superpowers 最佳实践
 2. 若因约束必须保留单文件，则需要在文件内清晰分离两个命令族，并添加独立的职责边界和关键词覆盖

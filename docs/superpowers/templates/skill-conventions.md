@@ -417,7 +417,7 @@ Count toward token budget: **0** (excluded as a code block).
 
 ```yaml
 ---
-name: gitflow-{skill-name}
+name: gf-{skill-name}
 description: |
   Use when <english trigger>.
   当 <中文触发条件> 时使用。
