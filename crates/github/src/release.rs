@@ -320,12 +320,26 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitHubReleaseProvider<R> {
             .runner
             .run(
                 "gh",
-                &["release", "delete", tag_name, "--repo", &self.repo, "--yes"],
+                &[
+                    "release",
+                    "delete",
+                    tag_name,
+                    "--repo",
+                    &self.repo,
+                    "--yes",
+                    "--cleanup-tag",
+                ],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
         if !output.status.success() {
+            // Idempotency: deleting an already-deleted release reports "not found".
+            // Treat it as success so automation can safely re-run delete.
+            if is_release_not_found(&output.stderr) {
+                debug!(repo = %self.repo, tag = %tag_name, "release already deleted, treating as success");
+                return Ok(());
+            }
             return Err(parse_gh_error(&output.stderr).into());
         }
 
@@ -333,10 +347,87 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitHubReleaseProvider<R> {
     }
 }
 
+/// Detect whether `gh` reported that a release (or its tag) does not exist.
+///
+/// `gh release delete` returns a non-zero exit with a "not found" message when the
+/// release was already deleted. `delete` treats this as idempotent success so that
+/// automation can safely re-run deletion. Detection is intentionally conservative:
+/// only messages mentioning a missing release/tag qualify, so unrelated errors
+/// (auth, permission, network) still surface as failures.
+///
+/// Accepts both the JSON form (`{"message": "Not Found", "code": "NOT_FOUND"}`) and
+/// plain-text stderr (`release not found`).
+#[must_use]
+fn is_release_not_found(stderr: &[u8]) -> bool {
+    let text = String::from_utf8_lossy(stderr);
+    let lower = text.to_ascii_lowercase();
+
+    // JSON error shape: code NOT_FOUND or message contains "not found".
+    if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr) {
+        let code_matches = json
+            .get("code")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|c| c == "NOT_FOUND");
+        let msg_matches = json
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|m| m.to_ascii_lowercase().contains("not found"));
+        if code_matches || msg_matches {
+            return true;
+        }
+    }
+
+    // Plain-text form: mention of a missing release or tag.
+    lower.contains("release not found")
+        || (lower.contains("not found")
+            && (lower.contains("release") || lower.contains("tag") || lower.contains("404")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{CommandOutput, MockCommandRunner};
+
+    /// Test runner that records every invocation's arguments.
+    ///
+    /// Used to assert that the `gh release delete` call includes `--cleanup-tag`.
+    /// Clones share the same recorded call list via `Arc<Mutex<...>>`.
+    #[derive(Debug, Clone)]
+    struct ArgsCapturingRunner {
+        calls: std::sync::Arc<std::sync::Mutex<Vec<Vec<String>>>>,
+    }
+
+    impl ArgsCapturingRunner {
+        fn new() -> Self {
+            Self {
+                calls: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl CommandRunner for ArgsCapturingRunner {
+        async fn run(&self, _program: &str, args: &[&str]) -> std::io::Result<CommandOutput> {
+            self.calls
+                .lock()
+                .expect("lock calls")
+                .push(args.iter().map(ToString::to_string).collect());
+            Ok(CommandOutput {
+                status: MockCommandRunner::make_exit_status(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            })
+        }
+
+        async fn run_with_stdin(
+            &self,
+            program: &str,
+            args: &[&str],
+            _stdin_data: &[u8],
+        ) -> std::io::Result<CommandOutput> {
+            self.run(program, args).await
+        }
+    }
 
     #[test]
     fn test_should_construct_github_release_provider() {
@@ -554,13 +645,58 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_return_platform_error_when_gh_fails_for_delete() {
-        let runner = MockCommandRunner::failure(r#"{"message": "Release not found"}"#, 256);
+        // Non-"not found" failures must still surface as errors.
+        let runner = MockCommandRunner::failure(r#"{"message": "Not logged in"}"#, 256);
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
         let result = provider.delete("v1.0.0").await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+    }
+
+    #[tokio::test]
+    async fn test_should_treat_missing_release_as_idempotent_success() {
+        // gh reports "Release not found" when deleting an already-deleted release.
+        // The delete must treat this as success (idempotent), not an error.
+        let runner = MockCommandRunner::failure(r#"{"message": "Release not found"}"#, 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.delete("v1.0.0").await;
+
+        assert!(result.is_ok(), "expected Ok (idempotent), got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_should_treat_text_not_found_as_idempotent_success() {
+        // gh may emit a plain-text "release not found" (non-JSON) stderr.
+        // It must also be treated as idempotent success.
+        let runner = MockCommandRunner::failure("release not found\n", 256);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let result = provider.delete("v1.0.0").await;
+
+        assert!(result.is_ok(), "expected Ok (idempotent), got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_cleanup_tag_flag_on_delete() {
+        // The `gh release delete` invocation must include `--cleanup-tag` so the
+        // underlying git tag is removed alongside the GitHub Release record.
+        let runner = ArgsCapturingRunner::new();
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .delete("v1.0.0")
+            .await
+            .expect("delete must succeed");
+
+        let calls = runner.calls.lock().expect("lock calls");
+        let last = calls.last().expect("at least one gh call");
+        assert!(
+            last.contains(&"--cleanup-tag".to_string()),
+            "delete args must include --cleanup-tag, got: {last:?}"
+        );
     }
 
     #[tokio::test]
