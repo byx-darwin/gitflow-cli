@@ -3,7 +3,7 @@ members = ["crates/*", "apps/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.9.0"
+version = "1.0.0"
 authors = ["byx-darwin <baoyx19870908@gmail.com>"]
 edition = "2024"
 rust-version = "1.96.0"
@@ -52,11 +52,11 @@ secrecy = "0.11"
 # owo-colors = "4"
 
 # workspace crates
-gf-core = { version = "0.9.0", path = "crates/core" }
-gf-github = { version = "0.9.0", path = "crates/github" }
-gf-gitlab = { version = "0.9.0", path = "crates/gitlab" }
-gf-gitcode = { version = "0.9.0", path = "crates/gitcode" }
-gf = { version = "0.9.0", path = "apps/cli" }
+gf-core = { version = "1.0.0", path = "crates/core" }
+gf-github = { version = "1.0.0", path = "crates/github" }
+gf-gitlab = { version = "1.0.0", path = "crates/gitlab" }
+gf-gitcode = { version = "1.0.0", path = "crates/gitcode" }
+gf = { version = "1.0.0", path = "apps/cli" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

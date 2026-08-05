@@ -658,7 +658,7 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "e2e-core"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "assert_cmd",
  "predicates",
@@ -670,7 +670,7 @@ dependencies = [
 
 [[package]]
 name = "e2e-github"
-version = "0.3.0"
+version = "1.0.0"
 dependencies = [
  "e2e-core",
  "serde_json",
@@ -848,7 +848,7 @@ dependencies = [
 
 [[package]]
 name = "gf"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "assert_cmd",
  "built",
@@ -879,7 +879,7 @@ dependencies = [
 
 [[package]]
 name = "gf-core"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -893,7 +893,7 @@ dependencies = [
 
 [[package]]
 name = "gf-gitcode"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -909,7 +909,7 @@ dependencies = [
 
 [[package]]
 name = "gf-github"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "gf-gitlab"
-version = "0.9.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
