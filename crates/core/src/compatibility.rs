@@ -1,12 +1,15 @@
 //! 兼容性矩阵数据。
 //!
-//! 从 `docs/compatibility-matrix.json` 编译时嵌入，
+//! 从 crate 内的 `resources/compatibility-matrix.json` 编译时嵌入，
 //! 提供各平台 CLI 版本要求和功能覆盖信息。
+//!
+//! 数据文件位于 crate 内部（而非仓库根 `docs/`），确保 `cargo publish`
+//! 打包的 tarball 自包含——`include_str!` 无法引用 crate 目录外的文件。
 
 use serde::Deserialize;
 
 /// 编译时嵌入的兼容性矩阵 JSON。
-const MATRIX_JSON: &str = include_str!("../../../docs/compatibility-matrix.json");
+const MATRIX_JSON: &str = include_str!("../resources/compatibility-matrix.json");
 
 /// 兼容性矩阵根结构。
 #[derive(Debug, Deserialize)]

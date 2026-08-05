@@ -1,6 +1,6 @@
 # 兼容性矩阵
 
-> 自动生成，请勿手动编辑。数据源：`docs/compatibility-matrix.json`
+> 自动生成，请勿手动编辑。数据源：`crates/core/resources/compatibility-matrix.json`
 > 更新时间：2026-08-04 · gf v1.0.0
 
 | 平台 | CLI 工具 | 最低版本 | 已测试版本 | 功能覆盖 |

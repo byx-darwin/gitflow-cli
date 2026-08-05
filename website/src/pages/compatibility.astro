@@ -1,13 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
-import matrix from "../../../docs/compatibility-matrix.json";
+import matrix from "../../../crates/core/resources/compatibility-matrix.json";
 ---
 
 <Base title="兼容性矩阵 — gf">
   <main class="narrow page">
     <h1 class="page-title">兼容性矩阵</h1>
     <p class="page-lede">
-      数据源：<code style="font-family:var(--font-mono);color:var(--gf-teal)">docs/compatibility-matrix.json</code>
+      数据源：<code style="font-family:var(--font-mono);color:var(--gf-teal)">crates/core/resources/compatibility-matrix.json</code>
       （自动生成）· 更新时间 {matrix.updated_at} · gf v{matrix.gitflow_cli_version}
     </p>
     <table class="matrix-table">
