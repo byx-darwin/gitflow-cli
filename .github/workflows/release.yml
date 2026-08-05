@@ -189,18 +189,29 @@ jobs:
           with open(FORMULA, "r") as f:
               content = f.read()
 
-          # Replace all SHA256 placeholders with computed values
-          content = content.replace("PLACEHOLDER_SHA256_ARM64", "${{ steps.sha.outputs.arm64 }}")
-          content = content.replace("PLACEHOLDER_SHA256_X86_64", "${{ steps.sha.outputs.x86_64 }}")
-          content = content.replace("PLACEHOLDER_SHA256_LINUX_ARM64", "${{ steps.sha.outputs.linux_arm64 }}")
-          content = content.replace("PLACEHOLDER_SHA256_LINUX_X86_64", "${{ steps.sha.outputs.linux_x86_64 }}")
-
           # Update version in on_macos / on_linux url paths
           content = re.sub(
               r'(releases/download/)v[\d.]+/',
               r'\1' + "$TAG" + '/',
               content,
           )
+
+          # Replace the four SHA256 values in document order:
+          # macOS arm64, macOS x86_64, Linux arm64, Linux x86_64.
+          new_shas = [
+              "${{ steps.sha.outputs.arm64 }}",
+              "${{ steps.sha.outputs.x86_64 }}",
+              "${{ steps.sha.outputs.linux_arm64 }}",
+              "${{ steps.sha.outputs.linux_x86_64 }}",
+          ]
+
+          idx = [0]
+          def replace_sha(match):
+              sha = new_shas[idx[0]]
+              idx[0] += 1
+              return f'sha256 "{sha}"'
+
+          content = re.sub(r'sha256 "[0-9a-f]{64}"', replace_sha, content)
 
           with open(FORMULA, "w") as f:
               f.write(content)
