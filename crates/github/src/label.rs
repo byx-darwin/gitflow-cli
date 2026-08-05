@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     label::{
         CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
@@ -23,7 +23,7 @@ use crate::error::parse_gh_error;
 /// # Examples
 ///
 /// ```no_run
-/// use gf_github::GitHubLabelProvider;
+/// use gitflow_github::GitHubLabelProvider;
 ///
 /// let provider = GitHubLabelProvider::new("octocat/hello-world");
 /// ```
@@ -187,7 +187,7 @@ impl GitHubLabelProvider {
 /// # Examples
 ///
 /// ```no_run
-/// use gf_github::GitHubMilestoneProvider;
+/// use gitflow_github::GitHubMilestoneProvider;
 ///
 /// let provider = GitHubMilestoneProvider::new("octocat/hello-world");
 /// ```

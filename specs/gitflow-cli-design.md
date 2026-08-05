@@ -784,14 +784,14 @@ chrono = { version = "0.4", features = ["serde"] }
 
 ```toml
 [package]
-name = "gf-github"
+name = "gitflow-github"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-gf-core.workspace = true
+gitflow-core.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true

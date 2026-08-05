@@ -11,7 +11,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     commit::{CommitDetail, CommitProvider},
     types::UserSummary,
@@ -26,7 +26,7 @@ use crate::error::parse_glab_error;
 /// # Examples
 ///
 /// ```no_run
-/// use gf_gitlab::GitLabCommitProvider;
+/// use gitflow_gitlab::GitLabCommitProvider;
 ///
 /// let provider = GitLabCommitProvider::new("gitlab-org/gitlab");
 /// ```

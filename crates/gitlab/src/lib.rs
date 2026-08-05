@@ -1,9 +1,9 @@
-//! `gf-gitlab` -- GitLab platform implementation.
+//! `gitflow-gitlab` -- GitLab platform implementation.
 //!
 //! This crate implements the `IssueProvider`, `PrProvider`,
 //! `ReleaseProvider`, `ReviewProvider`, `AuthProvider`, `LabelProvider`,
 //! `MilestoneProvider`, `CommitProvider` and `PipelineProvider` traits defined
-//! in `gf-core`, by calling the `glab` CLI to fetch data and parse
+//! in `gitflow-core`, by calling the `glab` CLI to fetch data and parse
 //! its JSON output.
 //!
 //! # Main Types

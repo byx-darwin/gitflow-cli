@@ -8,7 +8,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
@@ -71,7 +71,7 @@ struct PrBranchApi {
 /// - 旧版本：`author` 为纯字符串、`created_at` 为 `YYYY-MM-DD HH:MM:SS`
 #[derive(Debug, Clone, Deserialize)]
 struct PrCommentApiResponse {
-    #[serde(deserialize_with = "gf_core::types::deserialize_u64_or_string")]
+    #[serde(deserialize_with = "gitflow_core::types::deserialize_u64_or_string")]
     id: u64,
     #[serde(default)]
     body: String,
@@ -158,7 +158,7 @@ impl From<PrApiResponse> for PrData {
 /// # Examples
 ///
 /// ```no_run
-/// use gf_gitcode::GitCodePrProvider;
+/// use gitflow_gitcode::GitCodePrProvider;
 ///
 /// let provider = GitCodePrProvider::new("octocat/hello-world");
 /// ```
@@ -816,7 +816,10 @@ mod tests {
 
         let result = provider.create(sample_create_args()).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -828,7 +831,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -839,7 +842,10 @@ mod tests {
 
         let result = provider.list(ListPrArgs::default()).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -851,7 +857,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -862,7 +868,10 @@ mod tests {
 
         let result = provider.view(999).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -874,7 +883,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -885,7 +894,10 @@ mod tests {
 
         let result = provider.close(42).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -895,7 +907,10 @@ mod tests {
 
         let result = provider.reopen(42).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -905,7 +920,10 @@ mod tests {
 
         let result = provider.merge(42, None).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -915,7 +933,10 @@ mod tests {
 
         let result = provider.comment(42, "a comment").await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -925,7 +946,10 @@ mod tests {
 
         let result = provider.checkout(42).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -935,7 +959,10 @@ mod tests {
 
         let result = provider.sync_branch(42).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -945,7 +972,10 @@ mod tests {
 
         let result = provider.mark_ready(42).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -955,7 +985,10 @@ mod tests {
 
         let result = provider.mark_wip(42).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     // --- Call-shape regression tests (Issue #90) ---
@@ -1116,7 +1149,7 @@ mod contract_tests {
     //! 若 gitcode CLI 升级导致这些测试失败，说明上游架构变更，需要更新
     //! 适配器映射并重新捕获夹具（参见路线图"契约测试 + 兼容性矩阵"单元）。
 
-    use gf_core::pr::ListPrArgs;
+    use gitflow_core::pr::ListPrArgs;
 
     use super::*;
     use crate::runner::MockCommandRunner;

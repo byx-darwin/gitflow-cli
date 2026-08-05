@@ -4,7 +4,7 @@
 //! 支持 Commit 查看、Diff/Patch 获取及评论功能。
 
 use async_trait::async_trait;
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     commit::{CommitDetail, CommitFile, CommitProvider},
     types::UserSummary,
@@ -19,7 +19,7 @@ use crate::error::parse_gitcode_error;
 /// # Examples
 ///
 /// ```no_run
-/// use gf_gitcode::GitCodeCommitProvider;
+/// use gitflow_gitcode::GitCodeCommitProvider;
 ///
 /// let provider = GitCodeCommitProvider::new("octocat/hello-world");
 /// ```

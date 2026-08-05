@@ -102,10 +102,10 @@ cargo publish --all-features
 
 The following crates are published to crates.io:
 - `gf` — Main CLI application
-- `gf-core` — Core library
-- `gf-github` — GitHub platform support
-- `gf-gitlab` — GitLab platform support
-- `gf-gitcode` — GitCode platform support
+- `gitflow-core` — Core library
+- `gitflow-github` — GitHub platform support
+- `gitflow-gitlab` — GitLab platform support
+- `gitflow-gitcode` — GitCode platform support
 
 Internal test crates (`e2e-core`, `e2e-github`) are **not** published.
 
@@ -234,10 +234,10 @@ Once published to crates.io:
 ### Publish Order
 
 cargo-release automatically handles dependency order:
-1. `gf-core` (no dependencies)
-2. `gf-github` (depends on core)
-3. `gf-gitlab` (depends on core)
-4. `gf-gitcode` (depends on core)
+1. `gitflow-core` (no dependencies)
+2. `gitflow-github` (depends on core)
+3. `gitflow-gitlab` (depends on core)
+4. `gitflow-gitcode` (depends on core)
 5. `gf` (depends on all)
 
 ### License Compliance

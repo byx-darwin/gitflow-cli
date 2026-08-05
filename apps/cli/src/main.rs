@@ -259,7 +259,7 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
         }
         .to_string()
     } else {
-        let detected = gf_core::platform::Platform::detect_from_remote_url(&remote_url)
+        let detected = gitflow_core::platform::Platform::detect_from_remote_url(&remote_url)
             .ok_or_else(|| {
                 miette::miette!(
                     "Unable to detect platform from remote URL: {remote_url}\nUse --platform to \

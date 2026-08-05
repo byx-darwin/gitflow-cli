@@ -1,14 +1,14 @@
-# gf-github
+# gitflow-github
 
-[![Crates.io](https://img.shields.io/crates/v/gf-github)](https://crates.io/crates/gf-github)
-[![Documentation](https://docs.rs/gf-github/badge.svg)](https://docs.rs/gf-github)
+[![Crates.io](https://img.shields.io/crates/v/gitflow-github)](https://crates.io/crates/gitflow-github)
+[![Documentation](https://docs.rs/gitflow-github/badge.svg)](https://docs.rs/gitflow-github)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 GitHub platform implementation for [gf](https://github.com/byx-darwin/gitflow-cli) — Issue, PR, Release, and Review providers via `gh` CLI.
 
 ## Overview
 
-`gf-github` provides GitHub-specific implementations of the core platform traits defined in `gf-core`. It uses the official [`gh`](https://cli.github.com/) CLI under the hood for all GitHub API interactions.
+`gitflow-github` provides GitHub-specific implementations of the core platform traits defined in `gitflow-core`. It uses the official [`gh`](https://cli.github.com/) CLI under the hood for all GitHub API interactions.
 
 ## Features
 
@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gf-github = "0.8"
+gitflow-github = "0.8"
 ```
 
 ### Prerequisites
@@ -150,13 +150,13 @@ provider.submit_review(
 
 ```
 ┌─────────────────────────────────────┐
-│     gf-core (traits)       │
+│     gitflow-core (traits)       │
 │  IssueProvider, PrProvider, etc.    │
 └──────────────────┬──────────────────┘
                    │ implements
                    ▼
 ┌─────────────────────────────────────┐
-│    gf-github (this crate)  │
+│    gitflow-github (this crate)  │
 │      GitHubProvider                 │
 └──────────────────┬──────────────────┘
                    │ uses
@@ -192,15 +192,15 @@ match provider.list_issues("owner/repo", "open").await {
 
 This crate is part of the gf workspace:
 
-- [gf-core](https://crates.io/crates/gf-core) — Core types and traits
-- **gf-github** (this crate) — GitHub platform implementation
-- [gf-gitlab](https://crates.io/crates/gf-gitlab) — GitLab platform implementation
-- [gf-gitcode](https://crates.io/crates/gf-gitcode) — GitCode platform implementation
+- [gitflow-core](https://crates.io/crates/gitflow-core) — Core types and traits
+- **gitflow-github** (this crate) — GitHub platform implementation
+- [gitflow-gitlab](https://crates.io/crates/gitflow-gitlab) — GitLab platform implementation
+- [gitflow-gitcode](https://crates.io/crates/gitflow-gitcode) — GitCode platform implementation
 - [gf](https://crates.io/crates/gf) — CLI application
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/gf-github)
+- [API Documentation](https://docs.rs/gitflow-github)
 - [Main Project](https://github.com/byx-darwin/gitflow-cli)
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 

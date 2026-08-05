@@ -138,9 +138,9 @@ impl Config {
     /// # Examples
     ///
     /// ```
-    /// use gf_core::Config;
+    /// use gitflow_core::Config;
     /// let config = Config::new("my-app")?;
-    /// # Ok::<(), gf_core::CoreError>(())
+    /// # Ok::<(), gitflow_core::CoreError>(())
     /// ```
     pub fn new(name: impl Into<String>) -> Result<Self> {
         let name = name.into();
@@ -267,10 +267,10 @@ impl SafePath {
     /// # Examples
     ///
     /// ```
-    /// use gf_core::SafePath;
+    /// use gitflow_core::SafePath;
     /// let path = SafePath::new("foo/bar.txt")?;
     /// assert_eq!(path.as_path(), std::path::Path::new("foo/bar.txt"));
-    /// # Ok::<(), gf_core::CoreError>(())
+    /// # Ok::<(), gitflow_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         const MAX_COMPONENT_LEN: usize = 255;

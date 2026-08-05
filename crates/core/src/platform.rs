@@ -37,8 +37,8 @@ impl Platform {
     ///
     /// ```ignore
     /// // Doctest skipped: crate name hyphen-to-underscore mapping
-    /// // prevents `use gf_core::Platform` from resolving.
-    /// use gf_core::Platform;
+    /// // prevents `use gitflow_core::Platform` from resolving.
+    /// use gitflow_core::Platform;
     ///
     /// assert_eq!(
     ///     Platform::detect_from_remote_url("https://github.com/owner/repo.git"),

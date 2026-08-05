@@ -1,8 +1,8 @@
-//! 从 gf-core 内的 `resources/compatibility-matrix.json` 生成 Markdown 兼容性矩阵。
+//! 从 gitflow-core 内的 `resources/compatibility-matrix.json` 生成 Markdown 兼容性矩阵。
 //!
 //! 数据源在 crate 内（单一数据源），输出写到仓库根 `docs/compatibility-matrix.md`。
 //!
-//! 用法：`cargo run -p gf-core --example gen_compat_matrix`
+//! 用法：`cargo run -p gitflow-core --example gen_compat_matrix`
 
 #![allow(
     clippy::expect_used,
@@ -15,7 +15,7 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 use serde::Deserialize;
 
-/// gf-core 内的兼容性矩阵数据文件（与 crate 一起打包，`include_str!` 可用）。
+/// gitflow-core 内的兼容性矩阵数据文件（与 crate 一起打包，`include_str!` 可用）。
 const MATRIX_JSON_REL: &str = "resources/compatibility-matrix.json";
 
 /// 兼容性矩阵根结构。

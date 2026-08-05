@@ -11,10 +11,10 @@
 ## 需要发布的 Crates
 
 ### 核心库（发布）
-1. `gf-core` — 核心功能库
-2. `gf-github` — GitHub 平台支持
-3. `gf-gitlab` — GitLab 平台支持
-4. `gf-gitcode` — GitCode 平台支持
+1. `gitflow-core` — 核心功能库
+2. `gitflow-github` — GitHub 平台支持
+3. `gitflow-gitlab` — GitLab 平台支持
+4. `gitflow-gitcode` — GitCode 平台支持
 5. `gf` — CLI 应用程序
 
 ### 测试/内部 crate（不发布）
@@ -144,10 +144,10 @@ git push origin main --tags
 ### 1. Crate 发布顺序
 
 依赖关系决定发布顺序：
-1. `gf-core` (无依赖)
-2. `gf-github` (依赖 core)
-3. `gf-gitlab` (依赖 core)
-4. `gf-gitcode` (依赖 core)
+1. `gitflow-core` (无依赖)
+2. `gitflow-github` (依赖 core)
+3. `gitflow-gitlab` (依赖 core)
+4. `gitflow-gitcode` (依赖 core)
 5. `gf` (依赖所有)
 
 cargo-release 会自动处理依赖顺序。

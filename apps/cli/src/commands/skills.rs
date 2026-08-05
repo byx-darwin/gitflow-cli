@@ -25,7 +25,7 @@ use std::path::PathBuf;
 include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
 
 use clap::{ArgAction, Args, Subcommand, ValueEnum};
-use gf_core::AuthChecker;
+use gitflow_core::AuthChecker;
 use is_terminal::IsTerminal;
 
 use crate::error_reporter::read_co_contribution_flag;
@@ -742,7 +742,7 @@ fn try_enable_co_contribution(platform: AgentPlatform) -> miette::Result<()> {
     }
 
     // Check GitHub auth
-    let auth_provider = gf_github::GitHubAuthProvider::new();
+    let auth_provider = gitflow_github::GitHubAuthProvider::new();
     if auth_provider.is_authenticated() {
         merge_co_contribution(platform)?;
         println!("✅ 共建计划已激活");

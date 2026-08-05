@@ -3,7 +3,7 @@
 //! 通过 `gh run list` / `gh run view` CLI 实现 [`PipelineProvider`] trait。
 
 use async_trait::async_trait;
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     pipeline::{JobData, PipelineProvider, PipelineReport, PipelineStatus, PipelineStatusEnum},
 };
@@ -125,7 +125,7 @@ impl GhJob {
 /// # Examples
 ///
 /// ```no_run
-/// use gf_github::GitHubPipelineProvider;
+/// use gitflow_github::GitHubPipelineProvider;
 ///
 /// let provider = GitHubPipelineProvider::new("octocat/hello-world");
 /// ```
@@ -784,7 +784,10 @@ mod tests {
         let result = provider.status("main").await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -797,7 +800,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -809,7 +812,10 @@ mod tests {
         let result = provider.logs(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -820,7 +826,10 @@ mod tests {
         let result = provider.jobs(42).await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -833,7 +842,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -845,7 +854,10 @@ mod tests {
         let result = provider.report("main", 7).await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -858,7 +870,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 }

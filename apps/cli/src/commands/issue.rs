@@ -5,14 +5,14 @@
 //! Phase 1 仅支持 JSON 输出。
 
 use clap::Subcommand;
-use gf_core::{
+use gitflow_core::{
     CliOutput,
     issue::{CreateIssueArgs, IssueProvider, ListIssueArgs},
     types::State,
 };
-use gf_gitcode::GitCodeIssueProvider;
-use gf_github::GitHubIssueProvider;
-use gf_gitlab::GitLabIssueProvider;
+use gitflow_gitcode::GitCodeIssueProvider;
+use gitflow_github::GitHubIssueProvider;
+use gitflow_gitlab::GitLabIssueProvider;
 
 use crate::OutputFormat;
 

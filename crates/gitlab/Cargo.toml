@@ -1,5 +1,5 @@
 [package]
-name = "gf-gitlab"
+name = "gitflow-gitlab"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -8,13 +8,13 @@ license.workspace = true
 description = "gf 的 GitLab 适配器，基于 glab CLI 提供 Issue/MR/Release/Review 等能力。GitLab adapter for gf via glab CLI."
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/gf-gitlab"
+documentation = "https://docs.rs/gitflow-gitlab"
 readme = "README.md"
 keywords = ["cli", "gitlab", "gitflow", "issue", "merge-request"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-gf-core.workspace = true
+gitflow-core.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 serde.workspace = true

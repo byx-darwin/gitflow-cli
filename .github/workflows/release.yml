@@ -251,9 +251,9 @@ jobs:
 
           echo "Publishing to crates.io..."
           # Publish in dependency order
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-core || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-github || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-gitlab || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf-gitcode || true
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gf || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-core || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-github || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-gitlab || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-gitcode || true
+          cargo publish --token "$CARGO_REGISTRY_TOKEN" -p gitflow-cli || true
           echo "✓ Published to crates.io"

@@ -23,5 +23,5 @@ See [docs/compatibility-matrix.md](./docs/compatibility-matrix.md) for platform 
 ### From 0.9.x to 1.0.x
 
 - No breaking changes in CLI interface
-- New crates.io packages available (gf, gf-core, gf-github, gf-gitlab, gf-gitcode)
+- New crates.io packages available (gitflow-cli, gitflow-core, gitflow-github, gitflow-gitlab, gitflow-gitcode)
 - Homebrew formula updated automatically on release

@@ -1,6 +1,6 @@
-//! `gf-github` —— GitHub 平台实现。
+//! `gitflow-github` —— GitHub 平台实现。
 //!
-//! 本 crate 实现了 `gf-core` 中定义的 [`IssueProvider`]、[`PrProvider`]、
+//! 本 crate 实现了 `gitflow-core` 中定义的 [`IssueProvider`]、[`PrProvider`]、
 //! [`ReleaseProvider`]、[`ReviewProvider`]、[`AuthProvider`]、[`LabelProvider`]、
 //! [`MilestoneProvider`] 与 [`CommitProvider`] trait，
 //! 通过调用 `gh` CLI 获取数据并解析其 JSON 输出。
@@ -21,16 +21,16 @@
 //! 所有平台调用失败时，`gh` 的 stderr 会通过 [`error::parse_gh_error`] 解析，
 //! 并统一映射为 [`CoreError::Cli`]（携带 [`PlatformCliError`]）。
 //!
-//! [`IssueProvider`]: gf_core::issue::IssueProvider
-//! [`PrProvider`]: gf_core::pr::PrProvider
-//! [`ReleaseProvider`]: gf_core::release::ReleaseProvider
-//! [`ReviewProvider`]: gf_core::review::ReviewProvider
-//! [`AuthProvider`]: gf_core::auth::AuthProvider
-//! [`LabelProvider`]: gf_core::label::LabelProvider
-//! [`MilestoneProvider`]: gf_core::label::MilestoneProvider
-//! [`CommitProvider`]: gf_core::commit::CommitProvider
-//! [`CoreError::Cli`]: gf_core::CoreError::Cli
-//! [`PlatformCliError`]: gf_core::PlatformCliError
+//! [`IssueProvider`]: gitflow_core::issue::IssueProvider
+//! [`PrProvider`]: gitflow_core::pr::PrProvider
+//! [`ReleaseProvider`]: gitflow_core::release::ReleaseProvider
+//! [`ReviewProvider`]: gitflow_core::review::ReviewProvider
+//! [`AuthProvider`]: gitflow_core::auth::AuthProvider
+//! [`LabelProvider`]: gitflow_core::label::LabelProvider
+//! [`MilestoneProvider`]: gitflow_core::label::MilestoneProvider
+//! [`CommitProvider`]: gitflow_core::commit::CommitProvider
+//! [`CoreError::Cli`]: gitflow_core::CoreError::Cli
+//! [`PlatformCliError`]: gitflow_core::PlatformCliError
 
 #![forbid(unsafe_code)]
 

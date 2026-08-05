@@ -10,7 +10,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
     types::UserSummary,
@@ -31,7 +31,7 @@ use crate::{
 /// # Examples
 ///
 /// ```no_run
-/// use gf_gitlab::GitLabReleaseProvider;
+/// use gitflow_gitlab::GitLabReleaseProvider;
 ///
 /// let provider = GitLabReleaseProvider::new("gitlab-org/gitlab");
 /// ```
@@ -512,7 +512,10 @@ mod tests {
 
         let result = provider.create(sample_create_args()).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -524,7 +527,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -535,7 +538,10 @@ mod tests {
 
         let result = provider.list().await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -547,7 +553,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -558,7 +564,10 @@ mod tests {
 
         let result = provider.view("v1.0.0").await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -570,7 +579,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -581,7 +590,10 @@ mod tests {
 
         let result = provider.edit("v1.0.0", sample_create_args()).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -593,7 +605,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -604,7 +616,10 @@ mod tests {
 
         let result = provider.delete("v1.0.0").await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -616,7 +631,10 @@ mod tests {
             .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
             .await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -628,6 +646,9 @@ mod tests {
             .download_asset("v1.0.0", "asset.tar.gz", "/tmp/asset.tar.gz")
             .await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 }

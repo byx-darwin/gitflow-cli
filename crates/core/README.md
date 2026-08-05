@@ -1,14 +1,14 @@
-# gf-core
+# gitflow-core
 
-[![Crates.io](https://img.shields.io/crates/v/gf-core)](https://crates.io/crates/gf-core)
-[![Documentation](https://docs.rs/gf-core/badge.svg)](https://docs.rs/gf-core)
+[![Crates.io](https://img.shields.io/crates/v/gitflow-core)](https://crates.io/crates/gitflow-core)
+[![Documentation](https://docs.rs/gitflow-core/badge.svg)](https://docs.rs/gitflow-core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Core domain types, traits, and business logic for the [gf](https://github.com/byx-darwin/gitflow-cli) workspace.
 
 ## Overview
 
-`gf-core` provides the foundational types and abstractions used across the gf ecosystem. This crate is designed to be platform-agnostic, defining the core interfaces that platform-specific implementations (GitHub, GitLab, GitCode) must implement.
+`gitflow-core` provides the foundational types and abstractions used across the gf ecosystem. This crate is designed to be platform-agnostic, defining the core interfaces that platform-specific implementations (GitHub, GitLab, GitCode) must implement.
 
 ## Features
 
@@ -25,7 +25,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gf-core = "0.8"
+gitflow-core = "0.8"
 ```
 
 ## Usage
@@ -138,15 +138,15 @@ Authentication types and checking:
 
 This crate is part of the gf workspace:
 
-- **gf-core** (this crate) - Core types and traits
-- [gf-github](https://crates.io/crates/gf-github) - GitHub platform implementation
-- [gf-gitlab](https://crates.io/crates/gf-gitlab) - GitLab platform implementation
-- [gf-gitcode](https://crates.io/crates/gf-gitcode) - GitCode platform implementation
+- **gitflow-core** (this crate) - Core types and traits
+- [gitflow-github](https://crates.io/crates/gitflow-github) - GitHub platform implementation
+- [gitflow-gitlab](https://crates.io/crates/gitflow-gitlab) - GitLab platform implementation
+- [gitflow-gitcode](https://crates.io/crates/gitflow-gitcode) - GitCode platform implementation
 - [gf](https://crates.io/crates/gf) - CLI application
 
 ## Documentation
 
-- [API Documentation](https://docs.rs/gf-core)
+- [API Documentation](https://docs.rs/gitflow-core)
 - [Main Project](https://github.com/byx-darwin/gitflow-cli)
 - [User Guide](https://github.com/byx-darwin/gitflow-cli#readme)
 

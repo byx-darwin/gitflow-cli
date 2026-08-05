@@ -1,4 +1,4 @@
-//! Benchmarks for the `gf-core` crate.
+//! Benchmarks for the `gitflow-core` crate.
 //!
 //! Measures `Config::new` construction, both bare and with a
 //! pre-allocated description, via `criterion`.
@@ -9,7 +9,7 @@
 )]
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use gf_core::Config;
+use gitflow_core::Config;
 
 fn config_new(c: &mut Criterion) {
     c.bench_function("Config::new", |b| {

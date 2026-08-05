@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
 };
@@ -31,7 +31,7 @@ const RELEASE_FIELDS: &str =
 /// # Examples
 ///
 /// ```no_run
-/// use gf_gitcode::GitCodeReleaseProvider;
+/// use gitflow_gitcode::GitCodeReleaseProvider;
 ///
 /// let provider = GitCodeReleaseProvider::new("octocat/hello-world");
 /// ```
@@ -374,7 +374,10 @@ mod tests {
 
         let result = provider.create(sample_release_args()).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -388,7 +391,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -399,7 +402,10 @@ mod tests {
 
         let result = provider.list().await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -411,7 +417,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -422,7 +428,10 @@ mod tests {
 
         let result = provider.view("v1.0.0").await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -434,7 +443,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -445,7 +454,10 @@ mod tests {
 
         let result = provider.edit("v1.0.0", sample_release_args()).await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -459,7 +471,7 @@ mod tests {
 
         assert!(matches!(
             result.unwrap_err(),
-            gf_core::CoreError::Serialization(_)
+            gitflow_core::CoreError::Serialization(_)
         ));
     }
 
@@ -470,7 +482,10 @@ mod tests {
 
         let result = provider.delete("v1.0.0").await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -482,7 +497,10 @@ mod tests {
             .upload_asset("v1.0.0", "/tmp/artifact.tar.gz", "artifact.tar.gz")
             .await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 
     #[tokio::test]
@@ -494,6 +512,9 @@ mod tests {
             .download_asset("v1.0.0", "artifact.tar.gz", "/tmp/out.tar.gz")
             .await;
 
-        assert!(matches!(result.unwrap_err(), gf_core::CoreError::Cli(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
     }
 }

@@ -30,7 +30,7 @@
 - **现象:** 删除 GitHub Release 后 git tag 残留；重复删除已不存在的 release 报错
 - **根因:** `crates/github/src/release.rs` 的 `delete` 调用 `gh release delete` 未传 `--cleanup-tag`；对 "release not found" 未做幂等处理
 - **修复:** PR #131 — 传 `--cleanup-tag` + `is_release_not_found` 幂等判断（JSON code NOT_FOUND 或纯文本 "not found"）
-- **测试:** 新增 3 个测试（幂等 JSON / 幂等文本 / `--cleanup-tag` 参数断言），202 个 gf-github 测试通过，clippy pedantic 干净
+- **测试:** 新增 3 个测试（幂等 JSON / 幂等文本 / `--cleanup-tag` 参数断言），202 个 gitflow-github 测试通过，clippy pedantic 干净
 - **复验:** 创建 → 删除 → tag 清理确认 → 重复删除幂等，全部 PASS
 
 ## 环境约束

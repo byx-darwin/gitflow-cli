@@ -439,7 +439,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Template core lib (reuse SafePath, etc.)
-gf-core = { workspace = true }
+gitflow-core = { workspace = true }
 
 # TUI
 ratatui = { workspace = true }

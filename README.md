@@ -17,7 +17,7 @@ brew tap byx-darwin/gitflow-cli
 brew install gf
 
 # 或 Cargo
-cargo install gf
+cargo install gitflow-cli
 ```
 
 ## 30 秒上手

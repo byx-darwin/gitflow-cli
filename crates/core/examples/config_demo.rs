@@ -1,6 +1,6 @@
 //! Example: using the `Config` type from the core library.
 
-use gf_core::{Config, Result};
+use gitflow_core::{Config, Result};
 
 fn main() -> Result<()> {
     let config = Config::new("my-app")?.with_description("A demo configuration");

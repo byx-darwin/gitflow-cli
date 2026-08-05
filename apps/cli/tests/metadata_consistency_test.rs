@@ -121,8 +121,9 @@ fn test_should_have_valid_geo_files() {
         "robots.txt must declare Sitemap"
     );
 
-    let matrix: serde_json::Value = serde_json::from_str(&read("docs/compatibility-matrix.json"))
-        .expect("compatibility-matrix.json invalid");
+    let matrix: serde_json::Value =
+        serde_json::from_str(&read("crates/core/resources/compatibility-matrix.json"))
+            .expect("compatibility-matrix.json invalid");
     assert_eq!(matrix["schema_version"].as_i64(), Some(1));
     let platforms = matrix["platforms"]
         .as_array()

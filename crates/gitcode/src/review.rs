@@ -5,7 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
 
 use async_trait::async_trait;
-use gf_core::{
+use gitflow_core::{
     CoreError, Result,
     review::{ReviewData, ReviewProvider, ReviewState},
 };
@@ -24,7 +24,7 @@ const REVIEW_FIELDS: &str = "id,state,body,author,submittedAt";
 /// # Examples
 ///
 /// ```no_run
-/// use gf_gitcode::GitCodeReviewProvider;
+/// use gitflow_gitcode::GitCodeReviewProvider;
 ///
 /// let provider = GitCodeReviewProvider::new("octocat/hello-world");
 /// ```

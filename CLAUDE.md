@@ -107,7 +107,7 @@ This repository is a reusable Rust 2024 workspace template. These rules are mand
 - Bound all externally supplied strings by byte length, all collections by element count, and all numbers by explicit ranges.
 - Use charset allowlists for identifiers and slugs; avoid blocklists.
 - Prevent path traversal by rejecting `..`, absolute paths, NUL bytes, and separators before canonicalization.
-- Use the `SafePath` type from `gf-core` for all externally-supplied file path arguments. It validates at construction time.
+- Use the `SafePath` type from `gitflow-core` for all externally-supplied file path arguments. It validates at construction time.
 - Prevent SSRF by parsing URLs, allowlisting schemes, rejecting private, loopback, and link-local targets, and pinning resolved IPs.
 - Use parameterized database APIs; never format user input into SQL.
 - Use argv-form process execution; never concatenate user input into shell commands.
@@ -297,11 +297,11 @@ make release
 ```
 
 **已发布的 crates**：
-- `gf` — 主 CLI 应用
-- `gf-core` — 核心库
-- `gf-github` — GitHub 平台支持
-- `gf-gitlab` — GitLab 平台支持
-- `gf-gitcode` — GitCode 平台支持
+- `gitflow-cli` — 主 CLI 应用（二进制名 `gf`）
+- `gitflow-core` — 核心库
+- `gitflow-github` — GitHub 平台支持
+- `gitflow-gitlab` — GitLab 平台支持
+- `gitflow-gitcode` — GitCode 平台支持
 
 **注意事项**：
 - crates.io 版本一旦发布**不可删除或修改**

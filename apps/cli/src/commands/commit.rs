@@ -5,10 +5,10 @@
 //! Phase 1 仅支持 JSON 输出。
 
 use clap::Subcommand;
-use gf_core::{CliOutput, commit::CommitProvider};
-use gf_gitcode::GitCodeCommitProvider;
-use gf_github::GitHubCommitProvider;
-use gf_gitlab::GitLabCommitProvider;
+use gitflow_core::{CliOutput, commit::CommitProvider};
+use gitflow_gitcode::GitCodeCommitProvider;
+use gitflow_github::GitHubCommitProvider;
+use gitflow_gitlab::GitLabCommitProvider;
 
 use crate::OutputFormat;
 

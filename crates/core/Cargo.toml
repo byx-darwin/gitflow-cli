@@ -1,5 +1,5 @@
 [package]
-name = "gf-core"
+name = "gitflow-core"
 description = "gf 核心库：Platform trait 抽象、跨平台适配器与 toon 输出。Core library: platform abstraction, adapters & toon output."
 categories = ["development-tools"]
 keywords = ["gitflow", "git", "cli", "core", "workflow"]
@@ -7,7 +7,7 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-documentation = "https://docs.rs/gf-core"
+documentation = "https://docs.rs/gitflow-core"
 repository.workspace = true
 homepage.workspace = true
 readme = "README.md"

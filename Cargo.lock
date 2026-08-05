@@ -847,7 +847,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "gf"
+name = "gimli"
+version = "0.32.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
+
+[[package]]
+name = "gitflow-cli"
 version = "1.0.0"
 dependencies = [
  "assert_cmd",
@@ -856,10 +862,10 @@ dependencies = [
  "clap",
  "clap_complete",
  "dirs",
- "gf-core",
- "gf-gitcode",
- "gf-github",
- "gf-gitlab",
+ "gitflow-core",
+ "gitflow-gitcode",
+ "gitflow-github",
+ "gitflow-gitlab",
  "is-terminal",
  "miette",
  "predicates",
@@ -878,7 +884,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gf-core"
+name = "gitflow-core"
 version = "1.0.0"
 dependencies = [
  "async-trait",
@@ -892,12 +898,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "gf-gitcode"
+name = "gitflow-gitcode"
 version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
- "gf-core",
+ "gitflow-core",
  "serde",
  "serde_json",
  "temp-env",
@@ -908,12 +914,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "gf-github"
+name = "gitflow-github"
 version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
- "gf-core",
+ "gitflow-core",
  "serde",
  "serde_json",
  "temp-env",
@@ -923,12 +929,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "gf-gitlab"
+name = "gitflow-gitlab"
 version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
- "gf-core",
+ "gitflow-core",
  "serde",
  "serde_json",
  "temp-env",
@@ -936,12 +942,6 @@ dependencies = [
  "tokio",
  "tracing",
 ]
-
-[[package]]
-name = "gimli"
-version = "0.32.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 
 [[package]]
 name = "glob"
