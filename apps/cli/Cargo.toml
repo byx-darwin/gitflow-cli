@@ -10,7 +10,7 @@ repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/gitflow-cli"
 categories = ["development-tools", "command-line-utilities"]
-keywords = ["gitflow", "git", "cli", "workflow", "工作流"]
+keywords = ["gitflow", "git", "cli", "workflow", "automation"]
 include = [
     "src/**",
     "build.rs",
