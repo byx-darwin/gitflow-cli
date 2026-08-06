@@ -3,7 +3,7 @@
 //! 本 crate 实现了 `gitflow-core` 中定义的 [`IssueProvider`]、[`PrProvider`]、
 //! [`ReleaseProvider`]、[`ReviewProvider`]、[`AuthProvider`]、[`LabelProvider`]、
 //! [`MilestoneProvider`]、[`CommitProvider`] 与 [`PipelineProvider`] trait，
-//! 通过调用 `gitcode` CLI 获取数据并解析其 JSON 输出。
+//! 通过调用 `gc` CLI 获取数据并解析其 JSON 输出。
 //!
 //! # 主要类型
 //!
@@ -19,7 +19,7 @@
 //!
 //! # 错误处理
 //!
-//! 所有平台调用失败时，`gitcode` 的 stderr 会通过 [`error::parse_gitcode_error`] 解析，
+//! 所有平台调用失败时，`gc` 的 stderr 会通过 [`error::parse_gitcode_error`] 解析，
 //! 并统一映射为 [`CoreError::Platform`]。
 //!
 //! [`IssueProvider`]: gitflow_core::issue::IssueProvider
@@ -74,6 +74,7 @@ pub use review::GitCodeReviewProvider;
 
 /// Return the GitCode CLI binary path.
 ///
+/// Prefers `gc` (Linux/macOS native name), falls back to `gitcode` (cross-platform).
 /// Searches PATH first, then pip user install directories
 /// (`~/Library/Python/*/bin/` on macOS, `~/.local/bin/` on Linux).
 #[allow(
@@ -81,27 +82,35 @@ pub use review::GitCodeReviewProvider;
     reason = "binary discovery runs at startup before async runtime is ready"
 )]
 pub(crate) fn gitcode_binary() -> String {
-    // 1. which gitcode (pip/wheel/DEB/RPM install)
-    if let Ok(p) = which::which("gitcode") {
-        return p.to_string_lossy().into_owned();
-    }
-    // 2. pip user install paths (e.g. ~/Library/Python/3.9/bin/)
-    if let Ok(home) = std::env::var("HOME") {
-        let lib = std::path::PathBuf::from(&home).join("Library/Python");
-        if let Ok(entries) = std::fs::read_dir(&lib) {
-            for entry in entries.flatten() {
-                let p = entry.path().join("bin/gitcode");
-                if p.exists() {
-                    return p.to_string_lossy().into_owned();
-                }
-            }
-        }
-        // Also check ~/.local/bin
-        let p = std::path::PathBuf::from(&home).join(".local/bin/gitcode");
-        if p.exists() {
+    const CANDIDATES: &[&str] = &["gc", "gitcode"];
+
+    // 1. which <candidate> (pip/wheel/DEB/RPM install)
+    for &candidate in CANDIDATES {
+        if let Ok(p) = which::which(candidate) {
             return p.to_string_lossy().into_owned();
         }
     }
-    // 3. Desperate fallback — hope it's in PATH
-    "gitcode".into()
+    // 2. pip user install paths (e.g. ~/Library/Python/3.9/bin/)
+    if let Ok(home) = std::env::var("HOME") {
+        for &candidate in CANDIDATES {
+            let lib = std::path::PathBuf::from(&home).join("Library/Python");
+            if let Ok(entries) = std::fs::read_dir(&lib) {
+                for entry in entries.flatten() {
+                    let p = entry.path().join("bin").join(candidate);
+                    if p.exists() {
+                        return p.to_string_lossy().into_owned();
+                    }
+                }
+            }
+            // Also check ~/.local/bin
+            let p = std::path::PathBuf::from(&home)
+                .join(".local/bin")
+                .join(candidate);
+            if p.exists() {
+                return p.to_string_lossy().into_owned();
+            }
+        }
+    }
+    // 3. Desperate fallback — prefer gc
+    "gc".into()
 }

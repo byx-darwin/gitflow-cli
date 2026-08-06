@@ -65,8 +65,8 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
             doc_link: "https://gitlab.com/gitlab-org/cli/-/blob/main/docs/",
         }),
         "gitcode" => Some(CliRequirement {
-            // 跨平台统一使用 gitcode（gc 在 Windows PowerShell 是 Get-Content 别名）
-            binary: "gitcode",
+            // 优先使用 gc（Linux/macOS 原生名称），gitcode 作为回退
+            binary: "gc",
             min_version: "0.6.0",
             install_url: "https://gitcode.com/gitcode-cli/cli",
             install_hint: "# 方式 1 — Wheel 包（推荐，内置全平台二进制）:\n\
@@ -79,8 +79,8 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
                            git clone https://gitcode.com/gitcode-cli/cli.git && cd cli\n\
                            make build && mkdir -p ~/.local/bin && mv bin/gitcode ~/.local/bin/",
             install_cmd: "pip install gitcode-cli",
-            login_cmd: "gitcode auth login",
-            login_with_token: "echo TOKEN | gitcode auth login --with-token",
+            login_cmd: "gc auth login",
+            login_with_token: "echo TOKEN | gc auth login --with-token",
             doc_link: "https://gitcode.com/gitcode-cli/cli/blob/main/README.md",
         }),
         _ => None,
@@ -297,9 +297,9 @@ fn create_auth_checker(platform: &str) -> Box<dyn gitflow_core::AuthChecker> {
 
 /// Try to locate and validate a `GitCode` CLI binary.
 ///
-/// `GitCode` has two binary names (`gc` on Linux/macOS, `gitcode` cross-platform),
-/// and uses `version` subcommand instead of `--version`. This function tries
-/// `gc` first, then `gitcode`, returning the first one that passes version detection.
+/// `GitCode` has two binary names (`gc` on Linux/macOS, `gitcode` cross-platform).
+/// This function tries `gc` first, then `gitcode`, returning the first one that
+/// passes version detection.
 #[allow(
     clippy::disallowed_methods,
     reason = "binary discovery runs at startup before async runtime is ready"
@@ -313,7 +313,7 @@ fn find_gitcode_cli(
 ) -> Result<(&'static str, std::path::PathBuf, String), PrerequisiteError> {
     let install_cmd = requirement_for(platform).map_or("", |r| r.install_cmd);
 
-    for &binary in &["gitcode"] {
+    for &binary in &["gc", "gitcode"] {
         // 1. 常规 PATH 搜索
         if let Ok(path) = which::which(binary)
             && let Ok(v) = get_version(binary, platform)
@@ -338,7 +338,7 @@ fn find_gitcode_cli(
     }
 
     Err(PrerequisiteError::NotFound {
-        binary: "gitcode".into(),
+        binary: "gc".into(),
         platform: platform.into(),
         install_hint: requirement_for(platform)
             .map_or("", |r| r.install_hint)
@@ -409,13 +409,13 @@ mod tests {
     #[test]
     fn test_should_return_requirement_for_gitcode() {
         let req = requirement_for("gitcode").expect("gitcode requirement");
-        assert_eq!(req.binary, "gitcode");
+        assert_eq!(req.binary, "gc");
         assert_eq!(req.min_version, "0.6.0");
         assert_eq!(req.install_cmd, "pip install gitcode-cli");
-        assert_eq!(req.login_cmd, "gitcode auth login");
+        assert_eq!(req.login_cmd, "gc auth login");
         assert_eq!(
             req.login_with_token,
-            "echo TOKEN | gitcode auth login --with-token"
+            "echo TOKEN | gc auth login --with-token"
         );
     }
 
@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn test_should_display_gitcode_in_version_too_low_error() {
         let err = PrerequisiteError::VersionTooLow {
-            binary: "gitcode".into(),
+            binary: "gc".into(),
             platform: "gitcode".into(),
             found: "0.5.0".into(),
             required: "0.6.0".into(),
