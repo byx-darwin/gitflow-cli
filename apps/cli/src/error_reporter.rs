@@ -89,9 +89,22 @@ impl ErrorReport {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         let mut file = std::fs::File::create(&path)?;
+        #[cfg(unix)]
+        set_pending_file_permissions(&file)?;
         file.write_all(json.as_bytes())?;
         Ok(())
     }
+}
+
+/// Restrict `pending.json` to owner-only read/write (mode `0o600`).
+///
+/// The report contains error context that may include sensitive paths or
+/// environment details; on multi-user systems it must not be readable by
+/// other users. This is a no-op on non-Unix platforms.
+#[cfg(unix)]
+fn set_pending_file_permissions(file: &std::fs::File) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))
 }
 
 /// Write an error report for the current process if running non-interactively.
@@ -304,6 +317,31 @@ mod tests {
         assert_eq!(parsed["exit_code"], 1);
         assert!(parsed.get("id").is_some());
         assert!(parsed.get("timestamp").is_some());
+    }
+
+    #[test]
+    fn test_should_set_pending_json_permissions_to_600() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let report = ErrorReport::from_error("pr list", "gitlab", "not found", "NOT_FOUND");
+        report.write_to_disk(tmp.path()).expect("write_to_disk");
+
+        let pending = tmp.path().join(".cache/bug-reports/pending.json");
+        let metadata = std::fs::metadata(&pending).expect("metadata");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            assert_eq!(
+                metadata.permissions().mode() & 0o777,
+                0o600,
+                "pending.json must be readable/writable only by the owner"
+            );
+        }
+        #[cfg(not(unix))]
+        {
+            // Permission control is a no-op on non-Unix platforms.
+            assert!(pending.exists(), "pending.json must be created");
+        }
     }
 
     #[test]
