@@ -105,7 +105,8 @@ impl ErrorReport {
 static GITHUB_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
     #[allow(
         clippy::expect_used,
-        reason = "regex pattern is a compile-time literal; a compile failure is a programming error"
+        reason = "regex pattern is a compile-time literal; a compile failure is a programming \
+                  error"
     )]
     Regex::new(r"(?:ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+)")
         .expect("GitHub token regex must be statically valid")
