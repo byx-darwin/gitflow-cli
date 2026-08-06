@@ -455,13 +455,22 @@ fn resolve_hook_paths(
     }
 }
 
+/// Stop Hook 命令：解析 git 仓库根目录，执行 git 跟踪的 `auto-report-bug.sh`。
+///
+/// 脚本位于 git 跟踪的 `hooks/auto-report-bug.sh`（worktree 自动物化），而非
+/// gitignored 的 `.claude/hooks/`——否则 `git worktree add` 后 hook 会失效。
+/// guard 保证非 git 仓库或脚本缺失时静默跳过，可安全用于全局注册。
+const AUTO_REPORT_HOOK_CMD: &str = "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ \
+                                    -x \"$p/hooks/auto-report-bug.sh\" ] && bash \
+                                    \"$p/hooks/auto-report-bug.sh\"'";
+
 fn resolve_global_hook_paths(
     home: &std::path::Path,
     platform: AgentPlatform,
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = format!("bash ~/{hooks_dir}/auto-report-bug.sh");
+    let cmd = AUTO_REPORT_HOOK_CMD.to_string();
     (home.join(hooks_dir), home.join(settings_file), cmd)
 }
 
@@ -471,17 +480,17 @@ fn resolve_project_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = format!(
-        "bash \"$(git rev-parse --show-toplevel 2>/dev/null || \
-         pwd)/{hooks_dir}/auto-report-bug.sh\""
-    );
+    let cmd = AUTO_REPORT_HOOK_CMD.to_string();
     (repo.join(hooks_dir), repo.join(settings_file), cmd)
 }
 
 /// 从文件系统目录安装 skills（开发场景）。
 ///
-/// hook 脚本安装到平台对应的 hooks 目录（Claude 下为 `.claude/hooks/`），
-/// 配置写入平台对应的 settings 文件（Claude 下为 `.claude/settings.json`）。
+/// hook 脚本由 git 跟踪（`hooks/auto-report-bug.sh`，worktree 自动物化），
+/// 命令通过 `AUTO_REPORT_HOOK_CMD` 直接引用跟踪脚本；`install_hook` 仍会向
+/// 平台 hooks 目录复制一份脚本，用于 `uninstall_hook` 清理历史遗留副本，
+/// 与向后兼容。配置写入平台对应的 settings 文件（Claude 下为
+/// `.claude/settings.json` 或 `~/.claude/settings.json`）。
 fn install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()> {
     let hook_script = include_bytes!("../../hooks/auto-report-bug.sh");
 
@@ -1354,8 +1363,12 @@ mod tests {
         );
         assert_eq!(settings_path, repo.join(".claude/settings.json"));
         assert!(
-            cmd.contains(".claude/hooks/auto-report-bug.sh"),
-            "command should reference .claude/hooks/ path"
+            cmd.contains("hooks/auto-report-bug.sh"),
+            "command should reference git-tracked hooks/auto-report-bug.sh"
+        );
+        assert!(
+            !cmd.contains(".claude/hooks"),
+            "command must not reference gitignored .claude/hooks/"
         );
     }
 
@@ -1366,7 +1379,14 @@ mod tests {
             resolve_global_hook_paths(&home, AgentPlatform::Claude);
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
-        assert!(cmd.contains("~/.claude/hooks/auto-report-bug.sh"));
+        assert!(
+            cmd.contains("hooks/auto-report-bug.sh"),
+            "command should reference git-tracked hooks/auto-report-bug.sh"
+        );
+        assert!(
+            !cmd.contains(".claude/hooks"),
+            "command must not reference gitignored .claude/hooks/"
+        );
     }
 
     #[test]
