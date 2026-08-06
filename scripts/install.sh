@@ -32,11 +32,13 @@ readonly MIN_RUST_VERSION="1.96.0"
 readonly SKILLS_SOURCE_DIR="skills"
 readonly SKILLS_TARGET_DIR="${HOME}/.claude/skills"
 readonly HOOKS_SOURCE_DIR="hooks"
-readonly SETTINGS_FILE=".claude/settings.json"
 
 # 嵌套 Stop Hook 配置（对齐 Claude Code 官方 schema）
 # matcher 在顶层，hooks 数组包含 type+command 对象
-readonly HOOK_CONFIG='{"matcher": "gitflow", "hooks": [{"type": "command", "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/auto-report-bug.sh\""}]}'
+#
+# 命令指向 git 跟踪的 hooks/auto-report-bug.sh（worktree 自动物化），而非
+# gitignored 的 .claude/hooks/。guard 保证：非 git 仓库或脚本缺失时静默跳过。
+readonly HOOK_CONFIG='{"matcher": "gitflow", "hooks": [{"type": "command", "command": "p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \"$p/hooks/auto-report-bug.sh\" ] && bash \"$p/hooks/auto-report-bug.sh\""}]}'
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ---------------------------------------------------------------------------
@@ -409,27 +411,21 @@ register_hooks() {
         return 0
     fi
 
-    local settings_target="${REPO_ROOT}/${SETTINGS_FILE}"
+    local settings_target="${HOME}/.claude/settings.json"
     local settings_dir
     settings_dir="$(dirname "$settings_target")"
 
-    # 确保 hooks 源文件存在
+    # 确保 hooks 源文件存在（git 跟踪的 hooks/，worktree 自动物化）
     local hook_script="${REPO_ROOT}/${HOOKS_SOURCE_DIR}/auto-report-bug.sh"
     if [[ ! -f "$hook_script" ]]; then
         warn "Hook 脚本不存在: ${hook_script}，跳过注册"
         return 0
     fi
 
-    # 确保 hook 脚本可执行
+    # 确保 hook 脚本可执行（脚本本身被 git 跟踪，无需复制到 .claude/hooks/）
     chmod +x "$hook_script"
 
-    # 复制 hook 脚本到 .claude/hooks/ 目录
-    local hook_target_dir="${REPO_ROOT}/.claude/hooks"
-    mkdir -p "$hook_target_dir"
-    cp "$hook_script" "${hook_target_dir}/auto-report-bug.sh"
-    chmod +x "${hook_target_dir}/auto-report-bug.sh"
-
-    # 确保 .claude 目录存在
+    # 确保全局 settings 目录存在
     mkdir -p "$settings_dir"
 
     # 检查 settings.json 中是否已有 Stop hook 配置
@@ -518,11 +514,11 @@ verify_installation() {
         warn "Skills 目录不存在: ${SKILLS_TARGET_DIR}"
     fi
 
-    # 验证 hook
-    local settings_target="${REPO_ROOT}/${SETTINGS_FILE}"
-    local hook_target="${REPO_ROOT}/.claude/hooks/auto-report-bug.sh"
-    if [[ -f "$hook_target" ]] && [[ -f "$settings_target" ]] && grep -q "auto-report-bug" "$settings_target" 2>/dev/null; then
-        info "Stop Hook: 已配置（.claude/hooks/auto-report-bug.sh）"
+    # 验证 hook：全局 settings 已注册 + 跟踪的 hook 脚本存在
+    local settings_target="${HOME}/.claude/settings.json"
+    local hook_script="${REPO_ROOT}/${HOOKS_SOURCE_DIR}/auto-report-bug.sh"
+    if [[ -f "$hook_script" ]] && [[ -f "$settings_target" ]] && grep -q "auto-report-bug" "$settings_target" 2>/dev/null; then
+        info "Stop Hook: 已配置（全局 → hooks/auto-report-bug.sh）"
     else
         warn "Stop Hook: 未配置（运行 ${SCRIPT_NAME} 不带 --no-hooks 可注册）"
     fi

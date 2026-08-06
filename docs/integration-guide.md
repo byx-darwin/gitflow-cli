@@ -167,7 +167,7 @@ gitflow CLI 命令失败
 .error_reporter 写入 .cache/bug-reports/pending.json
        │
        ▼
-Claude Code Stop Hook 触发 .claude/hooks/auto-report-bug.sh
+Claude Code Stop Hook（全局注册）触发 git 跟踪的 hooks/auto-report-bug.sh
        │
        ▼
 脚本检测到 pending.json → 打印错误 banner
@@ -214,9 +214,9 @@ Stop Hook 仅在以下条件**全部满足**时触发:
 
 ## 配置示例
 
-### `.claude/settings.json` Hook 配置
+### Hook 配置
 
-以下是完整的 Hook 配置示例:
+Stop Hook 注册在**全局** `~/.claude/settings.json`，命令指向 **git 跟踪**的 `hooks/auto-report-bug.sh`（而非 gitignored 的 `.claude/hooks/`）。这样 `git worktree add` 创建的新 worktree 会自动带上脚本，hook 立即可用。
 
 ```json
 {
@@ -227,7 +227,7 @@ Stop Hook 仅在以下条件**全部满足**时触发:
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/auto-report-bug.sh\""
+            "command": "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \"$p/hooks/auto-report-bug.sh\" ] && bash \"$p/hooks/auto-report-bug.sh\"'"
           }
         ]
       }
@@ -242,7 +242,12 @@ Stop Hook 仅在以下条件**全部满足**时触发:
 |------|------|
 | `hooks.Stop` | Claude Code 停止时触发的 Hook 数组 |
 | `matcher` | 匹配器，`"gitflow"` 表示与 gitflow 相关的会话触发 |
-| `command` | 要执行的 shell 命令，此处调用自动错误报告脚本 |
+| `command` | 解析 repo 根目录并执行 `hooks/auto-report-bug.sh`；非 git 仓库或脚本缺失时静默跳过 |
+
+> **为什么用全局注册 + git 跟踪脚本?** `.claude/` 目录被 `.gitignore` 忽略，
+> 因此 `git worktree add` 不会物化 `.claude/hooks/` 下的脚本与注册。
+> 将脚本放入 git 跟踪的 `hooks/`，并在全局 `~/.claude/settings.json` 注册，
+> 所有项目与 worktree 都会自动生效。
 
 ### 个人化配置建议
 
@@ -302,8 +307,8 @@ export APP_LOG_LEVEL=debug
 
 检查以下几点:
 
-1. `.claude/settings.json` 中 `hooks.Stop` 配置是否正确。
-2. `.claude/hooks/auto-report-bug.sh` 是否有执行权限: `chmod +x .claude/hooks/auto-report-bug.sh`。
+1. 全局 `~/.claude/settings.json` 中 `hooks.Stop` 配置是否正确。
+2. git 跟踪的 `hooks/auto-report-bug.sh` 是否有执行权限: `chmod +x hooks/auto-report-bug.sh`。
 3. `.cache/bug-reports/pending.json` 是否存在。
 4. 确认是非交互模式 (Hook 在 TTY 环境下会跳过)。
 
