@@ -23,7 +23,8 @@ flowchart TD
     G -->|Yes| I[Clean, stop]
     G -->|No| J[Create Issue]
     J -->|Fail| F[Keep file + failed.log]
-    J -->|Pass| K[Remove pending.json]
+    J -->|Pass| M[输出: ✅ 已自动报告 bug]
+    M --> K[Remove pending.json]
 ```
 
 ## Auth 失败处理
@@ -77,7 +78,8 @@ Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
 2. **Auth Check** — `gf auth status --platform {platform}`. Pass → proceed. Fail → output login prompt + Issue template, keep `pending.json`, stop.
 3. **Dedup** — `gf issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
 4. **Create Issue** — Analyze root cause, fix direction, severity. Create Issue via `gf issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gitflow {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
-5. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
+5. **Success Notification** — Output `✅ 已自动报告 bug: {issue_url}` to the user.
+6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
 
 ## Error Handling
 
