@@ -18,8 +18,10 @@
 use std::{
     io::Write as _,
     path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
+use regex::Regex;
 use serde::Serialize;
 
 /// Error report written to `pending.json`.
@@ -67,7 +69,7 @@ impl ErrorReport {
             platform: platform.into(),
             exit_code: 1,
             error_code: error_code.into(),
-            error_message: error_message.into(),
+            error_message: sanitize_error_message(error_message),
             hint: None,
             timestamp: iso8601_utc_now(),
         }
@@ -89,9 +91,69 @@ impl ErrorReport {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         let mut file = std::fs::File::create(&path)?;
+        #[cfg(unix)]
+        set_pending_file_permissions(&file)?;
         file.write_all(json.as_bytes())?;
         Ok(())
     }
+}
+
+/// Redacts GitHub personal access tokens from error messages.
+///
+/// Matches both classic tokens (`ghp_…`) and fine-grained tokens
+/// (`github_pat_…`). Compiled once and reused across calls.
+static GITHUB_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[allow(
+        clippy::expect_used,
+        reason = "regex pattern is a compile-time literal; a compile failure is a programming \
+                  error"
+    )]
+    Regex::new(r"(?:ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+)")
+        .expect("GitHub token regex must be statically valid")
+});
+
+/// Sanitize a raw error message before it is persisted to `pending.json`.
+///
+/// Two categories of sensitive data are redacted:
+///
+/// 1. **Home directory paths** — the current user's home directory, as reported by
+///    [`dirs::home_dir`], is replaced with `~`. Absolute user paths therefore never leak into bug
+///    reports.
+/// 2. **GitHub tokens** — classic personal access tokens (`ghp_…`) and fine-grained personal access
+///    tokens (`github_pat_…`) are replaced with `[REDACTED]`.
+///
+/// Safe messages that contain neither a home path nor a token are returned
+/// unchanged.
+///
+/// # Examples
+///
+/// ```text
+/// "failed to read /Users/alice/.config/git/config"
+///     → "failed to read ~/.config/git/config"
+/// "clone failed: token ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+///     → "clone failed: token [REDACTED]"
+/// ```
+fn sanitize_error_message(message: &str) -> String {
+    let sanitized = if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy();
+        message.replace(home_str.as_ref(), "~")
+    } else {
+        message.to_string()
+    };
+    GITHUB_TOKEN_RE
+        .replace_all(&sanitized, "[REDACTED]")
+        .into_owned()
+}
+
+/// Restrict `pending.json` to owner-only read/write (mode `0o600`).
+///
+/// The report contains error context that may include sensitive paths or
+/// environment details; on multi-user systems it must not be readable by
+/// other users. This is a no-op on non-Unix platforms.
+#[cfg(unix)]
+fn set_pending_file_permissions(file: &std::fs::File) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))
 }
 
 /// Write an error report for the current process if running non-interactively.
@@ -304,6 +366,70 @@ mod tests {
         assert_eq!(parsed["exit_code"], 1);
         assert!(parsed.get("id").is_some());
         assert!(parsed.get("timestamp").is_some());
+    }
+
+    #[test]
+    fn test_should_sanitize_home_directory_in_error_message() {
+        let home = dirs::home_dir().expect("home dir must resolve in tests");
+        let home_str = home.to_string_lossy();
+        let message = format!("failed to read {home_str}/.claude/settings.json");
+        let sanitized = sanitize_error_message(&message);
+        assert_eq!(
+            sanitized, "failed to read ~/.claude/settings.json",
+            "home directory path must be replaced with ~"
+        );
+    }
+
+    #[test]
+    fn test_should_sanitize_token_in_error_message() {
+        let classic = "auth failed: token ghp_1234567890abcdefghijklmnopqrstuvwxyz rejected";
+        let sanitized = sanitize_error_message(classic);
+        assert!(
+            !sanitized.contains("ghp_"),
+            "classic GitHub token must be redacted: {sanitized}"
+        );
+        assert!(sanitized.contains("[REDACTED]"));
+
+        let fine_grained =
+            "clone failed: \
+             github_pat_1234567890abcdef_GHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        let sanitized = sanitize_error_message(fine_grained);
+        assert!(
+            !sanitized.contains("github_pat_"),
+            "fine-grained GitHub token must be redacted: {sanitized}"
+        );
+        assert!(sanitized.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn test_should_not_modify_safe_error_message() {
+        let message = "issue not found: pull request #42 does not exist";
+        assert_eq!(sanitize_error_message(message), message);
+    }
+
+    #[test]
+    fn test_should_set_pending_json_permissions_to_600() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let report = ErrorReport::from_error("pr list", "gitlab", "not found", "NOT_FOUND");
+        report.write_to_disk(tmp.path()).expect("write_to_disk");
+
+        let pending = tmp.path().join(".cache/bug-reports/pending.json");
+        let metadata = std::fs::metadata(&pending).expect("metadata");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            assert_eq!(
+                metadata.permissions().mode() & 0o777,
+                0o600,
+                "pending.json must be readable/writable only by the owner"
+            );
+        }
+        #[cfg(not(unix))]
+        {
+            // Permission control is a no-op on non-Unix platforms.
+            assert!(pending.exists(), "pending.json must be created");
+        }
     }
 
     #[test]

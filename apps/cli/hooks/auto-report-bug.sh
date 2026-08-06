@@ -121,7 +121,7 @@ echo "$PENDING_CONTENT"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  请加载 gf-autoreport-bug Skill 执行自动 Bug 报告流程。"
-echo "  Skill 路径: skills/gf-autoreport-bug/SKILL.md"
+echo "  Skill 路径: .claude/skills/gf-autoreport-bug/SKILL.md"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
