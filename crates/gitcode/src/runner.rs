@@ -329,7 +329,7 @@ mod tests {
     async fn test_should_return_success_output_from_mock() {
         let runner = MockCommandRunner::success("hello");
         let output = runner
-            .run("gitcode", &["--version"])
+            .run("gc", &["--version"])
             .await
             .expect("should succeed");
         assert!(output.status.success());
@@ -341,7 +341,7 @@ mod tests {
     async fn test_should_return_failure_output_from_mock() {
         let runner = MockCommandRunner::failure("not found", 1);
         let output = runner
-            .run("gitcode", &["repo", "view"])
+            .run("gc", &["repo", "view"])
             .await
             .expect("should succeed");
         assert!(!output.status.success());
@@ -353,7 +353,7 @@ mod tests {
     async fn test_should_return_spawn_error_from_mock() {
         let runner = MockCommandRunner::spawn_error();
         let err = runner
-            .run("gitcode", &["--version"])
+            .run("gc", &["--version"])
             .await
             .expect_err("should fail");
         assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
@@ -362,7 +362,7 @@ mod tests {
     #[tokio::test]
     async fn test_should_clone_command_output() {
         let runner = MockCommandRunner::success("data");
-        let output = runner.run("gitcode", &[]).await.expect("should succeed");
+        let output = runner.run("gc", &[]).await.expect("should succeed");
         let cloned = output.clone();
         assert_eq!(output.stdout, cloned.stdout);
         assert_eq!(output.stderr, cloned.stderr);
@@ -372,7 +372,7 @@ mod tests {
     async fn test_should_clone_mock_runner() {
         let runner = MockCommandRunner::success("cloneable");
         let cloned = runner.clone();
-        let output = cloned.run("gitcode", &[]).await.expect("should succeed");
+        let output = cloned.run("gc", &[]).await.expect("should succeed");
         assert_eq!(output.stdout, b"cloneable");
     }
 
@@ -380,7 +380,7 @@ mod tests {
     async fn test_should_record_arguments_in_recording_runner() {
         let runner = RecordingMockRunner::success("{}");
         let output = runner
-            .run("gitcode", &["pr", "view", "20", "--json"])
+            .run("gc", &["pr", "view", "20", "--json"])
             .await
             .expect("should succeed");
         assert!(output.status.success());
@@ -394,11 +394,11 @@ mod tests {
     async fn test_should_record_multiple_calls_in_order() {
         let runner = RecordingMockRunner::success("ok");
         runner
-            .run("gitcode", &["issue", "label", "1", "--add", "bug"])
+            .run("gc", &["issue", "label", "1", "--add", "bug"])
             .await
             .expect("first");
         runner
-            .run("gitcode", &["issue", "label", "1", "--remove", "bug"])
+            .run("gc", &["issue", "label", "1", "--remove", "bug"])
             .await
             .expect("second");
 
