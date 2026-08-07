@@ -75,7 +75,8 @@ impl Shell {
     ///
     /// Returns the user-level completion directory:
     /// - bash: `<home>/.local/share/bash-completion/completions/`
-    /// - zsh:  `<home>/.local/share/zsh/site-functions/` (or system dir if available)
+    /// - zsh:  `<home>/.local/share/zsh/site-functions/` (or the system dir when available and no
+    ///   home override is given)
     /// - fish: `<home>/.config/fish/completions/`
     ///
     /// # Errors
@@ -94,16 +95,13 @@ impl Shell {
         };
         let dir = match self {
             Shell::Bash => home.join(".local/share/bash-completion/completions"),
-            Shell::Zsh => {
-                // macOS / Linux 标准 zsh site-functions 目录，已在默认 fpath 中
-                let site = PathBuf::from("/usr/local/share/zsh/site-functions");
-                if site.exists() {
-                    site
-                } else {
-                    // 回退到用户目录（macOS/Linux/Windows 均适用）
-                    home.join(".local/share/zsh/site-functions")
-                }
-            }
+            Shell::Zsh => zsh_install_dir(
+                &home,
+                home_override.is_some(),
+                // Short-circuit: with an explicit home override the host
+                // filesystem is never probed.
+                home_override.is_none() && std::path::Path::new(ZSH_SYSTEM_SITE_FUNCTIONS).exists(),
+            ),
             Shell::Fish => home.join(".config/fish/completions"),
         };
         Ok(dir)
@@ -117,6 +115,32 @@ impl Shell {
             Shell::Zsh => "_gf",
             Shell::Fish => "gf.fish",
         }
+    }
+}
+
+/// System-wide zsh `site-functions` directory (already part of the default
+/// `fpath` on macOS/Linux installations that provide it).
+const ZSH_SYSTEM_SITE_FUNCTIONS: &str = "/usr/local/share/zsh/site-functions";
+
+/// Determine the zsh completion installation directory.
+///
+/// When `override_given` is `true` (the caller supplied an explicit home
+/// override), the user-level directory under `home` is always returned and
+/// the host filesystem is not probed, keeping behavior deterministic across
+/// environments. Otherwise the system-wide [`ZSH_SYSTEM_SITE_FUNCTIONS`]
+/// directory is preferred when `system_available`, falling back to the
+/// user-level directory.
+#[must_use]
+fn zsh_install_dir(
+    home: &std::path::Path,
+    override_given: bool,
+    system_available: bool,
+) -> PathBuf {
+    let user_dir = home.join(".local/share/zsh/site-functions");
+    if !override_given && system_available {
+        PathBuf::from(ZSH_SYSTEM_SITE_FUNCTIONS)
+    } else {
+        user_dir
     }
 }
 
@@ -340,7 +364,9 @@ mod tests {
         let dir = Shell::Zsh
             .install_dir(Some(home))
             .expect("override provided");
-        // /usr/local 在测试环境中不存在，回退到用户目录
+        // An explicit home override always yields the user-level directory
+        // and never probes the host filesystem, so this assertion holds
+        // regardless of whether the runner has a system zsh installation.
         assert_eq!(
             dir,
             PathBuf::from("/tmp/gf-test-home/.local/share/zsh/site-functions")
@@ -356,6 +382,43 @@ mod tests {
         assert_eq!(
             dir,
             PathBuf::from("/tmp/gf-test-home/.config/fish/completions")
+        );
+    }
+
+    #[test]
+    fn test_should_return_home_zsh_dir_on_override_even_when_system_dir_exists() {
+        let home = std::path::Path::new("/tmp/gf-test-home");
+        let dir = zsh_install_dir(home, true, true);
+        assert_eq!(
+            dir,
+            PathBuf::from("/tmp/gf-test-home/.local/share/zsh/site-functions")
+        );
+    }
+
+    #[test]
+    fn test_should_return_home_zsh_dir_on_override_when_system_dir_missing() {
+        let home = std::path::Path::new("/tmp/gf-test-home");
+        let dir = zsh_install_dir(home, true, false);
+        assert_eq!(
+            dir,
+            PathBuf::from("/tmp/gf-test-home/.local/share/zsh/site-functions")
+        );
+    }
+
+    #[test]
+    fn test_should_prefer_system_zsh_dir_without_override_when_available() {
+        let home = std::path::Path::new("/tmp/gf-test-home");
+        let dir = zsh_install_dir(home, false, true);
+        assert_eq!(dir, PathBuf::from("/usr/local/share/zsh/site-functions"));
+    }
+
+    #[test]
+    fn test_should_fall_back_to_home_zsh_dir_without_override_when_system_missing() {
+        let home = std::path::Path::new("/tmp/gf-test-home");
+        let dir = zsh_install_dir(home, false, false);
+        assert_eq!(
+            dir,
+            PathBuf::from("/tmp/gf-test-home/.local/share/zsh/site-functions")
         );
     }
 
