@@ -112,7 +112,10 @@ fn main() -> std::process::ExitCode {
     // outside a git repository).
     let platform_needed = !matches!(
         cli.command,
-        Commands::Skills(_) | Commands::Completions(_) | Commands::Workflow(_)
+        Commands::Skills(_)
+            | Commands::Completions(_)
+            | Commands::Workflow(_)
+            | Commands::Update(_)
     );
     let (platform, repo) = if platform_needed {
         match resolve_platform(cli.platform.clone()) {
@@ -166,10 +169,13 @@ fn report_error_noninteractive(
 /// The `platform` and `repo` are resolved in `main()` before this
 /// function is called so they remain available in the error handler.
 async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> {
-    // Skills/Completions/Workflow don't need native CLI — skip prerequisite check
+    // Skills/Completions/Workflow/Update don't need native CLI — skip prerequisite check
     if !matches!(
         cli.command,
-        Commands::Skills(_) | Commands::Completions(_) | Commands::Workflow(_)
+        Commands::Skills(_)
+            | Commands::Completions(_)
+            | Commands::Workflow(_)
+            | Commands::Update(_)
     ) {
         commands::prerequisites::check(platform).map_err(|e| miette::miette!("{e}"))?;
     }
@@ -208,6 +214,14 @@ async fn router(
         Commands::Pipeline(cmd) => commands::pipeline::handle(cmd, platform, repo, output).await,
         Commands::Workflow(cmd) => commands::workflow::handle(cmd),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd),
+        Commands::Update(cmd) => {
+            // `handle_update` uses `self_update` (reqwest::blocking), which creates its own
+            // tokio runtime. Running it on the async runtime thread panics on nested runtime
+            // drop, so dispatch it to a blocking worker thread.
+            tokio::task::spawn_blocking(move || commands::update::handle_update(&cmd))
+                .await
+                .map_err(|e| miette::miette!("update task panicked: {e}"))?
+        }
         Commands::Run(_args) => Err(miette::miette!(
             "run command is deprecated; use specific subcommands"
         )),
@@ -444,6 +458,7 @@ impl Cli {
             Commands::Review(_) => "review",
             Commands::Auth(_) => "auth",
             Commands::Skills(_) => "skills",
+            Commands::Update(_) => "update",
             Commands::Run(_) => "run",
             Commands::Completions(_) => "completions",
             Commands::Label(_) => "label",
@@ -499,9 +514,12 @@ enum Commands {
     #[command(subcommand)]
     Workflow(WorkflowCommand),
 
-    /// Skills management operations (install, list, uninstall).
+    /// Skills management operations (install, list, uninstall, update).
     #[command(subcommand)]
     Skills(commands::skills::SkillsCommand),
+
+    /// Update the gf binary to the latest GitHub release.
+    Update(commands::update::UpdateArgs),
 
     /// Run the main application workflow (deprecated).
     Run(commands::run::RunArgs),
@@ -575,5 +593,24 @@ mod tests {
             extract_repo_from_url(url),
             Some("group/project".to_string())
         );
+    }
+
+    #[test]
+    fn test_should_parse_update_command() {
+        let cli = Cli::try_parse_from(["gf", "update", "--check"]).expect("parse update");
+        assert!(matches!(cli.command, Commands::Update(ref a) if a.check));
+    }
+
+    #[test]
+    fn test_update_does_not_need_platform() {
+        let cli = Cli::try_parse_from(["gf", "update"]).expect("parse update");
+        let platform_needed = !matches!(
+            cli.command,
+            Commands::Skills(_)
+                | Commands::Completions(_)
+                | Commands::Workflow(_)
+                | Commands::Update(_)
+        );
+        assert!(!platform_needed);
     }
 }

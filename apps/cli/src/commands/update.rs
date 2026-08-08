@@ -51,7 +51,6 @@ fn target_triple() -> String {
 }
 
 /// `gf update` 参数。
-#[allow(dead_code, reason = "used by follow-up task 5 command registration")]
 #[derive(Debug, Args)]
 pub struct UpdateArgs {
     /// 包含预发布版本（alpha/beta/rc），默认仅稳定版
@@ -74,7 +73,6 @@ pub struct UpdateArgs {
 /// - 无法获取 GitHub release 列表（网络错误）
 /// - 当前版本号无法解析
 /// - `self_update` 下载/替换 binary 失败
-#[allow(dead_code, reason = "called by follow-up task 5 command registration")]
 pub fn handle_update(args: &UpdateArgs) -> miette::Result<()> {
     handle_update_with(args, fetch_release_versions)
 }
