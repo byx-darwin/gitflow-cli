@@ -496,6 +496,39 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         Ok(CommentData::from(api))
     }
 
+    /// 列出指定 Issue 的所有评论。
+    ///
+    /// 调用 `gitcode api /repos/{owner}/{repo}/issues/{number}/comments` 获取评论列表，
+    /// 并返回评论数据数组。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或 `gitcode` CLI 调用失败时返回错误。
+    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
+        let binary = crate::gitcode_binary();
+        debug!(repo = %self.repo, number, "spawning `gitcode api` GET issue comments");
+
+        let api_path = format!(
+            "/repos/{}/issues/{}/comments",
+            self.repo, number
+        );
+
+        let output = self
+            .runner
+            .run(&binary, &["api", &api_path])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode api: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gitcode_error(&output.stderr).into());
+        }
+
+        let comments: Vec<CommentApiResponse> =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(comments.into_iter().map(CommentData::from).collect())
+    }
+
     /// 为指定 Issue 添加一个或多个标签。
     ///
     /// 调用 `gitcode issue label <number> --add <labels> -R <repo>` 添加标签

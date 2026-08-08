@@ -30,11 +30,45 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
    - Multiple exist → ask user which to resume
    - None exist → proceed to step 2
 2. Run mode auto-detection (full / standard / fast)
-3. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`)
-4. Announce the workflow start with: workflow_id, mode, title
+3. **Detect skill source** — see `## Skill Source Resolution`. Runs BEFORE the contract exists; if both sources are absent the user chooses inline-continue or abort (abort → no contract)
+4. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`), then record `skill_source` via jq immediately after creation
+5. Announce the workflow start with: workflow_id, mode, title, `skill_source`
 
 **If no contract exists, no sub-skill may be invoked.** The contract is the
 single source of truth for the workflow's state.
+
+## Skill Source Resolution
+
+gf-workflow runs on top of ONE external skill source: `superpowers` or `mattpocock/skills`.
+Phase steps below use **role aliases** only; actual skill names resolve via
+`references.md` → **Dual-Source Mapping Table** (single point of maintenance).
+
+### Detection (at Bootstrap, BEFORE contract creation)
+
+1. Introspect the session's available-skills list (primary signal — "invocable as detected").
+   Filesystem probing is diagnostics-only for error messages, never a decision source.
+2. Sentinels (each matches namespaced or bare form; bare form requires double hits):
+   - superpowers: `superpowers:brainstorming` (or bare `brainstorming` + `writing-plans`)
+   - mattpocock: `to-spec` + `grilling` double hit (namespaced `mattpocock-skills:*` or bare)
+3. Result matrix:
+
+| Detection | Action | `skill_source` |
+|---|---|---|
+| Only superpowers | adopt | `superpowers` |
+| Only mattpocock | adopt | `mattpocock` |
+| Both present | **ASK user** which source this workflow uses — no default priority | user's choice |
+| Neither | **ASK**: continue inline / abort (never degrade silently; abort → no contract) | `inline` if continuing |
+
+4. Record: `jq '.skill_source = "<value>"'` on the contract right after creation.
+5. Resume: reuse the contract's `skill_source`, then re-verify its sentinels are still
+   present; if vanished, re-run the neither-present prompt.
+
+### Pause Semantics (mattpocock path)
+
+mattpocock's `to-spec` / `to-tickets` / `implement` are `disable-model-invocation: true` —
+the orchestrator MUST NOT attempt to invoke them. At each such step: ✋ **PAUSE**, print the
+exact slash command with its constraint instructions from `references.md` → Source Branch
+Semantics, and wait for the user to run it.
 
 ### Cross-Session Resume
 
@@ -48,6 +82,7 @@ When resuming an existing contract, load context based on `current_phase`:
 | 4 | `pr_url` + review reports | Next check in Phase 4 |
 
 Full recovery procedure: see `references.md` → Cross-Session Recovery.
+`skill_source` is always loaded from the contract (never re-detected silently) and re-verified per `## Skill Source Resolution`.
 
 ## Sub-Skill Invocation Rules
 
@@ -121,6 +156,10 @@ User can override batching strategy during plan phase.
 | About to advance without updating contract evidence | **STOP** — update contract first |
 | User says "just write the code" | **CHECK** — Scenario C? If no contract, refuse and start Phase 1 |
 | About to let a sub-skill chain to another | **STOP** — sub-skills return to orchestrator |
+| About to invoke a source sub-skill without reading `references.md` mapping table | **STOP** — read the mapping table first; resolve names from the session skills list |
+| About to auto-invoke a user-invoked skill (`/to-spec`, `/to-tickets`, `/implement`) | **STOP** — these are `disable-model-invocation`; ✋ PAUSE and prompt the user |
+| About to run Phase 3 same-session without an explicit user request | **STOP** — Gate 2→3 includes execution-mode choice; same-session is explicit-only |
+| About to let `/to-spec` publish to the tracker | **STOP** — local-only constraint; issue creation belongs to `gf-issue-create` |
 
 ## Rationalization Table
 
@@ -134,6 +173,9 @@ User can override batching strategy during plan phase.
 | "Requirement is clear, skip to Phase 3" | Scenario C. If `phases.2.evidence.spec_path` is empty, refuse and go to Phase 2. |
 | "New session, start fresh" | No — check `.cache/workflows/active/` first. If incomplete contract exists, resume it. |
 | "Different agent should start over" | No — contract is agent-agnostic. Any agent can resume from `current_phase` + evidence. |
+| "to-spec can publish the issue itself" | No — to-spec is constrained local-only; issue creation is unified under `gf-issue-create`. |
+| "The background agent can run /implement" | No — /implement is user-invoked; mattpocock's mode menu is trimmed to new-window / same-session. |
+| "Both sources installed — pick the better one" | No priority — ask the user which source this workflow uses. |
 
 ## When to Use
 
@@ -142,7 +184,7 @@ User can override batching strategy during plan phase.
 | full workflow | 全流程（默认） |
 | clarify → plan → execute → deliver | 需求→计划→执行→交付 |
 
-**When NOT to Use:** quick fix → `gf-commit` · PR review → `gf-pr-review` · architecture discussion → `superpowers:brainstorming` directly · user says "don't create an Issue" → do NOT invoke.
+**When NOT to Use:** quick fix → `gf-commit` · PR review → `gf-pr-review` · architecture discussion → the installed source's clarification skill directly (per `references.md` mapping) · user says "don't create an Issue" → do NOT invoke.
 
 **Mode auto-detection:** "fix"/"typo"/"hotfix"/"docs"/"chore" → `fast` · "refactor: small"/"fix: bug" → `standard` · "feat"/"refactor: large"/breaking → `full` · `good-first-issue` label → `fast` · unclear → `standard` (default). User can override with `--mode <mode>`.
 
@@ -184,11 +226,11 @@ User input:
 
 In fast mode, the following skills are invoked per phase:
 
-**Phase 1:** `gf-issue-create` (required), `superpowers:brainstorming` (optional)
+**Phase 1:** `gf-issue-create` (required), Clarification skill per `skill_source` (optional)
 
-**Phase 2:** `superpowers:writing-plans` (optional, skippable)
+**Phase 2:** Planning skill per `skill_source` (optional, skippable)
 
-**Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
+**Phase 3:** Execution engine per `skill_source` with TDD + Code Review (required)
 
 **Phase 4:** `gf-pipeline-analyzer` → `gf-issue-triage` → `gf-review` → dogfooding checklist (all required)
 
@@ -196,11 +238,11 @@ In fast mode, the following skills are invoked per phase:
 
 In standard mode, the following skills are invoked per phase:
 
-**Phase 1:** `superpowers:brainstorming` (required), `gf-issue-create` (required), `gf-issue-review` (required)
+**Phase 1:** Clarification skill per `skill_source` (required), `gf-issue-create` (required), `gf-issue-review` (required)
 
-**Phase 2:** `superpowers:writing-plans` (required) + `gf-quality` gate (required)
+**Phase 2:** Planning skill per `skill_source` (required) + `gf-quality` gate (required)
 
-**Phase 3:** `superpowers:subagent-driven-development` with TDD + Code Review (required)
+**Phase 3:** Execution engine per `skill_source` with TDD + Code Review (required)
 
 **Phase 4:** `gf-pipeline-analyzer` → `gf-review` → Branch Finish (all required)
 
@@ -232,15 +274,19 @@ Full definitions: `skills/gf-workflow/gates.md`
 2. **[AUTO] Read Open Issues**
    - User specified an Issue → use it
    - Otherwise → `gf issue list --state open`
+   - **Also read issue comments** → `gf issue comments <number>` to capture additional context from discussions
 
-3. **[CALL] `superpowers:brainstorming`**
+3. **[CALL] Clarification skill** (per `skill_source`; names in `references.md` → Dual-Source Mapping Table)
+   - superpowers: `superpowers:brainstorming` (model-invoked)
+   - mattpocock: `grilling` (model-invoked), then ✋ PAUSE → user runs `/to-spec` (local-only constraint — see references.md; issue creation stays with `gf-issue-create`)
+   - inline: orchestrator self-interviews, then writes the design doc itself
    - Pass: Issue description or user requirements
    - **⚠️ RETURN RULE:** Terminal state = **RETURN TO ORCHESTRATOR** (not `writing-plans`)
-   - Brainstorming will: explore context → ask questions → propose approaches → present design → write spec → **return control**
    - Output: `design_doc_path`
 
 4. **[AUTO] `gf-issue-create`** — **MANDATORY**
    - Create Issue (or use existing), reference design doc in body
+   - mattpocock path: issue creation authority is UNIFIED here — `/to-spec` never publishes to the tracker
    - Output: `issue_url`
 
 5. **[AUTO] `gf-issue-review`** — **MANDATORY**
@@ -257,10 +303,10 @@ Full definitions: `skills/gf-workflow/gates.md`
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[CALL]** `superpowers:writing-plans` (input: `design_doc_path`) — **⚠️ RETURN to orchestrator**. Create a full plan covering architecture, data flow, API design, component tree, and route design. The plan must create a full plan document with all design decisions. | `spec_path` |
+| 1 | **[CALL] Planning skill** (per `skill_source`) — **⚠️ RETURN to orchestrator**. superpowers: `superpowers:writing-plans` (input: `design_doc_path`) — create a full plan document (architecture, data flow, API design, component tree, route design). mattpocock: ✋ PAUSE → user runs `/to-tickets` on the Phase 1 spec; orchestrator records `ticket_refs` and sets `spec_path` = the spec file `to-tickets` consumed; the gate presents the ticket list + blocking edges. | `spec_path` (+ `ticket_refs` on mattpocock) |
 | 2 | **[AUTO]** `gf-quality` gate — runs all quality checks: Build check, Test check, Coverage check, Format check, Static check, and Pre-commit check. Report shows status per check. | all checks passed |
 | 3 | **[AUTO]** Update contract: `evidence = { spec_path, user_approved: false }` | — |
-| 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → Phase 3 · "changes" → revise · "rejected" → terminate | `user_approved` |
+| 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → **execution-mode choice (GO gate)**: ① background agent (default, superpowers only) ② manual new window ③ same-session (explicit request only); mattpocock menu is trimmed — see `references.md` → Phase 3 Execution Modes · "changes" → revise · "rejected" → terminate | `user_approved` |
 
 If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PASSED does the workflow continue.
 
@@ -270,8 +316,8 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`, then create worktree: `feat/<issue-number>-<short-description>` | `branch`, `base_branch`, `worktree_path` |
-| 2 | **[AUTO]** `superpowers:subagent-driven-development` (TDD: RED → GREEN → REFACTOR) | implementation |
+| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. Worktree path is FIXED at `.claude/worktree/<branch-name>` (covered by `.claude/` in `.gitignore`). Branch name: `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — see `references.md` → Phase 3 Execution Modes | `branch`, `base_branch`, `worktree_path` |
+| 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window / background agent); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR | implementation |
 | 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
 | 5 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, pr_url, tests_passed }` | — |
