@@ -48,9 +48,14 @@ temp-env = "0.3"
 # Security: uncomment when your CLI handles secrets, tokens, or passwords.
 secrecy = "0.11"
 # Self-update for `gf update` (GitHub Releases backend)
-self_update = { version = "0.42", default-features = false, features = ["rustls", "compression-flate2"] }
+self_update = { version = "0.42", default-features = false, features = ["rustls", "compression-flate2", "signatures"] }
 # Semver for update version resolution (stable vs prerelease)
 semver = "1"
+# Ed25519 signing for release verification (zipsign format, compatible with self_update)
+ed25519-dalek = { version = "2.2", features = ["rand_core"] }
+zipsign-api = { version = "0.1.5", features = ["sign-tar", "sign-zip"] }
+hex = "0.4"
+rand = "0.8"
 # dotenvy = "0.15"
 # owo-colors = "4"
 

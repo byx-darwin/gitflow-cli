@@ -134,6 +134,14 @@ jobs:
           cd release
           sha256sum * > checksums.txt
 
+      - name: Sign release assets
+        env:
+          RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.RELEASE_SIGNING_PRIVATE_KEY }}
+        run: |
+          cargo run --bin release-signer -- sign \
+            --key "$RELEASE_SIGNING_PRIVATE_KEY" \
+            --input release/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

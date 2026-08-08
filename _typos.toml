@@ -1,5 +1,6 @@
 [default.extend-words]
 ratatui = "ratatui"
+flate = "flate"
 
 [default.extend-identifiers]
 f00ba42 = "f00ba42"
