@@ -244,3 +244,13 @@ same-session SDD hijacks the conversation once started).
 
 Quality compensation: `executing-plans` (light path) lacks per-task review → gates
 compensate (`make test` before PR + Phase 4 `gf-review`). SDD carries per-task review built in.
+
+### Worktree Location Convention (Issue #146)
+
+All gf-workflow worktrees are created at a **fixed path**: `.claude/worktree/<branch-name>`.
+
+- Branch name format: `feat/<issue-number>-<short-description>`
+- Full path example: `.claude/worktree/feat/141-dual-skill-sources`
+- `.claude/` is already in `.gitignore` → worktrees are automatically excluded from version control
+- Phase 4 Branch Finish cleanup uses this predictable path for `git worktree remove`
+- Background agents and new-window executors create worktrees at this same location
