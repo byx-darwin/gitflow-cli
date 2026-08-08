@@ -27,7 +27,7 @@
       "identifier": "gitlab",
       "cli_binary": "glab",
       "min_version": "1.30.0",
-      "tested_versions": ["1.111.0"],
+      "tested_versions": ["1.111.0", "1.112.0"],
       "install_url": "https://gitlab.com/gitlab-org/cli#installation",
       "doc_link": "https://gitlab.com/gitlab-org/cli/-/blob/main/docs/",
       "features": {
