@@ -107,9 +107,9 @@ fn main() -> std::process::ExitCode {
     };
 
     // Resolve platform and repository early so they are available in the
-    // error handler below. Skills, Completions, and Workflow commands don't need
-    // platform info, so skip resolve_platform for them (allows running
-    // outside a git repository).
+    // error handler below. Skills, Completions, Workflow, and Update commands
+    // don't need platform info, so skip resolve_platform for them (allows
+    // running outside a git repository).
     let platform_needed = !matches!(
         cli.command,
         Commands::Skills(_)

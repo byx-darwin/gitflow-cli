@@ -89,7 +89,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 | `gf commit {view,diff,patch,comment}` | 提交操作 |
 | `gf label/milestone` | 标签/里程碑管理 |
 | `gf repo {clone,list,create,stats,sync,view}` | 仓库操作 |
-| `gf skills {install,list,uninstall}` | Skills 管理 |
+| `gf skills {install,list,uninstall,update}` | Skills 管理 |
 | `gf completions {bash,zsh,fish}` | Shell 补全 |
 
 支持 `--platform github|gitlab|gitcode` 与 `--output json|text|toon|auto`。
@@ -97,7 +97,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 ### 更新与维护
 
 - `gf update` — 从 GitHub Releases 自更新 binary（`--check` 仅检查，`--pre` 含预发布，`-y` 跳过确认）
-- `gf skills update` — 从当前 binary 内嵌数据更新已安装 skills（`-g` 全局，`--agent` 指定平台）
+- `gf skills update` — 从当前 binary 内嵌数据更新已安装 skills（`-g` 全局，`--agent` 指定平台，`--path` 自定义路径）
 
 ## 文档与官网
 

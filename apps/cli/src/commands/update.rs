@@ -114,7 +114,6 @@ fn handle_update_with(
         .current_version(&current)
         .target_version_tag(&format!("v{latest}"))
         .target(&target)
-        .bin_path_in_archive(&format!("{REPO_NAME}-{{{{ target }}}}/{{{{ bin }}}}"))
         .show_download_progress(true)
         .show_output(true)
         .no_confirm(true)
