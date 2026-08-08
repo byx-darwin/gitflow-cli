@@ -25,6 +25,29 @@
 | **标准模式 (standard)** | 中等复杂度 / 单模块改动 | 6 个（Phase 4 简化：无 triage/dogfooding） |
 | **快速模式 (fast)** | Bug fix / 小改动 / typo | 4 个（Phase 1 issue-create、Phase 3 subagent、Phase 4 pipeline + branch-finish） |
 
+## 技能来源适配（Issue #141）
+
+gf-workflow 支持两种外部技能来源：**superpowers** 与 **mattpocock/skills**。启动时自动检测
+（技能清单探测 + 哨兵规则），结果写入契约 `skill_source`，跨会话沿用。
+
+| | superpowers（全自动流水线） | mattpocock（人工驾驶流水线） |
+|---|---|---|
+| Phase 1 澄清 | `brainstorming` | `grilling` → ✋ `/to-spec`（只写本地） |
+| Phase 1 Issue | `gf-issue-create` | `gf-issue-create`（创建权统一，不重复建） |
+| Phase 2 计划 | `writing-plans` | ✋ `/to-tickets`（票据图 + blocking edges） |
+| Phase 3 执行 | SDD / executing-plans / 后台代理（GO 闸门选择） | ✋ `/implement` 逐票据（内部 `/tdd`） |
+| Phase 4 交付 | gf-* 骨架 | 完全相同 |
+| 人的触点 | 2 个（Gate 2→3、Branch Finish） | 5 个（✋×3 + 审批 + 确认） |
+
+**安装前置**：`gf skills install` 会检测来源，两者皆无时硬阻断并给出安装引导
+（`claude plugins install superpowers` / `claude plugins install mattpocock-skills` /
+`npx skills@latest add mattpocock/skills`）。
+
+**Phase 3 GO 闸门**：Gate 2→3 批准后选择执行模式——后台代理（默认，仅 superpowers）/
+手动新窗口 / 同会话（仅显式要求）。mattpocock 来源菜单自动裁剪。
+
+检测规则、映射表与分支细节：`skills/gf-workflow/references.md`（单点维护）。
+
 ## 前置条件
 
 ```bash
