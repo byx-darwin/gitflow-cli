@@ -80,6 +80,27 @@ New Session Starts
 
 Each workflow uses its own worktree, branch, and contract file — no interference.
 
+### Worktree Path Convention
+
+All worktrees are created at a fixed location within the project: `.claude/worktree/<branch-name>`
+
+- **Path pattern:** `.claude/worktree/feat/<issue-number>-<short-description>`
+- **Branch naming:** `feat/<issue-number>-<short-description>` (e.g., `feat/146-worktree-path`)
+- **Gitignore:** `.claude/worktree/` is included in `.gitignore`
+- **Benefits:**
+  - Worktrees remain within the project directory for easy discovery and cleanup
+  - Predictable paths for Phase 4 Branch Finish automation
+  - No orphaned worktrees in parent directories
+
+**Example:**
+```bash
+# Phase 3 Step 1: Create worktree
+git worktree add .claude/worktree/feat-146-worktree-path -b feat/146-worktree-path main
+
+# Phase 4 Branch Finish: Remove worktree
+git worktree remove .claude/worktree/feat-146-worktree-path
+```
+
 ## Lifecycle Management
 
 | Status | Location | Retention | Cleanup |

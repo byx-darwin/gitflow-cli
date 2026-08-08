@@ -271,7 +271,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`, then create worktree: `feat/<issue-number>-<short-description>` | `branch`, `base_branch`, `worktree_path` |
+| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`, then create worktree at `.claude/worktree/<branch-name>` where `<branch-name>` is `feat/<issue-number>-<short-description>`. Command: `git worktree add .claude/worktree/<branch-name> -b <branch-name> $base_branch` | `branch`, `base_branch`, `worktree_path` |
 | 2 | **[AUTO]** `superpowers:subagent-driven-development` (TDD: RED → GREEN → REFACTOR) | implementation |
 | 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
@@ -313,6 +313,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 **Trigger:** After dogfooding passes. **Requires user confirmation.**
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
+   - Note: `worktree_path` follows the convention `.claude/worktree/<branch-name>`
 2. Detect PR merge status: `gf pr view` (parse merged state)
 3. **PR merged** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
