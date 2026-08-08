@@ -21,7 +21,8 @@ pub(crate) const BIN_NAME: &str = "gf";
 /// When the `skip-verify` feature is enabled, this key is not compiled in.
 #[cfg(not(feature = "skip-verify"))]
 const VERIFYING_KEY: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    115, 185, 47, 145, 23, 237, 255, 233, 186, 137, 155, 236, 246, 152, 123, 129, 154, 24, 245,
+    229, 138, 7, 69, 74, 76, 175, 104, 136, 203, 153, 193, 194,
 ];
 
 /// 解析 semver 版本字符串（容忍前导 `v`）。
