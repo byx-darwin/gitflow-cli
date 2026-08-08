@@ -74,6 +74,16 @@ ignore = [
   "RUSTSEC-2025-0141",
   "RUSTSEC-2024-0436",
   "RUSTSEC-2024-0320",
+  # quick-xml v0.37.5 from self_update 0.42 (latest stable github backend):
+  # - RUSTSEC-2026-0195 targets NsReader; self_update's s3 parser uses plain Reader, so it does not apply.
+  # - RUSTSEC-2026-0194 targets BytesStart::attributes() in the s3 backend XML parser; `gf update`
+  #   constructs only the github backend, so this path is dead code in gf. A patched quick-xml v0.41.0
+  #   is already in the graph from another dependency.
+  "RUSTSEC-2026-0195",
+  "RUSTSEC-2026-0194",
+  # number_prefix (progress-bar number formatting, via self_update -> indicatif):
+  # unmaintained but no known vulnerability; benign formatting helper.
+  "RUSTSEC-2025-0119",
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
