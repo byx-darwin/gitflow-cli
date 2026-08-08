@@ -58,7 +58,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          MATRIX="docs/compatibility-matrix.json"
+          MATRIX="crates/core/resources/compatibility-matrix.json"
           ALERT_FOUND=false
 
           check_platform() {
@@ -176,7 +176,7 @@ jobs:
 
           请查看本次 workflow run 日志定位失败命令,并评估:
           1. 修复适配器或锁定行为
-          2. 必要时提升 \`docs/compatibility-matrix.json\` 的 \`min_version\`"
+          2. 必要时提升 \`crates/core/resources/compatibility-matrix.json\` 的 \`min_version\`"
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "live smoke 复核仍失败(${GH_VERSION}): $(date -u +%F)"
           else

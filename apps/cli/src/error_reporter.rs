@@ -414,11 +414,11 @@ mod tests {
         report.write_to_disk(tmp.path()).expect("write_to_disk");
 
         let pending = tmp.path().join(".cache/bug-reports/pending.json");
-        let metadata = std::fs::metadata(&pending).expect("metadata");
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt as _;
+            let metadata = std::fs::metadata(&pending).expect("metadata");
             assert_eq!(
                 metadata.permissions().mode() & 0o777,
                 0o600,
