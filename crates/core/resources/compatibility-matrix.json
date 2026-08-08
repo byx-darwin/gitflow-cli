@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-08-04",
+  "updated_at": "2026-08-09",
   "gitflow_cli_version": "1.0.0",
   "platforms": [
     {
@@ -46,7 +46,7 @@
       "identifier": "gitcode",
       "cli_binary": "gitcode",
       "min_version": "0.6.0",
-      "tested_versions": ["0.6.1", "0.8.0"],
+      "tested_versions": ["0.6.1", "0.8.0", "0.10.3"],
       "install_url": "https://gitcode.com/gitcode-cli/cli",
       "doc_link": "https://gitcode.com/gitcode-cli/cli/blob/main/README.md",
       "features": {
