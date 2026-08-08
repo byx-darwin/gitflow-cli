@@ -6,12 +6,14 @@
 // 本模块仅做本地文件 I/O（同步操作），无需 tokio::fs。
 #![allow(
     clippy::disallowed_methods,
+    clippy::disallowed_types,
     reason = "Workflow contract I/O is synchronous local file access, not async network I/O"
 )]
 
 use std::{
     collections::BTreeMap,
     fmt,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -214,6 +216,15 @@ impl WorkflowContract {
 /// CLI 子命令枚举。
 #[derive(Debug, Subcommand)]
 pub enum WorkflowCommand {
+    /// 创建新的 workflow 合同（自动分配当日不重复的 ID）。
+    Create {
+        /// 工作流标题。
+        #[arg(long)]
+        title: String,
+        /// 工作流模式。
+        #[arg(long, value_enum, default_value_t = WorkflowMode::Full)]
+        mode: WorkflowMode,
+    },
     /// 列出当前 active workflows。
     List,
     /// 查看 workflow 合同详情（JSON 格式）。
@@ -242,8 +253,11 @@ pub enum WorkflowCommand {
 /// - 指定的 workflow 不存在。
 /// - 文件读写失败。
 /// - workflow 未完成时尝试归档。
+/// - 归档目标已存在（拒绝覆盖）。
+/// - 创建时标题为空或当日序号用尽。
 pub fn handle(command: WorkflowCommand) -> miette::Result<()> {
     match command {
+        WorkflowCommand::Create { title, mode } => create_workflow(&title, mode),
         WorkflowCommand::List => list_workflows(),
         WorkflowCommand::Status { workflow_id } => show_status(&workflow_id),
         WorkflowCommand::Archive { workflow_id } => archive_workflow(&workflow_id),
@@ -347,10 +361,170 @@ fn print_gate_status(contract: &WorkflowContract) {
     }
 }
 
+/// 创建新的 workflow 合同（使用默认目录）。
+///
+/// # Errors
+///
+/// 标题为空、目录创建/文件写入失败、或当日序号用尽时返回错误。
+fn create_workflow(title: &str, mode: WorkflowMode) -> miette::Result<()> {
+    let dir = workflow_dir();
+    let id = create_workflow_at(&dir, &archive_dir(), title, mode)?;
+    println!("✅ Workflow 已创建: {id}");
+    println!("   合同: {}", dir.join(format!("{id}.json")).display());
+    Ok(())
+}
+
+/// 在指定的 active/archive 目录下创建新合同，返回分配的 workflow ID。
+///
+/// ID 生成规则（Issue #142）：
+/// - 扫描 `active/` **与** `archive/` 的所有月份目录，取当日日期已占用的最大序号，
+///   再取下一个空位——归档后的序号不会被复用
+/// - 使用 `create_new`（`O_EXCL` 语义）原子写入；若目标已被并发创建占用，
+///   自动顺延到下一个序号重试，保证同日不产生同名合同
+///
+/// # Errors
+///
+/// 标题为空、目录创建/文件写入失败、或当日序号用尽（999）时返回错误。
+fn create_workflow_at(
+    active_dir: &Path,
+    archive_root: &Path,
+    title: &str,
+    mode: WorkflowMode,
+) -> miette::Result<String> {
+    if title.trim().is_empty() {
+        return Err(miette::miette!("title 不能为空"));
+    }
+    let date = Utc::now().format("%Y-%m-%d").to_string();
+    let mut seq = max_existing_seq(active_dir, archive_root, &date)?.saturating_add(1);
+    loop {
+        if seq > 999 {
+            return Err(miette::miette!(
+                "当日 workflow 序号已用尽（999），无法继续创建: {date}"
+            ));
+        }
+        let id = format!("wf-{date}-{seq:03}");
+        std::fs::create_dir_all(active_dir)
+            .map_err(|e| miette::miette!("创建 active 目录失败: {e}"))?;
+        let path = active_dir.join(format!("{id}.json"));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut file) => {
+                let contract = new_contract(&id, title, mode);
+                let json = serde_json::to_string_pretty(&contract)
+                    .map_err(|e| miette::miette!("序列化合同失败: {e}"))?;
+                file.write_all(json.as_bytes())
+                    .map_err(|e| miette::miette!("写入合同失败: {e}"))?;
+                return Ok(id);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                seq = seq.saturating_add(1);
+            }
+            Err(e) => return Err(miette::miette!("创建合同文件失败: {e}")),
+        }
+    }
+}
+
+/// 扫描 active/ 与 archive/ 的所有月份目录，返回给定日期已占用的最大序号（无则 0）。
+///
+/// 合同按**归档时刻**的月份归档（见 [`archive_workflow_at`]），可能落在
+/// 非合同日期的月份目录（如月末创建、次月归档），因此扫描全部月份目录。
+///
+/// # Errors
+///
+/// 读取归档根目录失败时返回错误。
+fn max_existing_seq(active_dir: &Path, archive_root: &Path, date: &str) -> miette::Result<u32> {
+    let prefix = format!("wf-{date}-");
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if active_dir.is_dir() {
+        dirs.push(active_dir.to_path_buf());
+    }
+    if archive_root.is_dir() {
+        for entry in std::fs::read_dir(archive_root)
+            .map_err(|e| miette::miette!("读取归档根目录失败: {e}"))?
+        {
+            let path = entry
+                .map_err(|e| miette::miette!("读取归档条目失败: {e}"))?
+                .path();
+            if path.is_dir() {
+                dirs.push(path);
+            }
+        }
+    }
+    let mut max_seq = 0u32;
+    for dir in &dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let file_name = entry.file_name();
+            let Some(name) = file_name.to_str() else {
+                continue;
+            };
+            let Some(stem) = name.strip_suffix(".json") else {
+                continue;
+            };
+            let Some(seq_str) = stem.strip_prefix(&prefix) else {
+                continue;
+            };
+            if let Ok(seq) = seq_str.parse::<u32>() {
+                max_seq = max_seq.max(seq);
+            }
+        }
+    }
+    Ok(max_seq)
+}
+
+/// 构造全新合同对象（Phase 1 进行中，Phase 2-4 待处理）。
+fn new_contract(workflow_id: &str, title: &str, mode: WorkflowMode) -> WorkflowContract {
+    let now = Utc::now().to_rfc3339();
+    let phase = |name: &str, status: PhaseStatus, started_at: Option<&str>| Phase {
+        name: name.to_string(),
+        status,
+        started_at: started_at.map(String::from),
+        completed_at: None,
+        executor: None,
+        evidence: PhaseEvidence::default(),
+    };
+    let mut phases = BTreeMap::new();
+    phases.insert(
+        "1".to_string(),
+        phase("Clarification", PhaseStatus::InProgress, Some(&now)),
+    );
+    phases.insert(
+        "2".to_string(),
+        phase("Planning", PhaseStatus::Pending, None),
+    );
+    phases.insert(
+        "3".to_string(),
+        phase("Execution", PhaseStatus::Pending, None),
+    );
+    phases.insert(
+        "4".to_string(),
+        phase("Delivery", PhaseStatus::Pending, None),
+    );
+    WorkflowContract {
+        version: "1.0".to_string(),
+        workflow_id: workflow_id.to_string(),
+        title: title.trim().to_string(),
+        mode,
+        created_at: now.clone(),
+        updated_at: now,
+        current_phase: 1,
+        phases,
+    }
+}
+
 /// 归档已完成的 workflow。
 ///
 /// 仅当当前阶段为四且阶段四状态为 `Complete` 时才可归档。
 /// 归档按月分目录存放（`archive/YYYY-MM/`）。
+///
+/// # Errors
+///
+/// 归档目标已存在时拒绝覆盖并返回错误（防止 ID 复用导致历史丢失）。
 fn archive_workflow(workflow_id: &str) -> miette::Result<()> {
     archive_workflow_at(&workflow_dir(), &archive_dir(), workflow_id)
 }
@@ -358,6 +532,10 @@ fn archive_workflow(workflow_id: &str) -> miette::Result<()> {
 /// 在指定的 active/archive 目录下归档已完成的 workflow。
 ///
 /// 抽出目录参数便于单元测试注入临时目录，逻辑与 [`archive_workflow`] 一致。
+///
+/// # Errors
+///
+/// 归档目标已存在时拒绝覆盖并返回错误（Issue #142：防止静默覆盖历史合同）。
 fn archive_workflow_at(
     active_dir: &Path,
     archive_root: &Path,
@@ -385,6 +563,12 @@ fn archive_workflow_at(
     let month_dir = archive_root.join(now.format("%Y-%m").to_string());
     std::fs::create_dir_all(&month_dir).map_err(|e| miette::miette!("创建归档目录失败: {e}"))?;
     let dst = month_dir.join(format!("{workflow_id}.json"));
+    if dst.exists() {
+        return Err(miette::miette!(
+            "归档目标已存在: {}，拒绝覆盖（可能是 workflow_id 复用，见 Issue #142）",
+            dst.display()
+        ));
+    }
     std::fs::copy(&src, &dst).map_err(|e| miette::miette!("复制到归档失败: {e}"))?;
     std::fs::remove_file(&src).map_err(|e| miette::miette!("删除 active 合同失败: {e}"))?;
     println!("workflow {workflow_id} 已归档到 {}", month_dir.display());
@@ -802,6 +986,165 @@ mod tests {
         assert!(
             fresh_month.join("wf-fresh-001.json").exists(),
             "fresh contract should be retained"
+        );
+    }
+
+    /// 今日日期（UTC），与 `create_workflow_at` 使用的日期一致。
+    fn today() -> String {
+        Utc::now().format("%Y-%m-%d").to_string()
+    }
+
+    /// 在归档目录预置一个今日日期、指定序号的合同文件。
+    fn seed_archived(archive: &Path, seq: u32) {
+        let date = today();
+        let month_dir = archive.join(&date[..7]);
+        std::fs::create_dir_all(&month_dir).expect("create month dir");
+        let mut contract = base_contract("full");
+        contract.workflow_id = format!("wf-{date}-{seq:03}");
+        std::fs::write(
+            month_dir.join(format!("wf-{date}-{seq:03}.json")),
+            serde_json::to_string(&contract).expect("serialize"),
+        )
+        .expect("write archived contract");
+    }
+
+    /// 在 active 目录预置一个今日日期、指定序号的合同文件。
+    fn seed_active(active: &Path, seq: u32) {
+        let date = today();
+        std::fs::create_dir_all(active).expect("create active dir");
+        let mut contract = base_contract("full");
+        contract.workflow_id = format!("wf-{date}-{seq:03}");
+        std::fs::write(
+            active.join(format!("wf-{date}-{seq:03}.json")),
+            serde_json::to_string(&contract).expect("serialize"),
+        )
+        .expect("write active contract");
+    }
+
+    #[test]
+    fn test_should_create_001_when_no_existing_contracts() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        let id = create_workflow_at(&active, &archive, "feat: test", WorkflowMode::Full)
+            .expect("create should succeed");
+        assert_eq!(id, format!("wf-{}-001", today()));
+        assert!(active.join(format!("{id}.json")).exists());
+    }
+
+    /// Issue #142 复现：归档后 active/ 为空，下一个 ID 不得复用 -001。
+    #[test]
+    fn test_should_increment_id_after_previous_contract_archived() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        seed_archived(&archive, 1);
+        let id = create_workflow_at(&active, &archive, "feat: second", WorkflowMode::Full)
+            .expect("create should succeed");
+        assert_eq!(
+            id,
+            format!("wf-{}-002", today()),
+            "archived -001 must not be reused"
+        );
+    }
+
+    #[test]
+    fn test_create_should_scan_both_active_and_archive_for_max_id() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        seed_active(&active, 2);
+        seed_archived(&archive, 3);
+        let id = create_workflow_at(&active, &archive, "feat: fourth", WorkflowMode::Fast)
+            .expect("create should succeed");
+        assert_eq!(id, format!("wf-{}-004", today()));
+    }
+
+    #[test]
+    fn test_should_not_reuse_id_on_repeated_creates() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        let id1 =
+            create_workflow_at(&active, &archive, "feat: a", WorkflowMode::Full).expect("first");
+        let id2 =
+            create_workflow_at(&active, &archive, "feat: b", WorkflowMode::Full).expect("second");
+        assert_ne!(id1, id2, "repeated creates must never share an ID");
+        assert!(active.join(format!("{id1}.json")).exists());
+        assert!(active.join(format!("{id2}.json")).exists());
+    }
+
+    #[test]
+    fn test_created_contract_should_match_schema_shape() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        let id = create_workflow_at(&active, &archive, "feat: shape", WorkflowMode::Fast)
+            .expect("create should succeed");
+        let content =
+            std::fs::read_to_string(active.join(format!("{id}.json"))).expect("read contract");
+        let contract: WorkflowContract = serde_json::from_str(&content).expect("parse contract");
+        assert_eq!(contract.workflow_id, id);
+        assert_eq!(contract.title, "feat: shape");
+        assert_eq!(contract.current_phase, 1);
+        assert!(matches!(contract.mode, WorkflowMode::Fast));
+        assert_eq!(contract.phases.len(), 4);
+        assert_eq!(
+            contract.phases.get("1").expect("phase 1").status,
+            PhaseStatus::InProgress
+        );
+        assert_eq!(
+            contract.phases.get("2").expect("phase 2").status,
+            PhaseStatus::Pending
+        );
+    }
+
+    #[test]
+    fn test_should_reject_empty_title_on_create() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        assert!(
+            create_workflow_at(&active, &archive, "   ", WorkflowMode::Full).is_err(),
+            "blank title must be rejected"
+        );
+    }
+
+    /// Issue #142 衍生问题：归档目标已存在时必须拒绝覆盖。
+    #[test]
+    fn test_should_reject_archive_when_destination_exists() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let active = tmp.path().join("active");
+        let archive = tmp.path().join("archive");
+        std::fs::create_dir_all(&active).expect("create active");
+
+        let mut contract = base_contract("full");
+        contract.current_phase = 4;
+        contract.phases.get_mut("4").expect("phase 4").status = PhaseStatus::Complete;
+        let id = contract.workflow_id.clone();
+        let serialized = serde_json::to_string_pretty(&contract).expect("serialize");
+        std::fs::write(active.join(format!("{id}.json")), &serialized).expect("write active");
+
+        // 预置同名归档目标（哨兵内容，验证不被覆盖）
+        let month = Utc::now().format("%Y-%m").to_string();
+        let month_dir = archive.join(&month);
+        std::fs::create_dir_all(&month_dir).expect("create month dir");
+        let dst = month_dir.join(format!("{id}.json"));
+        std::fs::write(&dst, r#"{"sentinel":"original"}"#).expect("write sentinel");
+
+        let result = archive_workflow_at(&active, &archive, &id);
+        assert!(
+            result.is_err(),
+            "archive must refuse to overwrite an existing destination"
+        );
+        let preserved = std::fs::read_to_string(&dst).expect("read destination");
+        assert_eq!(
+            preserved, r#"{"sentinel":"original"}"#,
+            "existing archive must be preserved"
+        );
+        assert!(
+            active.join(format!("{id}.json")).exists(),
+            "active contract must remain when archive is rejected"
         );
     }
 }

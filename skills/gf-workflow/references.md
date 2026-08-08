@@ -7,28 +7,15 @@ Operations reference for the `gf-workflow` orchestrator. Main execution flow: se
 ### Create Contract
 
 ```bash
-DATE=$(date -u +%Y-%m-%d)
-COUNT=$(ls .cache/workflows/active/ 2>/dev/null | grep "wf-${DATE}" | wc -l)
-WORKFLOW_ID="wf-${DATE}-$(printf '%03d' $((COUNT + 1)))"
-
-cat > ".cache/workflows/active/${WORKFLOW_ID}.json" << EOF
-{
-  "version": "1.0",
-  "workflow_id": "${WORKFLOW_ID}",
-  "title": "<issue_title>",
-  "mode": "<full|standard|fast>",
-  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "updated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "current_phase": 1,
-  "phases": {
-    "1": { "name": "Clarification", "status": "in_progress", "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "completed_at": null, "executor": null, "evidence": {} },
-    "2": { "name": "Planning", "status": "pending", "started_at": null, "completed_at": null, "executor": null, "evidence": {} },
-    "3": { "name": "Execution", "status": "pending", "started_at": null, "completed_at": null, "executor": null, "evidence": {} },
-    "4": { "name": "Delivery", "status": "pending", "started_at": null, "completed_at": null, "executor": null, "evidence": {} }
-  }
-}
-EOF
+gf workflow create --title "<issue_title>" --mode <full|fast>
+# 输出分配的 ID 与合同路径，例如：
+# ✅ Workflow 已创建: wf-2026-08-08-002
+#    合同: .cache/workflows/active/wf-2026-08-08-002.json
 ```
+
+ID 由 CLI 自动分配（Issue #142）：扫描 `active/` 与 `archive/` 全部月份目录取当日
+最大序号的下一个空位，并用 O_EXCL 原子写入——归档后序号不复用，并发创建不产生
+同名合同。**不要手写 `WORKFLOW_ID` 或按 active 数量计数**（旧逻辑已废弃）。
 
 ### Update Contract (on Phase completion)
 
@@ -103,9 +90,10 @@ Each workflow uses its own worktree, branch, and contract file — no interferen
 ## CLI Integration
 
 ```bash
+gitflow workflow create --title "<issue_title>" --mode <full|fast>  # 创建合同（自动分配当日不重复 ID）
 gitflow workflow list                      # List active workflows
 gitflow workflow status <workflow_id>      # View contract details
-gitflow workflow archive <workflow_id>     # Archive completed workflow
+gitflow workflow archive <workflow_id>     # Archive completed workflow（目标已存在时拒绝覆盖）
 gitflow workflow cleanup --older-than 90   # Clean up expired archives
 ```
 
