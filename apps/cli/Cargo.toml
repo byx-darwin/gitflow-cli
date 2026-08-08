@@ -48,6 +48,12 @@ semver = { workspace = true }
 [build-dependencies]
 built = "0.7"
 
+[features]
+default = []
+## 跳过 release binary 签名校验（开发/自建 release 用）。
+## 启用后不会编译进公钥常量，`gf update` 不会验证 `.sig` 文件。
+skip-verify = []
+
 [dev-dependencies]
 assert_cmd = { workspace = true }
 trycmd = { workspace = true }
