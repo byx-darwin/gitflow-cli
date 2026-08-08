@@ -4,6 +4,11 @@
 
 ## 门控定义
 
+> **证据字段来源无关（Issue #141）:** 三个闸门的证据条件不因技能来源变化——
+> `design_doc_path` / `spec_path` 等字段由两来源各自的产物填充
+> （映射见 `references.md` → Source Branch Semantics），闸门只校验字段存在性与取值。
+> mattpocock 路径额外产出 `ticket_refs`（可选字段，不参与闸门判定，Gate 2→3 展示用）。
+
 ### Gate 1→2: 需求澄清 → 计划制定
 
 **条件:**
@@ -39,6 +44,11 @@
 - 编排器暂停并展示计划文档路径
 - 等待用户输入: "approved" / "changes requested" / "rejected"
 - 用户批准后，**自动进入 Phase 3**
+
+**GO 闸门——执行模式选择（Issue #141）:** 用户批准后、进入 Phase 3 前，编排器必须提供执行模式选择：
+① 后台代理（默认推荐，仅 superpowers 来源可用）② 手动新窗口 ③ 同会话执行（仅显式要求）。
+mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked，后台代理无法调用）。
+模式语义详见 `references.md` → Phase 3 Execution Modes。
 
 ### Gate 3→4: 执行 → 交付
 
