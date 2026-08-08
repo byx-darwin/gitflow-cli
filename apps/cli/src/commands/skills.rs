@@ -19,8 +19,10 @@
     reason = "Skills command runs synchronously before the tokio runtime is constructed"
 )]
 
-use std::fmt;
-use std::path::{Path, PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 // 编译时由 build.rs 生成的 skills 清单（release binary 内嵌）
 include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
@@ -1896,7 +1898,10 @@ mod tests {
         let tmp = tempfile::tempdir().expect("temp dir");
         seed_plugin_registry(
             tmp.path(),
-            &["superpowers@claude-plugins-official", "mattpocock-skills@mattpocock"],
+            &[
+                "superpowers@claude-plugins-official",
+                "mattpocock-skills@mattpocock",
+            ],
         );
         let found = detect_skill_sources(tmp.path());
         assert_eq!(found.len(), 2, "both sources must be reported: {found:?}");
