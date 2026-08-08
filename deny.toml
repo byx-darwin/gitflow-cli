@@ -121,6 +121,10 @@ exceptions = [
   # subtle (RustCrypto constant-time primitives) is pulled in transitively by
   # rustls (mandatory for TLS per project policy); licensed BSD-3-Clause.
   { allow = ["BSD-3-Clause"], crate = "subtle" },
+  # ed25519-dalek and curve25519-dalek (ed25519 signature verification for
+  # `gf update` release binary verification); licensed BSD-3-Clause.
+  { allow = ["BSD-3-Clause"], crate = "ed25519-dalek" },
+  { allow = ["BSD-3-Clause"], crate = "curve25519-dalek" },
   # webpki-roots (Mozilla root certificate store) is pulled in transitively by
   # rustls/reqwest (mandatory TLS chain); licensed CDLA-Permissive-2.0.
   { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },

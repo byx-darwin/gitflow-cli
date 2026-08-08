@@ -36,10 +36,12 @@ enum Command {
 fn main() -> miette::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::GenerateKey => generate_key()?,
-        Command::Sign { key, input } => sign_archives(&key, &input)?,
+        Command::GenerateKey => {
+            generate_key();
+            Ok(())
+        }
+        Command::Sign { key, input } => sign_archives(&key, &input),
     }
-    Ok(())
 }
 
 /// Generate an Ed25519 keypair, returning `(private_hex, public_hex)`.
@@ -54,7 +56,7 @@ fn generate_keypair() -> (String, String) {
 }
 
 /// Print the generated keypair to stderr.
-fn generate_key() -> miette::Result<()> {
+fn generate_key() {
     let (private_hex, public_hex) = generate_keypair();
 
     eprintln!("=== Ed25519 Signing Keypair ===");
@@ -66,7 +68,6 @@ fn generate_key() -> miette::Result<()> {
     let public_bytes = hex::decode(&public_hex).expect("valid hex");
     let byte_literals: Vec<String> = public_bytes.iter().map(|b| format!("{b}")).collect();
     eprintln!("  [{}]", byte_literals.join(", "));
-    Ok(())
 }
 
 /// Sign a single file, writing `<filename>.sig` alongside it.
