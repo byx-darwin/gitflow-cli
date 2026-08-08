@@ -1,28 +1,26 @@
 //! `gf update` 子命令实现。
 //!
 //! 从 GitHub Releases 检查并更新 gf binary 到最新版本。
-//! 版本选择逻辑独立为纯函数，便于单测覆盖。
+//! 版本选择逻辑独立为纯函数，便于单测覆盖；
+//! 更新流程通过注入的版本获取函数支持无网络单测。
 
+use clap::{ArgAction, Args};
+use is_terminal::IsTerminal;
 use semver::Version;
 
 /// GitHub 仓库 owner。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 pub(crate) const REPO_OWNER: &str = "byx-darwin";
 /// GitHub 仓库名。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 pub(crate) const REPO_NAME: &str = "gitflow-cli";
 /// binary 名称。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 pub(crate) const BIN_NAME: &str = "gf";
 
 /// 解析 semver 版本字符串（容忍前导 `v`）。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 fn parse_version(s: &str) -> Option<Version> {
     Version::parse(s.trim_start_matches('v')).ok()
 }
 
 /// 是否为预发布版本（含 `-alpha`/`-beta`/`-rc` 等 pre 标识）。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 fn is_prerelease(v: &Version) -> bool {
     !v.pre.is_empty()
 }
@@ -30,7 +28,6 @@ fn is_prerelease(v: &Version) -> bool {
 /// 从候选版本中选择目标版本：返回大于 `current` 的最高版本。
 ///
 /// `include_prerelease` 为 `false` 时排除预发布版本（稳定版优先）。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 fn select_target_version<'a>(
     candidates: impl Iterator<Item = &'a str>,
     current: &Version,
@@ -44,15 +41,129 @@ fn select_target_version<'a>(
 }
 
 /// 当前安装的 gf 版本（编译期注入）。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 fn current_version() -> String {
     crate::built_info::PKG_VERSION.to_string()
 }
 
 /// 当前平台目标三元组（如 `x86_64-apple-darwin`）。
-#[allow(dead_code, reason = "called by follow-up task 3 command handler")]
 fn target_triple() -> String {
     self_update::get_target().to_string()
+}
+
+/// `gf update` 参数。
+#[allow(dead_code, reason = "used by follow-up task 5 command registration")]
+#[derive(Debug, Args)]
+pub struct UpdateArgs {
+    /// 包含预发布版本（alpha/beta/rc），默认仅稳定版
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub pre: bool,
+
+    /// 仅检查是否有新版本，不执行更新
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub check: bool,
+
+    /// 跳过确认提示，直接更新
+    #[arg(short = 'y', long = "yes", action = ArgAction::SetTrue)]
+    pub yes: bool,
+}
+
+/// 处理 `gf update` 命令。
+///
+/// # Errors
+///
+/// - 无法获取 GitHub release 列表（网络错误）
+/// - 当前版本号无法解析
+/// - `self_update` 下载/替换 binary 失败
+#[allow(dead_code, reason = "called by follow-up task 5 command registration")]
+pub fn handle_update(args: &UpdateArgs) -> miette::Result<()> {
+    handle_update_with(args, fetch_release_versions)
+}
+
+/// `gf update` 核心逻辑（注入版本获取函数，便于单测覆盖网络路径）。
+fn handle_update_with(
+    args: &UpdateArgs,
+    fetch_versions: impl Fn(&str) -> miette::Result<Vec<String>>,
+) -> miette::Result<()> {
+    let current = current_version();
+    let current_v =
+        parse_version(&current).ok_or_else(|| miette::miette!("当前版本号无法解析: {current}"))?;
+    let target = target_triple();
+
+    let versions = fetch_versions(&target)?;
+    let Some(latest) =
+        select_target_version(versions.iter().map(String::as_str), &current_v, args.pre)
+    else {
+        println!("✅ 已是最新版本 v{current}");
+        return Ok(());
+    };
+
+    if args.check {
+        println!("当前版本: v{current}");
+        println!("最新版本: v{latest}");
+        return Ok(());
+    }
+
+    if !args.yes && !crate::commands::skills::confirm(&format!("是否更新到 v{latest}？"), true)?
+    {
+        println!("已取消更新");
+        return Ok(());
+    }
+
+    let status = self_update::backends::github::Update::configure()
+        .repo_owner(REPO_OWNER)
+        .repo_name(REPO_NAME)
+        .bin_name(BIN_NAME)
+        .current_version(&current)
+        .target_version_tag(&format!("v{latest}"))
+        .target(&target)
+        .bin_path_in_archive(&format!("{REPO_NAME}-{{{{ target }}}}/{{{{ bin }}}}"))
+        .show_download_progress(true)
+        .show_output(true)
+        .no_confirm(true)
+        .build()
+        .map_err(|e| miette::miette!("配置更新器失败: {e}"))?
+        .update()
+        .map_err(|e| miette::miette!("更新失败: {e}"))?;
+
+    println!("✅ gf 已更新到 v{}", status.version());
+
+    prompt_update_skills()?;
+    Ok(())
+}
+
+/// 从 GitHub Releases 获取适配当前平台的可用版本列表。
+///
+/// # Errors
+///
+/// - 网络请求失败
+/// - 仓库无 release
+fn fetch_release_versions(target: &str) -> miette::Result<Vec<String>> {
+    let releases = self_update::backends::github::ReleaseList::configure()
+        .repo_owner(REPO_OWNER)
+        .repo_name(REPO_NAME)
+        .with_target(target)
+        .build()
+        .map_err(|e| miette::miette!("配置 release 查询失败: {e}"))?
+        .fetch()
+        .map_err(|e| miette::miette!("获取 release 列表失败: {e}"))?;
+    Ok(releases.into_iter().map(|r| r.version).collect())
+}
+
+/// 更新 binary 后提示是否同步更新全局 skills。
+fn prompt_update_skills() -> miette::Result<()> {
+    if !std::io::stderr().is_terminal() {
+        println!("ℹ️ 非交互模式，已跳过 skills 同步。可运行 `gf skills update -g` 手动更新。");
+        return Ok(());
+    }
+    if crate::commands::skills::confirm("是否同时更新全局 skills？", true)? {
+        let args = crate::commands::skills::SkillsUpdateArgs {
+            global: true,
+            agent: None,
+            custom_path: None,
+        };
+        crate::commands::skills::update_skills(&args)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -142,5 +253,51 @@ mod tests {
             select_target_version(candidates.into_iter(), &current, false).as_deref(),
             Some("1.0.1")
         );
+    }
+
+    use clap::{Parser, Subcommand};
+
+    #[derive(Debug, Parser)]
+    struct TestCli {
+        #[command(subcommand)]
+        cmd: TestCmd,
+    }
+
+    #[derive(Debug, Subcommand)]
+    enum TestCmd {
+        Update(UpdateArgs),
+    }
+
+    #[test]
+    fn test_update_args_parse_flags() {
+        let cli = TestCli::parse_from(["test", "update", "--check", "--pre", "--yes"]);
+        let TestCmd::Update(args) = cli.cmd;
+        assert!(args.check);
+        assert!(args.pre);
+        assert!(args.yes);
+    }
+
+    #[test]
+    fn test_update_up_to_date_when_no_newer() {
+        let args = UpdateArgs {
+            pre: false,
+            check: false,
+            yes: true,
+        };
+        let versions = vec![current_version()];
+        let result = handle_update_with(&args, |_| Ok(versions.clone()));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_update_check_reports_latest_without_updating() {
+        let args = UpdateArgs {
+            pre: false,
+            check: true,
+            yes: false,
+        };
+        let versions = vec!["9.9.9".to_string()];
+        let result = handle_update_with(&args, |_| Ok(versions.clone()));
+        assert!(result.is_ok());
     }
 }
