@@ -489,6 +489,41 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         Ok(api_response.into())
     }
 
+    /// 列出指定 Issue 的所有评论。
+    ///
+    /// 调用 `glab api /projects/{project}/issues/{iid}/notes` 获取评论列表，
+    /// 并返回评论数据数组。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
+        debug!(repo = %self.repo, number, "spawning `glab api` GET issue notes");
+
+        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
+            CoreError::Platform(format!("Invalid repo format '{}', expected 'owner/project'", self.repo))
+        })?;
+
+        let api_path = format!(
+            "/projects/{owner}%2F{project}/issues/{number}/notes"
+        );
+
+        let output = self
+            .runner
+            .run("glab", &["api", &api_path])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        let comments: Vec<CommentApiResponse> =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(comments.into_iter().map(CommentData::from).collect())
+    }
+
     /// 为指定 Issue 添加一个或多个标签。
     ///
     /// 调用 `glab issue edit <number> --repo <repo> --add-label <labels>` 添加标签，

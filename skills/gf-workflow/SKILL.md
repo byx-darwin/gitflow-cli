@@ -232,6 +232,7 @@ Full definitions: `skills/gf-workflow/gates.md`
 2. **[AUTO] Read Open Issues**
    - User specified an Issue → use it
    - Otherwise → `gf issue list --state open`
+   - **Also read issue comments** → `gf issue comments <number>` to capture additional context from discussions
 
 3. **[CALL] `superpowers:brainstorming`**
    - Pass: Issue description or user requirements

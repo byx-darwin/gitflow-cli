@@ -18,7 +18,7 @@ use crate::OutputFormat;
 
 /// Issue 子命令集合。
 ///
-/// 支持 `create`、`list`、`view`、`close`、`reopen`、`comment`、
+/// 支持 `create`、`list`、`view`、`close`、`reopen`、`comment`、`comments`、
 /// `add-label`、`remove-label` 操作，每种操作对应不同的 clap 参数。
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
@@ -98,6 +98,12 @@ pub enum IssueCommand {
         /// 从文件读取评论正文（可选）。
         #[arg(long = "body-file")]
         body_file: Option<String>,
+    },
+
+    /// 列出 Issue 的所有评论。
+    Comments {
+        /// Issue 编号。
+        number: u64,
     },
 
     /// 为 Issue 添加标签。
@@ -254,6 +260,14 @@ pub async fn handle(
                 .await
                 .map_err(|e| miette::miette!("Failed to comment on issue #{number}: {e}"))?;
             let output = CliOutput::success(comment, platform, "issue comment");
+            print_output(&output, &output_format)?;
+        }
+        IssueCommand::Comments { number } => {
+            let comments = provider
+                .list_comments(number)
+                .await
+                .map_err(|e| miette::miette!("Failed to list comments for issue #{number}: {e}"))?;
+            let output = CliOutput::success(comments, platform, "issue comments");
             print_output(&output, &output_format)?;
         }
         IssueCommand::AddLabel { number, label } => {

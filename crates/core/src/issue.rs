@@ -130,6 +130,13 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
     /// 当 Issue 不存在、`body` 为空或平台 API 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData>;
 
+    /// 列出指定 Issue 的所有评论。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或平台 API 调用失败时返回错误。
+    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>>;
+
     /// 为指定 Issue 添加标签。
     ///
     /// # Errors

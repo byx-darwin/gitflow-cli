@@ -1,15 +1,15 @@
 ---
 name: gf-issue
 description: |
-  Use when the user needs to manage issues via gf — create, list, view, close, reopen, comment, or manage labels.
-  当用户需要通过 gf 管理 Issue（创建、列表、查看、关闭、重新打开、评论、标签）时使用。
+  Use when the user needs to manage issues via gf — create, list, view, close, reopen, comment, list comments, or manage labels.
+  当用户需要通过 gf 管理 Issue（创建、列表、查看、关闭、重新打开、评论、查看评论、标签）时使用。
 ---
 
 # gf-issue
 
 ## Overview
 
-Wraps `gf issue`. 7 subcommands: `create · list · view · close · reopen · comment · label`.
+Wraps `gf issue`. 8 subcommands: `create · list · view · close · reopen · comment · comments · label`.
 
 ## When to Use
 
@@ -21,6 +21,7 @@ Wraps `gf issue`. 7 subcommands: `create · list · view · close · reopen · c
 | close / resolve | 关闭 Issue | — |
 | reopen | 重新打开 | — |
 | add comment | 添加评论 | — |
+| list comments / show comments | 查看评论 | — |
 | add label | 添加标签 | — |
 | full workflow | 全流程 | → `gf-issue-create` |
 | analyze requirements | — | → `gf-issue-review` |
@@ -34,6 +35,7 @@ gf issue view <number>
 gf issue close <number>
 gf issue reopen <number>
 gf issue comment <number> --body <text>
+gf issue comments <number>
 gf issue label <number> --add <l> --remove <l>
 ```
 
@@ -55,6 +57,7 @@ gf auth status
 | Close | `issue close <number>` | Issue open |
 | Reopen | `issue reopen <number>` | Issue closed |
 | Comment | `issue comment <number> --body <text>` | Issue exists |
+| Comments | `issue comments <number>` | Issue exists |
 | Label | `issue label <number> --add <l> --remove <l>` | Issue exists |
 
 ## Flowchart
@@ -74,6 +77,7 @@ flowchart TD
     CMD -->|comment| ISS{confirm?}
     ISS -->|yes| COMM[issue comment]
     ISS -->|no| STOP3[abort]
+    CMD -->|comments| COMMENTS[issue comments]
     CMD -->|label| LABEL[issue label add/remove]
 ```
 
@@ -164,4 +168,5 @@ flowchart TD
 | close issue, resolve | 关闭 Issue |
 | reopen issue | 重新打开 |
 | add comment | 添加评论 |
+| list comments, show comments | 查看评论 |
 | add label, tag | 添加标签 |
