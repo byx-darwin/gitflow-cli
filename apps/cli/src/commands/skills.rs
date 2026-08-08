@@ -415,9 +415,24 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
         let level = if args.global { "全局" } else { "项目级" };
         println!("目标: {} ({level})", target.display());
 
-        let (installed, overwritten, skipped) = copy_skills_dir(&source, &target, args.force)?;
+        let result = copy_skills_dir(&source, &target, args.force)?;
         println!();
-        println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
+        println!(
+            "安装完成: 新增 {} 个，覆盖 {} 个，跳过 {} 个",
+            result.installed, result.overwritten, result.skipped
+        );
+        if !result.failures.is_empty() {
+            println!(
+                "⚠ 失败 {} 个: {}",
+                result.failures.len(),
+                result.failures.join(", ")
+            );
+            return Err(miette::miette!(
+                "{} 个 skill 安装失败: {}",
+                result.failures.len(),
+                result.failures.join(", ")
+            ));
+        }
     } else if has_bundled {
         install_skills_bundled(&target, args)?;
     } else {
@@ -448,17 +463,34 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     Ok(())
 }
 
+/// `copy_skills_dir` 的汇总结果。
+#[derive(Debug)]
+struct CopySkillsResult {
+    /// 新增安装的 skill 数量。
+    installed: u32,
+    /// 覆盖已存在的 skill 数量。
+    overwritten: u32,
+    /// 跳过的 skill 数量（`force=false` 且已存在）。
+    skipped: u32,
+    /// 失败列表 — 单项失败不中止整体。
+    failures: Vec<String>,
+}
+
 /// 将源目录下的 `gf-*` skills 复制到目标目录。
 ///
 /// `force` 为 `true` 时覆盖已存在项；否则跳过。
-/// 返回 `(新增, 覆盖, 跳过)`。逐项打印结果，与原有 UX 一致。
-fn copy_skills_dir(source: &Path, target: &Path, force: bool) -> miette::Result<(u32, u32, u32)> {
+/// 单个 skill 复制失败时跳过并记录到 `failures`，不中止整体流程。
+/// 返回汇总结果，包含计数和失败列表。
+fn copy_skills_dir(source: &Path, target: &Path, force: bool) -> miette::Result<CopySkillsResult> {
     std::fs::create_dir_all(target)
         .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
 
-    let mut installed = 0u32;
-    let mut overwritten = 0u32;
-    let mut skipped = 0u32;
+    let mut result = CopySkillsResult {
+        installed: 0,
+        overwritten: 0,
+        skipped: 0,
+        failures: Vec::new(),
+    };
 
     for entry in std::fs::read_dir(source)
         .map_err(|e| miette::miette!("无法读取 skills 源目录 {}: {e}", source.display()))?
@@ -474,26 +506,35 @@ fn copy_skills_dir(source: &Path, target: &Path, force: bool) -> miette::Result<
         let dest = target.join(&name);
         if dest.exists() {
             if force {
-                std::fs::remove_dir_all(&dest)
-                    .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
-                copy_dir_all(&entry.path(), &dest)
-                    .map_err(|e| miette::miette!("复制 {name_str} 失败: {e}"))?;
+                if let Err(e) = std::fs::remove_dir_all(&dest) {
+                    result.failures.push(name_str.to_string());
+                    eprintln!("⚠ 失败: {name_str} — 无法删除旧版本: {e}");
+                    continue;
+                }
+                if let Err(e) = copy_dir_all(&entry.path(), &dest) {
+                    result.failures.push(name_str.to_string());
+                    eprintln!("⚠ 失败: {name_str} — 复制失败: {e}");
+                    continue;
+                }
                 println!("♻ 已覆盖: {name_str}");
-                overwritten += 1;
+                result.overwritten += 1;
             } else {
                 eprintln!("⚠ 跳过已存在: {name_str}");
-                skipped += 1;
+                result.skipped += 1;
             }
             continue;
         }
 
-        copy_dir_all(&entry.path(), &dest)
-            .map_err(|e| miette::miette!("复制 {name_str} 失败: {e}"))?;
+        if let Err(e) = copy_dir_all(&entry.path(), &dest) {
+            result.failures.push(name_str.to_string());
+            eprintln!("⚠ 失败: {name_str} — 复制失败: {e}");
+            continue;
+        }
         println!("✅ 已安装: {name_str}");
-        installed += 1;
+        result.installed += 1;
     }
 
-    Ok((installed, overwritten, skipped))
+    Ok(result)
 }
 
 /// 更新已安装的 skills：从当前 binary 内嵌数据覆盖所有 `gf-*` skills，
@@ -518,9 +559,24 @@ pub fn update_skills(args: &SkillsUpdateArgs) -> miette::Result<()> {
     }
 
     if has_source {
-        let (installed, overwritten, skipped) = copy_skills_dir(&source, &target, true)?;
+        let result = copy_skills_dir(&source, &target, true)?;
         println!();
-        println!("✅ Skills 已更新: 覆盖 {overwritten} 个，新增 {installed} 个，跳过 {skipped} 个");
+        println!(
+            "✅ Skills 已更新: 覆盖 {} 个，新增 {} 个，跳过 {} 个",
+            result.overwritten, result.installed, result.skipped
+        );
+        if !result.failures.is_empty() {
+            println!(
+                "⚠ 失败 {} 个: {}",
+                result.failures.len(),
+                result.failures.join(", ")
+            );
+            return Err(miette::miette!(
+                "{} 个 skill 更新失败: {}",
+                result.failures.len(),
+                result.failures.join(", ")
+            ));
+        }
     } else if has_bundled {
         let install_args = InstallArgs {
             global: args.global,
@@ -2050,12 +2106,12 @@ mod tests {
         seed_source(&tmp, &["gf-alpha"]);
         seed_target(&tmp, &["gf-alpha"]);
 
-        let (installed, overwritten, skipped) =
-            copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
-                .expect("copy");
-        assert_eq!(installed, 0);
-        assert_eq!(overwritten, 1);
-        assert_eq!(skipped, 0);
+        let result = copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
+            .expect("copy");
+        assert_eq!(result.installed, 0);
+        assert_eq!(result.overwritten, 1);
+        assert_eq!(result.skipped, 0);
+        assert!(result.failures.is_empty());
 
         let content = std::fs::read_to_string(tmp.path().join("target/gf-alpha/SKILL.md"))
             .expect("read updated");
@@ -2068,11 +2124,11 @@ mod tests {
         seed_source(&tmp, &["gf-alpha", "gf-beta"]);
         seed_target(&tmp, &["gf-alpha"]);
 
-        let (installed, overwritten, _) =
-            copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
-                .expect("copy");
-        assert_eq!(installed, 1, "gf-beta must be newly installed");
-        assert_eq!(overwritten, 1);
+        let result = copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
+            .expect("copy");
+        assert_eq!(result.installed, 1, "gf-beta must be newly installed");
+        assert_eq!(result.overwritten, 1);
+        assert!(result.failures.is_empty());
         assert!(tmp.path().join("target/gf-beta/SKILL.md").exists());
     }
 
@@ -2092,6 +2148,37 @@ mod tests {
             other.join("README.md").exists(),
             "non-gf-* dirs must be left untouched"
         );
+    }
+
+    #[test]
+    fn test_copy_skills_dir_collects_failures_and_continues() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        // 源: 3 个 skills
+        seed_source(&tmp, &["gf-alpha", "gf-beta", "gf-gamma"]);
+        // 目标: gf-beta 位置放一个普通文件（非目录），使 remove_dir_all 失败
+        std::fs::create_dir_all(tmp.path().join("target")).expect("create target");
+        std::fs::write(tmp.path().join("target/gf-beta"), "i am a file, not a dir")
+            .expect("write file where skill dir should be");
+
+        let result = copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
+            .expect("copy_skills_dir must not abort on individual skill failure");
+
+        // gf-alpha 和 gf-gamma 必须成功安装
+        assert!(
+            tmp.path().join("target/gf-alpha/SKILL.md").exists(),
+            "gf-alpha must be installed despite gf-beta failure"
+        );
+        assert!(
+            tmp.path().join("target/gf-gamma/SKILL.md").exists(),
+            "gf-gamma must be installed despite gf-beta failure"
+        );
+        // gf-beta 必须在失败列表中
+        assert_eq!(result.failures.len(), 1, "exactly one failure");
+        assert_eq!(result.failures[0], "gf-beta");
+        // 计数: 2 新增 (alpha, gamma), 0 覆盖, 0 跳过
+        assert_eq!(result.installed, 2);
+        assert_eq!(result.overwritten, 0);
+        assert_eq!(result.skipped, 0);
     }
 
     #[test]
