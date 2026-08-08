@@ -47,8 +47,11 @@ temp-env = "0.3"
 # console = "0.15"
 # Security: uncomment when your CLI handles secrets, tokens, or passwords.
 secrecy = "0.11"
+# Self-update for `gf update` (GitHub Releases backend)
+self_update = { version = "0.42", default-features = false, features = ["rustls", "compression-flate2"] }
+# Semver for update version resolution (stable vs prerelease)
+semver = "1"
 # dotenvy = "0.15"
-# self_update = "0.42"
 # owo-colors = "4"
 
 # workspace crates
