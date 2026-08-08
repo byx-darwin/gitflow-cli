@@ -501,12 +501,13 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         debug!(repo = %self.repo, number, "spawning `glab api` GET issue notes");
 
         let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
-            CoreError::Platform(format!("Invalid repo format '{}', expected 'owner/project'", self.repo))
+            CoreError::Platform(format!(
+                "Invalid repo format '{}', expected 'owner/project'",
+                self.repo
+            ))
         })?;
 
-        let api_path = format!(
-            "/projects/{owner}%2F{project}/issues/{number}/notes"
-        );
+        let api_path = format!("/projects/{owner}%2F{project}/issues/{number}/notes");
 
         let output = self
             .runner

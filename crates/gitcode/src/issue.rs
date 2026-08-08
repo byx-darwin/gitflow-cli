@@ -508,10 +508,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         let binary = crate::gitcode_binary();
         debug!(repo = %self.repo, number, "spawning `gitcode api` GET issue comments");
 
-        let api_path = format!(
-            "/repos/{}/issues/{}/comments",
-            self.repo, number
-        );
+        let api_path = format!("/repos/{}/issues/{}/comments", self.repo, number);
 
         let output = self
             .runner

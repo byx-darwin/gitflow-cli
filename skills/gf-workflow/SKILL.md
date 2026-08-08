@@ -358,6 +358,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 **Trigger:** After dogfooding passes. **Requires user confirmation.**
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
+   - Note: `worktree_path` follows the convention `.claude/worktree/<branch-name>`
 2. Detect PR merge status: `gf pr view` (parse merged state)
 3. **PR merged** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
