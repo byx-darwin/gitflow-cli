@@ -45,7 +45,7 @@ Cargo：
 
 ## 兼容性
 
-数据源：docs/compatibility-matrix.json（官网兼容性矩阵页构建期渲染）。
+数据源：crates/core/resources/compatibility-matrix.json（官网兼容性矩阵页构建期渲染）。
 - GitHub：gh ≥ 2.0.0
 - GitLab：glab ≥ 1.30.0
 - GitCode：gitcode ≥ 0.6.0
