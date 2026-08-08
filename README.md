@@ -94,6 +94,11 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 
 支持 `--platform github|gitlab|gitcode` 与 `--output json|text|toon|auto`。
 
+### 更新与维护
+
+- `gf update` — 从 GitHub Releases 自更新 binary（`--check` 仅检查，`--pre` 含预发布，`-y` 跳过确认）
+- `gf skills update` — 从当前 binary 内嵌数据更新已安装 skills（`-g` 全局，`--agent` 指定平台）
+
 ## 文档与官网
 
 官方网站：<https://byx-darwin.github.io/gitflow-cli>
