@@ -42,6 +42,8 @@ serde_json = { workspace = true }
 which = { workspace = true }
 regex = { workspace = true }
 thiserror = { workspace = true }
+self_update = { workspace = true }
+semver = { workspace = true }
 
 [build-dependencies]
 built = "0.7"

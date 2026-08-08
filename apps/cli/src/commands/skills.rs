@@ -130,6 +130,8 @@ pub enum SkillsCommand {
     List(ListArgs),
     /// 卸载已安装的 skills
     Uninstall(UninstallArgs),
+    /// 更新已安装的 skills（等价于 install --force，刷新 hook）
+    Update(SkillsUpdateArgs),
 }
 
 /// `skills install` 参数。
@@ -184,6 +186,22 @@ pub struct UninstallArgs {
     pub agent: Option<AgentPlatform>,
 
     /// 自定义卸载路径
+    #[arg(long = "path")]
+    pub custom_path: Option<String>,
+}
+
+/// `gf skills update` 参数。
+#[derive(Debug, Args)]
+pub struct SkillsUpdateArgs {
+    /// 从全局用户目录更新
+    #[arg(short = 'g', long, action = ArgAction::SetTrue)]
+    pub global: bool,
+
+    /// 目标 Agent 平台（默认 `claude`）
+    #[arg(long, value_enum)]
+    pub agent: Option<AgentPlatform>,
+
+    /// 自定义更新路径（最高优先级）
     #[arg(long = "path")]
     pub custom_path: Option<String>,
 }
@@ -373,6 +391,7 @@ pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
         SkillsCommand::Install(args) => install_skills(args),
         SkillsCommand::List(args) => list_skills(args),
         SkillsCommand::Uninstall(args) => uninstall_skills(args),
+        SkillsCommand::Update(args) => update_skills(args),
     }
 }
 
@@ -393,49 +412,10 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
 
     if has_source {
         // 从文件系统目录安装（开发场景或 cargo install --path）
-        std::fs::create_dir_all(&target)
-            .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
-
         let level = if args.global { "全局" } else { "项目级" };
         println!("目标: {} ({level})", target.display());
 
-        let mut installed = 0u32;
-        let mut skipped = 0u32;
-        let mut overwritten = 0u32;
-
-        for entry in std::fs::read_dir(&source)
-            .map_err(|e| miette::miette!("无法读取 skills 源目录 {}: {e}", source.display()))?
-        {
-            let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-
-            if !name_str.starts_with("gf-") {
-                continue;
-            }
-
-            let dest = target.join(&name);
-            if dest.exists() {
-                if args.force {
-                    std::fs::remove_dir_all(&dest)
-                        .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
-                    copy_dir_all(&entry.path(), &dest)
-                        .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
-                    println!("♻ 已覆盖: {name_str}");
-                    overwritten += 1;
-                } else {
-                    eprintln!("⚠ 跳过已存在: {name_str}");
-                    skipped += 1;
-                }
-                continue;
-            }
-
-            copy_dir_all(&entry.path(), &dest)
-                .map_err(|e| miette::miette!("复制 {} 失败: {e}", name_str))?;
-            println!("✅ 已安装: {name_str}");
-            installed += 1;
-        }
-
+        let (installed, overwritten, skipped) = copy_skills_dir(&source, &target, args.force)?;
         println!();
         println!("安装完成: 新增 {installed} 个，覆盖 {overwritten} 个，跳过 {skipped} 个");
     } else if has_bundled {
@@ -465,6 +445,99 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     // Co-contribution plan — interactive opt-in
     try_enable_co_contribution(platform)?;
 
+    Ok(())
+}
+
+/// 将源目录下的 `gf-*` skills 复制到目标目录。
+///
+/// `force` 为 `true` 时覆盖已存在项；否则跳过。
+/// 返回 `(新增, 覆盖, 跳过)`。逐项打印结果，与原有 UX 一致。
+fn copy_skills_dir(source: &Path, target: &Path, force: bool) -> miette::Result<(u32, u32, u32)> {
+    std::fs::create_dir_all(target)
+        .map_err(|e| miette::miette!("无法创建目标目录 {}: {e}", target.display()))?;
+
+    let mut installed = 0u32;
+    let mut overwritten = 0u32;
+    let mut skipped = 0u32;
+
+    for entry in std::fs::read_dir(source)
+        .map_err(|e| miette::miette!("无法读取 skills 源目录 {}: {e}", source.display()))?
+    {
+        let entry = entry.map_err(|e| miette::miette!("读取目录项失败: {e}"))?;
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+
+        if !name_str.starts_with("gf-") {
+            continue;
+        }
+
+        let dest = target.join(&name);
+        if dest.exists() {
+            if force {
+                std::fs::remove_dir_all(&dest)
+                    .map_err(|e| miette::miette!("无法删除旧版本 {}: {e}", dest.display()))?;
+                copy_dir_all(&entry.path(), &dest)
+                    .map_err(|e| miette::miette!("复制 {name_str} 失败: {e}"))?;
+                println!("♻ 已覆盖: {name_str}");
+                overwritten += 1;
+            } else {
+                eprintln!("⚠ 跳过已存在: {name_str}");
+                skipped += 1;
+            }
+            continue;
+        }
+
+        copy_dir_all(&entry.path(), &dest)
+            .map_err(|e| miette::miette!("复制 {name_str} 失败: {e}"))?;
+        println!("✅ 已安装: {name_str}");
+        installed += 1;
+    }
+
+    Ok((installed, overwritten, skipped))
+}
+
+/// 更新已安装的 skills：从当前 binary 内嵌数据覆盖所有 `gf-*` skills，
+/// 并刷新 auto-report-bug hook。等价于 `gf skills install --force`，
+/// 但不做技能来源检查、不触发共建计划提示。
+///
+/// # Errors
+///
+/// - 目标目录读取失败
+/// - 复制 / 删除失败
+pub fn update_skills(args: &SkillsUpdateArgs) -> miette::Result<()> {
+    let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+    let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
+    let source = skills_source_dir();
+    let has_source = source.exists();
+    let has_bundled = !SKILLS.is_empty();
+
+    if !target.exists() {
+        println!("(未安装任何 skills)");
+        println!("目录: {}", target.display());
+        return Ok(());
+    }
+
+    if has_source {
+        let (installed, overwritten, skipped) = copy_skills_dir(&source, &target, true)?;
+        println!();
+        println!("✅ Skills 已更新: 覆盖 {overwritten} 个，新增 {installed} 个，跳过 {skipped} 个");
+    } else if has_bundled {
+        let install_args = InstallArgs {
+            global: args.global,
+            agent: args.agent,
+            custom_path: args.custom_path.clone(),
+            force: true,
+            report_bug: false,
+        };
+        install_skills_bundled(&target, &install_args)?;
+    } else {
+        println!("⚠ Skills 源目录未找到，且 binary 未内嵌 skills 数据");
+        println!("  请从源码目录运行，或手动指定 --path <skills 目录路径>");
+    }
+
+    if platform.supports_hooks() {
+        install_hook(args.global, true, platform)?;
+    }
     Ok(())
 }
 
@@ -1026,7 +1099,11 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
 /// Displays `prompt` and reads one line. Accepts `y/yes` (case-insensitive) as true,
 /// `n/no` as false, and empty input as `default`. On EOF or invalid input after 3
 /// retries, returns `default`.
-fn confirm(prompt: &str, default: bool) -> miette::Result<bool> {
+///
+/// # Errors
+///
+/// Returns an error if reading from stdin fails.
+pub(crate) fn confirm(prompt: &str, default: bool) -> miette::Result<bool> {
     let stdin = std::io::stdin();
     let mut reader = stdin.lock();
     confirm_with_reader(prompt, default, &mut reader)
@@ -1942,5 +2019,99 @@ mod tests {
     fn test_install_check_skips_non_claude_platform() {
         // 非 Claude 平台不做来源检查（技能来源是 Claude Code 生态概念）
         check_skill_source(AgentPlatform::Codex).expect("non-claude must skip check");
+    }
+
+    // -----------------------------------------------------------------------
+    // skills update tests
+    // -----------------------------------------------------------------------
+
+    /// 构造临时源目录，写入若干 gf-* skills 与一个非 gf 目录。
+    fn seed_source(tmp: &tempfile::TempDir, names: &[&str]) {
+        for name in names {
+            let dir = tmp.path().join("source").join(name);
+            std::fs::create_dir_all(&dir).expect("create source skill dir");
+            std::fs::write(dir.join("SKILL.md"), format!("# {name}\n")).expect("write SKILL.md");
+        }
+        std::fs::create_dir_all(tmp.path().join("source/not-a-skill")).expect("create non-gf dir");
+    }
+
+    /// 构造临时目标目录，写入若干已安装 gf-* skills。
+    fn seed_target(tmp: &tempfile::TempDir, names: &[&str]) {
+        for name in names {
+            let dir = tmp.path().join("target").join(name);
+            std::fs::create_dir_all(&dir).expect("create target skill dir");
+            std::fs::write(dir.join("SKILL.md"), "old\n").expect("write old content");
+        }
+    }
+
+    #[test]
+    fn test_copy_skills_dir_overwrites_existing() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        seed_source(&tmp, &["gf-alpha"]);
+        seed_target(&tmp, &["gf-alpha"]);
+
+        let (installed, overwritten, skipped) =
+            copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
+                .expect("copy");
+        assert_eq!(installed, 0);
+        assert_eq!(overwritten, 1);
+        assert_eq!(skipped, 0);
+
+        let content = std::fs::read_to_string(tmp.path().join("target/gf-alpha/SKILL.md"))
+            .expect("read updated");
+        assert_eq!(content, "# gf-alpha\n", "content must be replaced");
+    }
+
+    #[test]
+    fn test_copy_skills_dir_installs_new() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        seed_source(&tmp, &["gf-alpha", "gf-beta"]);
+        seed_target(&tmp, &["gf-alpha"]);
+
+        let (installed, overwritten, _) =
+            copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
+                .expect("copy");
+        assert_eq!(installed, 1, "gf-beta must be newly installed");
+        assert_eq!(overwritten, 1);
+        assert!(tmp.path().join("target/gf-beta/SKILL.md").exists());
+    }
+
+    #[test]
+    fn test_copy_skills_dir_preserves_other_dirs() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        seed_source(&tmp, &["gf-alpha"]);
+        seed_target(&tmp, &["gf-alpha"]);
+        let other = tmp.path().join("target/not-a-skill");
+        std::fs::create_dir_all(&other).expect("create other dir");
+        std::fs::write(other.join("README.md"), "keep me\n").expect("write other dir");
+
+        copy_skills_dir(&tmp.path().join("source"), &tmp.path().join("target"), true)
+            .expect("copy");
+
+        assert!(
+            other.join("README.md").exists(),
+            "non-gf-* dirs must be left untouched"
+        );
+    }
+
+    #[test]
+    fn test_update_skills_args_parse() {
+        use clap::Parser;
+        #[derive(Debug, Parser)]
+        struct TestCli {
+            #[command(subcommand)]
+            cmd: TestCmd,
+        }
+        #[derive(Debug, Subcommand)]
+        enum TestCmd {
+            Update(SkillsUpdateArgs),
+        }
+        let cli = TestCli::parse_from([
+            "test", "update", "-g", "--agent", "codex", "--path", "/tmp/x",
+        ]);
+        let TestCmd::Update(args) = cli.cmd;
+        assert!(args.global);
+        assert_eq!(args.agent, Some(AgentPlatform::Codex));
+        assert_eq!(args.custom_path.as_deref(), Some("/tmp/x"));
     }
 }
