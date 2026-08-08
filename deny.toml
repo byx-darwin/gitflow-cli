@@ -108,6 +108,12 @@ exceptions = [
   # Each entry is the crate and version constraint, and its specific allow
   # list
   #{ allow = ["Zlib"], crate = "adler32" },
+  # subtle (RustCrypto constant-time primitives) is pulled in transitively by
+  # rustls (mandatory for TLS per project policy); licensed BSD-3-Clause.
+  { allow = ["BSD-3-Clause"], crate = "subtle" },
+  # webpki-roots (Mozilla root certificate store) is pulled in transitively by
+  # rustls/reqwest (mandatory TLS chain); licensed CDLA-Permissive-2.0.
+  { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
