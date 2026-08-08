@@ -154,6 +154,34 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 | 质量 | — | `gf-quality` | 质量报告 |
 | 交付 | `finishing-a-branch` | `gf-pr-create` + `gf-pr-review` | 已合并 PR |
 
+## mattpocock/skills 集成（Issue #141）
+
+gf-workflow 同样支持 [mattpocock/skills](https://github.com/mattpocock/skills)
+（plugin 名 `mattpocock-skills`）作为技能来源，与 Superpowers 互斥检测、按来源分支。
+
+### 与 Superpowers 的关键差异
+
+| | Superpowers | mattpocock/skills |
+|---|---|---|
+| 触发模型 | 模型全自动触发 | user-invoked 硬约束（`disable-model-invocation`）→ 暂停语义 ✋ |
+| 计划产物 | 单一 plan 文档 | 票据图 + blocking edges（`ticket_refs`） |
+| 主线 token | ≈14k + subagent 扇出 | ≈4.8k，不触发零消耗 |
+
+### 前置条件
+
+运行 `setup-mattpocock-skills` 生成 `docs/agents/issue-tracker.md`（tracker 与 triage
+标签词表配置）。缺失时 gf-workflow 会询问：先配置或中止。
+
+### 集成要点
+
+- `to-spec` 受约束**只写本地** spec 文件、不发布 tracker；Issue 创建权统一归 `gf-issue-create`
+- Phase 3 逐票据 ✋ `/implement`（内部强制 `/tdd` + `/code-review`）；Gate 2→3 执行模式
+  菜单裁剪为「手动新窗口 / 同会话」（后台代理无法调用 user-invoked 技能）
+- Phase 4 骨架不变：`gf-pipeline-analyzer` / `gf-issue-triage` / `gf-review` 照常
+- 检测哨兵：`to-spec` + `grilling` 双命中（plugin 形 `mattpocock-skills:*` 或裸名）
+
+完整映射表见 `skills/gf-workflow/references.md` → Dual-Source Skill Resolution。
+
 ## 错误反馈集成
 
 gf 内置了自动错误报告机制，当 CLI 命令失败时，会自动将错误信息反馈为 GitHub Issue。

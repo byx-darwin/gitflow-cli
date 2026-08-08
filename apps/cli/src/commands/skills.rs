@@ -19,7 +19,10 @@
     reason = "Skills command runs synchronously before the tokio runtime is constructed"
 )]
 
-use std::path::PathBuf;
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 // 编译时由 build.rs 生成的 skills 清单（release binary 内嵌）
 include!(concat!(env!("OUT_DIR"), "/skills_manifest.rs"));
@@ -250,6 +253,117 @@ fn skills_source_dir() -> PathBuf {
 }
 
 // ---------------------------------------------------------------------------
+// Skill source detection (Issue #141)
+// ---------------------------------------------------------------------------
+
+/// 技能来源类型。
+///
+/// 与运行时检测（`skills/gf-workflow/references.md` 哨兵表）共享同一份权威定义；
+/// 修改哨兵规则时两处必须同步（测试 `test_sentinel_rules_match_references` 守护）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkillSourceKind {
+    /// Superpowers（plugin `superpowers` 或裸名安装）。
+    Superpowers,
+    /// mattpocock/skills（plugin `mattpocock-skills` 或裸名安装）。
+    Mattpocock,
+}
+
+impl fmt::Display for SkillSourceKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Superpowers => write!(f, "superpowers"),
+            Self::Mattpocock => write!(f, "mattpocock"),
+        }
+    }
+}
+
+/// plugin 形态的注册表键前缀（`installed_plugins.json` 键形如 `<plugin>@<marketplace>`）。
+const SUPERPOWERS_PLUGIN_PREFIX: &str = "superpowers@";
+/// mattpocock plugin 形态的注册表键前缀。
+const MATTPOCOCK_PLUGIN_PREFIX: &str = "mattpocock-skills@";
+
+/// 裸名形态哨兵（双哨兵同时命中才判定；裸名脆弱从严）。
+const SUPERPOWERS_BARE_SENTINELS: &[&str] = &["brainstorming", "writing-plans"];
+/// mattpocock 裸名形态哨兵（双哨兵同时命中才判定）。
+const MATTPOCOCK_BARE_SENTINELS: &[&str] = &["to-spec", "grilling"];
+
+/// plugin 形态探测：解析 `~/.claude/plugins/installed_plugins.json` 键前缀。
+///
+/// 注册表缺失或损坏返回 `false`（降级到裸名探测，不 panic）。
+fn plugin_source_present(home: &Path, prefix: &str) -> bool {
+    let path = home.join(".claude/plugins/installed_plugins.json");
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        return false;
+    };
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return false;
+    };
+    parsed
+        .get("plugins")
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(|plugins| plugins.keys().any(|key| key.starts_with(prefix)))
+}
+
+/// 裸名形态探测：`~/.claude/skills/` 下哨兵目录双命中。
+fn bare_sentinels_present(home: &Path, sentinels: &[&str]) -> bool {
+    sentinels
+        .iter()
+        .all(|name| home.join(".claude/skills").join(name).is_dir())
+}
+
+/// 检测已安装的技能来源（安装时 Step 0，Issue #141）。
+///
+/// 依次探测 plugin 形态与裸名形态，返回所有在场的来源（0/1/2 个）。
+/// 两者共存时全部返回，由调用方决定提示方式。
+#[must_use]
+pub fn detect_skill_sources(home: &Path) -> Vec<SkillSourceKind> {
+    let mut found = Vec::new();
+    if plugin_source_present(home, SUPERPOWERS_PLUGIN_PREFIX)
+        || bare_sentinels_present(home, SUPERPOWERS_BARE_SENTINELS)
+    {
+        found.push(SkillSourceKind::Superpowers);
+    }
+    if plugin_source_present(home, MATTPOCOCK_PLUGIN_PREFIX)
+        || bare_sentinels_present(home, MATTPOCOCK_BARE_SENTINELS)
+    {
+        found.push(SkillSourceKind::Mattpocock);
+    }
+    found
+}
+
+/// 安装时技能来源前置检查（`install_skills` Step 0，Issue #141）。
+///
+/// 仅 Claude 平台执行；其他平台提示跳过。两来源皆无时返回错误（非 0 退出码）
+/// 并打印三条安装引导——硬阻断，保证「装了 gf-workflow 就必然能跑」。
+///
+/// # Errors
+///
+/// Claude 平台且两来源皆未安装，或无法确定 HOME 目录时返回错误。
+fn check_skill_source(platform: AgentPlatform) -> miette::Result<()> {
+    if !matches!(platform, AgentPlatform::Claude) {
+        println!("ℹ 非 Claude 平台，跳过技能来源检测");
+        return Ok(());
+    }
+    let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
+    check_skill_source_at(&home)
+}
+
+/// 核心检测逻辑（参数化 HOME，便于单测注入临时目录）。
+fn check_skill_source_at(home: &Path) -> miette::Result<()> {
+    let sources = detect_skill_sources(home);
+    if sources.is_empty() {
+        eprintln!("⛔ 未检测到任何技能来源，gf-workflow 无法运行。请先安装其一：");
+        eprintln!("  · claude plugins install superpowers");
+        eprintln!("  · claude plugins install mattpocock-skills");
+        eprintln!("  · npx skills@latest add mattpocock/skills");
+        return Err(miette::miette!("技能来源缺失，安装中止"));
+    }
+    let names: Vec<String> = sources.iter().map(ToString::to_string).collect();
+    println!("✓ 检测到技能来源: {}", names.join(" + "));
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Command handlers
 // ---------------------------------------------------------------------------
 
@@ -267,6 +381,9 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     // 一次性解析目标平台；避免 `AgentPlatform::detect()` 在 resolve_target_dir
     // 与 install_hook 分支被重复调用。
     let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+
+    // Step 0（Issue #141）：技能来源前置检查；两来源皆无硬阻断。
+    check_skill_source(platform)?;
 
     let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
     let source = skills_source_dir();
@@ -1700,5 +1817,130 @@ mod tests {
                 "joined_at must not be modified when already joined"
             );
         });
+    }
+
+    /// 在临时 HOME 写入 plugin 形态注册表。
+    fn seed_plugin_registry(home: &std::path::Path, plugin_keys: &[&str]) {
+        let dir = home.join(".claude/plugins");
+        std::fs::create_dir_all(&dir).expect("create plugins dir");
+        let mut plugins = serde_json::Map::new();
+        for key in plugin_keys {
+            plugins.insert((*key).to_string(), serde_json::json!([]));
+        }
+        let content = serde_json::json!({ "version": 2, "plugins": plugins });
+        std::fs::write(
+            dir.join("installed_plugins.json"),
+            serde_json::to_string(&content).expect("serialize"),
+        )
+        .expect("write registry");
+    }
+
+    /// 在临时 HOME 写入裸名 skill 目录。
+    fn seed_bare_skills(home: &std::path::Path, names: &[&str]) {
+        for name in names {
+            let dir = home.join(".claude/skills").join(name);
+            std::fs::create_dir_all(&dir).expect("create skill dir");
+            std::fs::write(dir.join("SKILL.md"), "---\nname: x\n---\n").expect("write SKILL.md");
+        }
+    }
+
+    #[test]
+    fn test_detect_plugin_superpowers() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_plugin_registry(tmp.path(), &["superpowers@claude-plugins-official"]);
+        let found = detect_skill_sources(tmp.path());
+        assert_eq!(found, vec![SkillSourceKind::Superpowers]);
+    }
+
+    #[test]
+    fn test_detect_plugin_mattpocock() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_plugin_registry(tmp.path(), &["mattpocock-skills@mattpocock"]);
+        let found = detect_skill_sources(tmp.path());
+        assert_eq!(found, vec![SkillSourceKind::Mattpocock]);
+    }
+
+    #[test]
+    fn test_detect_bare_mattpocock_requires_double_sentinel() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_bare_skills(tmp.path(), &["to-spec", "grilling"]);
+        let found = detect_skill_sources(tmp.path());
+        assert_eq!(found, vec![SkillSourceKind::Mattpocock]);
+    }
+
+    #[test]
+    fn test_detect_bare_partial_sentinel_is_not_detected() {
+        // 只有 to-spec 缺 grilling → 部分命中视同缺失（防同名碰撞误判）
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_bare_skills(tmp.path(), &["to-spec"]);
+        assert!(
+            detect_skill_sources(tmp.path()).is_empty(),
+            "partial sentinel hit must not be detected"
+        );
+    }
+
+    #[test]
+    fn test_detect_bare_superpowers_requires_double_sentinel() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_bare_skills(tmp.path(), &["brainstorming", "writing-plans"]);
+        let found = detect_skill_sources(tmp.path());
+        assert_eq!(found, vec![SkillSourceKind::Superpowers]);
+    }
+
+    #[test]
+    fn test_detect_empty_home_finds_nothing() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        assert!(detect_skill_sources(tmp.path()).is_empty());
+    }
+
+    #[test]
+    fn test_detect_both_sources_when_both_installed() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_plugin_registry(
+            tmp.path(),
+            &[
+                "superpowers@claude-plugins-official",
+                "mattpocock-skills@mattpocock",
+            ],
+        );
+        let found = detect_skill_sources(tmp.path());
+        assert_eq!(found.len(), 2, "both sources must be reported: {found:?}");
+    }
+
+    #[test]
+    fn test_detect_malformed_registry_falls_back_to_bare() {
+        // 注册表损坏不应 panic，降级到裸名探测
+        let tmp = tempfile::tempdir().expect("temp dir");
+        let dir = tmp.path().join(".claude/plugins");
+        std::fs::create_dir_all(&dir).expect("create dir");
+        std::fs::write(dir.join("installed_plugins.json"), "not json").expect("write");
+        seed_bare_skills(tmp.path(), &["to-spec", "grilling"]);
+        let found = detect_skill_sources(tmp.path());
+        assert_eq!(found, vec![SkillSourceKind::Mattpocock]);
+    }
+
+    #[test]
+    fn test_install_check_blocks_when_no_skill_source() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        // 临时目录下既无 plugin 注册表也无裸名哨兵 → 应阻断
+        let result = check_skill_source_at(tmp.path());
+        let err = result.expect_err("must block when no source installed");
+        assert!(
+            err.to_string().contains("技能来源缺失"),
+            "error must state missing source: {err}"
+        );
+    }
+
+    #[test]
+    fn test_install_check_passes_when_source_detected() {
+        let tmp = tempfile::tempdir().expect("temp dir");
+        seed_plugin_registry(tmp.path(), &["superpowers@claude-plugins-official"]);
+        check_skill_source_at(tmp.path()).expect("must pass with source present");
+    }
+
+    #[test]
+    fn test_install_check_skips_non_claude_platform() {
+        // 非 Claude 平台不做来源检查（技能来源是 Claude Code 生态概念）
+        check_skill_source(AgentPlatform::Codex).expect("non-claude must skip check");
     }
 }

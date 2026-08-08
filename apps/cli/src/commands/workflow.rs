@@ -67,6 +67,9 @@ pub struct PhaseEvidence {
     /// 规格文件路径。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spec_path: Option<String>,
+    /// 票据清单（文件路径或 URL），mattpocock 路径阶段二 `to-tickets` 产出（Issue #141）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket_refs: Option<Vec<String>>,
     /// 用户是否已批准。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_approved: Option<bool>,
@@ -128,6 +131,11 @@ pub struct WorkflowContract {
     pub title: String,
     /// 模式。
     pub mode: WorkflowMode,
+    /// 技能来源（`superpowers` / `mattpocock` / `inline`），启动时检测写入（Issue #141）。
+    ///
+    /// 旧合同可能缺失此字段，故为 `Option`；新合同由编排器在 Bootstrap 后必填。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_source: Option<String>,
     /// 创建时间（RFC 3339）。
     pub created_at: String,
     /// 更新时间（RFC 3339）。
@@ -510,6 +518,7 @@ fn new_contract(workflow_id: &str, title: &str, mode: WorkflowMode) -> WorkflowC
         workflow_id: workflow_id.to_string(),
         title: title.trim().to_string(),
         mode,
+        skill_source: None,
         created_at: now.clone(),
         updated_at: now,
         current_phase: 1,
@@ -1146,5 +1155,64 @@ mod tests {
             active.join(format!("{id}.json")).exists(),
             "active contract must remain when archive is rejected"
         );
+    }
+
+    /// Issue #141：`skill_source`（顶层）与 `ticket_refs`（phase evidence）往返保真。
+    #[test]
+    fn test_should_roundtrip_skill_source_and_ticket_refs() {
+        let mut contract = base_contract("full");
+        contract.skill_source = Some("mattpocock".to_string());
+        contract
+            .phases
+            .get_mut("2")
+            .expect("phase 2")
+            .evidence
+            .ticket_refs = Some(vec![
+            ".scratch/demo/issues/01-setup.md".to_string(),
+            "https://github.com/org/repo/issues/10".to_string(),
+        ]);
+        let json = serde_json::to_string(&contract).expect("serialize");
+        assert!(
+            json.contains(r#""skill_source":"mattpocock""#),
+            "skill_source must serialize: {json}"
+        );
+        assert!(
+            json.contains(r#""ticket_refs":["#),
+            "ticket_refs must serialize: {json}"
+        );
+        let back: WorkflowContract = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.skill_source.as_deref(), Some("mattpocock"));
+        let refs = back
+            .phases
+            .get("2")
+            .expect("phase 2")
+            .evidence
+            .ticket_refs
+            .as_ref()
+            .expect("ticket_refs");
+        assert_eq!(refs.len(), 2);
+    }
+
+    /// Issue #141：未设置的新字段不得序列化为 null（与既有 evidence 约定一致）。
+    #[test]
+    fn test_should_omit_absent_skill_source_and_ticket_refs() {
+        let contract = base_contract("full");
+        let json = serde_json::to_string(&contract).expect("serialize");
+        assert!(
+            !json.contains("skill_source"),
+            "absent skill_source must be omitted: {json}"
+        );
+        assert!(
+            !json.contains("ticket_refs"),
+            "absent ticket_refs must be omitted: {json}"
+        );
+    }
+
+    /// Issue #141：旧合同（无 `skill_source`）仍可反序列化——向后兼容。
+    #[test]
+    fn test_should_deserialize_legacy_contract_without_skill_source() {
+        let contract: WorkflowContract =
+            serde_json::from_str(SCHEMA_EXAMPLE_CONTRACT).expect("legacy contract");
+        assert!(contract.skill_source.is_none());
     }
 }
