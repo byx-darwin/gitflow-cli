@@ -16,5 +16,8 @@
     "@fontsource/jetbrains-mono": "^5.2.5",
     "astro": "^5.1.0",
     "marked": "^15.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   }
 }
