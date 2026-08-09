@@ -319,7 +319,10 @@ mod tests {
         assert!(out1.status.success());
         assert_eq!(out1.stdout, b"first");
 
-        let out2 = runner.run("glab", &[]).await.expect("second should 'succeed' as Output");
+        let out2 = runner
+            .run("glab", &[])
+            .await
+            .expect("second should 'succeed' as Output");
         assert!(!out2.status.success());
         assert_eq!(out2.stderr, b"error");
 

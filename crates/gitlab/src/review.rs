@@ -389,8 +389,7 @@ mod tests {
             "author": {"username": "maintainer", "id": 99}
         }"#;
 
-        let mr: MrViewResponse =
-            serde_json::from_slice(json).expect("valid MrViewResponse");
+        let mr: MrViewResponse = serde_json::from_slice(json).expect("valid MrViewResponse");
         assert!(mr.author.is_some());
         let author = mr.author.as_ref().expect("author present");
         assert_eq!(author.username, "maintainer");
@@ -401,8 +400,7 @@ mod tests {
     fn test_should_deserialize_mr_view_response_without_author() {
         let json = br#"{"author": null}"#;
 
-        let mr: MrViewResponse =
-            serde_json::from_slice(json).expect("valid MrViewResponse");
+        let mr: MrViewResponse = serde_json::from_slice(json).expect("valid MrViewResponse");
         assert!(mr.author.is_none());
     }
 
@@ -415,8 +413,7 @@ mod tests {
             "created_at": null
         }"#;
 
-        let note: NoteApiResponse =
-            serde_json::from_slice(json).expect("valid NoteApiResponse");
+        let note: NoteApiResponse = serde_json::from_slice(json).expect("valid NoteApiResponse");
         assert!(note.created_at.is_none());
         assert!(note.author.is_none());
     }

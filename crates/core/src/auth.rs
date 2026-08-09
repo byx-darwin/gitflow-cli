@@ -185,6 +185,9 @@ mod tests {
         assert_eq!(cloned.scopes, original.scopes);
 
         // Verify it's a deep clone, not the same object
-        assert!(!std::ptr::eq(std::ptr::from_ref(&cloned.scopes), std::ptr::from_ref(&original.scopes)));
+        assert!(!std::ptr::eq(
+            std::ptr::from_ref(&cloned.scopes),
+            std::ptr::from_ref(&original.scopes)
+        ));
     }
 }

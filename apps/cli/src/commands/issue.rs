@@ -585,17 +585,8 @@ mod tests {
     fn test_should_parse_issue_list_with_state() {
         use clap::Parser;
         let cli = crate::Cli::try_parse_from([
-            "gitflow",
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--label",
-            "bug",
-            "--search",
-            "crash",
-            "--limit",
-            "10",
+            "gitflow", "issue", "list", "--state", "open", "--label", "bug", "--search", "crash",
+            "--limit", "10",
         ])
         .expect("parse");
         match cli.command {

@@ -635,9 +635,10 @@ mod tests {
     #[test]
     fn test_should_parse_pr_list_with_state() {
         use clap::Parser;
-        let cli =
-            crate::Cli::try_parse_from(["gitflow", "pr", "list", "--state", "open", "--limit", "20"])
-                .expect("parse");
+        let cli = crate::Cli::try_parse_from([
+            "gitflow", "pr", "list", "--state", "open", "--limit", "20",
+        ])
+        .expect("parse");
         match cli.command {
             crate::Commands::Pr(PrCommand::List { state, limit }) => {
                 assert_eq!(state, Some("open".into()));
@@ -687,9 +688,8 @@ mod tests {
     #[test]
     fn test_should_parse_pr_create_minimal() {
         use clap::Parser;
-        let cli =
-            crate::Cli::try_parse_from(["gitflow", "pr", "create", "--title", "Minimal PR"])
-                .expect("parse");
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "create", "--title", "Minimal PR"])
+            .expect("parse");
         match cli.command {
             crate::Commands::Pr(PrCommand::Create {
                 title,

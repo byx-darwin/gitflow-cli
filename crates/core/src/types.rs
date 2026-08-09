@@ -539,8 +539,7 @@ mod tests {
         }
 
         let json = r#"{"value": 999}"#;
-        let result: TestStruct =
-            serde_json::from_str(json).expect("deserialize number to string");
+        let result: TestStruct = serde_json::from_str(json).expect("deserialize number to string");
         assert_eq!(result.value, "999");
     }
 
@@ -553,8 +552,7 @@ mod tests {
         }
 
         let json = r#"{"value": "abc123"}"#;
-        let result: TestStruct =
-            serde_json::from_str(json).expect("deserialize string to string");
+        let result: TestStruct = serde_json::from_str(json).expect("deserialize string to string");
         assert_eq!(result.value, "abc123");
     }
 }

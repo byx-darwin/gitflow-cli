@@ -606,8 +606,8 @@ mod tests {
     #[test]
     fn test_should_parse_label_delete_without_yes() {
         use clap::Parser;
-        let cli = crate::Cli::try_parse_from(["gitflow", "label", "delete", "wontfix"])
-            .expect("parse");
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "label", "delete", "wontfix"]).expect("parse");
         match cli.command {
             crate::Commands::Label(LabelCommand::Delete { name, yes }) => {
                 assert_eq!(name, "wontfix");

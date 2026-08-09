@@ -574,8 +574,8 @@ mod tests {
     #[test]
     fn test_should_parse_release_download_without_pattern() {
         use clap::Parser;
-        let cli =
-            crate::Cli::try_parse_from(["gitflow", "release", "download", "v1.0.0"]).expect("parse");
+        let cli = crate::Cli::try_parse_from(["gitflow", "release", "download", "v1.0.0"])
+            .expect("parse");
         match cli.command {
             crate::Commands::Release(ReleaseCommand::Download { tag, pattern, dir }) => {
                 assert_eq!(tag, "v1.0.0");

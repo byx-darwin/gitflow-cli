@@ -344,8 +344,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("app.tar.gz"), b"content").expect("write");
 
-        let result =
-            sign_archives("not_valid_hex!!", dir.path().to_str().expect("utf8"));
+        let result = sign_archives("not_valid_hex!!", dir.path().to_str().expect("utf8"));
         assert!(result.is_err());
     }
 

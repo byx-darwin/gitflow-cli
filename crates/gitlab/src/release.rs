@@ -731,10 +731,7 @@ mod tests {
         assert!(!release.prerelease);
         assert_eq!(release.author.as_ref().expect("author").login, "dev");
         assert_eq!(release.author.as_ref().expect("author").id, "7");
-        assert_eq!(
-            release.url,
-            "https://gitlab.com/ns/proj/-/releases/v2.0.0"
-        );
+        assert_eq!(release.url, "https://gitlab.com/ns/proj/-/releases/v2.0.0");
     }
 
     // --- with_runner constructor ---
@@ -822,9 +819,11 @@ mod tests {
         let runner = MockCommandRunner::success("");
         let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
 
-        assert!(provider
-            .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
-            .await
-            .is_ok());
+        assert!(
+            provider
+                .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
+                .await
+                .is_ok()
+        );
     }
 }
