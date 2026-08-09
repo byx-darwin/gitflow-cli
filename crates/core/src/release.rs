@@ -252,4 +252,177 @@ mod tests {
         assert!(debug.contains("CreateReleaseArgs"));
         assert!(debug.contains("v1.0.0"));
     }
+
+    // --- Alias deserialization tests ---
+
+    #[test]
+    fn test_should_deserialize_is_draft_alias() {
+        let json = r#"{
+            "id": 1,
+            "tagName": "v0.1.0",
+            "isDraft": true,
+            "prerelease": false,
+            "createdAt": "2026-01-01T00:00:00Z"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert!(release.draft);
+        assert!(!release.prerelease);
+    }
+
+    #[test]
+    fn test_should_deserialize_is_prerelease_alias() {
+        let json = r#"{
+            "id": 1,
+            "tagName": "v0.1.0",
+            "draft": false,
+            "isPrerelease": true,
+            "createdAt": "2026-01-01T00:00:00Z"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert!(!release.draft);
+        assert!(release.prerelease);
+    }
+
+    #[test]
+    fn test_should_deserialize_database_id_alias() {
+        let json = r#"{
+            "databaseId": 42,
+            "tagName": "v1.0.0",
+            "draft": false,
+            "prerelease": false,
+            "createdAt": "2026-01-01T00:00:00Z"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(release.id, 42);
+    }
+
+    #[test]
+    fn test_should_reject_duplicate_id_and_database_id() {
+        let json = r#"{
+            "id": 10,
+            "databaseId": 99,
+            "tagName": "v1.0.0",
+            "draft": false,
+            "prerelease": false,
+            "createdAt": "2026-01-01T00:00:00Z"
+        }"#;
+        let result: std::result::Result<ReleaseData, _> = serde_json::from_str(json);
+        // Serde rejects duplicate fields when both the primary name and an alias
+        // are present in the same JSON object.
+        assert!(result.is_err());
+    }
+
+    // --- Default / optional field tests ---
+
+    #[test]
+    fn test_should_default_url_to_empty_string() {
+        let json = r#"{
+            "id": 1,
+            "tagName": "v0.1.0",
+            "draft": false,
+            "prerelease": false,
+            "createdAt": "2026-01-01T00:00:00Z"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(release.url, "");
+    }
+
+    #[test]
+    fn test_should_default_id_to_zero() {
+        let json = r#"{
+            "tagName": "v0.1.0",
+            "draft": false,
+            "prerelease": false,
+            "createdAt": "2026-01-01T00:00:00Z"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(release.id, 0);
+    }
+
+    // --- Skip-serializing-if tests for optional fields ---
+
+    #[test]
+    fn test_should_skip_author_when_none_on_serialize() {
+        let json = r#"{
+            "id": 1,
+            "tagName": "v1.0.0",
+            "draft": false,
+            "prerelease": false,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "url": ""
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert!(release.author.is_none());
+        let serialized = serde_json::to_string(&release).expect("serialize");
+        assert!(!serialized.contains("\"author\""));
+    }
+
+    // --- Debug format tests ---
+
+    #[test]
+    fn test_release_data_should_have_debug_format() {
+        let json = sample_release_json();
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        let debug = format!("{release:?}");
+        assert!(debug.contains("ReleaseData"));
+        assert!(debug.contains("v1.0.0"));
+        assert!(debug.contains("Version 1.0.0"));
+    }
+
+    // --- CreateReleaseArgs additional tests ---
+
+    #[test]
+    fn test_should_create_release_args_with_minimal_fields() {
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".into(),
+            name: None,
+            body: None,
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        };
+        assert_eq!(args.tag_name, "v1.0.0");
+        assert!(args.name.is_none());
+        assert!(args.body.is_none());
+        assert!(!args.draft);
+        assert!(!args.prerelease);
+        assert!(args.target_commitish.is_none());
+    }
+
+    #[test]
+    fn test_should_create_release_args_with_all_fields() {
+        let args = CreateReleaseArgs {
+            tag_name: "v2.0.0".into(),
+            name: Some("Major Release".into()),
+            body: Some("## Breaking Changes\n- ...".into()),
+            draft: true,
+            prerelease: true,
+            target_commitish: Some("main".into()),
+        };
+        assert_eq!(args.tag_name, "v2.0.0");
+        assert_eq!(args.name.as_deref(), Some("Major Release"));
+        assert_eq!(args.body.as_deref(), Some("## Breaking Changes\n- ..."));
+        assert!(args.draft);
+        assert!(args.prerelease);
+        assert_eq!(args.target_commitish.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn test_create_release_args_should_be_cloneable() {
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".into(),
+            name: Some("v1".into()),
+            body: Some("body".into()),
+            draft: true,
+            prerelease: false,
+            target_commitish: Some("abc123".into()),
+        };
+        let cloned = args.clone();
+        assert_eq!(cloned.tag_name, args.tag_name);
+        assert_eq!(cloned.name, args.name);
+        assert_eq!(cloned.body, args.body);
+        assert_eq!(cloned.draft, args.draft);
+        assert_eq!(cloned.prerelease, args.prerelease);
+        assert_eq!(cloned.target_commitish, args.target_commitish);
+    }
 }
