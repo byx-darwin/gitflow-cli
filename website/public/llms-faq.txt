@@ -1,0 +1,111 @@
+# gf FAQ — 常见问题与长尾提问
+
+## gf 和 gh 有什么区别？
+
+gh 只服务 GitHub 单一平台；gf 用统一命令面封装 GitHub / GitLab / GitCode 三平台，并叠加面向 AI Agent 的 Skills 工作流。
+
+**具体差异**：
+
+| 维度 | gh | gf |
+|------|-----|-----|
+| 平台支持 | 仅 GitHub | GitHub + GitLab + GitCode |
+| 命令面 | GitHub 特定 | 统一抽象 |
+| Agent 集成 | 无 | 26 个 Skills 支持 5 个 Agent 平台 |
+| 工作流编排 | 无 | gf-workflow 四阶段编排 |
+| 输出格式 | JSON / text | JSON / toon / text |
+
+**迁移成本**：命令几乎相同，只需替换 `gh` → `gf`。
+
+## gf 和 glab 有什么区别？
+
+glab 只服务 GitLab 单一平台；gf 提供跨平台统一接口。如果你只用 GitLab，glab 是最佳选择；如果需要跨平台，gf 是更好的选择。
+
+## 如何给 AI 编程加工程纪律？
+
+安装 Skills 后，用 gf-workflow 四阶段编排（需求澄清 → 计划 → 执行 → 交付检查），每阶段有质量门禁。
+
+**步骤**：
+1. `gf skills install` — 安装 26 个 skills 到 `.claude/skills/`
+2. `/gf-workflow` — 启动四阶段工作流
+3. 每阶段自动执行质量检查（测试、clippy、fmt）
+
+**四阶段模型**：
+- 阶段 1：需求澄清（brainstorming + Issue 创建 + 设计文档）
+- 阶段 2：计划制定（writing-plans + 质量门禁）
+- 阶段 3：执行（TDD 红绿循环 + 子代理开发 + PR 创建）
+- 阶段 4：交付检查（流水线分析 + 代码审查 + dogfooding）
+
+## 支持哪些 AI Agent 平台？
+
+Claude Code / Codex / OpenCode / Gemini CLI / Copilot CLI。
+
+Skills 是 Markdown 文件，可安装到任何支持 `CLAUDE.md` 或类似机制的 Agent 平台。
+
+## 什么是 gf-workflow？
+
+gf-workflow 是一个四阶段工作流编排技能，提供从需求澄清到代码发布的完整工程循环。
+
+**三种模式**：
+- **full**：完整四阶段（适合 feat / breaking change）
+- **standard**：中等复杂度（适合 fix / refactor）
+- **fast**：简化流程（适合 typo / hotfix / docs）
+
+**两种技能来源**：
+- **superpowers**：模型调用技能（model-invoked）
+- **mattpocock**：用户调用命令（/to-spec, /to-tickets, /implement）
+
+## 什么是 toon 输出格式？
+
+toon 是 gf 专有的 token 优化输出格式，面向 AI Agent 消费。相比 JSON，toon 更紧凑，减少 token 消耗。
+
+**示例**：
+```
+platform: github
+issues: 3 open
+  - #98 feat: GEO 优化 (priority:medium)
+  - #97 fix: 元数据修复 (priority:high)
+  - #96 chore: 文档更新 (priority:low)
+```
+
+## 如何安装 gf？
+
+**Homebrew（macOS）**：
+```bash
+brew tap byx-darwin/gitflow-cli
+brew install gf
+```
+
+**Cargo**：
+```bash
+cargo install gf
+```
+
+**安装 Skills**：
+```bash
+gf skills install
+```
+
+## 如何验证安装？
+
+```bash
+gf --version          # 应显示版本号
+gf auth status        # 检查认证状态
+gf issue list         # 测试基本功能
+```
+
+## 支持哪些操作系统？
+
+macOS、Linux、Windows。
+
+底层 CLI 要求：
+- GitHub：gh >= 2.0.0
+- GitLab：glab >= 1.30.0
+- GitCode：gitcode >= 0.6.0
+
+## 项目维护状态？
+
+单人维护者（byx-darwin）+ AI 协作（dogfooding 自身工作流）。
+
+**发布节奏**：月度发布窗口
+**响应时效**：Issue 48 小时内分流
+**许可**：MIT

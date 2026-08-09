@@ -1,0 +1,266 @@
+# gf 命令参考
+
+> 所有命令、标志、选项的完整参考。
+
+## 全局标志
+
+--platform github|gitlab|gitcode  指定平台（默认基于 git remote 自动检测）
+--output json|text|toon|auto      输出格式（默认 auto）
+--help                            显示帮助
+--version                         显示版本
+
+## gf issue — Issue 管理
+
+### gf issue list
+列出 Issue。
+
+**标志**：
+  --state open|closed|all         Issue 状态（默认 open）
+  --limit <n>                     返回数量上限（默认 30）
+  --label <label>                 按标签过滤
+  --assignee <user>               按指派人过滤
+  --author <user>                 按作者过滤
+
+**示例**：
+  gf issue list
+  gf issue list --state closed --limit 10
+  gf issue list --label "priority:high"
+
+### gf issue view <number>
+查看 Issue 详情。
+
+**示例**：
+  gf issue view 98
+
+### gf issue create
+创建新 Issue。
+
+**标志**：
+  --title <title>                 Issue 标题
+  --body <body>                   Issue 正文
+  --label <label>                 添加标签（可多次指定）
+  --assignee <user>               指定负责人
+
+**示例**：
+  gf issue create --title "feat: add new feature" --body "Description"
+
+### gf issue close <number>
+关闭 Issue。
+
+### gf issue reopen <number>
+重新打开 Issue。
+
+### gf issue comment <number>
+为 Issue 添加评论。
+
+**标志**：
+  --body <body>                   评论内容
+  --body-file <path>              从文件读取评论内容
+
+## gf pr — PR 管理
+
+### gf pr list
+列出 Pull Request。
+
+**标志**：
+  --state open|closed|merged|all  PR 状态（默认 open）
+  --limit <n>                     返回数量上限（默认 30）
+  --author <user>                 按作者过滤
+
+**示例**：
+  gf pr list
+  gf pr list --state merged --limit 5
+
+### gf pr view <number>
+查看 PR 详情。
+
+### gf pr create
+创建新 PR。
+
+**标志**：
+  --title <title>                 PR 标题
+  --body <body>                   PR 正文
+  --base <branch>                 目标分支（默认 main）
+  --head <branch>                 源分支（默认当前分支）
+  --draft                         创建为草稿 PR
+  --reviewer <user>               指定审查人
+
+**示例**：
+  gf pr create --title "feat: add feature" --body "Closes #42"
+
+### gf pr close <number>
+关闭 PR。
+
+### gf pr merge <number>
+合并 PR。
+
+**标志**：
+  --squash                        使用 squash 合并
+  --rebase                        使用 rebase 合并
+  --delete-branch                 合并后删除源分支
+
+### gf pr checkout <number>
+检出 PR 到本地分支。
+
+## gf release — 发布管理
+
+### gf release list
+列出版本发布。
+
+**标志**：
+  --limit <n>                     返回数量上限（默认 10）
+
+### gf release view <tag>
+查看特定版本详情。
+
+### gf release create <tag>
+创建新版本发布。
+
+**标志**：
+  --title <title>                 发布标题
+  --notes <notes>                 发布说明
+  --draft                         创建为草稿
+  --prerelease                    标记为预发布
+
+### gf release edit <tag>
+编辑现有发布。
+
+## gf review — 代码审查
+
+### gf review submit <pr-number>
+提交审查意见。
+
+**标志**：
+  --approve                       批准 PR
+  --request-changes               请求修改
+  --comment                       仅评论
+  --body <body>                   审查意见
+
+### gf review comment <pr-number>
+添加审查评论。
+
+### gf review approve <pr-number>
+批准 PR。
+
+### gf review request-changes <pr-number>
+请求修改。
+
+## gf auth — 认证管理
+
+### gf auth login
+登录认证。
+
+**标志**：
+  --platform github|gitlab|gitcode  指定平台
+
+### gf auth logout
+登出。
+
+### gf auth status
+查看认证状态。
+
+### gf auth token
+查看当前 token。
+
+## gf pipeline — CI/CD 流水线
+
+### gf pipeline status
+查看流水线状态。
+
+### gf pipeline logs <job-id>
+查看流水线日志。
+
+### gf pipeline jobs
+列出流水线任务。
+
+### gf pipeline report
+生成流水线报告。
+
+## gf commit — 提交操作
+
+### gf commit view <sha>
+查看提交详情。
+
+### gf commit diff <sha>
+查看提交差异。
+
+### gf commit patch <sha>
+生成提交补丁。
+
+### gf commit comment <sha>
+为提交添加评论。
+
+## gf label — 标签管理
+
+### gf label list
+列出标签。
+
+### gf label create
+创建标签。
+
+**标志**：
+  --name <name>                   标签名称
+  --color <color>                 标签颜色（十六进制）
+  --description <desc>            标签描述
+
+### gf label delete <name>
+删除标签。
+
+## gf milestone — 里程碑管理
+
+### gf milestone list
+列出里程碑。
+
+### gf milestone create
+创建里程碑。
+
+**标志**：
+  --title <title>                 里程碑标题
+  --description <desc>            里程碑描述
+  --due-date <date>               截止日期
+
+## gf repo — 仓库操作
+
+### gf repo clone <repo>
+克隆仓库。
+
+### gf repo list
+列出仓库。
+
+### gf repo create
+创建新仓库。
+
+### gf repo stats
+查看仓库统计。
+
+### gf repo sync
+同步仓库。
+
+### gf repo view
+查看仓库详情。
+
+## gf skills — Skills 管理
+
+### gf skills install
+安装 gf skills 到项目。
+
+**标志**：
+  --force                         强制重新安装
+  --global                        全局安装
+
+### gf skills list
+列出已安装的 skills。
+
+### gf skills uninstall
+卸载 skills。
+
+## gf completions — Shell 补全
+
+### gf completions bash
+生成 bash 补全脚本。
+
+### gf completions zsh
+生成 zsh 补全脚本。
+
+### gf completions fish
+生成 fish 补全脚本。
