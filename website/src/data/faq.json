@@ -1,0 +1,24 @@
+{
+  "faqs": [
+    {
+      "question": "gf 和 gh 有什么区别？",
+      "answer": "gh 只服务 GitHub 单一平台；gf 用统一命令面封装 GitHub / GitLab / GitCode 三平台，并叠加面向 AI Agent 的 Skills 工作流。"
+    },
+    {
+      "question": "如何给 AI 编程加工程纪律？",
+      "answer": "安装 Skills 后，用 gf-workflow 四阶段编排（需求澄清 → 计划 → 执行 → 交付检查），每阶段有质量门禁。"
+    },
+    {
+      "question": "支持哪些 AI Agent 平台？",
+      "answer": "Claude Code / Codex / OpenCode / Gemini CLI / Copilot CLI。"
+    },
+    {
+      "question": "什么是 gf-workflow？",
+      "answer": "gf-workflow 是一个四阶段工作流编排技能，提供从需求澄清到代码发布的完整工程循环。"
+    },
+    {
+      "question": "如何安装 gf？",
+      "answer": "Homebrew: brew tap byx-darwin/gitflow-cli && brew install gf。Cargo: cargo install gf。"
+    }
+  ]
+}
