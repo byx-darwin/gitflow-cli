@@ -160,7 +160,7 @@ website/
 
 **决策**：新增 `/workflow/` 页面，作为 gf-workflow 的完整参考。
 
-**URL**：`/workflow/`  
+**URL**：`/workflow/`
 **SEO 关键词**：`gf-workflow`、`AI 编程工作流`、`四阶段工作流`
 
 **页面结构**：
