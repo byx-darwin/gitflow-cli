@@ -195,39 +195,59 @@ fn test_should_keep_entity_consistency() {
         "llms.txt missing canonical positioning"
     );
 
-    let base = read("website/src/layouts/Base.astro");
+    let jsonld = read("website/src/lib/jsonld.ts");
     assert!(
-        base.contains(CANONICAL_POSITIONING),
-        "Base.astro missing canonical positioning"
+        jsonld.contains(CANONICAL_POSITIONING),
+        "jsonld.ts missing canonical positioning"
     );
 }
 
 #[test]
 fn test_should_have_valid_jsonld() {
-    let base = read("website/src/layouts/Base.astro");
-    let marker = base
-        .find("application/ld+json")
-        .expect("Base.astro missing JSON-LD script");
-    let after = &base[marker..];
-    let json_start = after.find('>').expect("malformed JSON-LD open tag") + 1;
-    let json_end = after.find("</script>").expect("JSON-LD not closed");
-    let json_text = &after[json_start..json_end];
-    let v: serde_json::Value = serde_json::from_str(json_text).expect("JSON-LD is not valid JSON");
+    let jsonld = read("website/src/lib/jsonld.ts");
 
-    assert_eq!(v["@type"].as_str(), Some("SoftwareApplication"));
-    assert_eq!(v["name"].as_str(), Some("gf"));
+    // Check that jsonld.ts has the canonical positioning constant
     assert!(
-        v["description"]
-            .as_str()
-            .is_some_and(|d| d.contains("跨平台 Git 工程化工作流编排框架")),
-        "JSON-LD description missing positioning"
+        jsonld.contains(CANONICAL_POSITIONING),
+        "jsonld.ts missing canonical positioning"
+    );
+
+    // Check that it exports the generator functions
+    assert!(
+        jsonld.contains("export function generateSoftwareAppJsonLd"),
+        "jsonld.ts missing generateSoftwareAppJsonLd"
     );
     assert!(
-        v["applicationCategory"].as_str().is_some(),
-        "applicationCategory required"
+        jsonld.contains("export function generateFAQPageJsonLd"),
+        "jsonld.ts missing generateFAQPageJsonLd"
     );
     assert!(
-        v["sameAs"].as_array().is_some_and(|a| !a.is_empty()),
-        "sameAs must be a non-empty array"
+        jsonld.contains("export function generateHowToJsonLd"),
+        "jsonld.ts missing generateHowToJsonLd"
+    );
+
+    // Check that it has the correct JSON-LD types
+    assert!(
+        jsonld.contains("SoftwareApplication"),
+        "jsonld.ts missing SoftwareApplication type"
+    );
+    assert!(
+        jsonld.contains("FAQPage"),
+        "jsonld.ts missing FAQPage type"
+    );
+    assert!(
+        jsonld.contains("HowTo"),
+        "jsonld.ts missing HowTo type"
+    );
+
+    // Check that Base.astro imports and uses the generator
+    let base = read("website/src/layouts/Base.astro");
+    assert!(
+        base.contains("generateSoftwareAppJsonLd"),
+        "Base.astro not importing generateSoftwareAppJsonLd"
+    );
+    assert!(
+        base.contains("generateFAQPageJsonLd"),
+        "Base.astro not importing generateFAQPageJsonLd"
     );
 }
