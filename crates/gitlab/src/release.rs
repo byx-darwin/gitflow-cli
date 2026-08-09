@@ -651,4 +651,180 @@ mod tests {
             gitflow_core::CoreError::Cli(_)
         ));
     }
+
+    // --- ApiUser to UserSummary conversion ---
+
+    #[test]
+    fn test_should_convert_api_user_to_user_summary() {
+        let api_user = ApiUser {
+            username: "admin".into(),
+            id: 42,
+        };
+        let summary: UserSummary = (&api_user).into();
+        assert_eq!(summary.login, "admin");
+        assert_eq!(summary.id, "42");
+    }
+
+    #[test]
+    fn test_should_convert_api_user_with_zero_id() {
+        let api_user = ApiUser {
+            username: "bot".into(),
+            id: 0,
+        };
+        let summary: UserSummary = (&api_user).into();
+        assert_eq!(summary.login, "bot");
+        assert_eq!(summary.id, "0");
+    }
+
+    // --- ReleaseApiResponse to ReleaseData conversion edge cases ---
+
+    #[test]
+    fn test_should_convert_minimal_api_response_to_release_data() {
+        let api = ReleaseApiResponse {
+            tag_name: "v1.0.0".into(),
+            name: None,
+            description: None,
+            draft: false,
+            prerelease: false,
+            author: None,
+            created_at: None,
+            released_at: None,
+            url: None,
+            id: None,
+        };
+        let release: ReleaseData = api.into();
+        assert_eq!(release.tag_name, "v1.0.0");
+        assert_eq!(release.id, 0); // defaults to 0 when id is None
+        assert!(release.name.is_none());
+        assert!(release.body.is_none());
+        assert!(!release.draft);
+        assert!(!release.prerelease);
+        assert!(release.author.is_none());
+        assert!(release.published_at.is_none());
+        assert_eq!(release.url, ""); // defaults to empty string
+        // created_at defaults to Utc::now() when None
+    }
+
+    #[test]
+    fn test_should_preserve_all_fields_in_full_api_response_conversion() {
+        let api = ReleaseApiResponse {
+            tag_name: "v2.0.0".into(),
+            name: Some("Major Release".into()),
+            description: Some("Breaking changes".into()),
+            draft: true,
+            prerelease: false,
+            author: Some(ApiUser {
+                username: "dev".into(),
+                id: 7,
+            }),
+            created_at: Some("2026-06-01T00:00:00Z".parse().expect("valid datetime")),
+            released_at: Some("2026-06-15T12:00:00Z".parse().expect("valid datetime")),
+            url: Some("https://gitlab.com/ns/proj/-/releases/v2.0.0".into()),
+            id: Some(200),
+        };
+        let release: ReleaseData = api.into();
+        assert_eq!(release.id, 200);
+        assert_eq!(release.tag_name, "v2.0.0");
+        assert_eq!(release.name.as_deref(), Some("Major Release"));
+        assert_eq!(release.body.as_deref(), Some("Breaking changes"));
+        assert!(release.draft);
+        assert!(!release.prerelease);
+        assert_eq!(release.author.as_ref().expect("author").login, "dev");
+        assert_eq!(release.author.as_ref().expect("author").id, "7");
+        assert_eq!(
+            release.url,
+            "https://gitlab.com/ns/proj/-/releases/v2.0.0"
+        );
+    }
+
+    // --- with_runner constructor ---
+
+    #[test]
+    fn test_should_create_provider_with_custom_runner() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+        assert_eq!(provider.repo, "owner/repo");
+    }
+
+    // --- Success-path tests ---
+
+    fn valid_release_api_json() -> &'static str {
+        r#"{
+            "id": 1,
+            "tag_name": "v1.0.0",
+            "name": "Version 1.0.0",
+            "description": "Release notes",
+            "draft": false,
+            "prerelease": false,
+            "author": {"username": "admin", "id": 1},
+            "created_at": "2026-01-01T00:00:00Z",
+            "released_at": "2026-01-01T00:00:00Z",
+            "url": "https://gitlab.com/owner/repo/-/releases/v1.0.0"
+        }"#
+    }
+
+    #[tokio::test]
+    async fn test_should_view_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_api_json());
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider.view("v1.0.0").await.expect("view should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+        assert_eq!(release.name.as_deref(), Some("Version 1.0.0"));
+        assert_eq!(release.id, 1);
+    }
+
+    #[tokio::test]
+    async fn test_should_list_releases_successfully() {
+        let json = format!("[{}]", valid_release_api_json());
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let releases = provider.list().await.expect("list should succeed");
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0].tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_create_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_api_json());
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider
+            .create(sample_create_args())
+            .await
+            .expect("create should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_api_json());
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider
+            .edit("v1.0.0", sample_create_args())
+            .await
+            .expect("edit should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_delete_release_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        assert!(provider.delete("v1.0.0").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_upload_asset_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        assert!(provider
+            .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
+            .await
+            .is_ok());
+    }
 }
