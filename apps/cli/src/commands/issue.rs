@@ -555,4 +555,105 @@ mod tests {
             _ => panic!("Expected IssueCommand::Create"),
         }
     }
+
+    #[test]
+    fn test_should_parse_issue_view() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "issue", "view", "42"]).expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::View { number }) => {
+                assert_eq!(number, 42);
+            }
+            _ => panic!("Expected IssueCommand::View"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_comments() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "comments", "10"]).expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Comments { number }) => {
+                assert_eq!(number, 10);
+            }
+            _ => panic!("Expected IssueCommand::Comments"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_list_with_state() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow", "issue", "list", "--state", "open", "--label", "bug", "--search", "crash",
+            "--limit", "10",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::List {
+                state,
+                search,
+                label,
+                limit,
+            }) => {
+                assert_eq!(state, Some("open".into()));
+                assert_eq!(search, Some("crash".into()));
+                assert_eq!(label, vec!["bug".to_string()]);
+                assert_eq!(limit, Some(10));
+            }
+            _ => panic!("Expected IssueCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_create_full() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "create",
+            "--title",
+            "Full issue",
+            "--body",
+            "Description",
+            "--label",
+            "bug",
+            "--label",
+            "urgent",
+            "--assignee",
+            "user1",
+            "--assignee",
+            "user2",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Create {
+                title,
+                body,
+                label,
+                assignee,
+                ..
+            }) => {
+                assert_eq!(title, "Full issue");
+                assert_eq!(body, Some("Description".into()));
+                assert_eq!(label, vec!["bug".to_string(), "urgent".to_string()]);
+                assert_eq!(assignee, vec!["user1".to_string(), "user2".to_string()]);
+            }
+            _ => panic!("Expected IssueCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_print_toon_output() {
+        let value = serde_json::json!({"number": 1, "title": "test"});
+        let result = print_output(&value, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_auto_output() {
+        let value = serde_json::json!({"number": 1, "title": "test"});
+        let result = print_output(&value, &OutputFormat::Auto);
+        assert!(result.is_ok());
+    }
 }

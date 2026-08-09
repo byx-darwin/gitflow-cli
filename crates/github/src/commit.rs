@@ -419,4 +419,56 @@ mod tests {
         assert_eq!(detail.files.len(), 1);
         assert_eq!(detail.files[0].filename, "lib.rs");
     }
+
+    #[test]
+    fn test_should_fallback_user_when_api_returns_no_user_info() {
+        let summary = fallback_user(None);
+        assert_eq!(summary.login, "unknown");
+        assert_eq!(summary.id, "0");
+    }
+
+    #[test]
+    fn test_should_convert_commit_api_to_detail_with_mixed_author_committer() {
+        // author present, committer absent -> committer should fallback to unknown
+        let api = CommitApiResponse {
+            sha: "sha_mixed".into(),
+            commit: CommitInner {
+                message: "Mixed authors".into(),
+                author: None,
+                committer: None,
+            },
+            author: Some(ApiUser {
+                login: "author_only".into(),
+                id: "10".to_string(),
+            }),
+            committer: None,
+            stats: None,
+            files: vec![],
+        };
+
+        let detail: CommitDetail = api.into();
+        assert_eq!(detail.author.login, "author_only");
+        assert_eq!(detail.committer.login, "unknown");
+
+        // committer present, author absent -> author should fallback to unknown
+        let api2 = CommitApiResponse {
+            sha: "sha_mixed2".into(),
+            commit: CommitInner {
+                message: "Mixed authors 2".into(),
+                author: None,
+                committer: None,
+            },
+            author: None,
+            committer: Some(ApiUser {
+                login: "committer_only".into(),
+                id: "20".to_string(),
+            }),
+            stats: None,
+            files: vec![],
+        };
+
+        let detail2: CommitDetail = api2.into();
+        assert_eq!(detail2.author.login, "unknown");
+        assert_eq!(detail2.committer.login, "committer_only");
+    }
 }

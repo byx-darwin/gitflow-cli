@@ -261,4 +261,101 @@ mod tests {
         let result = sign_archives(&private_hex, dir.path().to_str().expect("utf8"));
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_should_sign_zip_archives() {
+        let (private_hex, _public_hex) = generate_keypair();
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("release.zip"), b"zip archive").expect("write");
+        std::fs::write(dir.path().join("readme.md"), b"not an archive").expect("write");
+
+        sign_archives(&private_hex, dir.path().to_str().expect("utf8")).expect("sign");
+
+        assert!(dir.path().join("release.zip.sig").exists());
+        assert!(!dir.path().join("readme.md.sig").exists());
+    }
+
+    #[test]
+    fn test_should_sign_both_tar_gz_and_zip() {
+        let (private_hex, _public_hex) = generate_keypair();
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.tar.gz"), b"tarball").expect("write");
+        std::fs::write(dir.path().join("app.zip"), b"zipball").expect("write");
+
+        sign_archives(&private_hex, dir.path().to_str().expect("utf8")).expect("sign");
+
+        assert!(dir.path().join("app.tar.gz.sig").exists());
+        assert!(dir.path().join("app.zip.sig").exists());
+    }
+
+    #[test]
+    fn test_should_return_error_when_sign_archives_dir_not_found() {
+        let (private_hex, _) = generate_keypair();
+
+        let result = sign_archives(&private_hex, "/nonexistent/directory/path");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_read_private_key_from_file() {
+        let (private_hex, _public_hex) = generate_keypair();
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let key_file_path = dir.path().join("signing.key");
+        std::fs::write(&key_file_path, &private_hex).expect("write key file");
+
+        // Create an archive to sign
+        std::fs::write(dir.path().join("app.tar.gz"), b"content").expect("write archive");
+
+        let result = sign_archives(
+            key_file_path.to_str().expect("utf8"),
+            dir.path().to_str().expect("utf8"),
+        );
+        assert!(result.is_ok());
+        assert!(dir.path().join("app.tar.gz.sig").exists());
+    }
+
+    #[test]
+    fn test_should_return_error_for_sign_file_on_nonexistent_file() {
+        let (private_hex, _) = generate_keypair();
+        let private_bytes = hex::decode(&private_hex).expect("valid hex");
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(
+            private_bytes.as_slice().try_into().expect("32 bytes"),
+        );
+
+        let result = sign_file(Path::new("/nonexistent/file.tar.gz"), &signing_key);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_produce_distinct_keypairs() {
+        let (pk1, pub1) = generate_keypair();
+        let (pk2, pub2) = generate_keypair();
+
+        // Keypairs should be distinct (probability of collision is negligible)
+        assert_ne!(pk1, pk2);
+        assert_ne!(pub1, pub2);
+    }
+
+    #[test]
+    fn test_should_return_error_for_invalid_hex_key() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.tar.gz"), b"content").expect("write");
+
+        let result = sign_archives("not_valid_hex!!", dir.path().to_str().expect("utf8"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_return_error_for_wrong_length_private_key() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join("app.tar.gz"), b"content").expect("write");
+
+        // 31 bytes instead of 32
+        let short_hex = "00".repeat(31);
+        let result = sign_archives(&short_hex, dir.path().to_str().expect("utf8"));
+        assert!(result.is_err());
+    }
 }

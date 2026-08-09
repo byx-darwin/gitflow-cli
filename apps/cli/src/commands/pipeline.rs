@@ -151,6 +151,20 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn test_should_print_toon_output() {
+        let value = serde_json::json!({"pipeline_id": 1, "status": "success"});
+        let result = print_output(&value, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_auto_output() {
+        let value = serde_json::json!({"pipeline_id": 1, "status": "success"});
+        let result = print_output(&value, &OutputFormat::Auto);
+        assert!(result.is_ok());
+    }
+
     // --- PipelineCommand 解析测试 ---
 
     #[test]

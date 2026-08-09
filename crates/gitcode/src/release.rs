@@ -517,4 +517,155 @@ mod tests {
             gitflow_core::CoreError::Cli(_)
         ));
     }
+
+    // --- Deserialization tests ---
+
+    #[test]
+    fn test_should_deserialize_release_data_from_gitcode_output() {
+        let json = br#"{
+            "id": 100,
+            "tagName": "v2.0.0",
+            "name": "GitCode Release",
+            "body": "Changelog here",
+            "draft": false,
+            "prerelease": false,
+            "author": {"login": "dev", "id": "42"},
+            "createdAt": "2026-02-01T00:00:00Z",
+            "publishedAt": "2026-02-01T12:00:00Z",
+            "url": "https://gitcode.com/owner/repo/releases/tag/v2.0.0"
+        }"#;
+
+        let release: ReleaseData = serde_json::from_slice(json).expect("valid ReleaseData JSON");
+        assert_eq!(release.id, 100);
+        assert_eq!(release.tag_name, "v2.0.0");
+        assert_eq!(release.name.as_deref(), Some("GitCode Release"));
+        assert_eq!(release.body.as_deref(), Some("Changelog here"));
+        assert!(!release.draft);
+        assert!(!release.prerelease);
+        assert_eq!(release.author.as_ref().expect("author").login, "dev");
+        assert_eq!(release.author.as_ref().expect("author").id, "42");
+    }
+
+    #[test]
+    fn test_should_deserialize_empty_release_list_from_gitcode_output() {
+        let json = b"[]";
+        let releases: Vec<ReleaseData> = serde_json::from_slice(json).expect("valid empty list");
+        assert!(releases.is_empty());
+    }
+
+    #[test]
+    fn test_should_deserialize_draft_release_from_gitcode_output() {
+        let json = br#"{
+            "id": 7,
+            "tagName": "v0.1.0-rc1",
+            "name": null,
+            "body": null,
+            "draft": true,
+            "prerelease": true,
+            "author": {"login": "bot", "id": "0"},
+            "createdAt": "2026-03-01T00:00:00Z",
+            "publishedAt": null,
+            "url": "https://gitcode.com/owner/repo/releases/tag/v0.1.0-rc1"
+        }"#;
+
+        let release: ReleaseData = serde_json::from_slice(json).expect("valid draft ReleaseData");
+        assert!(release.draft);
+        assert!(release.prerelease);
+        assert!(release.name.is_none());
+        assert!(release.body.is_none());
+        assert!(release.published_at.is_none());
+    }
+
+    // --- with_runner constructor ---
+
+    #[test]
+    fn test_should_create_provider_with_custom_runner() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+        assert_eq!(provider.repo, "owner/repo");
+    }
+
+    // --- Success-path tests ---
+
+    fn valid_release_json() -> &'static str {
+        r#"{
+            "id": 1,
+            "tagName": "v1.0.0",
+            "name": "Release 1.0.0",
+            "body": "First stable release",
+            "draft": false,
+            "prerelease": false,
+            "author": {"login": "dev", "id": "1"},
+            "createdAt": "2026-01-01T00:00:00Z",
+            "publishedAt": "2026-01-01T00:00:00Z",
+            "url": "https://gitcode.com/owner/repo/releases/tag/v1.0.0"
+        }"#
+    }
+
+    #[tokio::test]
+    async fn test_should_view_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_json());
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider.view("v1.0.0").await.expect("view should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+        assert_eq!(release.name.as_deref(), Some("Release 1.0.0"));
+        assert_eq!(release.id, 1);
+    }
+
+    #[tokio::test]
+    async fn test_should_list_releases_successfully() {
+        let json = format!("[{}]", valid_release_json());
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let releases = provider.list().await.expect("list should succeed");
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0].tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_create_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_json());
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider
+            .create(sample_release_args())
+            .await
+            .expect("create should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_json());
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider
+            .edit("v1.0.0", sample_release_args())
+            .await
+            .expect("edit should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_delete_release_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        assert!(provider.delete("v1.0.0").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_upload_asset_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        assert!(
+            provider
+                .upload_asset("v1.0.0", "/tmp/artifact.tar.gz", "artifact.tar.gz")
+                .await
+                .is_ok()
+        );
+    }
 }

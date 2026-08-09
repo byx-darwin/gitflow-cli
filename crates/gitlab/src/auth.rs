@@ -251,7 +251,8 @@ mod tests {
     #[test]
     fn test_should_construct_gitlab_auth_provider() {
         let provider = GitLabAuthProvider::new();
-        let _ = format!("{provider:?}");
+        let debug = format!("{provider:?}");
+        assert!(debug.contains("GitLabAuthProvider"));
     }
 
     #[test]
@@ -398,5 +399,152 @@ mod tests {
             .expect("empty stdout yields empty token");
 
         assert!(token.is_empty());
+    }
+
+    // --- Success-path tests using an injected MockCommandRunner ---
+
+    #[test]
+    fn test_should_construct_with_custom_runner() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabAuthProvider::with_runner(runner);
+        let debug = format!("{provider:?}");
+        assert!(debug.contains("GitLabAuthProvider"));
+    }
+
+    #[tokio::test]
+    async fn test_should_login_interactively() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.login(None).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_login_with_token_via_stdin() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("glpat-secret-token")).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_logout_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.logout().await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_logged_in_status_when_authenticated() {
+        let stdout = r"gitlab.com
+  ✓ Logged in to gitlab.com as testuser (keyring)
+  ✓ Git operations for gitlab.com configured to use ssh protocol.
+";
+        let runner = MockCommandRunner::success(stdout);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.status().await;
+
+        assert!(result.is_ok());
+        let status = result.unwrap();
+        assert!(status.logged_in);
+        assert_eq!(status.user, Some("testuser".to_string()));
+        assert!(status.scopes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_token_successfully() {
+        let runner = MockCommandRunner::success("glpat-test12345\n");
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "glpat-test12345");
+    }
+
+    #[tokio::test]
+    async fn test_should_trim_whitespace_from_token() {
+        let runner = MockCommandRunner::success("  glpat-test12345  \n\n");
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "glpat-test12345");
+    }
+
+    // --- Spawn-error tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_login_spawn_fails() {
+        let runner = MockCommandRunner::spawn_error();
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.login(None).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_login_with_token_spawn_fails() {
+        let runner = MockCommandRunner::spawn_error();
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("glpat-token")).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_logout_spawn_fails() {
+        let runner = MockCommandRunner::spawn_error();
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.logout().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_status_spawn_fails() {
+        let runner = MockCommandRunner::spawn_error();
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.status().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Platform(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_token_spawn_fails() {
+        let runner = MockCommandRunner::spawn_error();
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Platform(_)
+        ));
     }
 }

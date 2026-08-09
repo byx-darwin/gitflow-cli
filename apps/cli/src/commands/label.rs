@@ -574,6 +574,74 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_should_parse_milestone_edit_with_due_on() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "milestone",
+            "edit",
+            "5",
+            "--title",
+            "v2.0",
+            "--due-on",
+            "2026-12-31T00:00:00Z",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Milestone(MilestoneCommand::Edit {
+                number,
+                title,
+                due_on,
+                ..
+            }) => {
+                assert_eq!(number, 5);
+                assert_eq!(title, Some("v2.0".into()));
+                assert_eq!(due_on, Some("2026-12-31T00:00:00Z".into()));
+            }
+            _ => panic!("Expected MilestoneCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_label_delete_without_yes() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "label", "delete", "wontfix"]).expect("parse");
+        match cli.command {
+            crate::Commands::Label(LabelCommand::Delete { name, yes }) => {
+                assert_eq!(name, "wontfix");
+                assert!(!yes);
+            }
+            _ => panic!("Expected LabelCommand::Delete"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_milestone_edit_with_description() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "milestone",
+            "edit",
+            "3",
+            "--description",
+            "Updated description",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Milestone(MilestoneCommand::Edit {
+                number,
+                description,
+                ..
+            }) => {
+                assert_eq!(number, 3);
+                assert_eq!(description, Some("Updated description".into()));
+            }
+            _ => panic!("Expected MilestoneCommand::Edit"),
+        }
+    }
+
     // --- 辅助函数测试 ---
 
     #[test]
@@ -587,6 +655,20 @@ mod tests {
     fn test_should_accept_text_output() {
         let value = serde_json::json!({"number": 1});
         let result = print_output(&value, &OutputFormat::Text);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_toon_output() {
+        let value = serde_json::json!({"name": "test", "color": "ff0000"});
+        let result = print_output(&value, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_auto_output() {
+        let value = serde_json::json!({"name": "test", "color": "ff0000"});
+        let result = print_output(&value, &OutputFormat::Auto);
         assert!(result.is_ok());
     }
 }
