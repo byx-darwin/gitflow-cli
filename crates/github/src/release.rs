@@ -858,10 +858,8 @@ mod tests {
     #[tokio::test]
     async fn test_should_create_release_successfully() {
         // create runs `gh release create` then fetches via `view`.
-        let runner = SequencedMockCommandRunner::from_results(&[
-            (true, ""),
-            (true, valid_release_json()),
-        ]);
+        let runner =
+            SequencedMockCommandRunner::from_results(&[(true, ""), (true, valid_release_json())]);
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
         let release = provider
@@ -874,10 +872,8 @@ mod tests {
     #[tokio::test]
     async fn test_should_edit_release_successfully() {
         // edit runs `gh release edit` then fetches via `view`.
-        let runner = SequencedMockCommandRunner::from_results(&[
-            (true, ""),
-            (true, valid_release_json()),
-        ]);
+        let runner =
+            SequencedMockCommandRunner::from_results(&[(true, ""), (true, valid_release_json())]);
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
         let release = provider
@@ -900,9 +896,11 @@ mod tests {
         let runner = MockCommandRunner::success("");
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
-        assert!(provider
-            .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
-            .await
-            .is_ok());
+        assert!(
+            provider
+                .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
+                .await
+                .is_ok()
+        );
     }
 }

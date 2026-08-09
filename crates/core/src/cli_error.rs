@@ -112,4 +112,61 @@ mod tests {
         let debug = format!("{err:?}");
         assert!(debug.contains("secret debug info"));
     }
+
+    // ── boundary / constructor tests ──
+
+    #[test]
+    fn test_should_create_platform_cli_error_with_new() {
+        // Arrange & Act
+        let err = PlatformCliError::new("错误消息", "raw stderr", Platform::GitHub);
+
+        // Assert
+        assert_eq!(err.user_message, "错误消息");
+        assert_eq!(err.raw_stderr, "raw stderr");
+        assert_eq!(err.platform, Platform::GitHub);
+        assert!(err.hint.is_none());
+        assert!(err.doc_link.is_none());
+        assert!(err.code.is_none());
+    }
+
+    #[test]
+    fn test_should_handle_empty_strings_in_platform_cli_error() {
+        // Arrange & Act
+        let err = PlatformCliError::new("", "", Platform::GitLab);
+
+        // Assert
+        assert_eq!(err.user_message, "");
+        assert_eq!(err.raw_stderr, "");
+        assert_eq!(err.to_string(), "");
+    }
+
+    #[test]
+    fn test_should_set_optional_fields_via_direct_assignment() {
+        // Arrange
+        let mut err = PlatformCliError::new("错误", "stderr", Platform::GitCode);
+
+        // Act
+        err.hint = Some("尝试重新运行".into());
+        err.doc_link = Some("https://example.com".into());
+        err.code = Some("ERR_001".into());
+
+        // Assert
+        assert_eq!(err.hint.as_deref(), Some("尝试重新运行"));
+        assert_eq!(err.doc_link.as_deref(), Some("https://example.com"));
+        assert_eq!(err.code.as_deref(), Some("ERR_001"));
+    }
+
+    use rstest::rstest;
+
+    #[rstest]
+    #[case(Platform::GitHub)]
+    #[case(Platform::GitLab)]
+    #[case(Platform::GitCode)]
+    fn test_should_create_error_for_all_platforms(#[case] platform: Platform) {
+        // Arrange & Act
+        let err = PlatformCliError::new("测试", "stderr", platform);
+
+        // Assert
+        assert_eq!(err.platform, platform);
+    }
 }

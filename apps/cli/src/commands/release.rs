@@ -558,4 +558,45 @@ mod tests {
             _ => panic!("Expected ReleaseCommand::Create"),
         }
     }
+
+    #[test]
+    fn test_should_parse_release_list_without_limit() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "release", "list"]).expect("parse");
+        match cli.command {
+            crate::Commands::Release(ReleaseCommand::List { limit }) => {
+                assert!(limit.is_none());
+            }
+            _ => panic!("Expected ReleaseCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_release_download_without_pattern() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "release", "download", "v1.0.0"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Release(ReleaseCommand::Download { tag, pattern, dir }) => {
+                assert_eq!(tag, "v1.0.0");
+                assert!(pattern.is_none());
+                assert!(dir.is_none());
+            }
+            _ => panic!("Expected ReleaseCommand::Download"),
+        }
+    }
+
+    #[test]
+    fn test_should_print_toon_output() {
+        let value = serde_json::json!({"tag_name": "v1.0.0"});
+        let result = print_output(&value, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_auto_output() {
+        let value = serde_json::json!({"tag_name": "v1.0.0"});
+        let result = print_output(&value, &OutputFormat::Auto);
+        assert!(result.is_ok());
+    }
 }

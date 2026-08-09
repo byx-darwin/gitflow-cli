@@ -701,6 +701,34 @@ mod tests {
         assert_eq!(original.repo, cloned.repo);
     }
 
+    #[test]
+    fn test_should_parse_pr_number_from_url() {
+        assert_eq!(
+            parse_pr_number_from_url("https://github.com/owner/repo/pull/123"),
+            Some(123)
+        );
+        assert_eq!(
+            parse_pr_number_from_url("https://github.enterprise.com/org/project/pull/456"),
+            Some(456)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_pr_number_from_multiline_output() {
+        let output = "some header\nhttps://github.com/owner/repo/pull/789\nsome footer";
+        assert_eq!(parse_pr_number_from_url(output), Some(789));
+    }
+
+    #[test]
+    fn test_should_return_none_when_no_pr_url() {
+        assert_eq!(parse_pr_number_from_url("no pull url here"), None);
+        assert_eq!(parse_pr_number_from_url(""), None);
+        assert_eq!(
+            parse_pr_number_from_url("https://github.com/owner/repo/issues/123"),
+            None
+        );
+    }
+
     // --- Failure-path tests using an injected MockCommandRunner ---
 
     fn sample_create_args() -> CreatePrArgs {

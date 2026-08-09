@@ -80,4 +80,37 @@ mod tests {
         assert!(!err.user_message.is_empty());
         assert!(err.hint.is_some());
     }
+
+    #[test]
+    fn test_should_parse_gitcode_not_found_error() {
+        let json = br#"{"message": "Resource not found", "code": "NOT_FOUND"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("NOT_FOUND"));
+        assert!(err.user_message.contains("资源不存在"));
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_forbidden_error() {
+        let json = br#"{"message": "Forbidden", "code": "FORBIDDEN"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("FORBIDDEN"));
+        assert!(err.user_message.contains("认证") || err.user_message.contains("权限"));
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_plain_text_login_error() {
+        let stderr = b"Error: login required";
+        let err = parse_gitcode_error(stderr);
+        assert!(err.user_message.contains("登录"));
+        assert_eq!(err.platform, Platform::GitCode);
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_json_error_without_code() {
+        let json = br#"{"message": "Internal server error"}"#;
+        let err = parse_gitcode_error(json);
+        assert!(err.code.is_none());
+        assert!(err.user_message.contains("Internal server error"));
+        assert_eq!(err.platform, Platform::GitCode);
+    }
 }

@@ -313,4 +313,36 @@ mod tests {
         let output = cloned.run("gh", &[]).await.expect("should succeed");
         assert_eq!(output.stdout, b"cloneable");
     }
+
+    #[tokio::test]
+    async fn test_should_yield_sequenced_responses() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, "first"),
+            (false, "error"),
+            (true, "third"),
+        ]);
+
+        let out1 = runner.run("gh", &[]).await.expect("first should succeed");
+        assert!(out1.status.success());
+        assert_eq!(out1.stdout, b"first");
+
+        let out2 = runner
+            .run("gh", &[])
+            .await
+            .expect("second should 'succeed' as Output");
+        assert!(!out2.status.success());
+        assert_eq!(out2.stderr, b"error");
+
+        let out3 = runner.run("gh", &[]).await.expect("third should succeed");
+        assert_eq!(out3.stdout, b"third");
+    }
+
+    #[tokio::test]
+    async fn test_should_error_when_sequence_exhausted() {
+        let runner = SequencedMockCommandRunner::from_results(&[(true, "only")]);
+
+        let _ = runner.run("gh", &[]).await.expect("first call");
+        let err = runner.run("gh", &[]).await.expect_err("exhausted");
+        assert_eq!(err.kind(), std::io::ErrorKind::Other);
+    }
 }

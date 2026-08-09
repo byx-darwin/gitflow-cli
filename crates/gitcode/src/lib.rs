@@ -114,3 +114,14 @@ pub(crate) fn gitcode_binary() -> String {
     // 3. Desperate fallback — prefer gc
     "gc".into()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_should_return_non_empty_binary_name() {
+        let binary = gitcode_binary();
+        assert!(!binary.is_empty());
+    }
+}

@@ -549,8 +549,7 @@ mod tests {
     #[test]
     fn test_should_deserialize_empty_release_list_from_gitcode_output() {
         let json = b"[]";
-        let releases: Vec<ReleaseData> =
-            serde_json::from_slice(json).expect("valid empty list");
+        let releases: Vec<ReleaseData> = serde_json::from_slice(json).expect("valid empty list");
         assert!(releases.is_empty());
     }
 
@@ -569,8 +568,7 @@ mod tests {
             "url": "https://gitcode.com/owner/repo/releases/tag/v0.1.0-rc1"
         }"#;
 
-        let release: ReleaseData =
-            serde_json::from_slice(json).expect("valid draft ReleaseData");
+        let release: ReleaseData = serde_json::from_slice(json).expect("valid draft ReleaseData");
         assert!(release.draft);
         assert!(release.prerelease);
         assert!(release.name.is_none());
@@ -663,9 +661,11 @@ mod tests {
         let runner = MockCommandRunner::success("");
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
 
-        assert!(provider
-            .upload_asset("v1.0.0", "/tmp/artifact.tar.gz", "artifact.tar.gz")
-            .await
-            .is_ok());
+        assert!(
+            provider
+                .upload_asset("v1.0.0", "/tmp/artifact.tar.gz", "artifact.tar.gz")
+                .await
+                .is_ok()
+        );
     }
 }

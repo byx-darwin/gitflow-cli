@@ -22,6 +22,7 @@ chrono.workspace = true
 toon-format.workspace = true
 
 [dev-dependencies]
+rstest = "0.26"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]

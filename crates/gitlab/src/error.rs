@@ -82,4 +82,30 @@ mod tests {
         assert!(!err.user_message.is_empty());
         assert!(err.hint.is_some());
     }
+
+    #[test]
+    fn test_should_parse_glab_forbidden_error() {
+        let json = br#"{"message": "Forbidden", "code": "FORBIDDEN"}"#;
+        let err = parse_glab_error(json);
+        assert_eq!(err.code.as_deref(), Some("FORBIDDEN"));
+        assert_eq!(err.platform, Platform::GitLab);
+        assert!(err.user_message.contains("权限"));
+    }
+
+    #[test]
+    fn test_should_parse_glab_json_error_without_code() {
+        let json = br#"{"message": "Internal error"}"#;
+        let err = parse_glab_error(json);
+        assert!(err.code.is_none());
+        assert!(err.user_message.contains("Internal error"));
+        assert_eq!(err.platform, Platform::GitLab);
+    }
+
+    #[test]
+    fn test_should_parse_glab_plain_text_auth_error() {
+        let stderr = b"ERROR: auth failed";
+        let err = parse_glab_error(stderr);
+        assert!(err.user_message.contains("登录"));
+        assert_eq!(err.platform, Platform::GitLab);
+    }
 }

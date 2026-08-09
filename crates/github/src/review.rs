@@ -415,4 +415,39 @@ mod tests {
             assert_eq!(review_data.state, expected_state);
         }
     }
+
+    #[test]
+    fn test_should_map_unknown_review_state_to_commented() {
+        let api_response = GitHubReviewApiResponse {
+            id: 99,
+            state: "PENDING".to_string(),
+            body: None,
+            user: GitHubUser {
+                login: "bot".to_string(),
+                id: 0,
+            },
+            submitted_at: "2026-08-03T10:00:00Z".to_string(),
+        };
+
+        let review_data: ReviewData = api_response.into();
+        assert_eq!(review_data.state, ReviewState::Commented);
+    }
+
+    #[test]
+    fn test_should_map_dismissed_review_state_to_commented() {
+        let api_response = GitHubReviewApiResponse {
+            id: 100,
+            state: "DISMISSED".to_string(),
+            body: Some("Outdated review".to_string()),
+            user: GitHubUser {
+                login: "admin".to_string(),
+                id: 1,
+            },
+            submitted_at: "2026-08-03T10:00:00Z".to_string(),
+        };
+
+        let review_data: ReviewData = api_response.into();
+        assert_eq!(review_data.state, ReviewState::Commented);
+        assert_eq!(review_data.id, 100);
+    }
 }
