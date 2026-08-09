@@ -1,0 +1,292 @@
+---
+import Base from "../layouts/Base.astro";
+
+const base = import.meta.env.BASE_URL;
+
+const pillars = [
+  {
+    title: "AI 助手",
+    body: "承担高强度执行——编写、重构、审查、跑命令，把人的精力留给关键决策。",
+  },
+  {
+    title: "结构化流程",
+    body: "需求澄清 → 计划制定 → 执行 → 交付检查，把工程循环固化成不可跳过的步骤。",
+  },
+  {
+    title: "质量门禁",
+    body: "build → test → fmt → clippy → pre-commit，全绿才算完成，杜绝「看着能跑」就交付。",
+  },
+];
+
+const phases = [
+  {
+    title: "需求澄清",
+    body: "从 open issues 提炼需求，产出结构化 Issue 与可机械验证的验收标准。",
+  },
+  {
+    title: "计划制定",
+    body: "生成可执行实现计划：改动面盘点、TDD 顺序与质量门禁承诺。",
+  },
+  {
+    title: "执行",
+    body: "TDD 红绿循环 + 子代理隔离开发，自动创建 PR 并附质量报告。",
+  },
+  {
+    title: "交付检查",
+    body: "流水线分析、Issue 分流、代码审查与闸门复核，全绿才合。",
+  },
+];
+
+const whyCards = [
+  {
+    title: "可追溯",
+    body: "每次改动都关联 Issue、PR 与 CI 结果，审计链条完整。",
+  },
+  {
+    title: "可维护",
+    body: "TDD 与代码审查保证测试覆盖与可读性，长期可演进。",
+  },
+  {
+    title: "可交付",
+    body: "质量门禁保证每次合并都是全绿，发布可重复、可回滚。",
+  },
+  {
+    title: "可扩展",
+    body: "统一命令面覆盖 GitHub / GitLab / GitCode，多 Agent 平台一键接入。",
+  },
+];
+---
+
+<Base title="什么是 AI 编程工程工作流？">
+  <main class="narrow page">
+    <!-- Hero：提出问题 -->
+    <section class="reveal hero-block">
+      <span class="hero-kicker">概念解析</span>
+      <h1 class="hero-title">什么是 <span class="accent">AI 编程工程工作流</span>？</h1>
+      <p class="hero-sub">
+        AI 能写出代码，但写不出工程纪律。<strong style="color:var(--gf-text)">AI 编程工程工作流</strong>把「能写代码的
+        AI」改造成「可交付的工程师」——用结构化流程约束每个环节，用质量门禁守住每一道关口，让 AI
+        生成的不再是一次性代码，而是可维护、可追溯、可发布的软件。
+      </p>
+    </section>
+
+    <!-- 问题 -->
+    <section class="section">
+      <div class="reveal">
+        <h2 class="section-heading">问题：AI 编码缺少工程纪律</h2>
+        <p class="section-lede">
+          直接让 AI 写代码，效率很高，但稳定性堪忧。典型的「裸奔式 AI 编程」长这样：
+        </p>
+      </div>
+      <div class="prose reveal" style="transition-delay:90ms">
+        <ul>
+          <li>从想法直接跳到代码，跳过需求澄清，改到一半才发现方向错了。</li>
+          <li>没有计划就动手，改动面越滚越大，收不了口。</li>
+          <li>只写实现不写测试，「能跑」被当成「完成」。</li>
+          <li>不审查、不验证就宣称交付，把风险推给下游。</li>
+          <li>在 main 上直接提交，不关联 Issue，不留任何审计痕迹。</li>
+        </ul>
+        <p>
+          结果：代码看起来能跑，但不可维护、不可追溯、不可交付。短期省下的时间，会在长期的返工与事故里加倍还回去。
+        </p>
+      </div>
+    </section>
+
+    <!-- 解法公式 -->
+    <section class="section">
+      <div class="reveal">
+        <h2 class="section-heading">解法：一个公式，三条腿</h2>
+        <p class="section-lede">
+          工程纪律不是对 AI 的约束，而是对 AI 的增强。把「能写代码的 AI」放进工程化的容器里：
+        </p>
+      </div>
+      <div class="formula reveal" style="transition-delay:90ms">
+        <span class="formula-title">AI 编程工程工作流</span>
+        <span class="formula-op">=</span>
+        <span class="formula-part">AI 助手</span>
+        <span class="formula-op">+</span>
+        <span class="formula-part">结构化流程</span>
+        <span class="formula-op">+</span>
+        <span class="formula-part">质量门禁</span>
+      </div>
+      <div class="bento" style="margin-top:32px">
+        {
+          pillars.map((p, i) => (
+            <div class="reveal" style={`transition-delay:${i * 90}ms`}>
+              <div class="bento-card">
+                <h3>{p.title}</h3>
+                <p>{p.body}</p>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- 四阶段模型 -->
+    <section class="section">
+      <div class="reveal">
+        <h2 class="section-heading">四阶段模型：一个命令，跑完整个工程循环</h2>
+        <p class="section-lede">
+          工程循环被固化为四个连续阶段，每个阶段都有明确的产出与闸门，阶段间不可跳步：
+        </p>
+      </div>
+      <ol class="workflow">
+        {
+          phases.map((step, i) => (
+            <div class="reveal" style={`transition-delay:${i * 90}ms`}>
+              <li class="workflow-step">
+                <span class="workflow-num">{String(i + 1).padStart(2, "0")}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            </div>
+          ))
+        }
+      </ol>
+      <p class="section-lede" style="margin-top:32px">
+        想深入了解每个阶段的执行细节与闸门证据？前往
+        <a href={`${base}/workflow/`} style="color:var(--gf-teal)">gf-workflow 完整指南 →</a>
+      </p>
+    </section>
+
+    <!-- 两种技能来源对比 -->
+    <section class="section">
+      <div class="reveal">
+        <h2 class="section-heading">两种技能来源，两种驾驶方式</h2>
+        <p class="section-lede">
+          工作流骨架恒定，执行引擎可切换。启动时自动检测技能来源并写入契约，跨会话沿用：
+        </p>
+      </div>
+      <div class="reveal" style="transition-delay:90ms">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>维度</th>
+              <th>Superpowers（全自动流水线）</th>
+              <th>mattpocock（人工驾驶流水线）</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="matrix-platform">触发模型</td>
+              <td>模型全自动触发</td>
+              <td>user-invoked 硬约束，✋ 暂停语义</td>
+            </tr>
+            <tr>
+              <td class="matrix-platform">Phase 1 澄清</td>
+              <td><code>brainstorming</code></td>
+              <td><code>grilling</code> → <code>/to-spec</code>（只写本地）</td>
+            </tr>
+            <tr>
+              <td class="matrix-platform">Phase 2 计划</td>
+              <td><code>writing-plans</code></td>
+              <td><code>/to-tickets</code>（票据图 + blocking edges）</td>
+            </tr>
+            <tr>
+              <td class="matrix-platform">Phase 3 执行</td>
+              <td>SDD / executing-plans / 后台代理</td>
+              <td><code>/implement</code> 逐票据（内部 <code>/tdd</code>）</td>
+            </tr>
+            <tr>
+              <td class="matrix-platform">人的触点</td>
+              <td>2 个（Gate 2→3、Branch Finish）</td>
+              <td>5 个（✋×3 + 审批 + 确认）</td>
+            </tr>
+            <tr>
+              <td class="matrix-platform">主线 token 开销</td>
+              <td>≈14k + subagent 扇出</td>
+              <td>≈4.8k，不触发零消耗</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--gf-text-dim);font-size:14px;margin-top:24px">
+        两者皆未安装时，<code style="font-family:var(--font-mono);color:var(--gf-teal)">gf skills install</code>
+        会硬阻断并给出安装引导，确保工作流始终有可用的执行引擎。
+      </p>
+    </section>
+
+    <!-- 为什么需要工程纪律 -->
+    <section class="section">
+      <div class="reveal">
+        <h2 class="section-heading">为什么需要工程纪律</h2>
+        <p class="section-lede">
+          工程纪律不是流程负担，而是把 AI 的生产力沉淀成组织资产：
+        </p>
+      </div>
+      <div class="bento">
+        {
+          whyCards.map((c, i) => (
+            <div class="reveal" style={`transition-delay:${i * 90}ms`}>
+              <div class="bento-card">
+                <h3>{c.title}</h3>
+                <p>{c.body}</p>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section cta-band">
+      <div class="reveal">
+        <h2 class="cta-heading">给 AI 编程，上工程纪律。</h2>
+        <div class="hero-ctas" style="justify-content:center">
+          <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手 →</a>
+          <a class="btn btn-ghost" href={`${base}/workflow/`}>查看四阶段工作流</a>
+        </div>
+        <p class="cta-note">MIT License · Rust 2024 · 支持 GitHub / GitLab / GitCode 三大平台</p>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .hero-block { padding: 32px 0 0; }
+  .hero-block .hero-title { margin-top: 22px; }
+  .hero-block .hero-sub { max-width: 680px; }
+
+  /* 公式条 */
+  .formula {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 26px;
+    border: 1px solid var(--gf-line);
+    border-radius: 12px;
+    background:
+      linear-gradient(140deg, var(--gf-orange-soft), transparent 55%),
+      color-mix(in srgb, var(--gf-ink-2) 90%, transparent);
+  }
+  .formula-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--gf-text);
+  }
+  .formula-part {
+    font-family: var(--font-mono);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--gf-orange);
+    border: 1px solid var(--gf-orange-soft);
+    background: var(--gf-orange-soft);
+    border-radius: 999px;
+    padding: 6px 16px;
+  }
+  .formula-op {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--gf-text-dim);
+  }
+
+  /* 本页 section 间距更紧凑 */
+  .narrow .section { padding: 48px 0; }
+
+  @media (max-width: 900px) {
+    .formula { flex-direction: column; align-items: flex-start; }
+  }
+</style>
