@@ -117,9 +117,14 @@ validate_tag_name() {
 
 validate_no_template_residue() {
     local file="$1"
-    if grep -qE "$TEMPLATE_RESIDUE_PATTERN" "$file"; then
+    # Check heading lines (# ## ###) for unsubstituted template variables.
+    # Body text (commit messages) may legitimately mention {{version}} when
+    # describing template-syntax fixes, so only headings are validated.
+    local matches
+    matches=$(grep -nE '^#+.*'"$TEMPLATE_RESIDUE_PATTERN" "$file" || true)
+    if [ -n "$matches" ]; then
         log_error "Template residue found in $file:"
-        grep -nE "$TEMPLATE_RESIDUE_PATTERN" "$file" | head -5
+        echo "$matches" | head -5
         return 1
     fi
     return 0
@@ -172,6 +177,10 @@ run_self_test() {
     expect_fail "changelog: single-brace residue" validate_no_template_residue "$tmp"
     printf '## 1.0.0 - 2026-07-31\n' > "$tmp"
     expect_pass "changelog: clean" validate_no_template_residue "$tmp"
+    printf -- '- **(release)** use {{version}} template syntax - ([abc1234](https://github.com/x/y/commit/abc123))\n' > "$tmp"
+    expect_pass "changelog: commit msg with {{version}} excluded" validate_no_template_residue "$tmp"
+    printf -- '- Merge pull request #159: fix(release) use {{version}} template syntax for cargo-release 1.1.3\n' >> "$tmp"
+    expect_pass "changelog: merge msg with {{version}} excluded" validate_no_template_residue "$tmp"
     rm -f "$tmp"
 
     echo ""
