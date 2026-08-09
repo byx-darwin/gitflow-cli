@@ -141,6 +141,37 @@ fn test_should_have_valid_geo_files() {
 }
 
 #[test]
+fn test_should_have_binstall_metadata_matching_release_layout() {
+    let cli = read("apps/cli/Cargo.toml");
+    let doc: toml::Value = cli.parse().expect("apps/cli/Cargo.toml must be valid TOML");
+    let binstall = &doc["package"]["metadata"]["binstall"];
+
+    // Asset filename is `gf-{target}.tgz` — the binary name, not the crate
+    // name (`gitflow-cli`). Matches `.github/workflows/release.yml` `BINARY_NAME: gf`.
+    let pkg_url = binstall["pkg-url"]
+        .as_str()
+        .expect("binstall pkg-url missing");
+    assert_eq!(
+        pkg_url, "{ repo }/releases/download/v{ version }/{ bin }-{ target }.{ archive-format }",
+        "binstall pkg-url must reference the `{{ bin }}` asset name"
+    );
+
+    // Binary lives at the archive root (`gf` / `gf.exe`), no subdirectory.
+    let bin_dir = binstall["bin-dir"]
+        .as_str()
+        .expect("binstall bin-dir missing");
+    assert_eq!(
+        bin_dir, "{ bin }{ binary-ext }",
+        "binstall bin-dir must point at the root-level binary ({{ bin }}{{ binary-ext }})"
+    );
+
+    let pkg_fmt = binstall["pkg-fmt"]
+        .as_str()
+        .expect("binstall pkg-fmt missing");
+    assert_eq!(pkg_fmt, "tgz", "binstall pkg-fmt must be tgz");
+}
+
+#[test]
 fn test_should_have_demo_asset() {
     let svg = read("docs/assets/demo.svg");
     assert!(

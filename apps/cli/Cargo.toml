@@ -65,6 +65,6 @@ temp-env = { workspace = true }
 workspace = true
 
 [package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.{ archive-format }"
-bin-dir = "{ name }-{ target }/{ bin }{ binary-ext }"
+pkg-url = "{ repo }/releases/download/v{ version }/{ bin }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
 pkg-fmt = "tgz"
