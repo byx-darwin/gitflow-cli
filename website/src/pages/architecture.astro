@@ -1,0 +1,192 @@
+---
+import Base from "../layouts/Base.astro";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Base title="架构设计 — gf 工作区布局与设计理念">
+  <main class="narrow page">
+    <h1 class="page-title">架构设计</h1>
+    <p class="page-lede">gf 工作区布局与设计理念</p>
+
+    <section class="section">
+      <h2 class="section-heading">工作区布局</h2>
+      <pre class="code-block"><code>gf/
+├── apps/
+│   └── cli/          # Binary crate — CLI 入口
+├── crates/
+│   ├── core/         # Library crate — 公开 API、领域类型
+│   ├── github/       # GitHub 平台适配器
+│   ├── gitlab/       # GitLab 平台适配器
+│   └── gitcode/      # GitCode 平台适配器
+├── docs/             # 项目文档
+├── specs/            # 功能规格说明
+├── Cargo.toml        # 工作区清单
+├── Makefile          # 自动化目标
+└── CLAUDE.md         # Agent 指南</code></pre>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">Crate 职责</h2>
+
+      <h3>crates/ — 库</h3>
+      <p>库 crate 包含公开 API、领域类型、业务逻辑和核心抽象。它们：</p>
+      <ul>
+        <li><strong>可复用</strong>：其他工具和库可以依赖它们</li>
+        <li><strong>可测试</strong>：单元测试和文档测试覆盖逻辑，无需二进制文件</li>
+        <li><strong>版本化</strong>：每个库 crate 有自己的 semver、变更日志条目和 API 稳定性保证</li>
+      </ul>
+      <p>主库 crate 是 <code>crates/core</code>，它暴露：</p>
+      <ul>
+        <li>领域类型（带 <code>Debug</code>、<code>Serialize</code>/<code>Deserialize</code>、转换 trait）</li>
+        <li>基于 <code>thiserror</code> 的错误枚举</li>
+        <li>核心操作的纯函数和异步工作流</li>
+      </ul>
+
+      <h3>apps/ — 二进制</h3>
+      <p>二进制 crate 是薄入口点。它们：</p>
+      <ul>
+        <li>通过 <code>clap</code> 解析 CLI 参数</li>
+        <li>加载和合并配置</li>
+        <li>设置日志和信号处理器</li>
+        <li>连接库并调用 <code>crates/core</code></li>
+        <li>处理进程退出码</li>
+      </ul>
+      <p>二进制应包含最少逻辑。如果函数复杂到需要单元测试，它应该属于库 crate。</p>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">依赖流向</h2>
+      <pre class="code-block"><code>apps/cli  ──depends on──>  crates/core</code></pre>
+      <p>依赖箭头是单向的：二进制依赖库，永远不会反向。<code>crates/core</code> 不能依赖任何 <code>apps/</code> crate。这确保了：</p>
+      <ul>
+        <li><strong>编译时隔离</strong>：修改二进制不会重新编译库</li>
+        <li><strong>API 边界</strong>：库不知道 CLI 标志、配置文件路径或日志后端</li>
+        <li><strong>可测试性</strong>：库测试快速且确定性强；不需要 CLI 工具</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">何时添加新 Crate vs 新模块</h2>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>情况</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>新领域类型或纯逻辑</td>
+            <td>在 <code>crates/core</code> 添加 <code>pub mod</code></td>
+          </tr>
+          <tr>
+            <td>多个二进制复用的功能</td>
+            <td>在 <code>crates/</code> 下新建库 crate</td>
+          </tr>
+          <tr>
+            <td>新二进制（CLI、守护进程、迁移工具）</td>
+            <td>在 <code>apps/</code> 下新建 crate</td>
+          </tr>
+          <tr>
+            <td>私有实现细节</td>
+            <td>相关 crate 中的 <code>mod</code>（非 <code>pub</code>）</td>
+          </tr>
+          <tr>
+            <td>第三方集成（如数据库）</td>
+            <td>如果引入大量依赖则新建库 crate；否则作为 <code>core</code> 中 feature flag 后的模块</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Crate 拆分指南</h3>
+      <p><strong>拆分为新库 crate 的情况：</strong></p>
+      <ol>
+        <li>模块有显著不同的依赖（如 <code>crates/db</code> 使用 <code>sqlx</code>）</li>
+        <li>模块有独立的发布周期</li>
+        <li>多个二进制需要它但 <code>core</code> 不需要</li>
+        <li>编译单元足够大，可以从并行构建中受益</li>
+      </ol>
+      <p><strong>保持模块在一起的情况：</strong></p>
+      <ol>
+        <li>它们共享相同的依赖图</li>
+        <li>它们一起演进并共享类型</li>
+        <li>API 表面很小，crate 数量的开销不合理</li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">设计原则</h2>
+      <div class="bento">
+        <div class="bento-card">
+          <h3>Platform Trait 抽象</h3>
+          <p>通过 <code>Platform</code> trait 统一三平台差异，依赖单向流动，禁止循环依赖。</p>
+        </div>
+        <div class="bento-card">
+          <h3>安全优先</h3>
+          <p><code>forbid(unsafe_code)</code>，生产代码禁 <code>unwrap()</code>/<code>expect()</code>，使用 <code>SafePath</code> 防止路径遍历。</p>
+        </div>
+        <div class="bento-card">
+          <h3>可测试性</h3>
+          <p>每个模块可独立测试，契约测试覆盖适配器，测试命名 <code>test_should_&lt;expected_behavior&gt;</code>。</p>
+        </div>
+        <div class="bento-card">
+          <h3>工程纪律</h3>
+          <p>pedantic clippy、零 TODO/FIXME、<code>missing_docs</code> 警告、所有公开 API 必须有文档。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section cta-band">
+      <h2 class="cta-heading">深入了解代码</h2>
+      <p>查看完整的架构设计和代码实现</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/byx-darwin/gitflow-cli/tree/main/crates/core">查看 crates/core 源码 →</a>
+        <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli/blob/main/docs/architecture.md">GitHub 原文 →</a>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .code-block {
+    background: var(--gf-code-bg, #1e1e2e);
+    color: var(--gf-code-fg, #cdd6f4);
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 1.5rem 0;
+  }
+
+  .code-block code {
+    white-space: pre;
+  }
+
+  h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  ul, ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
+  }
+
+  li {
+    margin: 0.5rem 0;
+    line-height: 1.6;
+  }
+
+  code {
+    background: var(--gf-code-inline-bg, rgba(0, 0, 0, 0.05));
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+</style>

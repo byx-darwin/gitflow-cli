@@ -1,0 +1,383 @@
+---
+import Base from "../layouts/Base.astro";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Base title="发布工作流 — make release 完全指南">
+  <main class="narrow page">
+    <h1 class="page-title">发布工作流</h1>
+    <p class="page-lede">make release 完全指南：安全检查、版本推断与交互式预览</p>
+
+    <section class="section">
+      <h2 class="section-heading">快速开始</h2>
+      <div class="code-block">
+        <code><span class="prompt">❯</span> make release          <span class="comment"># 交互式发布（推荐）</span>
+<span class="prompt">❯</span> make release-quick    <span class="comment"># 快速发布（无预览）</span></code>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">发布流程</h2>
+
+      <div class="workflow-steps">
+        <div class="workflow-step">
+          <span class="step-num">1</span>
+          <div class="step-content">
+            <h3>Pre-flight 检查</h3>
+            <ul>
+              <li>✓ 验证在 <code>main</code> 分支</li>
+              <li>✓ 检查工作目录干净</li>
+              <li>✓ 运行所有测试 (<code>make test</code>)</li>
+              <li>✓ 运行 clippy (<code>make clippy</code>)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="workflow-step">
+          <span class="step-num">2</span>
+          <div class="step-content">
+            <h3>版本推断</h3>
+            <p>脚本自动分析自上次 tag 以来的提交：</p>
+            <table class="matrix-table">
+              <thead>
+                <tr>
+                  <th>提交类型</th>
+                  <th>版本升级</th>
+                  <th>示例</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>feat!</code> 或 <code>BREAKING CHANGE</code></td>
+                  <td><strong>Major</strong></td>
+                  <td>1.0.0 → 2.0.0</td>
+                </tr>
+                <tr>
+                  <td><code>feat</code></td>
+                  <td><strong>Minor</strong></td>
+                  <td>0.7.0 → 0.8.0</td>
+                </tr>
+                <tr>
+                  <td><code>fix</code>/<code>refactor</code>/<code>perf</code></td>
+                  <td><strong>Patch</strong></td>
+                  <td>0.7.0 → 0.7.1</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="workflow-step">
+          <span class="step-num">3</span>
+          <div class="step-content">
+            <h3>交互式预览</h3>
+            <p>你将看到：</p>
+            <ul>
+              <li>当前版本和上次 tag</li>
+              <li>推断的版本升级</li>
+              <li>提交摘要（features、fixes 数量）</li>
+              <li>Changelog 预览</li>
+              <li>覆盖版本的选项（major/minor/patch/custom）</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="workflow-step">
+          <span class="step-num">4</span>
+          <div class="step-content">
+            <h3>Dry Run</h3>
+            <p>执行前，你将看到将要发生的操作：</p>
+            <ul>
+              <li>版本升级</li>
+              <li>Changelog 生成</li>
+              <li>crates.io 发布（可选）</li>
+              <li>Tag 创建</li>
+              <li>推送到远程</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="workflow-step">
+          <span class="step-num">5</span>
+          <div class="step-content">
+            <h3>执行</h3>
+            <p>确认后，脚本将：</p>
+            <ol>
+              <li>在 <code>Cargo.toml</code> 中升级版本</li>
+              <li>提交版本变更</li>
+              <li>生成 <code>CHANGELOG.md</code></li>
+              <li>提交 changelog</li>
+              <li><strong>发布到 crates.io</strong>（可选，会提示）</li>
+              <li>创建 Git tag</li>
+              <li>推送到 <code>origin/main</code> 及 tags</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">发布到 crates.io</h2>
+
+      <h3>前置条件</h3>
+      <ol>
+        <li>
+          <strong>Crates.io 账号</strong>：
+          <ul>
+            <li>在 https://crates.io 注册</li>
+            <li>验证邮箱</li>
+          </ul>
+        </li>
+        <li>
+          <strong>认证</strong>：
+          <div class="code-block">
+            <code><span class="comment"># 登录 crates.io</span>
+<span class="prompt">❯</span> cargo login
+
+<span class="comment"># 或使用 API token</span>
+<span class="prompt">❯</span> export CARGO_REGISTRY_TOKEN=&lt;your-token&gt;</code>
+          </div>
+        </li>
+        <li>
+          <strong>验证 Crate 元数据</strong>：
+          <div class="code-block">
+            <code><span class="comment"># 检查包是否就绪</span>
+<span class="prompt">❯</span> cargo package --list
+<span class="prompt">❯</span> cargo package --no-verify</code>
+          </div>
+        </li>
+      </ol>
+
+      <h3>发布选项</h3>
+      <div class="options-grid">
+        <div class="option-card">
+          <h4>选项 A：发布时一起发布</h4>
+          <div class="code-block">
+            <code><span class="prompt">❯</span> make release
+<span class="comment"># 提示 "Publish to crates.io?" → y</span></code>
+          </div>
+        </div>
+        <div class="option-card">
+          <h4>选项 B：跳过 crates.io</h4>
+          <div class="code-block">
+            <code><span class="prompt">❯</span> make release
+<span class="comment"># 提示 "Publish to crates.io?" → n</span></code>
+          </div>
+        </div>
+        <div class="option-card">
+          <h4>选项 C：稍后手动发布</h4>
+          <div class="code-block">
+            <code><span class="comment"># 发布后，手动发布</span>
+<span class="prompt">❯</span> cargo publish --all-features</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">注意事项</h2>
+      <div class="callout callout-warning">
+        <h3>⚠️ crates.io 版本不可删除</h3>
+        <p>一旦发布到 crates.io，版本<strong>无法删除或修改</strong>。只能 yank（隐藏），不能删除。必须发布新版本来修复问题。</p>
+      </div>
+
+      <div class="callout callout-info">
+        <h3>ℹ️ 发布前检查清单</h3>
+        <ul>
+          <li>所有测试通过</li>
+          <li>Clippy 无警告</li>
+          <li>文档完整（<code>cargo doc --no-deps</code>）</li>
+          <li>CHANGELOG 已更新</li>
+          <li>README 中的版本号已更新（如需要）</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-heading">已发布的 Crates</h2>
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Crate</th>
+            <th>说明</th>
+            <th>链接</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>gitflow-cli</code></td>
+            <td>主 CLI 应用（二进制名 <code>gf</code>）</td>
+            <td><a href="https://crates.io/crates/gitflow-cli">crates.io →</a></td>
+          </tr>
+          <tr>
+            <td><code>gitflow-core</code></td>
+            <td>核心库</td>
+            <td><a href="https://crates.io/crates/gitflow-core">crates.io →</a></td>
+          </tr>
+          <tr>
+            <td><code>gitflow-github</code></td>
+            <td>GitHub 平台支持</td>
+            <td><a href="https://crates.io/crates/gitflow-github">crates.io →</a></td>
+          </tr>
+          <tr>
+            <td><code>gitflow-gitlab</code></td>
+            <td>GitLab 平台支持</td>
+            <td><a href="https://crates.io/crates/gitflow-gitlab">crates.io →</a></td>
+          </tr>
+          <tr>
+            <td><code>gitflow-gitcode</code></td>
+            <td>GitCode 平台支持</td>
+            <td><a href="https://crates.io/crates/gitflow-gitcode">crates.io →</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section cta-band">
+      <h2 class="cta-heading">准备好发布了吗？</h2>
+      <p>运行 <code>make release</code> 开始你的第一次发布</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/byx-darwin/gitflow-cli/blob/main/docs/release-workflow.md">查看完整文档 →</a>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .code-block {
+    background: var(--gf-code-bg, #1e1e2e);
+    color: var(--gf-code-fg, #cdd6f4);
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 1.5rem 0;
+  }
+
+  .code-block code {
+    white-space: pre;
+  }
+
+  .code-block .prompt {
+    color: var(--gf-teal, #89b4fa);
+    margin-right: 0.5rem;
+  }
+
+  .code-block .comment {
+    color: #6c7086;
+  }
+
+  .workflow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin: 2rem 0;
+  }
+
+  .workflow-step {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 3rem;
+    height: 3rem;
+    background: var(--gf-orange, #fab387);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+
+  .step-content {
+    flex: 1;
+  }
+
+  .step-content h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  ul, ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
+  }
+
+  li {
+    margin: 0.5rem 0;
+    line-height: 1.6;
+  }
+
+  code {
+    background: var(--gf-code-inline-bg, rgba(0, 0, 0, 0.05));
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .option-card {
+    background: var(--gf-card-bg, rgba(0, 0, 0, 0.02));
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--gf-border, rgba(0, 0, 0, 0.1));
+  }
+
+  .option-card h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .callout {
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    border-left: 4px solid;
+  }
+
+  .callout-warning {
+    background: rgba(250, 179, 135, 0.1);
+    border-color: var(--gf-orange, #fab387);
+  }
+
+  .callout-info {
+    background: rgba(137, 180, 250, 0.1);
+    border-color: var(--gf-teal, #89b4fa);
+  }
+
+  .callout h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .callout ul {
+    margin: 0.5rem 0 0 0;
+  }
+</style>
