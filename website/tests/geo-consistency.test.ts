@@ -22,6 +22,13 @@ describe("GEO entity consistency", () => {
     expect(jsonLd.sameAs).toContain("https://crates.io/crates/gitflow-cli");
   });
 
+  it("should have correct author information in JSON-LD", () => {
+    const jsonLd = generateSoftwareAppJsonLd();
+    expect(jsonLd.author["@type"]).toBe("Person");
+    expect(jsonLd.author.name).toBe("皮哥不写PPT");
+    expect(jsonLd.author.url).toBe("https://byx-darwin.github.io/");
+  });
+
   it("should generate valid FAQPage JSON-LD", () => {
     const jsonLd = generateFAQPageJsonLd();
     expect(jsonLd["@type"]).toBe("FAQPage");

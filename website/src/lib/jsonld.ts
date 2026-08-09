@@ -11,6 +11,11 @@ export interface SoftwareAppJsonLd {
   applicationCategory: string;
   operatingSystem: string;
   url: string;
+  author: {
+    "@type": "Person" | "Organization";
+    name: string;
+    url?: string;
+  };
   offers: { "@type": "Offer"; price: string; priceCurrency: string };
   sameAs: string[];
 }
@@ -53,6 +58,11 @@ export function generateSoftwareAppJsonLd(): SoftwareAppJsonLd {
     applicationCategory: "DeveloperApplication",
     operatingSystem: "macOS, Linux, Windows",
     url: "https://byx-darwin.github.io/gitflow-cli/",
+    author: {
+      "@type": "Person",
+      name: "皮哥不写PPT",
+      url: "https://byx-darwin.github.io/",
+    },
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     sameAs: [
       "https://github.com/byx-darwin/gitflow-cli",

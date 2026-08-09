@@ -104,7 +104,7 @@ macOS、Linux、Windows。
 
 ## 项目维护状态？
 
-单人维护者（byx-darwin）+ AI 协作（dogfooding 自身工作流）。
+单人维护者（皮哥不写PPT https://byx-darwin.github.io/）+ AI 协作（dogfooding 自身工作流）。
 
 **发布节奏**：月度发布窗口
 **响应时效**：Issue 48 小时内分流

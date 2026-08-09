@@ -77,4 +77,4 @@ gf-workflow 提供四阶段工作流编排：
 
 ## 许可
 
-MIT。作者：byx-darwin。
+MIT。作者：皮哥不写PPT(https://byx-darwin.github.io/)。
