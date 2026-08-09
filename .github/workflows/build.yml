@@ -166,7 +166,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/gf-*.tar.gz*
+          path: target/${{ matrix.target }}/release/gf-*.${{ matrix.archive }}*
           if-no-files-found: error
 
   # ── GitHub Release ─────────────────────────────────────────
