@@ -619,4 +619,120 @@ mod tests {
             _ => panic!("Expected PrCommand::Sync"),
         }
     }
+
+    #[test]
+    fn test_should_parse_pr_view() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "view", "42"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::View { number }) => {
+                assert_eq!(number, 42);
+            }
+            _ => panic!("Expected PrCommand::View"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_list_with_state() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pr", "list", "--state", "open", "--limit", "20"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::List { state, limit }) => {
+                assert_eq!(state, Some("open".into()));
+                assert_eq!(limit, Some(20));
+            }
+            _ => panic!("Expected PrCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_with_repo_and_head() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "pr",
+            "create",
+            "--title",
+            "Feature PR",
+            "--head",
+            "feature/my-branch",
+            "--base",
+            "develop",
+            "--repo",
+            "org/repo",
+            "--draft",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create {
+                title,
+                head,
+                base,
+                repo,
+                draft,
+                ..
+            }) => {
+                assert_eq!(title, "Feature PR");
+                assert_eq!(head, Some("feature/my-branch".into()));
+                assert_eq!(base, Some("develop".into()));
+                assert_eq!(repo, Some("org/repo".into()));
+                assert!(draft);
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_minimal() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pr", "create", "--title", "Minimal PR"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create {
+                title,
+                head,
+                base,
+                draft,
+                repo,
+                ..
+            }) => {
+                assert_eq!(title, "Minimal PR");
+                assert!(head.is_none());
+                assert!(base.is_none());
+                assert!(!draft);
+                assert!(repo.is_none());
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_list_without_args() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "list"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::List { state, limit }) => {
+                assert!(state.is_none());
+                assert!(limit.is_none());
+            }
+            _ => panic!("Expected PrCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_print_toon_output() {
+        let value = serde_json::json!({"number": 1, "title": "test"});
+        let result = print_output(&value, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_auto_output() {
+        let value = serde_json::json!({"number": 1, "title": "test"});
+        let result = print_output(&value, &OutputFormat::Auto);
+        assert!(result.is_ok());
+    }
 }

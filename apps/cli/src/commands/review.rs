@@ -316,6 +316,20 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn test_should_print_toon_output() {
+        let value = serde_json::json!({"id": 1, "state": "approved"});
+        let result = print_output(&value, &OutputFormat::Toon);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_print_auto_output() {
+        let value = serde_json::json!({"id": 1, "state": "approved"});
+        let result = print_output(&value, &OutputFormat::Auto);
+        assert!(result.is_ok());
+    }
+
     // --- ReviewCommand 解析测试 ---
 
     #[test]
