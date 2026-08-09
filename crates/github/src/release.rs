@@ -386,7 +386,7 @@ fn is_release_not_found(stderr: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::{CommandOutput, MockCommandRunner};
+    use crate::runner::{CommandOutput, MockCommandRunner, SequencedMockCommandRunner};
 
     /// Test runner that records every invocation's arguments.
     ///
@@ -744,5 +744,165 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    // --- is_release_not_found unit tests ---
+
+    #[test]
+    fn test_should_detect_json_not_found_code() {
+        let stderr = br#"{"message":"Not Found","code":"NOT_FOUND"}"#;
+        assert!(is_release_not_found(stderr));
+    }
+
+    #[test]
+    fn test_should_detect_json_not_found_message() {
+        let stderr = br#"{"message":"Release not found"}"#;
+        assert!(is_release_not_found(stderr));
+    }
+
+    #[test]
+    fn test_should_not_detect_unrelated_json_error() {
+        let stderr = br#"{"message":"Forbidden","code":"FORBIDDEN"}"#;
+        assert!(!is_release_not_found(stderr));
+    }
+
+    #[test]
+    fn test_should_detect_plain_text_release_not_found() {
+        assert!(is_release_not_found(b"release not found\n"));
+    }
+
+    #[test]
+    fn test_should_detect_not_found_with_tag() {
+        assert!(is_release_not_found(b"tag not found (404)\n"));
+    }
+
+    #[test]
+    fn test_should_not_detect_unrelated_text() {
+        assert!(!is_release_not_found(b"authentication failed\n"));
+    }
+
+    #[test]
+    fn test_should_return_false_for_empty_stderr() {
+        assert!(!is_release_not_found(b""));
+    }
+
+    #[test]
+    fn test_should_handle_invalid_json_as_text() {
+        // Invalid JSON should fall through to plain-text matching without panicking.
+        assert!(!is_release_not_found(b"{invalid json"));
+    }
+
+    #[test]
+    fn test_should_detect_json_not_found_code_case_insensitively() {
+        let stderr = br#"{"message":"not found","code":"not_found"}"#;
+        assert!(is_release_not_found(stderr));
+    }
+
+    // --- with_runner constructor ---
+
+    #[test]
+    fn test_should_create_provider_with_custom_runner() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+        assert_eq!(provider.repo, "owner/repo");
+    }
+
+    // --- Success-path tests ---
+
+    fn valid_release_json() -> &'static str {
+        r#"{
+            "id": 1,
+            "tagName": "v1.0.0",
+            "name": "Version 1.0.0",
+            "body": "Release notes",
+            "draft": false,
+            "prerelease": false,
+            "author": {"login": "octocat", "id": "1"},
+            "createdAt": "2026-01-01T00:00:00Z",
+            "publishedAt": "2026-01-01T00:00:00Z",
+            "url": "https://github.com/owner/repo/releases/tag/v1.0.0"
+        }"#
+    }
+
+    #[tokio::test]
+    async fn test_should_view_release_successfully() {
+        let runner = MockCommandRunner::success(valid_release_json());
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider.view("v1.0.0").await.expect("view should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+        assert_eq!(release.name.as_deref(), Some("Version 1.0.0"));
+        assert_eq!(release.id, 1);
+    }
+
+    #[tokio::test]
+    async fn test_should_list_releases_successfully() {
+        let json = format!("[{}]", valid_release_json());
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let releases = provider.list().await.expect("list should succeed");
+        assert_eq!(releases.len(), 1);
+        assert_eq!(releases[0].tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_list_empty_releases() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let releases = provider.list().await.expect("list should succeed");
+        assert!(releases.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_create_release_successfully() {
+        // create runs `gh release create` then fetches via `view`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, valid_release_json()),
+        ]);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider
+            .create(sample_create_args())
+            .await
+            .expect("create should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_successfully() {
+        // edit runs `gh release edit` then fetches via `view`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, valid_release_json()),
+        ]);
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        let release = provider
+            .edit("v1.0.0", sample_create_args())
+            .await
+            .expect("edit should succeed");
+        assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_delete_release_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        assert!(provider.delete("v1.0.0").await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_upload_asset_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
+
+        assert!(provider
+            .upload_asset("v1.0.0", "/tmp/asset.tar.gz", "asset.tar.gz")
+            .await
+            .is_ok());
     }
 }
