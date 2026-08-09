@@ -261,5 +261,6 @@ const commandMap = [
     color: var(--gf-text);
     background: color-mix(in srgb, var(--gf-orange-soft) 32%, transparent);
   }
-  .matrix-table td.compare-gf code { color: var(--gf-orange); }
+  /* :global 使 set:html 注入的 <code> 也命中该高亮规则 */
+  .matrix-table :global(td.compare-gf code) { color: var(--gf-orange); }
 </style>
