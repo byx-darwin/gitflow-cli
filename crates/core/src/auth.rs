@@ -160,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_status_debug_derive() {
+    fn test_should_format_debug_for_auth_status() {
         let status = AuthStatus {
             logged_in: true,
             user: Some("test".into()),
@@ -169,5 +169,22 @@ mod tests {
         let debug = format!("{status:?}");
         assert!(debug.contains("AuthStatus"));
         assert!(debug.contains("test"));
+    }
+
+    #[test]
+    fn test_should_clone_auth_status() {
+        let original = AuthStatus {
+            logged_in: true,
+            user: Some("alice".into()),
+            scopes: vec!["repo".into(), "gist".into()],
+        };
+        let cloned = original.clone();
+
+        assert_eq!(cloned.logged_in, original.logged_in);
+        assert_eq!(cloned.user, original.user);
+        assert_eq!(cloned.scopes, original.scopes);
+
+        // Verify it's a deep clone, not the same object
+        assert!(!std::ptr::eq(&cloned.scopes, &original.scopes));
     }
 }
