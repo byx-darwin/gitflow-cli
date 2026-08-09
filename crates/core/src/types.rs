@@ -485,4 +485,76 @@ mod tests {
         assert_eq!(MergeStrategy::Merge, MergeStrategy::Merge);
         assert_ne!(MergeStrategy::Merge, MergeStrategy::Squash);
     }
+
+    // --- deserialize_u64_or_string tests ---
+
+    #[test]
+    fn test_should_deserialize_u64_from_number() {
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_u64_or_string")]
+            value: u64,
+        }
+
+        let json = r#"{"value": 42}"#;
+        let result: TestStruct = serde_json::from_str(json).expect("deserialize number");
+        assert_eq!(result.value, 42);
+    }
+
+    #[test]
+    fn test_should_deserialize_u64_from_string() {
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_u64_or_string")]
+            value: u64,
+        }
+
+        let json = r#"{"value": "123"}"#;
+        let result: TestStruct = serde_json::from_str(json).expect("deserialize string");
+        assert_eq!(result.value, 123);
+    }
+
+    #[test]
+    fn test_should_return_error_when_u64_deserialize_invalid_string() {
+        #[derive(Deserialize)]
+        #[allow(dead_code)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_u64_or_string")]
+            value: u64,
+        }
+
+        let json = r#"{"value": "not_a_number"}"#;
+        let result: Result<TestStruct, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    // --- deserialize_u64_or_string_to_string tests ---
+
+    #[test]
+    fn test_should_deserialize_u64_or_string_to_string_from_number() {
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_u64_or_string_to_string")]
+            value: String,
+        }
+
+        let json = r#"{"value": 999}"#;
+        let result: TestStruct =
+            serde_json::from_str(json).expect("deserialize number to string");
+        assert_eq!(result.value, "999");
+    }
+
+    #[test]
+    fn test_should_deserialize_u64_or_string_to_string_from_string() {
+        #[derive(Deserialize)]
+        struct TestStruct {
+            #[serde(deserialize_with = "deserialize_u64_or_string_to_string")]
+            value: String,
+        }
+
+        let json = r#"{"value": "abc123"}"#;
+        let result: TestStruct =
+            serde_json::from_str(json).expect("deserialize string to string");
+        assert_eq!(result.value, "abc123");
+    }
 }
