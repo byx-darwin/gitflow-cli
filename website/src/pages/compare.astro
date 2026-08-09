@@ -1,0 +1,265 @@
+---
+import Base from "../layouts/Base.astro";
+import CopyCommand from "../components/CopyCommand.astro";
+
+const base = import.meta.env.BASE_URL;
+
+const compareRows = [
+  {
+    dimension: "平台支持",
+    gf: "GitHub / GitLab / GitCode 三大平台统一封装。基于 <code>git remote</code> 自动检测，也可 <code>--platform</code> 手动指定。",
+    gh: "仅 GitHub（含 Enterprise）",
+    glab: "仅 GitLab（含自建实例）",
+  },
+  {
+    dimension: "命令面",
+    gf: "同一套命令在三个平台行为一致，如 <code>gf issue list</code>。一条命令打天下，无需记两套 CLI。",
+    gh: "GitHub 原生命令面，生态最丰富（gh extensions）。",
+    glab: "GitLab 原生命令面。",
+  },
+  {
+    dimension: "Agent 集成",
+    gf: "26 个 <code>gf-*</code> Skills，一键安装到 Claude Code / Codex / Gemini / Copilot / OpenCode，Agent 开箱即用。",
+    gh: "可被 Agent 调用，但无配套 Skills 编排。",
+    glab: "可被 Agent 调用，但无配套 Skills 编排。",
+  },
+  {
+    dimension: "工作流编排",
+    gf: "四阶段编排：需求澄清 → 计划制定 → 执行 → 交付后检查，内置质量门禁。",
+    gh: "无编排，需自行组合脚本。",
+    glab: "无编排，需自行组合脚本。",
+  },
+  {
+    dimension: "输出格式",
+    gf: "<code>json</code> / <code>text</code> / <code>toon</code>（Agent 专用 token 优化，省 60–90% token）。",
+    gh: "JSON / markdown / 表格。",
+    glab: "JSON / markdown / 表格。",
+  },
+  {
+    dimension: "安装方式",
+    gf: "<code>brew tap byx-darwin/gitflow-cli && brew install gf</code> 或 <code>cargo install gf</code>；底层复用 gh / glab / gitcode。",
+    gh: "brew / 官方安装脚本 / 各平台包管理器。",
+    glab: "brew / 官方安装脚本 / 各平台包管理器。",
+  },
+];
+
+const gfScenarios = [
+  {
+    title: "多平台混用",
+    body: "GitHub + GitLab（甚至 GitCode）同时在手？gf 一套命令统一三平台，不再记两套 CLI、两套语法。",
+  },
+  {
+    title: "Agent 驱动开发",
+    body: "想让 Claude Code / Codex 等 Agent 自己走完 Issue → PR → Review → Release，而不是只帮你敲 gh 命令。",
+  },
+  {
+    title: "工程纪律与质量门禁",
+    body: "四阶段工作流 + build → test → coverage → fmt → static → pre-commit 门禁，交付质量有底线。",
+  },
+  {
+    title: "团队标准化",
+    body: "Skills 随仓库走（.claude/skills/），新人 clone 即开箱即用，全员工作流一致。",
+  },
+  {
+    title: "节省 token 预算",
+    body: "toon 输出针对 Agent 消费优化，命令交互省 60–90% token，长会话成本更低。",
+  },
+  {
+    title: "平台迁移成本",
+    body: "从 GitHub 迁到 GitLab 或反过来，gf 命令面不变，改造面最小。",
+  },
+];
+
+const keepGhGlab = [
+  {
+    title: "gh extensions 生态",
+    body: "gh 独有的扩展体系（如 gh copilot、gh browse 等社区扩展）是 gf 未封装的能力，此时直接使用 gh。",
+  },
+  {
+    title: "长尾参数与独有特性",
+    body: "gf 封装的是跨平台常用子集；需要底层 CLI 独有参数/特性时，随时直接调用 gh / glab 原生命令。",
+  },
+  {
+    title: "纯单平台、无 Agent 需求",
+    body: "只在一个平台上做常规操作，不需要工作流编排时，gh / glab 更轻、更直接。",
+  },
+  {
+    title: "存量脚本 / CI 基于 gh / glab",
+    body: "已有自动化不必迁移；gf 与 gh / glab 并存，互不干扰。",
+  },
+];
+
+const commandMap = [
+  { scene: "列出 Issue", gh: "gh issue list", gf: "gf issue list", note: "自动检测平台" },
+  { scene: "创建 Issue", gh: "gh issue create", gf: "gf issue create", note: "语法一致" },
+  { scene: "创建 PR", gh: "gh pr create", gf: "gf pr create", note: "语法一致" },
+  { scene: "列出 PR", gh: "gh pr list", gf: "gf pr list", note: "语法一致" },
+  { scene: "合并 PR", gh: "gh pr merge 123", gf: "gf pr merge 123", note: "语法一致" },
+  { scene: "审查 PR", gh: "gh pr review --approve", gf: "gf review approve 123", note: "独立的 review 命令面" },
+  { scene: "创建 Release", gh: "gh release create v1.0.0", gf: "gf release create v1.0.0", note: "语法一致" },
+  { scene: "克隆仓库", gh: "gh repo clone owner/repo", gf: "gf repo clone owner/repo", note: "语法一致" },
+  { scene: "查看流水线", gh: "gh run view", gf: "gf pipeline status", note: "独立 pipeline 命令面" },
+  { scene: "登录认证", gh: "gh auth login", gf: "gf auth login", note: "语法一致" },
+];
+---
+
+<Base title="gf vs gh / glab — 对比">
+  <main class="narrow page">
+    <!-- Hero -->
+    <section class="compare-hero">
+      <span class="hero-kicker">选型指南 · Comparison</span>
+      <h1 class="hero-title">gf vs gh / glab — <span class="accent">如何选择？</span></h1>
+      <p class="hero-sub">
+        gh 与 glab 是 GitHub / GitLab 官方的单一平台 CLI；gf 是在它们之上的一层工程化编排：统一命令面、
+        AI Agent Skills 与四阶段工作流。三者不是替代关系，而是分层协作。
+      </p>
+    </section>
+
+    <!-- 一览对比 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">一览对比</h2></div>
+      <p class="section-lede">
+        六个维度快速对比。gf 在底层复用 gh / glab / gitcode，因此它们恰恰是 gf 的能力底座。
+      </p>
+      <div class="reveal" style="transition-delay:100ms">
+        <table class="matrix-table compare-table">
+          <thead>
+            <tr>
+              <th>维度</th>
+              <th>gf</th>
+              <th>gh</th>
+              <th>glab</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              compareRows.map((row) => (
+                <tr>
+                  <td class="matrix-platform">{row.dimension}</td>
+                  <td class="compare-gf" set:html={row.gf}></td>
+                  <td set:html={row.gh}></td>
+                  <td set:html={row.glab}></td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 什么时候选 gf -->
+    <section class="section">
+      <div class="reveal prose">
+        <h2>什么时候选 gf</h2>
+        <p>以下场景，gf 的价值最明显：</p>
+      </div>
+      <div class="reveal doc-grid" style="margin-top:24px">
+        {
+          gfScenarios.map((s) => (
+            <div class="doc-card">
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- 什么时候继续用 gh / glab -->
+    <section class="section">
+      <div class="reveal prose">
+        <h2>什么时候继续用 gh / glab</h2>
+        <p>gf 不是要消灭 gh / glab，而是承接它们之上的编排层。以下情况请放心留在官方 CLI：</p>
+        <ul>
+          {
+            keepGhGlab.map((item) => (
+              <li><strong>{item.title}：</strong>{item.body}</li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
+
+    <!-- 从 gh / glab 迁移到 gf -->
+    <section class="section">
+      <div class="reveal prose">
+        <h2>从 gh / glab 迁移到 gf</h2>
+        <p>
+          gf 底层依赖 gh / glab，因此迁移<strong>不需要卸载</strong>它们——安装 gf 后两者共存。
+        </p>
+        <h3>1. 安装 gf</h3>
+        <p>无需删除 gh / glab。gf 启动时会校验底层 CLI 版本，不满足时给出修复指引。</p>
+        <CopyCommand command="brew tap byx-darwin/gitflow-cli && brew install gf" />
+
+        <h3>2. 认证</h3>
+        <p>使用 <code>gf auth login</code> 完成各平台认证，或在已有 gh / glab 凭据基础上直接使用。</p>
+
+        <h3>3. 命令迁移</h3>
+        <p>把脚本里的 <code>gh</code> 换成 <code>gf</code>，命令面基本一一对应：</p>
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th>场景</th>
+              <th>gh</th>
+              <th>gf</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              commandMap.map((row) => (
+                <tr>
+                  <td class="matrix-platform">{row.scene}</td>
+                  <td><code>{row.gh}</code></td>
+                  <td class="compare-gf"><code>{row.gf}</code></td>
+                  <td>{row.note}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+        <p>
+          glab 用户同理：<code>glab issue list</code> → <code>gf issue list</code>，
+          <code>glab mr create</code> → <code>gf pr create</code>，
+          <code>glab pipeline status</code> → <code>gf pipeline status</code>。
+        </p>
+
+        <h3>4. 安装 Skills</h3>
+        <p>把工作流装进 Agent：</p>
+        <p>
+          <code>gf skills install</code> — 项目级（跟随仓库）<br />
+          <code>gf skills install -g</code> — 全局（所有项目可用）
+        </p>
+
+        <h3>5. 进入四阶段工作流</h3>
+        <p>在支持的 Agent 平台中输入 <code>/gf-workflow</code>，即可跑通需求澄清 → 计划制定 → 执行 → 交付后检查。</p>
+        <blockquote>
+          gh extensions 仍然可随时通过 <code>gh</code> 调用——gf 不接管 gh 的扩展生态，两者并行。
+        </blockquote>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section cta-band">
+      <div class="reveal">
+        <h2 class="cta-heading">选 gf，把工程循环交给 Agent。</h2>
+        <CopyCommand command="brew tap byx-darwin/gitflow-cli && brew install gf" />
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手 →</a>
+          <a class="btn btn-ghost" href={`${base}/compatibility/`}>兼容性矩阵</a>
+        </div>
+        <p class="cta-note">MIT License · Rust 2024 · 支持 GitHub / GitLab / GitCode 三大平台</p>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .compare-hero { padding: 40px 0 8px; }
+  .compare-table .compare-gf { color: var(--gf-text); }
+  .compare-gf {
+    color: var(--gf-text);
+    background: color-mix(in srgb, var(--gf-orange-soft) 32%, transparent);
+  }
+  .matrix-table td.compare-gf code { color: var(--gf-orange); }
+</style>
