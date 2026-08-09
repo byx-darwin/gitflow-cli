@@ -231,14 +231,8 @@ fn test_should_have_valid_jsonld() {
         jsonld.contains("SoftwareApplication"),
         "jsonld.ts missing SoftwareApplication type"
     );
-    assert!(
-        jsonld.contains("FAQPage"),
-        "jsonld.ts missing FAQPage type"
-    );
-    assert!(
-        jsonld.contains("HowTo"),
-        "jsonld.ts missing HowTo type"
-    );
+    assert!(jsonld.contains("FAQPage"), "jsonld.ts missing FAQPage type");
+    assert!(jsonld.contains("HowTo"), "jsonld.ts missing HowTo type");
 
     // Check that Base.astro imports and uses the generator
     let base = read("website/src/layouts/Base.astro");
