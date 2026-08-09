@@ -84,4 +84,22 @@ mod tests {
         assert!(!err.user_message.is_empty());
         assert!(err.hint.is_some());
     }
+
+    #[test]
+    fn test_should_parse_gh_forbidden_error() {
+        let json = br#"{"message": "Resource not accessible by integration", "code": "FORBIDDEN"}"#;
+        let err = parse_gh_error(json);
+        assert_eq!(err.code.as_deref(), Some("FORBIDDEN"));
+        assert_eq!(err.platform, Platform::GitHub);
+        assert!(err.user_message.contains("权限"));
+    }
+
+    #[test]
+    fn test_should_parse_gh_json_error_without_code() {
+        let json = br#"{"message": "Something went wrong"}"#;
+        let err = parse_gh_error(json);
+        assert!(err.code.is_none());
+        assert!(err.user_message.contains("Something went wrong"));
+        assert_eq!(err.platform, Platform::GitHub);
+    }
 }
