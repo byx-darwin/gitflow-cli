@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn test_should_return_error_when_u64_deserialize_invalid_string() {
         #[derive(Deserialize)]
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "struct used only for serde deserialization test")]
         struct TestStruct {
             #[serde(deserialize_with = "deserialize_u64_or_string")]
             value: u64,
