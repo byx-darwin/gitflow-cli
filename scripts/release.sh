@@ -76,8 +76,8 @@ trap cleanup_on_error EXIT
 # Release artifact validation (pure functions; testable via --self-test)
 # ---------------------------------------------------------------------------
 
-# 未被替换的模板变量,如 {{version}}
-TEMPLATE_RESIDUE_PATTERN='\{\{[a-zA-Z_]+\}\}'
+# 未被替换的模板变量,如 {version} 或 {{version}}
+TEMPLATE_RESIDUE_PATTERN='\{\{?[a-zA-Z_]+\}\}?'
 # 合法 tag:vX.Y.Z 或 vX.Y.Z-<prerelease>
 VERSION_TAG_PATTERN='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
 # 合法发布提交主题
@@ -87,6 +87,9 @@ validate_commit_subject() {
     local subject="$1"
     if [[ "$subject" =~ $TEMPLATE_RESIDUE_PATTERN ]]; then
         log_error "Template residue in commit subject: $subject"
+        log_error "Expected: chore: release v1.2.3"
+        log_error "This usually means release.toml uses incorrect placeholder syntax."
+        log_error "For cargo-release 1.1.3+, use {{version}} (double curly braces)."
         return 1
     fi
     if [[ ! "$subject" =~ $RELEASE_COMMIT_PATTERN ]]; then
@@ -100,6 +103,9 @@ validate_tag_name() {
     local tag="$1"
     if [[ "$tag" =~ $TEMPLATE_RESIDUE_PATTERN ]]; then
         log_error "Template residue in tag name: $tag"
+        log_error "Expected: v1.2.3"
+        log_error "This usually means release.toml uses incorrect placeholder syntax."
+        log_error "For cargo-release 1.1.3+, use {{version}} (double curly braces)."
         return 1
     fi
     if [[ ! "$tag" =~ $VERSION_TAG_PATTERN ]]; then
@@ -148,17 +154,22 @@ run_self_test() {
     expect_pass "commit subject: well-formed" validate_commit_subject "chore: release v1.0.0"
     expect_pass "commit subject: prerelease" validate_commit_subject "chore: release v1.0.0-rc.1"
     expect_fail "commit subject: template residue" validate_commit_subject "chore: release v{{version}}"
+    # NEW: single-brace residue detection
+    expect_fail "commit subject: single-brace residue" validate_commit_subject "chore: release v{version}"
     expect_fail "commit subject: malformed" validate_commit_subject "release 1.0.0"
 
     expect_pass "tag: well-formed" validate_tag_name "v1.0.0"
     expect_pass "tag: prerelease" validate_tag_name "v1.0.0-rc.1"
     expect_fail "tag: template residue" validate_tag_name "v{{version}}"
+    expect_fail "tag: single-brace residue" validate_tag_name "v{version}"
     expect_fail "tag: missing v prefix" validate_tag_name "1.0.0"
 
     local tmp
     tmp=$(mktemp)
     printf '## v{{version}}\n' > "$tmp"
     expect_fail "changelog: template residue" validate_no_template_residue "$tmp"
+    printf '## v{version}\n' > "$tmp"
+    expect_fail "changelog: single-brace residue" validate_no_template_residue "$tmp"
     printf '## 1.0.0 - 2026-07-31\n' > "$tmp"
     expect_pass "changelog: clean" validate_no_template_residue "$tmp"
     rm -f "$tmp"
@@ -455,15 +466,10 @@ dry_run() {
         exit 1
     fi
 
-    # Detect template residue in EITHER direction:
-    #   - {{version}} residue (cargo-release too old to substitute double braces)
-    #   - {version} residue  (cargo-release too new / config mismatch with single braces)
-    # Either token in the dry-run output means templates did NOT get substituted.
+    # Detect template residue (single {var} or double {{var}} braces).
+    # Any unsubstituted token in the dry-run output means templates did NOT get replaced.
     local residue_found=false
     if grep -qE "$TEMPLATE_RESIDUE_PATTERN" "$dry_run_log"; then
-        residue_found=true
-    fi
-    if grep -qF "{version}" "$dry_run_log"; then
         residue_found=true
     fi
     rm -f "$dry_run_log"
