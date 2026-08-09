@@ -1,7 +1,7 @@
 # Code Coverage Improvement Design
 
-**Issue**: #158 - Improve code coverage to 80% threshold  
-**Date**: 2026-08-09  
+**Issue**: #158 - Improve code coverage to 80% threshold
+**Date**: 2026-08-09
 **Status**: Approved
 
 ## Context
@@ -33,13 +33,13 @@ Each module uses inline unit tests with `#[cfg(test)] mod tests`:
 mod tests {
     use super::*;
     use rstest::rstest;
-    
+
     // Happy path
     #[test]
     fn test_should_<expected_behavior>() {
         // Arrange - Act - Assert
     }
-    
+
     // Error path
     #[test]
     fn test_should_return_error_when_<condition>() {
@@ -47,7 +47,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ExpectedError::Variant));
     }
-    
+
     // Parameterized tests
     #[rstest]
     #[case(input1, expected1)]
@@ -58,11 +58,11 @@ mod tests {
     ) {
         // ...
     }
-    
+
     // Boundary conditions
     #[test]
     fn test_should_handle_empty_input() { }
-    
+
     #[test]
     fn test_should_handle_max_values() { }
 }
@@ -75,11 +75,11 @@ For each uncovered function/method:
 1. **RED** - Write failing test
    - Define expected behavior
    - Test must fail (compile error or runtime failure)
-   
+
 2. **GREEN** - Minimal implementation
    - Only make the test pass
    - No extra logic
-   
+
 3. **REFACTOR** - Clean up code
    - Keep tests passing
    - Improve code quality
@@ -163,13 +163,13 @@ After each phase:
 mod tests {
     use super::*;
     use rstest::rstest;
-    
+
     // Happy path
     #[test]
     fn test_should_<expected_behavior>() {
         // Arrange - Act - Assert
     }
-    
+
     // Error path
     #[test]
     fn test_should_return_error_when_<condition>() {
@@ -177,7 +177,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ExpectedError::Variant));
     }
-    
+
     // Parameterized tests
     #[rstest]
     #[case(input1, expected1)]
@@ -188,11 +188,11 @@ mod tests {
     ) {
         // ...
     }
-    
+
     // Boundary conditions
     #[test]
     fn test_should_handle_empty_input() { }
-    
+
     #[test]
     fn test_should_handle_max_values() { }
 }

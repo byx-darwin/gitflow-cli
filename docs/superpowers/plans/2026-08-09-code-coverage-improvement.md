@@ -44,7 +44,7 @@ fn test_should_deserialize_u64_from_number() {
         #[serde(deserialize_with = "deserialize_u64_or_string")]
         value: u64,
     }
-    
+
     let json = r#"{"value": 42}"#;
     let result: TestStruct = serde_json::from_str(json).expect("deserialize number");
     assert_eq!(result.value, 42);
@@ -66,7 +66,7 @@ fn test_should_deserialize_u64_from_string() {
         #[serde(deserialize_with = "deserialize_u64_or_string")]
         value: u64,
     }
-    
+
     let json = r#"{"value": "123"}"#;
     let result: TestStruct = serde_json::from_str(json).expect("deserialize string");
     assert_eq!(result.value, 123);
@@ -88,7 +88,7 @@ fn test_should_return_error_when_u64_deserialize_invalid_string() {
         #[serde(deserialize_with = "deserialize_u64_or_string")]
         value: u64,
     }
-    
+
     let json = r#"{"value": "not_a_number"}"#;
     let result: Result<TestStruct, _> = serde_json::from_str(json);
     assert!(result.is_err());
@@ -110,7 +110,7 @@ fn test_should_deserialize_u64_or_string_to_string_from_number() {
         #[serde(deserialize_with = "deserialize_u64_or_string_to_string")]
         value: String,
     }
-    
+
     let json = r#"{"value": 999}"#;
     let result: TestStruct = serde_json::from_str(json).expect("deserialize number to string");
     assert_eq!(result.value, "999");
@@ -123,7 +123,7 @@ fn test_should_deserialize_u64_or_string_to_string_from_string() {
         #[serde(deserialize_with = "deserialize_u64_or_string_to_string")]
         value: String,
     }
-    
+
     let json = r#"{"value": "abc123"}"#;
     let result: TestStruct = serde_json::from_str(json).expect("deserialize string to string");
     assert_eq!(result.value, "abc123");
@@ -201,7 +201,7 @@ fn test_should_set_optional_fields_via_direct_assignment() {
     err.hint = Some("尝试重新运行".into());
     err.doc_link = Some("https://example.com".into());
     err.code = Some("ERR_001".into());
-    
+
     assert_eq!(err.hint.as_deref(), Some("尝试重新运行"));
     assert_eq!(err.doc_link.as_deref(), Some("https://example.com"));
     assert_eq!(err.code.as_deref(), Some("ERR_001"));
