@@ -478,4 +478,67 @@ mod tests {
 
         assert!(token.is_empty());
     }
+
+    // --- Success-path tests using an injected MockCommandRunner ---
+
+    #[test]
+    fn test_should_create_gitcode_auth_provider() {
+        let provider = GitCodeAuthProvider::new();
+        assert!(format!("{provider:?}").contains("GitCodeAuthProvider"));
+    }
+
+    #[tokio::test]
+    async fn test_should_handle_gitcode_login() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.login(None).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_login_successfully_with_token() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.login(Some("gco_test_token")).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_logout_successfully() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let result = provider.logout().await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_return_status_when_authenticated() {
+        let status_output = r"gitcode.com
+  ✓ Logged in to gitcode.com as octocat (keyring)
+  ✓ Git operations for gitcode.com configured to use ssh protocol.
+";
+        let runner = MockCommandRunner::success(status_output);
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let status = provider.status().await.expect("successful status check");
+
+        assert!(status.logged_in);
+        assert_eq!(status.user, Some("octocat".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_return_token_when_authenticated() {
+        let runner = MockCommandRunner::success("gco_test_token_12345\n");
+        let provider = GitCodeAuthProvider::with_runner(runner);
+
+        let token = provider.token().await.expect("successful token retrieval");
+
+        assert_eq!(token, "gco_test_token_12345");
+    }
 }
