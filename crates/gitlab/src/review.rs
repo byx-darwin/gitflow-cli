@@ -382,4 +382,64 @@ mod tests {
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
     }
+
+    #[test]
+    fn test_should_deserialize_mr_view_response() {
+        let json = br#"{
+            "author": {"username": "maintainer", "id": 99}
+        }"#;
+
+        let mr: MrViewResponse =
+            serde_json::from_slice(json).expect("valid MrViewResponse");
+        assert!(mr.author.is_some());
+        let author = mr.author.as_ref().expect("author present");
+        assert_eq!(author.username, "maintainer");
+        assert_eq!(author.id, 99);
+    }
+
+    #[test]
+    fn test_should_deserialize_mr_view_response_without_author() {
+        let json = br#"{"author": null}"#;
+
+        let mr: MrViewResponse =
+            serde_json::from_slice(json).expect("valid MrViewResponse");
+        assert!(mr.author.is_none());
+    }
+
+    #[test]
+    fn test_should_deserialize_note_without_created_at() {
+        let json = br#"{
+            "id": 3001,
+            "body": "No timestamp",
+            "author": null,
+            "created_at": null
+        }"#;
+
+        let note: NoteApiResponse =
+            serde_json::from_slice(json).expect("valid NoteApiResponse");
+        assert!(note.created_at.is_none());
+        assert!(note.author.is_none());
+    }
+
+    #[test]
+    fn test_should_convert_api_user_to_user_summary() {
+        let user = ApiUser {
+            username: "reviewer".into(),
+            id: 42,
+        };
+        let summary: UserSummary = (&user).into();
+        assert_eq!(summary.login, "reviewer");
+        assert_eq!(summary.id, "42");
+    }
+
+    #[test]
+    fn test_should_convert_api_user_with_zero_id_to_user_summary() {
+        let user = ApiUser {
+            username: "bot".into(),
+            id: 0,
+        };
+        let summary: UserSummary = (&user).into();
+        assert_eq!(summary.login, "bot");
+        assert_eq!(summary.id, "0");
+    }
 }

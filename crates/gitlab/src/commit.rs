@@ -471,6 +471,16 @@ mod tests {
             deleted_file: false,
         };
         assert_eq!(diff_status(&modified), "modified");
+
+        let renamed = DiffResponse {
+            old_path: "old_name.rs".into(),
+            new_path: "new_name.rs".into(),
+            diff: String::new(),
+            new_file: false,
+            renamed_file: true,
+            deleted_file: false,
+        };
+        assert_eq!(diff_status(&renamed), "renamed");
     }
 
     #[test]
