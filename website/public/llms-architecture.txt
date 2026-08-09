@@ -1,0 +1,99 @@
+# gf 架构说明
+
+## 设计原则
+
+- 平台抽象：通过 Platform trait 统一三平台差异
+- 依赖单向：应用 → 库，禁止循环依赖
+- 安全优先：forbid(unsafe_code)，生产代码禁 unwrap/expect
+- 可测试性：每个模块可独立测试，契约测试覆盖适配器
+
+## Crate 结构
+
+### gf-core（核心库）
+
+核心库，定义 Platform trait 与跨平台适配器契约。
+
+**关键类型**：
+- `Platform` trait — 抽象 Issue/PR/Release/Review 等操作
+- `ToonFormatter` — token 优化的输出格式（面向 Agent 消费）
+- `SafePath` — 安全路径验证（防止路径遍历攻击）
+- `CliError` — 统一错误类型（基于 miette）
+
+**公开 API**：约 68 项（保持克制）
+
+### gf-github / gf-gitlab / gf-gitcode（平台适配器）
+
+三平台适配器，分别基于 gh / glab / gitcode CLI。
+
+**实现方式**：
+- 通过子进程调用底层 CLI（继承其功能与限制）
+- 解析 CLI 输出（JSON 优先，回退到文本解析）
+- 映射到统一的 Platform trait 接口
+
+**兼容性要求**：
+- GitHub：gh >= 2.0.0
+- GitLab：glab >= 1.30.0
+- GitCode：gitcode >= 0.6.0
+
+### gf（CLI 应用）
+
+命令路由、输出格式化、Skills 安装。
+
+**职责**：
+- 解析命令行参数
+- 检测当前平台（基于 git remote）
+- 路由到对应适配器
+- 格式化输出（JSON / toon / text）
+- 管理 Skills 安装与更新
+
+## 依赖关系
+
+```
+gf (app)
+├── gf-core
+├── gf-github
+├── gf-gitlab
+└── gf-gitcode
+```
+
+所有适配器依赖 gf-core，应用依赖所有适配器。依赖单向流动，禁止循环。
+
+## 扩展点
+
+- **Platform trait** — 新增平台只需实现此 trait
+- **Skills 系统** — 可安装到多个 Agent 平台的技能文件（Claude Code / Codex / Gemini 等）
+- **输出格式** — toon/json/text 三模式，可扩展新格式
+- **命令模块** — 新增命令只需在 `apps/cli/src/commands/` 添加模块
+
+## 测试策略
+
+- **单元测试**：每个 crate 内 `#[cfg(test)] mod tests`
+- **集成测试**：`apps/cli/tests/` 跨 crate 测试
+- **契约测试**：验证适配器行为一致性
+- **兼容性矩阵**：`crates/core/resources/compatibility-matrix.json`
+- **e2e 测试**：`crates/e2e-core/` 和 `crates/e2e-github/`
+
+## 工程纪律
+
+- `forbid(unsafe_code)`：全工作区禁止 unsafe
+- `cargo clippy -- -D warnings -W clippy::pedantic`：严格 lint
+- `missing_docs`：所有公开 API 必须有文档
+- 零 TODO/FIXME：不允许未完成代码
+- 测试命名：`test_should_<expected_behavior>`
+
+## 分发渠道
+
+- **crates.io**：5 个 crate（gitflow-cli / -core / -github / -gitlab / -gitcode）
+- **Homebrew**：`brew tap byx-darwin/gitflow-cli && brew install gf`
+- **源码编译**：`cargo install --path apps/cli`
+
+## Agent 生态集成
+
+支持 5 个 Agent 平台：
+- Claude Code（主要）
+- Codex
+- OpenCode
+- Gemini CLI
+- Copilot CLI
+
+Skills 是 Markdown 文件，安装到 `.claude/skills/` 目录，提供工作流编排能力。

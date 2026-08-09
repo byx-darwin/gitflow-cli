@@ -1,0 +1,476 @@
+---
+import Base from "../layouts/Base.astro";
+import Terminal from "../components/Terminal.astro";
+import type { TermLine } from "../components/Terminal.astro";
+import FileTree from "../components/FileTree.astro";
+import type { TreeRow } from "../components/FileTree.astro";
+import CopyCommand from "../components/CopyCommand.astro";
+
+const base = import.meta.env.BASE_URL;
+
+const contractTerminal: TermLine[] = [
+  { type: "cmd", text: 'gf workflow create --title "feat: 双技能来源" --mode full' },
+  { type: "success", text: "✔ Workflow 已创建: wf-2026-08-09-001" },
+  { type: "out", text: "  合同: .cache/workflows/active/wf-2026-08-09-001.json" },
+  { type: "cmd", text: "gf workflow status wf-2026-08-09-001" },
+  { type: "out", text: "current_phase: 1 · mode: full · skill_source: superpowers" },
+  { type: "hl", text: "需求澄清 → 计划制定 → 执行 → 交付检查" },
+];
+
+const contractTree: TreeRow[] = [
+  { text: ".cache/workflows/" },
+  { text: "├── active/", ai: true },
+  { text: "│   ├── wf-2026-08-09-001.json" },
+  { text: "│   └── wf-2026-08-08-002.json" },
+  { text: "└── archive/" },
+  { text: "    └── 2026-08/" },
+  { text: "        └── wf-2026-08-07-001.json" },
+];
+
+const modeRows = [
+  { dim: "适用场景", full: "feat / 大型重构 / 破坏性变更", standard: "fix / 小型重构 / 单文件模块", fast: "typo / docs / hotfix / chore" },
+  { dim: "阶段 1 需求澄清", full: "brainstorming + issue-create + issue-review", standard: "brainstorming + issue-create + issue-review", fast: "issue-create 必做，brainstorming 可选" },
+  { dim: "阶段 2 计划制定", full: "writing-plans + quality 门禁", standard: "writing-plans + quality 门禁", fast: "可跳过" },
+  { dim: "阶段 3 执行", full: "subagent-driven-development（TDD + 代码审查）", standard: "subagent-driven-development（TDD + 代码审查）", fast: "必做（TDD + 审查不可跳过）" },
+  { dim: "阶段 4 交付检查", full: "pipeline + triage + review + dogfooding", standard: "pipeline + review", fast: "pipeline + branch-finish" },
+];
+
+const skillSourceRows = [
+  { capability: "澄清 Clarification", sp: "brainstorming（模型调用）", mp: "grilling（模型调用）" },
+  { capability: "规格 Spec", sp: "合并进设计文档", mp: "/to-spec（本地文件，用户触发）" },
+  { capability: "计划 Planning", sp: "writing-plans（模型调用）", mp: "/to-tickets（用户触发）" },
+  { capability: "执行引擎 Execution", sp: "subagent-driven-development / executing-plans", mp: "/implement（按 ticket，内部 /tdd 强制）" },
+  { capability: "Issue 创建", sp: "gf-issue-create", mp: "gf-issue-create（权威统一）" },
+  { capability: "Issue 审查", sp: "gf-issue-review", mp: "gf-issue-review" },
+  { capability: "质量门禁", sp: "gf-quality", mp: "gf-quality" },
+  { capability: "交付审查", sp: "gf-review", mp: "gf-review" },
+  { capability: "后台代理执行", sp: "✅ 可用", mp: "❌（/implement 为 user-invoked）" },
+];
+
+const execModes = [
+  {
+    num: "①",
+    name: "后台代理",
+    tag: "默认 · superpowers only",
+    body: "以 isolation: worktree + run_in_background 派发独立子代理。交接物 = 契约路径 + 计划文档 + 引擎指令；执行者把证据写回契约，完成时任务通知回到原窗口。",
+    avail: "仅 superpowers 来源可用（/implement 是用户触发，后台无法调用）",
+  },
+  {
+    num: "②",
+    name: "手动新窗口",
+    tag: "两种来源均可用",
+    body: "打印开启指引：worktree 路径（或创建命令）+ 契约恢复命令（gf workflow status &lt;id&gt; 与计划文档路径）。新窗口自行创建分支/worktree 并运行执行引擎；用户回报后编排器校验证据。",
+    avail: "superpowers 与 mattpocock 均可用",
+  },
+  {
+    num: "③",
+    name: "同会话执行",
+    tag: "仅显式要求",
+    body: "编排器在当前会话创建 worktree 并内联驱动执行引擎。SDD 一旦启动会接管对话，因此同会话执行只在用户明确要求时启用。",
+    avail: "仅在用户显式请求时启用",
+  },
+];
+
+const gateRows = [
+  { phase: "2 · 计划制定", evidence: "issue_url + comment_id + design_doc_path", fast: "comment_id 可选" },
+  { phase: "3 · 执行", evidence: "spec_path + user_approved", fast: "可跳过（计划可跳过）" },
+  { phase: "4 · 交付检查", evidence: "pr_url + tests_passed", fast: "无豁免" },
+];
+---
+
+<Base title="gf-workflow — 四阶段 AI 编程工程工作流编排">
+  <main class="narrow page">
+    <!-- Hero -->
+    <section class="wf-hero">
+      <span class="hero-kicker">工作流编排 · Contract-Driven Orchestrator</span>
+      <h1 class="page-title">gf-workflow — 四阶段 AI 编程工程工作流编排</h1>
+      <p class="page-lede">
+        gf-workflow 是一个契约驱动的四阶段闸门编排器：
+        <strong style="color:var(--gf-text)">需求澄清 → 计划制定 → 执行 → 交付检查</strong>。
+        每个阶段之间由 JSON 契约与质量门禁把关；状态可跨会话、跨代理恢复，闸门从不被跳过。
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手</a>
+        <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli">GitHub →</a>
+      </div>
+    </section>
+
+    <!-- 四阶段模型 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">四阶段模型</h2></div>
+      <p class="section-lede">
+        编排器在任何子 skill 之前先建立契约，然后驱动四个阶段依次执行。每个阶段完成即更新契约，
+        再校验门禁条件后进入下一阶段。
+      </p>
+      <div class="wf-phases">
+        <!-- Phase 1 -->
+        <article class="wf-phase">
+          <div class="wf-phase-head">
+            <span class="workflow-num">01</span>
+            <h3 class="wf-phase-title">需求澄清 <span class="wf-phase-en">Clarification</span></h3>
+            <p class="wf-phase-tagline">契约先行，先搞清楚要做什么。</p>
+          </div>
+          <div class="wf-phase-meta">
+            <span><strong>入口：</strong>契约必须已存在</span>
+            <span><strong>退出：</strong>phase 1 状态置为 complete</span>
+            <span><strong>流转：</strong>Gate 1→2 通过后自动进入阶段 2</span>
+          </div>
+          <ol class="wf-phase-steps">
+            <li><strong>Bootstrap：</strong>创建契约 <code>.cache/workflows/active/&lt;workflow_id&gt;.json</code>，写入 mode / title / current_phase</li>
+            <li><strong>读取 open issues：</strong><code>gf issue list --state open</code>，并读取评论 <code>gf issue comments &lt;number&gt;</code> 补充上下文</li>
+            <li><strong>澄清 skill：</strong>按技能来源调用 brainstorming / grilling / inline 自访谈，产出设计文档 → <code>design_doc_path</code></li>
+            <li><strong>issue-create（必做）：</strong><code>gf-issue-create</code> 创建或复用 Issue，正文引用设计文档 → <code>issue_url</code></li>
+            <li><strong>issue-review（必做）：</strong><code>gf-issue-review</code> 审查 Issue 质量并添加审查评论 → <code>comment_id</code></li>
+            <li><strong>更新契约：</strong>写入证据字段，标记 Phase 1 complete</li>
+          </ol>
+          <div class="wf-phase-evidence">
+            <span class="wf-evidence-label">证据字段</span>
+            <code>issue_url</code><code>comment_id</code><code>design_doc_path</code>
+          </div>
+          <p class="wf-phase-note">fast 模式豁免 comment_id 与 design_doc_path；issue-create 在两种技能来源下均为必做。</p>
+        </article>
+
+        <!-- Phase 2 -->
+        <article class="wf-phase">
+          <div class="wf-phase-head">
+            <span class="workflow-num">02</span>
+            <h3 class="wf-phase-title">计划制定 <span class="wf-phase-en">Planning</span></h3>
+            <p class="wf-phase-tagline">产出完整实施计划，质量门禁层层把关。</p>
+          </div>
+          <div class="wf-phase-meta">
+            <span><strong>入口：</strong>Gate 1→2 通过</span>
+            <span><strong>退出：</strong>phase 2 状态置为 complete</span>
+            <span><strong>暂停：</strong>Gate 2→3（唯一人工审批闸门）</span>
+          </div>
+          <ol class="wf-phase-steps">
+            <li><strong>计划 skill：</strong>按技能来源调用 writing-plans / /to-tickets，产出计划文档 → <code>spec_path</code></li>
+            <li><strong>quality 门禁：</strong><code>gf-quality</code> 运行 build / test / coverage / fmt / static / pre-commit 全部检查</li>
+            <li><strong>更新契约：</strong>写入 <code>spec_path</code>，<code>user_approved: false</code></li>
+            <li><strong>人工审批（暂停）：</strong>approved → 进入执行模式选择；changes → 修改计划；rejected → 终止</li>
+          </ol>
+          <div class="wf-phase-evidence">
+            <span class="wf-evidence-label">证据字段</span>
+            <code>spec_path</code><code>user_approved</code><code>ticket_refs（mattpocock）</code>
+          </div>
+          <p class="wf-phase-note">任一质量检查失败都会阻塞闸门，全部通过才允许继续。</p>
+        </article>
+
+        <!-- Phase 3 -->
+        <article class="wf-phase">
+          <div class="wf-phase-head">
+            <span class="workflow-num">03</span>
+            <h3 class="wf-phase-title">执行 <span class="wf-phase-en">Execution</span></h3>
+            <p class="wf-phase-tagline">TDD 红绿循环 + 子代理隔离开发，自动创建 PR。</p>
+          </div>
+          <div class="wf-phase-meta">
+            <span><strong>入口：</strong>Gate 2→3 通过（user_approved = true）</span>
+            <span><strong>退出：</strong>phase 3 状态置为 complete</span>
+            <span><strong>流转：</strong>Gate 3→4 通过后自动进入阶段 4</span>
+          </div>
+          <ol class="wf-phase-steps">
+            <li><strong>工作区：</strong>记录 <code>base_branch</code>，worktree 固定在 <code>.claude/worktree/&lt;branch-name&gt;</code>，分支名 <code>feat/&lt;issue-number&gt;-&lt;short-description&gt;</code></li>
+            <li><strong>执行引擎：</strong>按技能来源 + 执行模式运行 SDD / executing-plans / /implement，全程 TDD RED → GREEN → REFACTOR</li>
+            <li><strong>创建 PR：</strong><code>gf-pr-create</code>，PR 正文必须包含 <code>Closes #&lt;issue-number&gt;</code> → <code>pr_url</code></li>
+            <li><strong>测试：</strong><code>make test</code> / <code>cargo test</code> → <code>tests_passed</code></li>
+            <li><strong>更新契约：</strong>写入 branch / base_branch / worktree_path / pr_url / tests_passed</li>
+          </ol>
+          <div class="wf-phase-evidence">
+            <span class="wf-evidence-label">证据字段</span>
+            <code>branch</code><code>base_branch</code><code>worktree_path</code><code>pr_url</code><code>tests_passed</code>
+          </div>
+          <p class="wf-phase-note">Gate 3→4 无任何模式豁免：pr_url 非空且 tests_passed 为 true 才能进入交付检查。</p>
+        </article>
+
+        <!-- Phase 4 -->
+        <article class="wf-phase">
+          <div class="wf-phase-head">
+            <span class="workflow-num">04</span>
+            <h3 class="wf-phase-title">交付检查 <span class="wf-phase-en">Delivery</span></h3>
+            <p class="wf-phase-tagline">流水线分析、Issue 分流、代码审查与 dogfooding。</p>
+          </div>
+          <div class="wf-phase-meta">
+            <span><strong>入口：</strong>Gate 3→4 通过</span>
+            <span><strong>退出：</strong>phase 4 状态置为 complete</span>
+            <span><strong>终态：</strong>归档契约，工作流结束</span>
+          </div>
+          <ol class="wf-phase-steps">
+            <li><strong>流水线分析：</strong><code>gf-pipeline-analyzer</code> 生成分析报告（所有模式）→ <code>pipeline_ok</code></li>
+            <li><strong>Issue 分流：</strong><code>gf-issue-triage</code> 产出分流报告（full 模式）</li>
+            <li><strong>代码审查：</strong><code>gf-review</code> 生成审查报告（full + standard）→ <code>review_report_path</code></li>
+            <li><strong>Dogfooding：</strong>dogfooding 清单检查（full 模式）→ <code>dogfooding_passed</code></li>
+            <li><strong>Branch Finish：</strong>检测 PR 合并状态，用户确认后清理分支与 worktree</li>
+            <li><strong>归档契约：</strong>移动到 <code>.cache/workflows/archive/YYYY-MM/</code></li>
+          </ol>
+          <div class="wf-phase-evidence">
+            <span class="wf-evidence-label">证据字段</span>
+            <code>pipeline_ok</code><code>review_report_path</code><code>dogfooding_passed</code><code>branch_cleaned</code>
+          </div>
+          <p class="wf-phase-note">阶段 4 在所有模式下均为必做；按模式裁剪其中的检查步骤。</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 三种工作流模式 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">三种工作流模式</h2></div>
+      <p class="section-lede">
+        启动时自动检测模式，也可用 <code style="font-family:var(--font-mono);color:var(--gf-teal)">--mode &lt;mode&gt;</code>
+        手动覆盖。优先级：显式覆盖 &gt; Issue 标签 &gt; Issue 标题前缀（conventional commits）&gt; 默认 standard。
+      </p>
+      <div class="wf-scroll">
+        <table class="matrix-table">
+          <thead>
+            <tr><th>维度</th><th>full（完整）</th><th>standard（标准）</th><th>fast（快速）</th></tr>
+          </thead>
+          <tbody>
+            {
+              modeRows.map((row) => (
+                <tr>
+                  <td class="matrix-platform">{row.dim}</td>
+                  <td>{row.full}</td>
+                  <td>{row.standard}</td>
+                  <td>{row.fast}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <pre class="wf-state-flow"><span class="wf-phase-flow">自动检测流程：</span>
+<span class="wf-gate">检测到 `feat:` 前缀</span> → 建议 full 模式
+自动检测结果：full
+是否确认？[Y/n/override]</pre>
+    </section>
+
+    <!-- 技能来源 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">技能来源：superpowers / mattpocock</h2></div>
+      <p class="section-lede">
+        gf-workflow 运行在<b>一个</b>外部技能来源之上：superpowers 或 mattpocock/skills。启动时检测
+        会话内可用 skills；两源同时在时询问用户，两源皆无时询问继续 inline 或中止。
+        Skill 名称通过 references.md 中的映射表解析（单一维护点）。
+      </p>
+      <div class="wf-scroll">
+        <table class="matrix-table">
+          <thead>
+            <tr><th>能力</th><th>superpowers</th><th>mattpocock/skills</th></tr>
+          </thead>
+          <tbody>
+            {
+              skillSourceRows.map((row) => (
+                <tr>
+                  <td class="matrix-platform">{row.capability}</td>
+                  <td><code>{row.sp}</code></td>
+                  <td><code>{row.mp}</code></td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--gf-text-dim);font-size:14px;margin-top:16px">
+        mattpocock 路径中 <code style="font-family:var(--font-mono);color:var(--gf-amber)">/to-spec</code>、<code style="font-family:var(--font-mono);color:var(--gf-amber)">/to-tickets</code>、<code style="font-family:var(--font-mono);color:var(--gf-amber)">/implement</code>
+        均为 <code style="font-family:var(--font-mono);color:var(--gf-teal)">disable-model-invocation</code>——编排器必须暂停并等待用户手动执行。
+      </p>
+    </section>
+
+    <!-- 执行模式 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">三种执行模式</h2></div>
+      <p class="section-lede">
+        Gate 2→3 审批通过后进入 GO 闸门，编排器要求选择执行模式。同会话执行已移出默认菜单：
+        批准计划 ≠ 授权数小时无人值守的子代理扇出。
+      </p>
+      <div class="bento">
+        {
+          execModes.map((m) => (
+            <div class="reveal">
+              <div class="bento-card">
+                <h3>
+                  {m.num} {m.name} <span class="bento-badge" style="margin-left:8px">{m.tag}</span>
+                </h3>
+                <p>{m.body}</p>
+                <div class="badge-row">
+                  <span class="bento-badge" style="color:var(--gf-teal)">{m.avail}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+      <p style="color:var(--gf-text-dim);font-size:14px;margin-top:16px">
+        质量补偿：executing-plans（轻量路径）缺少逐任务审查，由门禁补偿——PR 前 <code style="font-family:var(--font-mono);color:var(--gf-teal)">make test</code>
+        + 阶段 4 的 <code style="font-family:var(--font-mono);color:var(--gf-teal)">gf-review</code>；SDD 自带内置逐任务审查。
+      </p>
+    </section>
+
+    <!-- 契约机制 -->
+    <section class="section">
+      <div class="reveal"><h2 class="section-heading">契约机制</h2></div>
+      <p class="section-lede">
+        契约是工作流的<b>单一事实来源</b>。核心规则：任何子 skill 执行之前，契约必须已存在；
+        没有契约就没有子 skill。状态保存在 JSON 中，闸门从不跳过。
+      </p>
+
+      <div class="wf-visual-grid">
+        <Terminal lines={contractTerminal} title="gf workflow — contract" />
+        <FileTree rows={contractTree} />
+      </div>
+
+      <h3 class="wf-subhead">状态机</h3>
+      <pre class="wf-state-flow">[Start] → Bootstrap → <span class="wf-phase-flow">Phase 1</span> → [<span class="wf-gate">Gate 1→2</span>] AUTO → <span class="wf-phase-flow">Phase 2</span>
+         → [<span class="wf-gate">Gate 2→3</span>] PAUSE → <span class="wf-phase-flow">Phase 3</span> → [<span class="wf-gate">Gate 3→4</span>] AUTO → <span class="wf-phase-flow">Phase 4</span> → [Archive] → [Complete]</pre>
+      <p style="color:var(--gf-text-dim);font-size:14px;margin-top:12px">
+        唯一暂停点是 Gate 2→3（计划审批 + 执行模式选择），其余转换全部自动推进。
+      </p>
+
+      <h3 class="wf-subhead">契约结构</h3>
+      <p>
+        契约文件遵循 <code style="font-family:var(--font-mono);color:var(--gf-teal)">contract.schema.json</code>（v1.1），
+        顶层字段：<code style="font-family:var(--font-mono);color:var(--gf-amber)">version</code>、
+        <code style="font-family:var(--font-mono);color:var(--gf-amber)">workflow_id</code>（wf-YYYY-MM-DD-NNN，由 CLI 原子分配）、
+        <code style="font-family:var(--font-mono);color:var(--gf-amber)">title</code>、
+        <code style="font-family:var(--font-mono);color:var(--gf-amber)">mode</code>、
+        <code style="font-family:var(--font-mono);color:var(--gf-amber)">skill_source</code>、
+        <code style="font-family:var(--font-mono);color:var(--gf-amber)">current_phase</code> 与四个
+        <code style="font-family:var(--font-mono);color:var(--gf-amber)">phases</code>。每个阶段记录
+        name / status / started_at / completed_at / executor / evidence。
+      </p>
+
+      <h3 class="wf-subhead">闸门证据</h3>
+      <div class="wf-scroll">
+        <table class="matrix-table">
+          <thead>
+            <tr><th>进入阶段</th><th>必填证据</th><th>fast 模式豁免</th></tr>
+          </thead>
+          <tbody>
+            {
+              gateRows.map((row) => (
+                <tr>
+                  <td class="matrix-platform">{row.phase}</td>
+                  <td><code>{row.evidence}</code></td>
+                  <td>{row.fast}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="wf-subhead">跨会话恢复</h3>
+      <p>
+        工作流可随时被打断。新会话读取 <code style="font-family:var(--font-mono);color:var(--gf-teal)">.cache/workflows/active/</code>
+        下状态不为 complete 的契约，按 current_phase 加载上下文并继续，无需从头开始。契约是代理无关的——
+        任何 Agent 都能从 current_phase + evidence 恢复。
+      </p>
+    </section>
+
+    <!-- 快速开始 -->
+    <section class="section cta-band">
+      <div class="reveal">
+        <h2 class="wf-subhead" style="font-size:28px">快速开始</h2>
+        <ol class="wf-quickstart">
+          <li><strong>安装 gf：</strong><CopyCommand command="cargo install gf" /></li>
+          <li><strong>安装 skills：</strong><CopyCommand command="gf skills install" /></li>
+          <li><strong>触发工作流：</strong>在项目根目录对 Claude Code 输入 <code style="font-family:var(--font-mono);color:var(--gf-amber)">/gf-workflow</code></li>
+          <li><strong>确认模式与来源：</strong>确认自动检测出的 full / standard / fast 模式与技能来源</li>
+          <li><strong>跟随编排器：</strong>走完需求澄清 → 计划制定 → 执行 → 交付检查，Gate 2→3 等待人工审批</li>
+        </ol>
+        <p class="cta-note">所有状态自动写入契约，可随时中断、跨会话恢复。</p>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  .wf-hero { padding: 40px 0 8px; }
+  .wf-hero .page-title { margin-bottom: 18px; }
+  .wf-hero .page-lede { margin-bottom: 8px; }
+
+  .wf-phases { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 8px; }
+  .wf-phase {
+    border: 1px solid var(--gf-line);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--gf-ink-2) 90%, transparent);
+    padding: 22px 24px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .wf-phase:hover { border-color: var(--gf-orange); transform: translateY(-3px); }
+  .wf-phase-head { margin-bottom: 12px; }
+  .wf-phase-title { font-size: 19px; color: var(--gf-text); margin: 0 0 6px; }
+  .wf-phase-en { color: var(--gf-text-dim); font-family: var(--font-mono); font-size: 13px; margin-left: 6px; font-weight: 400; }
+  .wf-phase-tagline { color: var(--gf-text-dim); margin: 0; font-size: 14px; }
+  .wf-phase-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 13.5px;
+    color: var(--gf-text-dim);
+    border-top: 1px solid var(--gf-line);
+    border-bottom: 1px solid var(--gf-line);
+    padding: 10px 0;
+    margin: 0 0 12px;
+  }
+  .wf-phase-meta strong { color: var(--gf-teal); font-weight: 600; }
+  .wf-phase-steps { margin: 0 0 14px; padding-left: 1.25em; color: var(--gf-text-dim); font-size: 13.5px; line-height: 1.7; }
+  .wf-phase-steps li { margin: 0.45em 0; }
+  .wf-phase-steps li strong { color: var(--gf-text); }
+  .wf-phase-steps code {
+    font-family: var(--font-mono);
+    color: var(--gf-amber);
+    background: var(--gf-ink-3);
+    border: 1px solid var(--gf-line);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-size: 0.9em;
+  }
+  .wf-phase-evidence { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .wf-evidence-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gf-text-dim);
+  }
+  .wf-phase-evidence code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--gf-teal);
+    background: var(--gf-ink-3);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .wf-phase-note { font-size: 13px; color: var(--gf-text-dim); margin: 0; border-left: 2px solid var(--gf-orange); padding-left: 10px; }
+
+  .wf-scroll { overflow-x: auto; }
+  .wf-scroll .matrix-table { min-width: 640px; }
+
+  .wf-visual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+
+  .wf-state-flow {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 2;
+    background: var(--gf-ink-2);
+    border: 1px solid var(--gf-line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    color: var(--gf-text-dim);
+    margin: 12px 0 0;
+  }
+  .wf-state-flow .wf-gate { color: var(--gf-amber); }
+  .wf-state-flow .wf-phase-flow { color: var(--gf-text); font-weight: 600; }
+
+  .wf-subhead { font-size: 20px; color: var(--gf-text); margin: 34px 0 10px; }
+
+  .wf-quickstart { margin: 16px 0 0; padding-left: 1.35em; color: var(--gf-text-dim); font-size: 15px; line-height: 1.8; }
+  .wf-quickstart li { margin: 0.6em 0; }
+  .wf-quickstart li strong { color: var(--gf-text); }
+  .wf-quickstart .copy-command { margin-top: 6px; }
+
+  @media (max-width: 900px) {
+    .wf-phases { grid-template-columns: 1fr; }
+    .wf-visual-grid { grid-template-columns: 1fr; }
+  }
+</style>

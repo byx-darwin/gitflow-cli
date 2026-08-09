@@ -204,7 +204,7 @@ git commit -m "fix(release): expand template residue detection to catch single-b
 - [ ] **Step 1: Run release rehearsal**
 
 Run: `make release-rehearse`
-Expected: 
+Expected:
 - Prerequisites check passes
 - Preflight checks pass (on main, clean working dir, tests pass, clippy passes)
 - Version preview shows correct next version

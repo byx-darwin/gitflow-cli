@@ -1,6 +1,6 @@
 [package]
 name = "gitflow-cli"
-description = "跨平台 Git 工程化工作流编排框架 CLI：统一封装 GitHub / GitLab / GitCode，配合 AI Agent Skills 覆盖需求到发布的完整工程循环。Cross-platform Git engineering workflow CLI."
+description = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

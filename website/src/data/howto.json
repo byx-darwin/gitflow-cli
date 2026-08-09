@@ -1,0 +1,46 @@
+{
+  "guides": [
+    {
+      "name": "5 分钟快速上手",
+      "description": "安装 gf，安装 Skills，验证环境，完成首次工作流。",
+      "url": "https://byx-darwin.github.io/gitflow-cli/quickstart/",
+      "steps": [
+        {
+          "name": "安装 gf",
+          "text": "运行 brew tap byx-darwin/gitflow-cli && brew install gf 或 cargo install gf。"
+        },
+        {
+          "name": "安装 Skills",
+          "text": "运行 gf skills install，将 26 个 skills 安装到 .claude/skills/。"
+        },
+        {
+          "name": "验证环境",
+          "text": "运行 gf --version 确认安装成功，运行 gf auth status 检查认证状态。"
+        },
+        {
+          "name": "首次工作流",
+          "text": "在项目中输入 /gf-workflow 启动四阶段工作流编排。"
+        }
+      ]
+    },
+    {
+      "name": "gf-workflow 使用指南",
+      "description": "使用 gf-workflow 进行四阶段工作流编排。",
+      "url": "https://byx-darwin.github.io/gitflow-cli/workflow/",
+      "steps": [
+        {
+          "name": "启动工作流",
+          "text": "在项目中输入 /gf-workflow。"
+        },
+        {
+          "name": "选择模式",
+          "text": "系统自动检测模式（full / standard / fast），或手动指定 --mode。"
+        },
+        {
+          "name": "完成四阶段",
+          "text": "按引导完成需求澄清、计划制定、执行、交付检查。"
+        }
+      ]
+    }
+  ]
+}

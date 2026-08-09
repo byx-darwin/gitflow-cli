@@ -93,7 +93,7 @@ pub(crate) fn write_to_disk(&self, repo_root: &Path) -> std::io::Result<()> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     let mut file = std::fs::File::create(&path)?;
     file.write_all(json.as_bytes())?;
-    
+
     // Set file permissions to 0o600 (owner read/write only) for security
     #[cfg(unix)]
     {
@@ -101,7 +101,7 @@ pub(crate) fn write_to_disk(&self, repo_root: &Path) -> std::io::Result<()> {
         let permissions = std::fs::Permissions::from_mode(0o600);
         file.set_permissions(permissions)?;
     }
-    
+
     Ok(())
 }
 ```
@@ -347,11 +347,11 @@ setup() {
     export REPO_ROOT="$TEST_DIR/repo"
     mkdir -p "$REPO_ROOT/.cache/bug-reports"
     mkdir -p "$REPO_ROOT/.cache/auth-cache"
-    
+
     # Copy hook script to test directory
     cp "$(git rev-parse --show-toplevel)/.claude/hooks/auto-report-bug.sh" "$TEST_DIR/hook.sh"
     chmod +x "$TEST_DIR/hook.sh"
-    
+
     # Override git rev-parse to use test directory
     export PATH="$TEST_DIR/bin:$PATH"
     mkdir -p "$TEST_DIR/bin"
@@ -389,7 +389,7 @@ teardown() {
   "timestamp": "2026-08-06T10:00:00Z"
 }
 EOF
-    
+
     # Simulate interactive terminal (TTY)
     # Note: This test may not work in all CI environments
     # We're testing the logic, not the actual TTY detection
@@ -406,7 +406,7 @@ EOF
   "command": "issue create"
 }
 EOF
-    
+
     run "$TEST_DIR/hook.sh"
     [ "$status" -eq 0 ]
     [ -f "$REPO_ROOT/.cache/bug-reports/pending.json.invalid" ]
@@ -426,7 +426,7 @@ EOF
   "timestamp": "2026-08-06T10:00:00Z"
 }
 EOF
-    
+
     # Mock gh CLI to simulate auth failure
     mkdir -p "$TEST_DIR/bin"
     cat > "$TEST_DIR/bin/gh" << 'GHSCRIPT'
@@ -436,7 +436,7 @@ if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
 fi
 GHSCRIPT
     chmod +x "$TEST_DIR/bin/gh"
-    
+
     run "$TEST_DIR/hook.sh"
     [ "$status" -eq 0 ]
     [[ "$output" == *"GitHub 未登录"* ]]
@@ -457,7 +457,7 @@ GHSCRIPT
   "timestamp": "2026-08-06T10:00:00Z"
 }
 EOF
-    
+
     # Mock gh CLI to simulate auth success
     mkdir -p "$TEST_DIR/bin"
     cat > "$TEST_DIR/bin/gh" << 'GHSCRIPT'
@@ -467,7 +467,7 @@ if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
 fi
 GHSCRIPT
     chmod +x "$TEST_DIR/bin/gh"
-    
+
     run "$TEST_DIR/hook.sh"
     [ "$status" -eq 0 ]
     [[ "$output" == *"检测到 gitflow CLI 错误报告"* ]]
@@ -489,10 +489,10 @@ GHSCRIPT
   "timestamp": "2026-08-06T10:00:00Z"
 }
 EOF
-    
+
     # Create auth cache (timestamp: now)
     echo "$(date +%s)" > "$REPO_ROOT/.cache/auth-cache/github.ttl"
-    
+
     # Mock gh CLI (should not be called due to cache)
     mkdir -p "$TEST_DIR/bin"
     cat > "$TEST_DIR/bin/gh" << 'GHSCRIPT'
@@ -501,7 +501,7 @@ echo "gh CLI should not be called when cache is valid" >&2
 exit 1
 GHSCRIPT
     chmod +x "$TEST_DIR/bin/gh"
-    
+
     run "$TEST_DIR/hook.sh"
     [ "$status" -eq 0 ]
     [[ "$output" == *"cache 命中"* ]]
@@ -635,23 +635,23 @@ Add this function to `apps/cli/src/error_reporter.rs` (before the `mod tests` se
 /// ```
 fn sanitize_error_message(msg: &str) -> String {
     let mut sanitized = msg.to_string();
-    
+
     // Replace home directory paths with ~
     if let Some(home) = dirs::home_dir() {
         let home_str = home.to_string_lossy();
         sanitized = sanitized.replace(&*home_str, "~");
     }
-    
+
     // Redact GitHub tokens (ghp_* and github_pat_*)
     let token_patterns = [
         regex::Regex::new(r"ghp_[a-zA-Z0-9]{36,}").expect("valid regex"),
         regex::Regex::new(r"github_pat_[a-zA-Z0-9_]{22,}").expect("valid regex"),
     ];
-    
+
     for pattern in &token_patterns {
         sanitized = pattern.replace_all(&sanitized, "[REDACTED]").to_string();
     }
-    
+
     sanitized
 }
 ```
@@ -756,6 +756,6 @@ After completing all tasks, verify:
 
 ---
 
-**Plan created**: 2026-08-06  
-**Based on**: `docs/superpowers/specs/2026-08-06-autoreport-bug-analysis.md`  
+**Plan created**: 2026-08-06
+**Based on**: `docs/superpowers/specs/2026-08-06-autoreport-bug-analysis.md`
 **Scope**: P0 + P1 improvements only (P2/P3 deferred to future plans)
