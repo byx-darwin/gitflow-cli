@@ -35,27 +35,30 @@ Language Detection → Gate 1 (build) → Gate 2 (test) → Gate 3 (coverage) �
 
 Run detection BEFORE any gate. See `references/detector.md` for full rules.
 
-Scan root **and 2 levels deep** for marker files (skip `node_modules/`, `target/`, `vendor/`, etc.):
+Scan root **and 3 levels deep** for marker files (skip `node_modules/`, `target/`, `vendor/`, etc.):
 
 ```bash
-find . -maxdepth 3 \( -name "Cargo.toml" -o -name "go.mod" -o -name "pom.xml" \
-  -o -name "build.gradle" -o -name "pyproject.toml" -o -name "package.json" \) \
+find . -maxdepth 3 \( -name "Cargo.toml" -o -name "go.mod" -o -name "go.work" \
+  -o -name "pom.xml" -o -name "build.gradle" -o -name "settings.gradle" \
+  -o -name "pyproject.toml" -o -name "package.json" \) \
   -not -path "*/node_modules/*" -not -path "*/target/*" -not -path "*/vendor/*"
 ```
 
 | Detected | Load Reference |
 |----------|---------------|
 | `Cargo.toml` | `references/rust.md` |
-| `go.mod` | `references/go.md` |
+| `go.mod` / `go.work` | `references/go.md` |
 | `pom.xml` / `build.gradle` | `references/java.md` |
 | `pyproject.toml` / `setup.py` | `references/python.md` |
 | `package.json` | `references/node.md` |
 | None | Run Gate 6 only (pre-commit or N/A) |
 
+After detection, check for workspace configurations (see `references/detector.md` → Workspace Detection).
+
 ### Single-Language Project
 
 One language detected (possibly in multiple directories) → load that reference, run gates.
-For Rust workspaces: a single `cargo build/test/...` at root covers all members.
+For Rust/Go workspaces: a single command at root covers all members.
 
 ### Multi-Language Project
 
@@ -122,18 +125,55 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 ```markdown
 ## Quality Gate Report (Multi-Language)
 
-| Language | Path | Build | Test | Coverage | Format | Static | Pre-commit | Result |
-|----------|------|-------|------|----------|--------|--------|------------|--------|
-| Rust     | ./   | ✅    | ✅   | ✅ 85%   | ✅     | ✅     | ✅         | PASS   |
-| Node.js  | apps/desktop/ | ✅ | ❌ 2 failed | — | ✅ | ❌ 3 warn | N/A | FAIL |
+**Workspace:** <root>
+**Scan depth:** 3 levels
+**Date:** <date>
+**Languages detected:** <count>
+
+### Detection Summary
+
+| # | Language | Path | Type | Runtime/Build System |
+|---|----------|------|------|----------------------|
+| 1 | Rust     | ./   | workspace | Cargo (3 crates) |
+| 2 | Node.js  | apps/desktop/ | package | bun 1.0.0 |
+
+### Gate Results
+
+| # | Language | Path | Build | Test | Coverage | Format | Static | Pre-commit | Result |
+|---|----------|------|-------|------|----------|--------|--------|------------|--------|
+| 1 | Rust     | ./   | ✅    | ✅   | ✅ 85%   | ✅     | ✅     | ✅         | PASS   |
+| 2 | Node.js  | apps/desktop/ | ✅ | ❌ 2 failed | — | ✅ | ❌ 3 warn | N/A | FAIL |
+
+### Per-Language Details
+
+#### 1. Rust (./, workspace)
+
+| Gate | Status | Details |
+|------|--------|---------|
+| build | ✅ | 3 crates compiled |
+| test | ✅ | 47 tests passed |
+
+#### 2. Node.js (apps/desktop/, bun)
+
+| Gate | Status | Details |
+|------|--------|---------|
+| test | ❌ | 2 tests failed |
+
+**Failed tests:**
+- `test_add`: Expected 5, got 4
 
 ### Summary
-- Rust (./): ALL CHECKS PASSED
-- Node.js (apps/desktop): 2 test failures, 3 lint warnings
+
+- ✅ Rust (workspace): ALL CHECKS PASSED
+- ❌ Node.js (apps/desktop): 2 test failures
 
 ### Actions Required
-- [ ] Fix 2 failing tests in apps/desktop
-- [ ] Address 3 lint warnings in apps/desktop
+
+- [ ] Fix 2 failing tests in `apps/desktop/`
+
+### Overall Result
+
+❌ **QUALITY GATE FAILED** — 1 language has failures
 ```
 
 **Report only. No auto-fix. No source modifications.**
