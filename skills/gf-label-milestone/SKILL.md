@@ -21,6 +21,16 @@ CN 创建标签 标签颜色 编辑里程碑 关闭里程碑 版本规划 删除
 EN manage labels milestone CRUD label color due date close reopen
 CLI `gf label|milestone <subcommand>`
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Assigning labels to Issues | This skill manages label/milestone definitions, not Issue labels | `/gf-issue-triage` for batch Issue labeling |
+| Analyzing label distribution | This skill creates/edits/deletes labels, not analyzes usage | `/gf-label-stats` for read-only label analytics |
+| Bulk closing or listing Issues | This skill manages labels and milestones only | `/gf-issue` for Issue CRUD operations |
+| Automated release versioning | This skill manages milestone metadata, not release creation | `/gf-release-helper` for SemVer-based release automation |
+| Batch deleting labels | This skill requires explicit confirmation per deletion and avoids destructive batch ops | Manual `gh label delete` scripting |
+
 ## CRUD Matrix
 
 ```mermaid

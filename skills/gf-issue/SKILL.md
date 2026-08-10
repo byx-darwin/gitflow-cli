@@ -26,6 +26,17 @@ Wraps `gf issue`. 8 subcommands: `create · list · view · close · reopen · c
 | full workflow | 全流程 | → `gf-issue-create` |
 | analyze requirements | — | → `gf-issue-review` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Interactive guided Issue creation | This skill wraps raw CRUD subcommands, not the full interactive workflow | `/gf-issue-create` for guided title/body/label collection |
+| Analyzing Issue requirement quality | This skill performs CRUD operations, not requirement analysis | `/gf-issue-review` for three-dimension scoring |
+| Batch classifying all open Issues | This skill operates on individual Issues, not bulk triage | `/gf-issue-triage` for batch type+priority classification |
+| Automated bug reporting | This skill requires manual command invocation | `/gf-autoreport-bug` for automated `pending.json` processing |
+| Editing Issue title or description | `gf issue` does not support editing body fields | Platform web UI or `gh issue edit` |
+| Deleting Issues | `gf issue` has no delete subcommand | `gh issue delete` via GitHub CLI |
+
 ## Core Pattern
 
 ```bash

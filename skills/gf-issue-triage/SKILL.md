@@ -19,6 +19,16 @@ Batch classification of all open Issues — assigns one `type:*` label and one `
 | analyze an issue's requirement | 分析需求质量 | **NOT** → `/gf-issue-review` |
 | label statistics | 标签统计 | **NOT** → `/gf-label-stats` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Analyzing a single Issue's requirement quality | This skill batch-classifies all open Issues, not deep analysis of one | `/gf-issue-review` for three-dimension requirement review |
+| Viewing label distribution statistics | This skill applies labels, not analyzes their distribution | `/gf-label-stats` for read-only label analytics |
+| Creating or editing label definitions | This skill assigns labels to Issues, not manages label metadata | `/gf-label-milestone` for label CRUD |
+| Creating a new Issue | This skill classifies existing Issues only | `/gf-issue-create` for Issue creation |
+| Editing Issue body text | This skill only adds labels, never modifies Issue content | `/gf-issue` for edit operations |
+
 ## Core Pattern
 
 ```bash

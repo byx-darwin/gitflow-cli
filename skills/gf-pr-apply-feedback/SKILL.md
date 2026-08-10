@@ -21,6 +21,17 @@ Fetch pending review feedback · prioritize (security → logic → boundary →
 | review PR initially | 初次审查 | → `gf-pr-review` |
 | inline diff review | 行内审查 | → `gf-pr-inline-review` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Performing initial PR code review | This skill applies existing feedback, not generates new reviews | `/gf-pr-review` for initial 6-dimension code review |
+| Creating a Pull Request | This skill operates on existing PRs with pending feedback | `/gf-pr-create` for PR creation workflow |
+| Merging or closing PRs | This skill applies feedback and resolves comments, not lifecycle ops | `/gf-pr` for merge/close/reopen operations |
+| Leaving inline review comments | This skill resolves existing comments, not creates new ones | `/gf-pr-inline-review` for line-level review comments |
+| Rejecting or disputing reviewer feedback | This skill applies feedback with user confirmation, not debates it | Discuss with reviewer directly before applying |
+| Running quality checks after fixes | This skill focuses on applying feedback per-comment | `/gf-quality` for full 6-gate quality verification |
+
 ## Core Pattern
 
 ```bash

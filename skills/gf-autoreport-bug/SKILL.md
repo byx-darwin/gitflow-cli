@@ -27,6 +27,17 @@ flowchart TD
     M --> K[Remove pending.json]
 ```
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Manually creating a bug Issue | This skill is for automated processing of `pending.json` only | `/gf-issue-create` for manual Issue creation |
+| Fixing the reported bug | This skill only reports bugs, never fixes them | `/gf-workflow` after the Issue is created |
+| No `pending.json` exists | This skill requires `.cache/bug-reports/pending.json` to exist | Check if bug report was generated first |
+| Other repositories | This skill only reports to `byx-darwin/gitflow-cli` | Manual Issue creation for other repos |
+| Dedup check on custom criteria | This skill uses command + error_code for dedup | Manual search in Issues |
+| Batch bug reporting | This skill processes one `pending.json` at a time | Script multiple invocations if needed |
+
 ## Auth 失败处理
 
 当 `gf auth status` 返回未登录时，不要尝试创建 Issue。改为：

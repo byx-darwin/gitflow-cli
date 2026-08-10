@@ -22,6 +22,17 @@ CN 发布 release 版本号 changelog 打标签
 EN create release bump version semantic version release notes tag major minor
 CLI `gf release-helper <subcommand>`
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Managing existing Release metadata (edit/delete/list) | This skill creates new releases with auto-generated changelogs | `/gf-release` for Release CRUD operations |
+| Deleting a release | This skill only creates releases, never deletes them | `/gf-release` for release deletion (with double-confirm) |
+| Deciding version without user confirmation | This skill infers SemVer but always requires user approval | Non-negotiable — version must be confirmed interactively |
+| Publishing without showing release notes | This skill requires user review of changelog before creation | Non-negotiable — always show release notes first |
+| Creating Git tags | This skill assumes tags exist or creates them as part of release flow | `git tag` + `git push --tags` for tag-only operations |
+| Running release without CI verification | Releasing without confirming CI status risks broken releases | `/gf-pipeline-analyzer` to verify pipeline health first |
+
 ## Version Decision Flow
 
 ```mermaid

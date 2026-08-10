@@ -18,6 +18,16 @@ Validates branch state, collects title/description, invokes `gf pr create`, retu
 | draft PR | 草稿 PR | work-in-progress |
 | merge request | 合并请求 | GitLab terminology |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Reviewing or approving a PR | This skill creates PRs, not reviews them | `/gf-pr-review` for overall code review and verdict |
+| Merging or closing a PR | This skill only creates PRs, not manages lifecycle | `/gf-pr` for merge/close/reopen operations |
+| Applying review feedback | This skill handles creation, not post-review fixes | `/gf-pr-apply-feedback` for addressing reviewer comments |
+| Creating from a protected branch | This skill validates and refuses protected branch creation | Rebase onto a feature branch first |
+| Checking CI/CD pipeline status | This skill validates branch state, not pipeline health | `/gf-pipeline-analyzer` for CI/CD analysis |
+
 ## Core Pattern
 
 ```bash

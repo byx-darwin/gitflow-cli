@@ -10,6 +10,17 @@ description: |
 
 6-gate fast-fail quality gate. Detects project language, loads the matching toolchain, runs gates in order; first failure stops the chain. Outputs a Quality Report.
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Running quick pre-commit checks only | This skill runs the full 6-gate pipeline, not just pre-commit hooks | `/gf-precommit` for lightweight fmt/lint/test before commit |
+| Auto-fixing lint or format issues | This skill reports quality status only, never auto-fixes | User applies fixes manually after reviewing the report |
+| Analyzing remote CI/CD pipeline health | This skill runs local quality gates, not remote pipeline analysis | `/gf-pipeline-analyzer` for CI/CD success-rate and failure patterns |
+| Performing security audits | This skill checks code quality, not security vulnerabilities | `/gf-security-check` for cargo audit, secret detection, license compliance |
+| Publishing report without user confirmation | Report publication to Issues requires explicit consent | Always ask user before publishing Quality Report |
+| Running without language detection | This skill requires language detection before gate execution | Non-negotiable — always detect language first |
+
 ## Quality Pipeline
 
 ```

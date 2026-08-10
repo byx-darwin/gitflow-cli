@@ -22,6 +22,16 @@ Top-level entry for `gf pr` (11 subcommands). Simple CRUD; complex workflows del
 | ready / wip / draft | 标记就绪/草稿 |
 | PR review | delegate → review skill |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Creating a PR with full validation | This skill routes to `gf-pr-create` for validated creation | `/gf-pr-create` for branch validation + title/body collection |
+| Performing code review | This skill handles simple CRUD, not review analysis | `/gf-pr-review` for overall review, `/gf-pr-inline-review` for inline |
+| Applying review feedback | This skill does not apply code changes from feedback | `/gf-pr-apply-feedback` for addressing reviewer comments |
+| Analyzing CI/CD pipeline health | This skill manages PR state, not pipeline metrics | `/gf-pipeline-analyzer` for CI/CD analysis |
+| Merging without review | This skill requires review before merge, never merges on CI alone | Complete `/gf-pr-review` before merge |
+
 ## Flowchart
 
 ```mermaid

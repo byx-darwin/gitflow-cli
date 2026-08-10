@@ -23,6 +23,17 @@ Encapsulates read and write operations for `gf repo`. Covers `clone/list/stats/v
 | sync fork / 同步 fork | 同步 fork, upstream | — |
 | PR workflow | — | → `gf-pr` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Generating a project onboarding guide | This skill performs repo operations, not onboarding analysis | `/gf-repo-onboarding` for read-only onboarding walkthrough |
+| Pushing without explicit confirmation | This skill requires user confirmation before all push operations | Non-negotiable — always show diff and await user OK |
+| Deleting a repository | This skill has no delete subcommand | `gh repo delete` via GitHub CLI |
+| Creating Pull Requests | This skill manages repos, not PRs | `/gf-pr` for PR lifecycle operations |
+| Auto-adding upstream remote | This skill requires user to supply upstream URL | Always ask user for upstream URL before adding remote |
+| Bulk cloning all org repos | This skill requires confirmation before bulk operations | Use `--limit` flag and confirm before bulk clone |
+
 ## Core Pattern
 
 ```bash

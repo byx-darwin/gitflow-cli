@@ -22,6 +22,16 @@ See [full label taxonomy](../references/gf-label-stats-taxonomy.md) for canonica
 | delete unused label | 删除无用标签 | **NOT** — read-only skill |
 | modify issue labels | 修改标签 | **NOT** → `gf-issue-triage` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Applying labels to Issues | This skill is strictly read-only analytics | `/gf-issue-triage` for batch Issue classification and labeling |
+| Creating or editing label definitions | This skill reads label data, not manages label metadata | `/gf-label-milestone` for label/milestone CRUD |
+| Analyzing a single Issue's requirements | This skill analyzes label distribution across all Issues | `/gf-issue-review` for individual Issue requirement review |
+| Deleting unused labels | This skill never mutates labels or Issues | `/gf-label-milestone` for label deletion |
+| Estimating Issue counts | This skill uses exact CLI output only, never estimates | Run `gf issue list --label` directly for counts |
+
 ## Core Pattern
 
 ```bash

@@ -11,6 +11,17 @@ description: |
 
 Run language-appropriate fmt/lint/test before commit. Report results. Optionally configure Git hook.
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Running full 6-gate quality verification | This skill runs 3 checks (fmt/lint/test), not the full quality pipeline | `/gf-quality` for build + test + coverage + format + static + pre-commit |
+| Analyzing remote CI/CD pipeline health | This skill runs local checks, not remote pipeline analysis | `/gf-pipeline-analyzer` for CI/CD success-rate and failure analysis |
+| Auto-fixing all lint and format issues | This skill reports issues and requires confirmation before any fix | Show diff first, then fix with explicit user approval |
+| Running security-specific audits | This skill runs general quality checks, not security scans | `/gf-security-check` for cargo audit, cargo deny, secret detection |
+| Configuring hooks without user consent | Hook configuration is a side effect requiring authorization | Ask user first before installing or modifying hooks |
+| Inspecting existing commits | This skill runs checks before commit, not on already-pushed commits | `/gf-commit` for viewing/diffing existing commits |
+
 ## Step 1: Language Detection
 
 Same as `gf-quality`. Check marker files in project root:
