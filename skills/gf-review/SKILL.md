@@ -51,7 +51,7 @@ Submits review verdicts via `gf review`. Read-only skill — does not analyze co
 
 ```bash
 gf pr view <n>   # verify open
-gf review <verdict> <n> --body "<c>"
+gf review approve <n> --body "<c>"    # or: request-changes / comment
 ```
 
 ## Quick Reference
@@ -97,7 +97,7 @@ flowchart TD
 1. **Verify** — `gf pr view <n>`. Confirm open, not draft/merged, no blocking CI. 404 → stop.
 2. **Form verdict** — skill does NOT choose; user or prior skill supplies.
 3. **Confirm** — present verdict + `--body` to user; require explicit OK before invoking CLI.
-4. **Invoke** — `gf review <verdict> <n> --body "<c>"`.
+4. **Invoke** — `gf review approve <n> --body "<c>"` (or `request-changes` / `comment`).
 5. **Output** — show review URL + next-step guidance.
 
 ### Error Handling

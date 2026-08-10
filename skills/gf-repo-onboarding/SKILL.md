@@ -114,7 +114,7 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 
 | Error | Recovery |
 |-------|----------|
-| Not a git repo | Run inside repo (`cd` or `gf repo clone`) |
+| Not a git repo | Run inside repo (`cd` or `git clone`) |
 | No Makefile/CI | CLI fallback / Omit CI section |
 | Ambiguous manifests | Parse top two; multi-language sections |
 | README missing | Skip prereqs summary |

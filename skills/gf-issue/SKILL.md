@@ -62,7 +62,8 @@ gf issue close <number>
 gf issue reopen <number>
 gf issue comment <number> --body <text>
 gf issue comments <number>
-gf issue label <number> --add <l> --remove <l>
+gf issue add-label <number> --label <l>
+gf issue remove-label <number> --label <l>
 ```
 
 ## Preconditions
@@ -139,7 +140,7 @@ flowchart TD
 
 | Error | Recovery |
 |-------|----------|
-| Not in git repo | `cd` or `gf repo clone` |
+| Not in git repo | `cd` or `git clone` |
 | Unauthenticated | `gf auth login` |
 | Issue not found | 404; confirm number |
 | Create duplicate | `issue list --search` |

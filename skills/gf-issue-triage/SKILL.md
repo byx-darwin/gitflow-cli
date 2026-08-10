@@ -47,7 +47,7 @@ Batch classification of all open Issues — assigns one `type:*` label and one `
 
 ```bash
 gf issue list --state open [--since <date>]
-gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
+gf issue add-label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
 ## Quick Reference
@@ -55,7 +55,7 @@ gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:don
 | Goal | Command |
 |------|---------|
 | List open | `gf issue list --state open [--since <date>]` |
-| Add label | `gf issue label <n> --label "<l>"` |
+| Add label | `gf issue add-label <n> --label "<l>"` |
 | Filter by label | `gf issue list --label "<l>" --state open` |
 
 **Type labels:** `type:bug` · `type:feature` · `type:enhancement` · `type:docs` · `type:question`
@@ -97,7 +97,7 @@ Reference: core user path · affected user count · workaround · milestone prox
 ### Step 4: Apply labels
 
 ```bash
-gf issue label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
+gf issue add-label <n> --label "type:<t>" --label "priority:<p>" --label "triage:done"
 ```
 
 ### Step 5: Output report — priority-ranked (🔴 urgent → 🟢 low) with count + percentage tables.
