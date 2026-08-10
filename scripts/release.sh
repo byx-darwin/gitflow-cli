@@ -628,9 +628,10 @@ execute_release() {
         # Stage skills into package before publish (Issue #164)
         log_info "Staging skills for crates.io package..."
         make stage-skills-for-publish
-        cargo publish --all-features --registry crates-io || {
+        # Use cargo release publish to handle workspace dependency order
+        cargo release publish --execute --no-confirm --registry crates-io || {
             log_error "Failed to publish to crates.io"
-            log_warn "You can retry manually: make stage-skills-for-publish && cargo publish --all-features"
+            log_warn "You can retry manually: make stage-skills-for-publish && cargo release publish --execute --no-confirm --registry crates-io"
         }
         # Clean up staged skills (they're gitignored but keep workspace clean)
         make clean-staged-skills
