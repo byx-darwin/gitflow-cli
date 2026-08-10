@@ -7,8 +7,81 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(auth)** parse token scopes from gh auth status output - ([8c3db1a](https://github.com/byx-darwin/gitflow-cli/commit/8c3db1a95dbf5f75afbe09f114afe134a4008331)) - baoyx
+- **(examples)** remove main() from Go example to meet coverage threshold - ([715f54a](https://github.com/byx-darwin/gitflow-cli/commit/715f54abc1e871fa6d0dc547597710562333ab38)) - baoyx
+- **(gitcode)** use 'gc' instead of 'gitcode' in error hints - ([6382696](https://github.com/byx-darwin/gitflow-cli/commit/6382696cea477a332096bae0c9863754a575c28f)) - baoyx
+- **(website)** update version display to 1.1.0 on homepage - ([f434383](https://github.com/byx-darwin/gitflow-cli/commit/f434383ce10e5f022d42098633538059d69e699d)) - baoyx
+- include skills in crates.io package for embedded binary (#165) - ([6539d70](https://github.com/byx-darwin/gitflow-cli/commit/6539d705af2bdd89d04ccfa5306e62433e20a63f)) - mc-ai
+
+### Documentation
+
+- **(gf-quality)** add Configuration and Troubleshooting to Rust reference - ([93db94d](https://github.com/byx-darwin/gitflow-cli/commit/93db94d76a551968e2a9674e099f702f7b1d61c8)) - baoyx
+- **(gf-quality)** add Configuration and Troubleshooting to Go reference - ([75be309](https://github.com/byx-darwin/gitflow-cli/commit/75be309f2c829386b77ba77870d27cedcf1a8dfd)) - baoyx
+- **(gf-quality)** add Configuration and Troubleshooting to Node.js reference - ([6a90a6b](https://github.com/byx-darwin/gitflow-cli/commit/6a90a6b94014c819a90fd7f07072e56beb8e351e)) - baoyx
+- **(gf-quality)** add Configuration and Troubleshooting to Python reference - ([9ee8df6](https://github.com/byx-darwin/gitflow-cli/commit/9ee8df609e7747077ffa3c59bb1ce9d1d09c1d12)) - baoyx
+- **(gf-quality)** add Configuration and Troubleshooting to Java reference - ([79036c2](https://github.com/byx-darwin/gitflow-cli/commit/79036c230904b425ffe861ac9155ef30b733fedc)) - baoyx
+- **(gf-quality)** enhance detector with workspace detection and project tree - ([0a83578](https://github.com/byx-darwin/gitflow-cli/commit/0a8357855cfe11832787c3aba8abd0b2d4f8a404)) - baoyx
+- **(gf-quality)** enhance SKILL.md with workspace-aware execution - ([a76e7a2](https://github.com/byx-darwin/gitflow-cli/commit/a76e7a290ae6825cf6c568135716a9e5fe3c5dbc)) - baoyx
+- **(gf-quality)** add dogfooding validation reports - ([0a3047e](https://github.com/byx-darwin/gitflow-cli/commit/0a3047eb391e811e02a13d9ef16fd6bfe5d961f9)) - baoyx
+- **(gf-quality)** sync documentation with enhanced skill - ([8fef988](https://github.com/byx-darwin/gitflow-cli/commit/8fef9889b939c353f3a2c70571830b04fd11d008)) - baoyx
+- **(plans)** add gf-quality multi-language enhancement implementation plan - ([0a838fa](https://github.com/byx-darwin/gitflow-cli/commit/0a838fa0f624908fde553a2651d41c3168974144)) - baoyx
+- **(skill)** rewrite When to Use and add When NOT to Use - ([50a66ea](https://github.com/byx-darwin/gitflow-cli/commit/50a66ea1c4db1095bb63bceebb6f481a267ce20e)) - baoyx
+- **(skill)** replace trigger keywords with three-tier system - ([204b575](https://github.com/byx-darwin/gitflow-cli/commit/204b575e9977b4817bdc3765e3a2c1af78bb6ed9)) - baoyx
+- **(skill)** add usage examples and quick start guide - ([d4bda41](https://github.com/byx-darwin/gitflow-cli/commit/d4bda41d5d22a84e5474b9597928b33d2aedc375)) - baoyx
+- **(skills)** add When NOT to Use sections to all 25 skills - ([7d53954](https://github.com/byx-darwin/gitflow-cli/commit/7d5395450aa242b073c0f9d4c3d0e0febfbecf2a)) - baoyx
+- **(skills)** add CLI requirement section to enforce gf usage - ([fcfca80](https://github.com/byx-darwin/gitflow-cli/commit/fcfca80d63f4f8924ba08fb40a03ee6cca9354d0)) - baoyx
+- **(skills)** fix CLI command references to match actual implementation - ([7b14456](https://github.com/byx-darwin/gitflow-cli/commit/7b1445639fa642f09ff9a27433a4f712abef894a)) - baoyx
+- **(specs)** add gf-quality multi-language enhancement design - ([55cb548](https://github.com/byx-darwin/gitflow-cli/commit/55cb548b574b222dbb1754b5850e5265e2125ff6)) - baoyx
+- add skills multi-role review and roadmap design - ([4fc379d](https://github.com/byx-darwin/gitflow-cli/commit/4fc379d318d78eb75b7d5d7cc153eeb7a5112f5a)) - baoyx
+- add comprehensive skills multi-role review report - ([0d4c081](https://github.com/byx-darwin/gitflow-cli/commit/0d4c0818f2ae5807dce1416870ec3af7b9b17d11)) - baoyx
+- add gf-regression skill redesign spec - ([d8b9d66](https://github.com/byx-darwin/gitflow-cli/commit/d8b9d6644256635eed0c2410e407b089a260d80a)) - baoyx
+- add gf-regression skill redesign implementation plan - ([fa6dd1d](https://github.com/byx-darwin/gitflow-cli/commit/fa6dd1d951c271da0a9d3c0e2e58d456d14d888b)) - baoyx
+
+### Features
+
+- **(pr)** add cleanup command for post-merge branch and worktree management (#178) - ([4595f75](https://github.com/byx-darwin/gitflow-cli/commit/4595f759b4e65bef77cb4abb8f73b03e66408005)) - mc-ai
+- **(website)** add navigation links to new GEO pages - ([6121946](https://github.com/byx-darwin/gitflow-cli/commit/612194640dce3e0991dc7e639071a2c9d8bbb57c)) - baoyx
+- **(website)** add static pages for architecture and release-workflow - ([5a41bc9](https://github.com/byx-darwin/gitflow-cli/commit/5a41bc97e9d80c5a260e402f50977dd58b5d1edb)) - baoyx
+
+### Miscellaneous Chores
+
+- update Homebrew formula to v1.1.0 - ([82809d8](https://github.com/byx-darwin/gitflow-cli/commit/82809d8f41f9be35a295a2b53e1917a9376eb532)) - github-actions[bot]
+- remove gf-weekly-report skill - ([b0a6b4a](https://github.com/byx-darwin/gitflow-cli/commit/b0a6b4adcc3ba455db268da29643594dfb2b3108)) - baoyx
+- release v1.2.0 - ([89e1d6d](https://github.com/byx-darwin/gitflow-cli/commit/89e1d6df441cb56e3c17e281f987d802f951d4d8)) - baoyx
+
+### Other
+
+- **(gf-quality)** add minimal Go project for validation - ([55bc6ea](https://github.com/byx-darwin/gitflow-cli/commit/55bc6eae1456e3378983d607ec0e3a8436a7a807)) - baoyx
+- **(gf-quality)** add minimal Node.js project for validation - ([d1c289f](https://github.com/byx-darwin/gitflow-cli/commit/d1c289fd27dd91552530730a7c36149cf616d88d)) - baoyx
+- **(gf-quality)** add minimal Python project for validation - ([e1ad91f](https://github.com/byx-darwin/gitflow-cli/commit/e1ad91f53c55cf2734086a7dded06c75a6b702a7)) - baoyx
+- Merge pull request #175 from byx-darwin/feat/170-skills-when-not-to-use
+
+docs(skills): add When NOT to Use sections to all 25 skills - ([4d1f341](https://github.com/byx-darwin/gitflow-cli/commit/4d1f3416076f7aa2a28714074dc5f6f721e4df73)) - mc-ai
+- Merge pull request #177 from byx-darwin/feat/173-docs-cli-requirement
+
+docs(skills): add CLI requirement to enforce gf usage - ([8426ea2](https://github.com/byx-darwin/gitflow-cli/commit/8426ea245169ca25961ea3771b922617292a77e6)) - mc-ai
+- Merge pull request #180 from byx-darwin/feat/179-skill-command-reference-fix
+
+docs(skills): fix CLI command references to match actual implementation - ([82a663c](https://github.com/byx-darwin/gitflow-cli/commit/82a663cbcd5f8d78e1381da7c42ef48d5f70249f)) - mc-ai
+- Merge pull request #182 from byx-darwin/fix/181-auth-status-scopes
+
+fix(auth): parse token scopes from gh auth status output - ([f3237d5](https://github.com/byx-darwin/gitflow-cli/commit/f3237d519fa90b864d3b223702e74b16f82dfb1d)) - mc-ai
+- Merge pull request #183 from byx-darwin/fix/gitcode-error-hint-command-name
+
+fix(gitcode): use 'gc' instead of 'gitcode' in error hints - ([3e0231e](https://github.com/byx-darwin/gitflow-cli/commit/3e0231e3bb3aad94c8fe0e0842b53e7942a2ca1f)) - mc-ai
+
+### Refactoring
+
+- **(skills)** change worktree path from .claude/worktree to .worktree - ([8cbc3bf](https://github.com/byx-darwin/gitflow-cli/commit/8cbc3bf05911797a85d3e72f6824c08fd6829007)) - baoyx
+
+---
+## [1.1.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.0.0..v1.1.0) - 2026-08-09
+
+### Bug Fixes
+
 - **(ci)** point upstream-patrol at relocated compatibility matrix - ([792c270](https://github.com/byx-darwin/gitflow-cli/commit/792c2704c8d8b918f734a1077f223de04b948afc)) - baoyx
 - **(ci)** disable fail-fast on build-rust matrix - ([a6963d9](https://github.com/byx-darwin/gitflow-cli/commit/a6963d9f8f9263840beb5d57f0dffa6ea6626a57)) - baoyx
+- **(ci)** use matrix.archive for artifact upload path - ([03da6b4](https://github.com/byx-darwin/gitflow-cli/commit/03da6b4ea841ff066642834afe6b4d5d0db1144e)) - baoyx
 - **(cli)** make zsh completions install dir deterministic under home override - ([eef4074](https://github.com/byx-darwin/gitflow-cli/commit/eef407487a02dfe3c01f04bc2e7212c5bc891944)) - baoyx
 - **(cli)** scope metadata binding to unix cfg in permissions test - ([2aa9b0d](https://github.com/byx-darwin/gitflow-cli/commit/2aa9b0d714ae3442b515daab944cb88334af0e0c)) - baoyx
 - **(hook)** correct skill path hardcoding - ([7a92f7e](https://github.com/byx-darwin/gitflow-cli/commit/7a92f7e72082c8b6e3c021a2c568ab3833b9979a)) - baoyx
@@ -61,6 +134,8 @@ All notable changes to this project will be documented in this file. See [conven
 - remove docs/assets (moved to resume repo) - ([3b622f1](https://github.com/byx-darwin/gitflow-cli/commit/3b622f10675a026c32e11d39778edb9d735b21db)) - baoyx
 - restore docs/assets/demo.svg - ([5c35ebd](https://github.com/byx-darwin/gitflow-cli/commit/5c35ebd68026c8b30e26cc72577559981324189e)) - baoyx
 - release v1.1.0 - ([b4c6f7b](https://github.com/byx-darwin/gitflow-cli/commit/b4c6f7bfd6474c2f370e6864711090e263e64bdb)) - baoyx
+- update CHANGELOG.md for v1.1.0 - ([3da604d](https://github.com/byx-darwin/gitflow-cli/commit/3da604d7ede473d43976fac029b5a62af3ac8edc)) - baoyx
+- update Homebrew formula to v1.1.0 - ([8a76d6d](https://github.com/byx-darwin/gitflow-cli/commit/8a76d6dcc227e34550154d02cc0b2aad07fd0ad2)) - github-actions[bot]
 
 ### Other
 
@@ -334,8 +409,6 @@ docs: add Phase 4 dogfooding checklist (#73) - ([8466bbe](https://github.com/byx
 ### Miscellaneous Chores
 
 - **(skills)** translate all 26 skill bodies to English (#77) - ([874d20f](https://github.com/byx-darwin/gitflow-cli/commit/874d20f240d958368fe46efdb669e72a123428ad)) - mc-ai
-- update Homebrew formula to v0.6.0 - ([149ed8e](https://github.com/byx-darwin/gitflow-cli/commit/149ed8ee06dec10c2a981a3867057ceee3c10da2)) - github-actions[bot]
-- update CHANGELOG.md for v0.6.0 - ([5e1d902](https://github.com/byx-darwin/gitflow-cli/commit/5e1d90248f59503be177e51f843dffe7d5f796eb)) - baoyx
 - release v0.7.0 - ([a63937c](https://github.com/byx-darwin/gitflow-cli/commit/a63937cac632ab4aa958ff3866d1169172747754)) - baoyx
 - update CHANGELOG.md - ([3387e71](https://github.com/byx-darwin/gitflow-cli/commit/3387e71d3517b215818405d74d55796241565400)) - baoyx
 
@@ -352,6 +425,8 @@ docs: add Phase 4 dogfooding checklist (#73) - ([8466bbe](https://github.com/byx
 
 - update Homebrew formula to v0.5.0 - ([ef6ba47](https://github.com/byx-darwin/gitflow-cli/commit/ef6ba4738d36abbec52ecc4065bddd8266962959)) - github-actions[bot]
 - remove .superpowers/sdd/ temporary files (should be gitignored) - ([86e6335](https://github.com/byx-darwin/gitflow-cli/commit/86e6335104d8ac1cdf59e24f2fe6adaed7d2332d)) - baoyx
+- update Homebrew formula to v0.6.0 - ([149ed8e](https://github.com/byx-darwin/gitflow-cli/commit/149ed8ee06dec10c2a981a3867057ceee3c10da2)) - github-actions[bot]
+- update CHANGELOG.md for v0.6.0 - ([5e1d902](https://github.com/byx-darwin/gitflow-cli/commit/5e1d90248f59503be177e51f843dffe7d5f796eb)) - baoyx
 
 ---
 ## [0.5.0](https://github.com/byx-darwin/gitflow-cli/compare/v0.4.0..v0.5.0) - 2026-07-07
