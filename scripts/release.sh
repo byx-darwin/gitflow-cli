@@ -628,7 +628,7 @@ execute_release() {
         # Stage skills into package before publish (Issue #164)
         log_info "Staging skills for crates.io package..."
         make stage-skills-for-publish
-        cargo publish --all-features || {
+        cargo publish --all-features --registry crates-io || {
             log_error "Failed to publish to crates.io"
             log_warn "You can retry manually: make stage-skills-for-publish && cargo publish --all-features"
         }
