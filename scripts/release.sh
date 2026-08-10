@@ -629,9 +629,10 @@ execute_release() {
         log_info "Staging skills for crates.io package..."
         make stage-skills-for-publish
         # Use cargo release publish to handle workspace dependency order
-        cargo release publish --execute --no-confirm --registry crates-io || {
+        # --allow-dirty needed because staged skills create uncommitted files
+        cargo release publish --execute --no-confirm --registry crates-io --allow-dirty || {
             log_error "Failed to publish to crates.io"
-            log_warn "You can retry manually: make stage-skills-for-publish && cargo release publish --execute --no-confirm --registry crates-io"
+            log_warn "You can retry manually: make stage-skills-for-publish && cargo release publish --execute --no-confirm --registry crates-io --allow-dirty"
         }
         # Clean up staged skills (they're gitignored but keep workspace clean)
         make clean-staged-skills
