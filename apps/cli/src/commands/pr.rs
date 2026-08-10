@@ -129,6 +129,45 @@ pub enum PrCommand {
         /// PR 编号。
         number: u64,
     },
+
+    /// 清理已合并 PR 的分支和 worktree。
+    Cleanup {
+        /// PR 编号列表（可多个）。
+        #[arg(required = false)]
+        numbers: Vec<u64>,
+
+        /// 移除指定的 worktree 路径。
+        #[arg(long)]
+        worktree: Option<String>,
+
+        /// 删除远程分支（默认：true）。
+        #[arg(long, default_value = "true")]
+        remote: bool,
+
+        /// 删除本地分支（默认：true）。
+        #[arg(long, default_value = "true")]
+        local: bool,
+
+        /// 强制删除未合并的分支。
+        #[arg(long)]
+        force: bool,
+
+        /// 仅显示将执行的操作，不实际删除。
+        #[arg(long)]
+        dry_run: bool,
+
+        /// 跳过交互式确认。
+        #[arg(long, short = 'y')]
+        yes: bool,
+
+        /// 清理所有已合并的 PR。
+        #[arg(long, conflicts_with = "numbers")]
+        merged: bool,
+
+        /// 清理所有已关闭的 PR。
+        #[arg(long, conflicts_with = "numbers")]
+        closed: bool,
+    },
 }
 
 /// 处理 `gf pr` 子命令。
@@ -315,6 +354,46 @@ pub async fn handle(
                 "synced": true,
             });
             let output = CliOutput::success(result, platform, "pr sync");
+            print_output(&output, &output_format)?;
+        }
+        PrCommand::Cleanup {
+            numbers,
+            worktree,
+            remote,
+            local,
+            force,
+            dry_run,
+            yes,
+            merged,
+            closed,
+        } => {
+            let args = gitflow_core::cleanup::CleanupArgs {
+                numbers,
+                merged,
+                closed,
+                worktree,
+                remote,
+                local,
+                force,
+                dry_run,
+                yes,
+            };
+
+            let results = if args.merged {
+                gitflow_core::cleanup::CleanupService::cleanup_merged(&*provider, &args)
+                    .await
+                    .map_err(|e| miette::miette!("Failed to cleanup merged PRs: {e}"))?
+            } else if args.closed {
+                gitflow_core::cleanup::CleanupService::cleanup_closed(&*provider, &args)
+                    .await
+                    .map_err(|e| miette::miette!("Failed to cleanup closed PRs: {e}"))?
+            } else {
+                gitflow_core::cleanup::CleanupService::cleanup(&*provider, &args)
+                    .await
+                    .map_err(|e| miette::miette!("Failed to cleanup PRs: {e}"))?
+            };
+
+            let output = CliOutput::success(results, platform, "pr cleanup");
             print_output(&output, &output_format)?;
         }
     }
@@ -734,5 +813,66 @@ mod tests {
         let value = serde_json::json!({"number": 1, "title": "test"});
         let result = print_output(&value, &OutputFormat::Auto);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_parse_pr_cleanup_single() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "cleanup", "172"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Cleanup { numbers, .. }) => {
+                assert_eq!(numbers, vec![172]);
+            }
+            _ => panic!("Expected PrCommand::Cleanup"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_cleanup_multiple() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "cleanup", "172", "173", "174"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Cleanup { numbers, .. }) => {
+                assert_eq!(numbers, vec![172, 173, 174]);
+            }
+            _ => panic!("Expected PrCommand::Cleanup"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_cleanup_with_worktree() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "pr",
+            "cleanup",
+            "172",
+            "--worktree",
+            ".claude/worktrees/feat-172",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Cleanup {
+                numbers, worktree, ..
+            }) => {
+                assert_eq!(numbers, vec![172]);
+                assert_eq!(worktree, Some(".claude/worktrees/feat-172".to_string()));
+            }
+            _ => panic!("Expected PrCommand::Cleanup"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_cleanup_merged() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pr", "cleanup", "--merged"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Cleanup { merged, .. }) => {
+                assert!(merged);
+            }
+            _ => panic!("Expected PrCommand::Cleanup"),
+        }
     }
 }

@@ -1146,6 +1146,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "toon-format",
+ "tracing",
 ]
 
 [[package]]
