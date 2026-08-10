@@ -216,6 +216,107 @@ User says something about "test" or "check"
 
 ### 5: Error — script missing → Stop.
 
+## Usage Examples
+
+### Example 1: Quick Health Check
+
+**User**: "Is gf working?"
+
+**Action**:
+```bash
+bash scripts/smoke-test.sh --platform github
+```
+
+**Expected Output**:
+```
+=== Smoke Test Results ===
+Platform: github
+Mode: read-only
+
+✅ PASS: auth status
+✅ PASS: issue list
+✅ PASS: repo view
+
+Summary: 3 passed, 0 failed, 0 skipped
+```
+
+---
+
+### Example 2: Post-Change Verification
+
+**User**: "I made some changes, verify nothing is broken"
+
+**Action**:
+```bash
+bash scripts/smoke-test.sh --platform github --verbose
+```
+
+**Expected Output** (if failure):
+```
+=== Smoke Test Results ===
+Platform: github
+Mode: read-only
+
+✅ PASS: auth status
+❌ FAIL: issue list
+   Error: 404 Not Found
+✅ PASS: repo view
+
+Summary: 2 passed, 1 failed, 0 skipped
+
+Classifying failures...
+🟠 issue list: 4xx error (possible API change)
+
+Creating bug report...
+Issue created: https://github.com/.../issues/123
+```
+
+---
+
+### Example 3: Pre-Release Check
+
+**User**: "Run pre-release checks before publishing"
+
+**Action**:
+```bash
+# Run smoke test first
+bash scripts/smoke-test.sh --platform github
+# Then run full quality gate (delegate to gf-quality)
+```
+
+**Expected Workflow**:
+1. Smoke test passes → proceed to release
+2. Smoke test fails → stop, investigate failures
+
+---
+
+### Example 4: Debugging CLI Issues
+
+**User**: "gf commands are failing, what's wrong?"
+
+**Action**:
+1. Check auth: `gf auth status`
+2. If auth valid → run smoke test to identify which operations fail
+3. Classify failures and report
+
+---
+
+## Quick Start
+
+```bash
+# 1. Verify prerequisites
+test -f scripts/smoke-test.sh && echo "Script ready" || echo "Script missing"
+command -v gf && echo "gf installed" || echo "gf not found"
+gf auth status && echo "Auth valid" || gf auth login
+
+# 2. Run smoke test
+bash scripts/smoke-test.sh --platform github
+
+# 3. Check results
+# Exit code 0 = all passed
+# Exit code non-zero = failures detected (see report)
+```
+
 ## Success Criteria
 
 - [ ] Read-only unless user opts into write
