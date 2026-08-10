@@ -41,3 +41,7 @@ credentials/
 .superpowers/
 .codegraph/
 .claude/worktree/
+
+# Staged skills for crates.io publish (copied from workspace root skills/)
+# See: make stage-skills-for-publish
+apps/cli/skills/
