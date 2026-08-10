@@ -3,7 +3,7 @@ members = ["crates/*", "apps/*"]
 resolver = "3"
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.0"
 authors = ["byx-darwin <baoyx19870908@gmail.com>"]
 edition = "2024"
 rust-version = "1.96.0"
@@ -60,11 +60,11 @@ rand = "0.8"
 # owo-colors = "4"
 
 # workspace crates
-gitflow-core = { version = "1.1.0", path = "crates/core" }
-gitflow-github = { version = "1.1.0", path = "crates/github" }
-gitflow-gitlab = { version = "1.1.0", path = "crates/gitlab" }
-gitflow-gitcode = { version = "1.1.0", path = "crates/gitcode" }
-gitflow-cli = { version = "1.1.0", path = "apps/cli" }
+gitflow-core = { version = "1.2.0", path = "crates/core" }
+gitflow-github = { version = "1.2.0", path = "crates/github" }
+gitflow-gitlab = { version = "1.2.0", path = "crates/gitlab" }
+gitflow-gitcode = { version = "1.2.0", path = "crates/gitcode" }
+gitflow-cli = { version = "1.2.0", path = "apps/cli" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
