@@ -25,6 +25,7 @@ use thiserror::Error;
 
 pub mod auth;
 pub mod auth_checker;
+pub mod cleanup;
 pub mod cli_error;
 pub mod commit;
 pub mod compatibility;
