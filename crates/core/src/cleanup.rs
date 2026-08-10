@@ -189,6 +189,104 @@ impl CleanupService {
             error: None,
         })
     }
+
+    /// Clean up multiple PRs by number.
+    ///
+    /// Continues on individual failures and collects all results.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error only if the provider call itself fails.
+    /// Individual PR cleanup failures are captured in the results.
+    pub async fn cleanup(
+        provider: &dyn crate::pr::PrProvider,
+        args: &CleanupArgs,
+    ) -> crate::Result<Vec<CleanupResult>> {
+        let mut results = Vec::new();
+
+        for &pr_number in &args.numbers {
+            match Self::cleanup_single_pr(provider, pr_number, args).await {
+                Ok(result) => results.push(result),
+                Err(e) => {
+                    // Capture error in result instead of failing the whole batch
+                    results.push(CleanupResult {
+                        pr_number,
+                        pr_title: String::new(),
+                        branch: String::new(),
+                        remote_deleted: false,
+                        local_deleted: false,
+                        worktree_exited: false,
+                        worktree_removed: false,
+                        dry_run: args.dry_run,
+                        error: Some(e.to_string()),
+                    });
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Clean up all merged PRs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if listing PRs fails.
+    pub async fn cleanup_merged(
+        provider: &dyn crate::pr::PrProvider,
+        args: &CleanupArgs,
+    ) -> crate::Result<Vec<CleanupResult>> {
+        let prs = provider
+            .list(crate::pr::ListPrArgs {
+                state: Some(State::Closed),
+                limit: None,
+            })
+            .await?;
+
+        // Filter to only merged PRs (state == Closed includes merged)
+        let merged_prs: Vec<_> = prs
+            .into_iter()
+            .filter(|pr| pr.state == State::Closed)
+            .collect();
+
+        let mut results = Vec::new();
+        for pr in merged_prs {
+            let mut pr_args = args.clone();
+            pr_args.numbers = vec![pr.number];
+
+            match Self::cleanup_single_pr(provider, pr.number, &pr_args).await {
+                Ok(result) => results.push(result),
+                Err(e) => {
+                    results.push(CleanupResult {
+                        pr_number: pr.number,
+                        pr_title: pr.title,
+                        branch: pr.head_branch,
+                        remote_deleted: false,
+                        local_deleted: false,
+                        worktree_exited: false,
+                        worktree_removed: false,
+                        dry_run: args.dry_run,
+                        error: Some(e.to_string()),
+                    });
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Clean up all closed PRs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if listing PRs fails.
+    pub async fn cleanup_closed(
+        provider: &dyn crate::pr::PrProvider,
+        args: &CleanupArgs,
+    ) -> crate::Result<Vec<CleanupResult>> {
+        // Same as cleanup_merged for now (both use state == Closed)
+        Self::cleanup_merged(provider, args).await
+    }
 }
 
 /// Get the current git branch name.

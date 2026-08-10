@@ -390,8 +390,7 @@ mod tests {
         );
         assert!(sanitized.contains("[REDACTED]"));
 
-        let fine_grained =
-            "clone failed: \
+        let fine_grained = "clone failed: \
              github_pat_1234567890abcdef_GHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         let sanitized = sanitize_error_message(fine_grained);
         assert!(
