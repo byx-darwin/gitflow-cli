@@ -158,12 +158,51 @@ flowchart TD
 - 🚩 "Report every failure" — Suppress transient
 - 🚩 CI + autoreport — Refuse; CI uses exit code only
 
-## Trigger Keywords
+## Trigger System
 
-| English | 中文 |
-|---------|------|
-| smoke test, regression test | 冒烟测试、回归测试 |
-| pre-release check, verify CLI | 发版前检查、验证 CLI |
+This skill is triggered when the user's intent matches these scenarios:
+
+### Primary Triggers (High Confidence)
+
+| EN Trigger | ZH Trigger | Context Required | Action |
+|------------|------------|------------------|--------|
+| `run smoke test` | `跑冒烟测试` | Testing gf CLI | Execute smoke-test.sh |
+| `check for regressions` | `检查回归` | Post-change verification | Execute smoke-test.sh |
+| `verify gf works` | `验证 gf 是否正常` | CLI health check | Execute smoke-test.sh |
+| `pre-release check` | `发版前检查` | Before release | Execute smoke-test.sh |
+
+### Secondary Triggers (Medium Confidence)
+
+| EN Trigger | ZH Trigger | Context Required | Action |
+|------------|------------|------------------|--------|
+| `gf is broken` | `gf 坏了` | CLI debugging | Diagnose + smoke test |
+| `test failed after changes` | `改动后测试失败` | Post-change issue | Run regression check |
+
+### Negative Triggers (Do NOT Load)
+
+| Phrase | Likely Intent | Correct Skill |
+|--------|---------------|---------------|
+| `fix bug` | Bug fixing | `/gf-workflow` |
+| `review code` | Code review | `/gf-pr-review` |
+| `run tests` (for user's project) | Project testing | Project-specific commands |
+| `quality check` | Full quality gate | `/gf-quality` |
+
+### Trigger Decision Tree
+
+```
+User says something about "test" or "check"
+    │
+    ├─ Is it about gf CLI specifically?
+    │   ├─ YES → Load gf-regression
+    │   └─ NO → Is it about code review?
+    │       ├─ YES → Load gf-pr-review
+    │       └─ NO → Is it about full quality?
+    │           ├─ YES → Load gf-quality
+    │           └─ NO → Ask for clarification
+    │
+    └─ Is it about fixing a bug?
+        └─ YES → Load gf-workflow
+```
 
 ## Test Scenarios
 
