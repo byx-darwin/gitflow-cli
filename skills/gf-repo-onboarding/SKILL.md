@@ -7,6 +7,20 @@ description: |
 
 # gf-repo-onboarding
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## Overview
 
 Read-only analysis → onboarding walkthrough in chat. Never writes files.

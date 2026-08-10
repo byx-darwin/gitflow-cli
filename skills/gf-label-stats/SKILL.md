@@ -11,6 +11,20 @@ Read-only label analytics. Queries `gf label list`, then `gf issue list --label`
 
 See [full label taxonomy](../references/gf-label-stats-taxonomy.md) for canonical label category reference.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## When to Use
 
 | English | 中文 | Context |

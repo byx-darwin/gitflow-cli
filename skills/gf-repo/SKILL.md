@@ -11,6 +11,21 @@ description: |
 
 Encapsulates read and write operations for `gf repo`. Covers `clone/list/stats/view` (read-only) and `create/sync` (write operations require confirmation).
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
+
 ## When to Use
 
 | Trigger | 中文 | Redirect |
@@ -29,7 +44,7 @@ Encapsulates read and write operations for `gf repo`. Covers `clone/list/stats/v
 |----------|---------|-------------|
 | Generating a project onboarding guide | This skill performs repo operations, not onboarding analysis | `/gf-repo-onboarding` for read-only onboarding walkthrough |
 | Pushing without explicit confirmation | This skill requires user confirmation before all push operations | Non-negotiable — always show diff and await user OK |
-| Deleting a repository | This skill has no delete subcommand | `gh repo delete` via GitHub CLI |
+| Deleting a repository | This skill has no delete subcommand | Platform web UI |
 | Creating Pull Requests | This skill manages repos, not PRs | `/gf-pr` for PR lifecycle operations |
 | Auto-adding upstream remote | This skill requires user to supply upstream URL | Always ask user for upstream URL before adding remote |
 | Bulk cloning all org repos | This skill requires confirmation before bulk operations | Use `--limit` flag and confirm before bulk clone |
@@ -84,7 +99,7 @@ test -d .git && git rev-parse --show-toplevel # Inside repo (sync/view/stats)
 
 ## Red Flags
 
-- 🚩 User asks to "delete a repo" — unsupported; suggest `gh repo delete`
+- 🚩 User asks to "delete a repo" — unsupported; use platform web UI
 - 🚩 "Force push after sync" — show diff, require explicit confirmation
 - 🚩 "Clone all repos from org" — use `--limit`; confirm before bulk ops
 - 🚩 `repo create` non-interactively — must confirm name + visibility

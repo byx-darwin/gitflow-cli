@@ -12,6 +12,20 @@ description: >
 Automates: determine next version → generate changelog → create release → output URL.
 Full reference: docs/references/gf-release-helper-params.md
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## Overview
 
 Infers the next SemVer version from conventional commits, generates a changelog, and creates the release.

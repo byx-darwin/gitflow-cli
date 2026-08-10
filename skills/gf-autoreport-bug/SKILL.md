@@ -10,6 +10,21 @@ description: |
 
 Detects `pending.json` → validates → auth check → dedup → Claude analysis → creates Issue → cleans up.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
+
 ## Decision Flow
 
 ```mermaid
@@ -42,7 +57,7 @@ flowchart TD
 
 当 `gf auth status` 返回未登录时，不要尝试创建 Issue。改为：
 
-1. 输出登录提示：`gh auth login`
+1. 输出登录提示：`gf auth login`
 2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`
 3. 格式化 `pending.json` 内容为可复制的 Issue 模板：
    - **命令**: `{command}`

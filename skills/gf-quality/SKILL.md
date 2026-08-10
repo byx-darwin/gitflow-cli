@@ -10,6 +10,20 @@ description: |
 
 6-gate fast-fail quality gate. Detects project language, loads the matching toolchain, runs gates in order; first failure stops the chain. Outputs a Quality Report.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## When NOT to Use
 
 | Scenario | Why Not | Use Instead |
