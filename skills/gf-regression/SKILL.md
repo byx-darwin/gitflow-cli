@@ -11,12 +11,49 @@ Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to 
 
 ## When to Use
 
+Use this skill when you need to verify that the `gf` CLI is working correctly
+after changes, before release, or when debugging CLI-related issues.
+
+### Specific Scenarios
+
+| # | Scenario | Trigger Phrase | Expected Action |
+|---|----------|----------------|-----------------|
+| 1 | Post-change verification | "verify my changes didn't break gf" | Run read-only smoke test, report PASS/FAIL |
+| 2 | Pre-release gate | "run pre-release checks" | Run smoke test as part of release preparation |
+| 3 | Debugging CLI issues | "gf commands are failing" | Run smoke test to identify which operations fail |
+| 4 | Quick health check | "is gf working?" | Run minimal smoke test, report status |
+| 5 | Regression detection | "check for regressions" | Run full smoke test, compare with baseline |
+
+### Language-Specific Triggers
+
 | English | 中文 | Context |
 |---------|------|---------|
-| smoke test | 冒烟测试 | quick CLI check |
-| regression test | 回归测试 | post-change verification |
-| pre-release check | 发版前检查 | before release |
-| run smoke | 跑一下冒烟 | casual trigger |
+| smoke test | 冒烟测试 | Quick CLI health check |
+| regression test | 回归测试 | Post-change verification |
+| pre-release check | 发版前检查 | Before publishing release |
+| verify CLI | 验证 CLI | Confirm CLI functionality |
+| gf is broken | gf 坏了 | Debug CLI failures |
+
+## When NOT to Use
+
+Do NOT use this skill in the following scenarios:
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Fixing a bug | This skill only detects and reports bugs, doesn't fix them | `/gf-workflow` for bug fixes |
+| Code review | This skill runs tests, doesn't review code | `/gf-pr-review` for code review |
+| Full quality gate | This skill only runs smoke tests, not full CI | `/gf-quality` for complete quality checks |
+| Testing other projects | This skill is designed for `gf` CLI only | Use project-specific test commands |
+| CI pipeline | Smoke tests with autoreport shouldn't run in CI | Use `scripts/smoke-test.sh` directly with exit code |
+| Performance testing | This skill checks functionality, not performance | Use benchmarking tools |
+
+### Common Misconceptions
+
+| Misconception | Reality |
+|---------------|---------|
+| "This will fix the bug" | No — it reports bugs via `/gf-autoreport-bug` |
+| "This replaces CI" | No — it's a quick local check, not a CI replacement |
+| "This works for any project" | No — it's hardcoded to `scripts/smoke-test.sh` |
 
 ## Core Pattern
 
