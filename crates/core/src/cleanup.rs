@@ -116,6 +116,107 @@ pub fn check_safety(pr: &PrData, current_branch: &str, force: bool) -> crate::Re
     Ok(())
 }
 
+/// Service for coordinating PR cleanup operations.
+///
+/// Orchestrates safety checks, git operations, and worktree handling.
+#[derive(Debug)]
+pub struct CleanupService;
+
+impl CleanupService {
+    /// Clean up a single PR's branches and optionally its worktree.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Safety checks fail
+    /// - Git operations fail
+    /// - Worktree operations fail
+    pub async fn cleanup_single_pr(
+        provider: &dyn crate::pr::PrProvider,
+        pr_number: u64,
+        args: &CleanupArgs,
+    ) -> crate::Result<CleanupResult> {
+        // 1. Fetch PR data
+        let pr = provider.view(pr_number).await?;
+
+        // 2. Get current branch
+        let current_branch = get_current_branch().await?;
+
+        // 3. Safety checks
+        check_safety(&pr, &current_branch, args.force)?;
+
+        // 4. Delete remote branch (if requested and not dry-run)
+        let mut remote_deleted = false;
+        if args.remote && !args.dry_run {
+            if let Err(e) = crate::git_ops::delete_remote_branch(&pr.head_branch).await {
+                // Log error but continue (branch might not exist)
+                tracing::warn!("Failed to delete remote branch: {}", e);
+            } else {
+                remote_deleted = true;
+            }
+        }
+
+        // 5. Delete local branch (if requested and not dry-run)
+        let mut local_deleted = false;
+        if args.local && !args.dry_run {
+            crate::git_ops::delete_local_branch(&pr.head_branch, args.force).await?;
+            local_deleted = true;
+        }
+
+        // 6. Handle worktree
+        let mut worktree_exited = false;
+        let mut worktree_removed = false;
+
+        if crate::git_ops::is_in_worktree().await? && !args.dry_run {
+            crate::git_ops::exit_worktree().await?;
+            worktree_exited = true;
+
+            if let Some(ref worktree_path) = args.worktree {
+                crate::git_ops::remove_worktree(worktree_path).await?;
+                worktree_removed = true;
+            }
+        }
+
+        Ok(CleanupResult {
+            pr_number: pr.number,
+            pr_title: pr.title,
+            branch: pr.head_branch,
+            remote_deleted,
+            local_deleted,
+            worktree_exited,
+            worktree_removed,
+            dry_run: args.dry_run,
+            error: None,
+        })
+    }
+}
+
+/// Get the current git branch name.
+///
+/// # Errors
+///
+/// Returns an error if the git command fails or HEAD is detached.
+async fn get_current_branch() -> crate::Result<String> {
+    let output = tokio::process::Command::new("git")
+        .args(["branch", "--show-current"])
+        .output()
+        .await
+        .map_err(|e| crate::CoreError::App(format!("Failed to get current branch: {e}")))?;
+
+    if !output.status.success() {
+        return Err(crate::CoreError::App(
+            "Failed to get current branch".to_string(),
+        ));
+    }
+
+    let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if branch.is_empty() {
+        return Err(crate::CoreError::App("HEAD is detached".to_string()));
+    }
+
+    Ok(branch)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
