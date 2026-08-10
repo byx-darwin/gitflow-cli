@@ -23,6 +23,17 @@ CN 流水线分析 CI失败 flaky test 耗时分析
 EN pipeline health analyze flaky test CI slow success rate
 CLI `gf pipeline report --branch <B> --days <N>`
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Retrying or retriggering failed pipelines | This skill is strictly read-only analysis | Manual `gf pipeline retry` or platform web UI |
+| Modifying CI configuration files | This skill analyzes pipeline data, not edits config | Edit `.github/workflows/` files directly |
+| Running local pre-commit checks | This skill analyzes remote CI/CD pipelines, not local hooks | `/gf-precommit` for local pre-commit quality gates |
+| Auto-creating Issues for failures | This skill reports findings only, never creates Issues | `/gf-issue-create` for manual Issue creation after analysis |
+| Fixing flaky tests | This skill identifies flaky tests but never modifies code | `/gf-workflow` for implementing fixes |
+| Running full quality gate checks | This skill focuses on CI/CD pipeline metrics, not code quality | `/gf-quality` for 6-gate quality verification |
+
 ## Data Sufficiency Flow
 
 ```mermaid

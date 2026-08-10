@@ -19,6 +19,16 @@ CRUD wrapper for `gf release`. Manages GitHub/GitLab/GitCode releases — metada
 | upload / download asset | 上传/下载资源 | binaries, archives |
 | delete release | 删除 Release | rollback / mistake |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Auto-generating changelog and version inference | This skill manages Release CRUD, not version decision or changelog generation | `/gf-release-helper` for SemVer inference + changelog + release creation |
+| Creating Git tags | This skill requires tags to exist first, never creates them | `git tag <v>` + `git push --tags` for tag creation |
+| Deleting without double confirmation | This skill requires two confirmations before irreversible deletion | Non-negotiable — always double-confirm tag before delete |
+| Uploading non-existent files | This skill verifies file existence before upload | Verify file path exists before invoking upload |
+| Running quality checks before release | This skill manages release metadata, not quality verification | `/gf-quality` for 6-gate quality check before release |
+
 ## Core Pattern
 
 ```bash

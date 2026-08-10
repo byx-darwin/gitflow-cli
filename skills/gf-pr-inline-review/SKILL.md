@@ -19,6 +19,17 @@ Publishes inline comments on PR changed lines. No review decisions, no code fixe
 | overall PR review | PR 总体审查 | **NOT** → `gf-pr-review` |
 | approve / request changes | 审批 PR | **NOT** → `gf-review` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Submitting an overall review verdict | This skill publishes line-level comments, not overall verdicts | `/gf-pr-review` for 6-dimension review with approve/request-changes |
+| Approving or requesting changes | This skill only posts inline comments, not formal verdicts | `/gf-review` for submitting approve/request-changes verdicts |
+| Applying feedback as code fixes | This skill comments on code, not modifies it | `/gf-pr-apply-feedback` for applying fixes from review comments |
+| Merging or closing the PR | This skill has no lifecycle operations | `/gf-pr` for merge/close/reopen |
+| Commenting on unchanged lines | This skill only comments on `+` (added) lines in the diff | Use platform web UI for general PR comments |
+| Publishing without user confirmation | This skill requires explicit confirmation before every publish | Non-negotiable — draft review is mandatory |
+
 ## Core Pattern
 
 ```bash

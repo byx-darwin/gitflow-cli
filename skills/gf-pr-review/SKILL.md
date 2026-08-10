@@ -20,6 +20,17 @@ description: |
 | inline / line review | 逐行评论 | → `gf-pr-inline-review` |
 | merge / close | 合并/关闭 | → `gf-pr` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Leaving line-level inline comments | This skill submits an overall verdict, not per-line comments | `/gf-pr-inline-review` for line-level inline review |
+| Applying review fixes to code | This skill assesses code and submits verdict, not modifies source | `/gf-pr-apply-feedback` for applying fixes |
+| Merging or closing the PR | This skill submits review verdicts, not lifecycle operations | `/gf-pr` for merge/close/reopen |
+| Creating a Pull Request | This skill reviews existing PRs only | `/gf-pr-create` for PR creation workflow |
+| Deep security vulnerability scanning | This skill includes security as one of 6 dimensions, not a full audit | `/gf-security-check` for comprehensive security audit |
+| Submitting verdict without reading diff | This skill requires full diff analysis before verdict | Non-negotiable — always read diff first |
+
 ## Core Pattern
 
 ```bash

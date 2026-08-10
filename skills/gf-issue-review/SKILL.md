@@ -18,6 +18,16 @@ Three-dimensional Issue requirement review — title clarity / description suffi
 | improve issue description | 改进 Issue 描述 | before development |
 | triage this issue | 对 Issue 进行分类 | **NOT** → `/gf-issue-triage` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Batch classifying Issues by type/priority | This skill analyzes one Issue's requirement depth, not bulk classification | `/gf-issue-triage` for batch type+priority labeling |
+| Creating a new Issue | This skill analyzes existing Issues only | `/gf-issue-create` for interactive Issue creation |
+| Editing Issue content | This skill posts analysis as comments but never edits the Issue itself | `/gf-issue` for edit operations |
+| Reviewing PR code | This skill reviews Issue requirements, not code diffs | `/gf-pr-review` for PR code review |
+| Labeling Issues with statistics | This skill scores requirement quality, not label distribution | `/gf-label-stats` for label analytics |
+
 ## Core Pattern
 
 ```bash

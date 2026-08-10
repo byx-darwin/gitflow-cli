@@ -19,6 +19,16 @@ Manages authentication lifecycle: login, logout, status, token retrieval. Does n
 | access token | 获取 Token | downstream API calls |
 | manage platform tokens | 管理平台 Token | **NOT** → web console |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Token revocation/rotation | This skill only manages local credentials, not platform-side tokens | Platform web console (GitHub/GitLab/GitCode settings) |
+| Creating personal access tokens | Token creation happens on the platform, not locally | Platform web console → Developer Settings |
+| Storing tokens in files | Violates token safety boundary — tokens must stay in OS credential store | Use `gf auth login` (stores in OS keychain) |
+| Debugging token values | Token must never appear in logs, chat, or files | Use `gf auth status` to verify session state |
+| Managing SSH keys | This skill handles OAuth/token auth, not SSH | Platform web console → SSH Keys settings |
+
 ## Core Pattern
 
 ```bash

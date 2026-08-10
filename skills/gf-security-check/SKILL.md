@@ -19,6 +19,17 @@ Security audit checklist: dependency vulnerabilities, hardcoded secrets, unsafe 
 | license compliance | 许可证合规 | cargo deny |
 | unsafe code check | unsafe 代码检查 | grep unsafe |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Auto-fixing vulnerabilities | This skill detects and reports only, never patches code | `/gf-workflow` for implementing security fixes |
+| Modifying audit configuration to suppress findings | This skill never edits `audit.toml` or `.gitignore` | User decides on suppression after reviewing findings |
+| Running quality gate checks | This skill focuses on security, not general code quality | `/gf-quality` for 6-gate quality verification |
+| Automatically reporting vulnerabilities as Issues | This skill requires user confirmation before filing Issues | `/gf-issue-create` after user reviews and approves the report |
+| Scanning non-Rust projects | This skill is configured for Rust tooling (`cargo audit`, `cargo deny`) | Adapt commands for the target language ecosystem |
+| Dismissing CRITICAL findings as transitive | This skill triages all findings honestly by severity | Non-negotiable — CRITICAL must always be reported |
+
 ## Core Pattern
 
 ```bash

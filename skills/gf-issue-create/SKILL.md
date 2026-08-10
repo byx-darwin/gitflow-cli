@@ -18,6 +18,16 @@ Interactive workflow that collects title, description, optional labels/assignee,
 | file a bug | 上报缺陷 | corresponds to `--label bug` |
 | new feature issue | 功能 Issue | corresponds to `feat:` prefix |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Analyzing Issue requirement quality | This skill creates Issues, not analyzes their quality | `/gf-issue-review` for requirement completeness analysis |
+| Batch classifying open Issues | This skill creates one Issue at a time | `/gf-issue-triage` for bulk classification |
+| Editing existing Issue fields | This skill only creates new Issues | `/gf-issue` for edit/close/reopen/comment operations |
+| Automated bug reporting from CLI errors | This skill requires manual input, not automated detection | `/gf-autoreport-bug` for automated `pending.json` processing |
+| Viewing or listing Issues | This skill only creates, never reads existing Issues | `/gf-issue` for list/view/comment operations |
+
 ## Core Pattern
 
 ```bash

@@ -20,6 +20,17 @@ Read-only analysis → onboarding walkthrough in chat. Never writes files.
 | repo conventions | 项目约定 | — |
 | PR review | 审查 PR | → `gf-pr-review` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Writing the onboarding guide to a file | This skill outputs to chat only, never writes files automatically | Ask user for explicit consent before using `Write` tool |
+| Performing PR code review | This skill generates onboarding walkthroughs, not code reviews | `/gf-pr-review` for PR code review |
+| Installing dependencies or hooks | This skill describes setup steps, never executes installs | User runs install commands manually |
+| Editing CI configuration or manifests | This skill is read-only analysis, never modifies project files | Edit workflow files or manifests directly |
+| Cloning or managing repositories | This skill generates guides for existing repos, not repo operations | `/gf-repo` for clone/list/create/sync operations |
+| Fabricating CI steps without evidence | This skill cites only actual `.github/workflows/` files | Omit CI section when no workflows exist |
+
 ## Core Pattern
 
 ```bash

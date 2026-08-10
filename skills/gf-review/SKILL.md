@@ -22,6 +22,17 @@ Submits review verdicts via `gf review`. Read-only skill — does not analyze co
 | review analysis | 审查分析 | → `/gf-pr-review` |
 | inline review | 行内审查 | → `/gf-pr-inline-review` |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Performing code analysis to form a verdict | This skill submits verdicts only, does not analyze code | `/gf-pr-review` for 6-dimension code analysis |
+| Leaving line-level inline comments | This skill submits formal verdicts, not inline comments | `/gf-pr-inline-review` for per-line review comments |
+| Approving without prior analysis | This skill requires prior review or explicit user-supplied verdict | Non-negotiable — always require `/gf-pr-review` or user verdict first |
+| Reviewing your own PR | This skill prohibits self-review | Non-negotiable — refuse self-review requests |
+| Merging or closing the PR | This skill submits review verdicts, not lifecycle operations | `/gf-pr` for merge/close/reopen |
+| Auto-submitting without user confirmation | This skill requires explicit confirmation before every submission | Non-negotiable — always present verdict and await user OK |
+
 ## Core Pattern
 
 ```bash

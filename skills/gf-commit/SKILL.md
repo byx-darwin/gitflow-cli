@@ -19,6 +19,16 @@ Encapsulates `gf commit` for viewing, diffing, patching, and line-commenting com
 | comment on a commit line | 在 commit 上评论 | publish inline comment |
 | fix bug in commit | 修复 bug | **NOT** — out of scope |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Creating or fixing commits | This skill only inspects existing commits, never creates or amends them | `/gf-workflow` for commit creation and bug fixes |
+| Reviewing a Pull Request | This skill targets standalone commits, not PR-level review | `/gf-pr-review` for overall PR review, `/gf-pr-inline-review` for line-level |
+| Running pre-commit checks | This skill operates on already-pushed commits | `/gf-precommit` for pre-commit quality gates |
+| Browsing commit history | This skill requires a specific SHA, not log exploration | `git log` or `git rev-list` for history browsing |
+| Merging or approving changes | This skill has no merge/approve capability | `/gf-pr` for PR lifecycle operations |
+
 ## Core Pattern
 
 ```bash
