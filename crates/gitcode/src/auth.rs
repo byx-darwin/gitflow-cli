@@ -279,7 +279,7 @@ impl<R: CommandRunner> gitflow_core::AuthChecker for GitCodeAuthProvider<R> {
                 authenticated: false,
                 user: None,
                 reason: Some(stderr.to_string()),
-                hint: Some("Run `gitcode auth login` to authenticate".into()),
+                hint: Some("Run `gc auth login` to authenticate".into()),
             }
         }
     }

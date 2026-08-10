@@ -27,7 +27,7 @@ pub fn parse_gitcode_error(stderr: &[u8]) -> PlatformCliError {
         };
 
         let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitCode);
-        err.hint = Some("运行 `gitcode auth status` 检查认证状态".into());
+        err.hint = Some("运行 `gc auth status` 检查认证状态".into());
         err.doc_link = Some("https://gitcode.com/gitcode-cli/cli/blob/main/README.md".into());
         err.code = code;
         return err;
@@ -41,7 +41,7 @@ pub fn parse_gitcode_error(stderr: &[u8]) -> PlatformCliError {
     };
 
     let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitCode);
-    err.hint = Some("运行 `gitcode auth login` 完成登录".into());
+    err.hint = Some("运行 `gc auth login` 完成登录".into());
     err.doc_link = Some("https://gitcode.com/gitcode-cli/cli/blob/main/README.md".into());
     err
 }

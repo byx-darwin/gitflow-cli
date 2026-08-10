@@ -68,7 +68,7 @@ mod tests {
             authenticated: false,
             user: None,
             reason: Some("Not logged in".to_string()),
-            hint: Some("Run `gitcode auth login`".to_string()),
+            hint: Some("Run `gc auth login`".to_string()),
         };
         assert!(!result.authenticated);
         assert!(result.reason.is_some());
