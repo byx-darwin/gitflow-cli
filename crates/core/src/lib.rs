@@ -29,6 +29,7 @@ pub mod cleanup;
 pub mod cli_error;
 pub mod commit;
 pub mod compatibility;
+pub mod git_ops;
 pub mod issue;
 pub mod label;
 pub mod output;
