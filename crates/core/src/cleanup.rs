@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::{pr::PrData, types::State};
+
 /// Arguments for the `gf pr cleanup` command.
 ///
 /// Supports cleanup by PR numbers, by status (`--merged`/`--closed`),
@@ -64,6 +66,54 @@ pub struct CleanupResult {
     pub dry_run: bool,
     /// Error message if cleanup failed for this PR.
     pub error: Option<String>,
+}
+
+/// Check if a branch name matches common protected branch patterns.
+///
+/// Protected branches include: `main`, `master`, `develop`, and `release/*`.
+///
+/// This is a local check — Phase 2 may add remote branch protection queries.
+#[must_use]
+pub fn is_protected_branch(branch: &str) -> bool {
+    matches!(branch, "main" | "master" | "develop") || branch.starts_with("release/")
+}
+
+/// Perform safety checks before cleaning up a PR.
+///
+/// Checks:
+/// 1. PR status (must be merged or closed, unless `force` is true)
+/// 2. Branch protection (hard reject — cannot be overridden)
+/// 3. Current branch (cannot delete currently checked-out branch)
+///
+/// # Errors
+///
+/// Returns an error if any safety check fails.
+pub fn check_safety(pr: &PrData, current_branch: &str, force: bool) -> crate::Result<()> {
+    // 1. Check PR status
+    if !force && pr.state != State::Closed {
+        return Err(crate::CoreError::App(format!(
+            "PR #{} 尚未合并或关闭。使用 --force 强制清理。",
+            pr.number
+        )));
+    }
+
+    // 2. Check protected branch (hard reject)
+    if is_protected_branch(&pr.head_branch) {
+        return Err(crate::CoreError::App(format!(
+            "分支 '{}' 受保护，拒绝删除",
+            pr.head_branch
+        )));
+    }
+
+    // 3. Check current branch (hard reject)
+    if pr.head_branch == current_branch {
+        return Err(crate::CoreError::App(format!(
+            "无法删除当前检出的分支 '{}'",
+            pr.head_branch
+        )));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -156,5 +206,148 @@ mod tests {
         let json = serde_json::to_string(&result).expect("serialize");
         assert!(json.contains("\"error\":"));
         assert!(json.contains("protected"));
+    }
+
+    #[test]
+    fn test_should_identify_main_as_protected() {
+        assert!(is_protected_branch("main"));
+    }
+
+    #[test]
+    fn test_should_identify_master_as_protected() {
+        assert!(is_protected_branch("master"));
+    }
+
+    #[test]
+    fn test_should_identify_develop_as_protected() {
+        assert!(is_protected_branch("develop"));
+    }
+
+    #[test]
+    fn test_should_identify_release_branches_as_protected() {
+        assert!(is_protected_branch("release/1.0"));
+        assert!(is_protected_branch("release/v2.0.0"));
+    }
+
+    #[test]
+    fn test_should_not_identify_feature_branch_as_protected() {
+        assert!(!is_protected_branch("feature/x"));
+        assert!(!is_protected_branch("bugfix/123"));
+    }
+
+    #[test]
+    fn test_should_allow_cleanup_of_merged_pr() {
+        let pr = PrData {
+            number: 172,
+            title: "Add feature".to_string(),
+            body: None,
+            state: State::Closed,
+            draft: false,
+            author: crate::types::UserSummary {
+                login: "alice".to_string(),
+                id: "1".to_string(),
+            },
+            base_branch: "main".to_string(),
+            head_branch: "feature/x".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            url: "https://github.com/test/repo/pull/172".to_string(),
+        };
+        let result = check_safety(&pr, "main", false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_refuse_to_delete_protected_branch() {
+        let pr = PrData {
+            number: 172,
+            title: "Update main".to_string(),
+            body: None,
+            state: State::Closed,
+            draft: false,
+            author: crate::types::UserSummary {
+                login: "alice".to_string(),
+                id: "1".to_string(),
+            },
+            base_branch: "main".to_string(),
+            head_branch: "main".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            url: "https://github.com/test/repo/pull/172".to_string(),
+        };
+        let result = check_safety(&pr, "develop", false);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("受保护"));
+    }
+
+    #[test]
+    fn test_should_refuse_to_delete_current_branch() {
+        let pr = PrData {
+            number: 172,
+            title: "Add feature".to_string(),
+            body: None,
+            state: State::Closed,
+            draft: false,
+            author: crate::types::UserSummary {
+                login: "alice".to_string(),
+                id: "1".to_string(),
+            },
+            base_branch: "main".to_string(),
+            head_branch: "feature/x".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            url: "https://github.com/test/repo/pull/172".to_string(),
+        };
+        let result = check_safety(&pr, "feature/x", false);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("当前检出"));
+    }
+
+    #[test]
+    fn test_should_require_merged_or_closed_state() {
+        let pr = PrData {
+            number: 172,
+            title: "Add feature".to_string(),
+            body: None,
+            state: State::Open,
+            draft: false,
+            author: crate::types::UserSummary {
+                login: "alice".to_string(),
+                id: "1".to_string(),
+            },
+            base_branch: "main".to_string(),
+            head_branch: "feature/x".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            url: "https://github.com/test/repo/pull/172".to_string(),
+        };
+        let result = check_safety(&pr, "main", false);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("尚未合并或关闭"));
+    }
+
+    #[test]
+    fn test_should_allow_unmerged_pr_with_force() {
+        let pr = PrData {
+            number: 172,
+            title: "Add feature".to_string(),
+            body: None,
+            state: State::Open,
+            draft: false,
+            author: crate::types::UserSummary {
+                login: "alice".to_string(),
+                id: "1".to_string(),
+            },
+            base_branch: "main".to_string(),
+            head_branch: "feature/x".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            url: "https://github.com/test/repo/pull/172".to_string(),
+        };
+        let result = check_safety(&pr, "main", true);
+        assert!(result.is_ok());
     }
 }
