@@ -168,10 +168,13 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
         // 解析登录用户：查找 "Logged in to github.com as <username>" 行
         let user = parse_user_from_status(&stdout);
 
+        // 解析 token scopes：查找 "Token scopes: 'scope1', 'scope2'" 行
+        let scopes = parse_scopes_from_status(&stdout);
+
         Ok(AuthStatus {
             logged_in: user.is_some(),
             user,
-            scopes: vec![], // gh auth status 不直接返回 scopes 列表
+            scopes,
         })
     }
 
@@ -268,6 +271,34 @@ impl<R: CommandRunner> gitflow_core::AuthChecker for GitHubAuthProvider<R> {
             }
         }
     }
+}
+
+/// 从 `gh auth status` 的输出中解析 token scopes。
+///
+/// 支持格式：`"Token scopes: 'scope1', 'scope2', ..."`
+/// 可能带 `✓` 或 `-` 前缀。
+fn parse_scopes_from_status(output: &str) -> Vec<String> {
+    for line in output.lines() {
+        // 查找包含 "Token scopes:" 的行
+        let Some(pos) = line.find("Token scopes:") else {
+            continue;
+        };
+        let after = &line[pos + "Token scopes:".len()..];
+        let trimmed = after.trim();
+
+        // 处理 "none" 或空值
+        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {
+            return vec![];
+        }
+
+        // 解析 'scope1', 'scope2' 格式
+        return trimmed
+            .split(',')
+            .map(|s| s.trim().trim_matches('\'').trim_matches('"').to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+    }
+    vec![]
 }
 
 /// 从 `gh auth status` 的输出中解析用户名。
@@ -375,6 +406,47 @@ mod tests {
     fn test_should_parse_user_from_account_format_without_suffix() {
         let status = "Logged in to github.com account bob";
         assert_eq!(parse_user_from_status(status), Some("bob".to_string()));
+    }
+
+    #[test]
+    fn test_should_parse_scopes_from_status_output() {
+        let status = r"github.com
+  ✓ Logged in to github.com account octocat (keyring)
+  - Token scopes: 'delete_repo', 'gist', 'read:org', 'repo', 'workflow'
+";
+        let scopes = parse_scopes_from_status(status);
+        assert_eq!(
+            scopes,
+            vec!["delete_repo", "gist", "read:org", "repo", "workflow"]
+        );
+    }
+
+    #[test]
+    fn test_should_parse_scopes_with_checkmark_prefix() {
+        let status = "  ✓ Token scopes: 'repo', 'read:org'";
+        let scopes = parse_scopes_from_status(status);
+        assert_eq!(scopes, vec!["repo", "read:org"]);
+    }
+
+    #[test]
+    fn test_should_return_empty_scopes_when_none() {
+        let status = "  - Token scopes: none";
+        let scopes = parse_scopes_from_status(status);
+        assert!(scopes.is_empty());
+    }
+
+    #[test]
+    fn test_should_return_empty_scopes_when_line_missing() {
+        let status = "Logged in to github.com as octocat";
+        let scopes = parse_scopes_from_status(status);
+        assert!(scopes.is_empty());
+    }
+
+    #[test]
+    fn test_should_parse_single_scope() {
+        let status = "  - Token scopes: 'repo'";
+        let scopes = parse_scopes_from_status(status);
+        assert_eq!(scopes, vec!["repo"]);
     }
 
     #[test]
@@ -525,7 +597,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_return_logged_in_status_when_authenticated() {
-        let stdout = "Logged in to github.com as testuser (keyring)\n";
+        let stdout = "Logged in to github.com as testuser (keyring)\n  - Token scopes: 'repo', 'read:org'\n";
         let runner = MockCommandRunner::success(stdout);
         let provider = GitHubAuthProvider::with_runner(runner);
 
@@ -535,7 +607,7 @@ mod tests {
         let status = result.unwrap();
         assert!(status.logged_in);
         assert_eq!(status.user, Some("testuser".to_string()));
-        assert!(status.scopes.is_empty());
+        assert_eq!(status.scopes, vec!["repo", "read:org"]);
     }
 
     #[tokio::test]
