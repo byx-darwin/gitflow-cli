@@ -65,3 +65,128 @@ done
 - ❌ Never modify `package.json` or lock files during quality check
 - ❌ Never auto-fix lint issues without showing diff first
 - ❌ Never mix runtimes (e.g., run `npm install` in a bun project)
+
+## Configuration
+
+### Tool Setup
+
+| Tool | Install | Config File | Required |
+|------|---------|-------------|----------|
+| prettier | `npm install -D prettier` | `.prettierrc` | Gate 4 |
+| eslint | `npm install -D eslint` | `.eslintrc.json` | Gate 5 |
+| typescript | `npm install -D typescript` | `tsconfig.json` | Gate 1 (TS projects) |
+
+### Config File Examples
+
+#### .prettierrc
+
+```json
+{
+  "semi": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "singleQuote": false
+}
+```
+
+#### .eslintrc.json
+
+```json
+{
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-console": "warn"
+  }
+}
+```
+
+#### tsconfig.json (TypeScript)
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"]
+}
+```
+
+#### package.json (scripts section)
+
+```json
+{
+  "scripts": {
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write ."
+  }
+}
+```
+
+### Environment Variables
+
+| Variable | Effect | Default |
+|----------|--------|---------|
+| `NODE_ENV` | Node environment | `development` |
+| `npm_config_*` | npm configuration | — |
+
+### Language-Specific Notes
+
+- Detect runtime from lock file: bun → pnpm → yarn → npm
+- Gate 1: for TypeScript, also run `tsc --noEmit` for type checking
+- Gate 3: look for `test:coverage` script, fallback to `jest --coverage` or `vitest --coverage`
+- Gate 4: respect `.prettierrc` or config in `package.json`
+- Gate 5: respect `.eslintrc*` or `eslintConfig` in `package.json`
+
+## Troubleshooting
+
+### Common Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `npm ERR! permission denied` | Permission issue | Use `sudo` or fix npm directory permissions |
+| `ERESOLVE could not resolve dependency` | Lock file conflict | Delete `node_modules` and `package-lock.json`, run `npm install` |
+| `TS2304: Cannot find name` | TypeScript error | Check imports and type definitions |
+| `Cannot find module` | Import error | Check path and ensure module is installed |
+
+### Exit Code Reference
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| 0 | Success | Continue to next gate |
+| 1 | Test/lint failure | Fix errors and retry |
+| 2 | Lint errors | Fix lint warnings |
+| 127 | Command not found | Install missing tool |
+
+### FAQ
+
+**Q: npm vs yarn vs pnpm?**
+A: All work. pnpm is fastest and most disk-efficient. yarn is mature. npm is default.
+
+**Q: How to clear node_modules cache?**
+A: Delete `node_modules` and lock file, then run `npm install` (or `yarn install`, `pnpm install`).
+
+**Q: TypeScript strict mode?**
+A: Enable in `tsconfig.json`: `"strict": true`. Fix all type errors before proceeding.
+
+### Performance Tips
+
+- Use `npm ci` instead of `npm install` in CI for faster, deterministic installs
+- Use parallel test runners: `jest --parallel` or `vitest --pool=forks`
+- Skip dev dependencies in CI: `npm install --production`
+- Use `--ignore-scripts` to skip postinstall scripts if not needed
