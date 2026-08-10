@@ -30,6 +30,8 @@
 
 ## Reference
 
+- [Command Reference](./commands/) — detailed documentation for all `gf` commands.
+  - [pr cleanup](./commands/pr-cleanup.md) — safely clean up branches and worktrees after PR merge.
 - [CLAUDE.md](../CLAUDE.md) — agent guide with code style, security, and testing rules.
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — how to contribute.
 - [SECURITY.md](../SECURITY.md) — security policy and vulnerability reporting.
