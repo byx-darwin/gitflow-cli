@@ -316,7 +316,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. Worktree path is FIXED at `.claude/worktree/<branch-name>` (covered by `.claude/` in `.gitignore`). Branch name: `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — see `references.md` → Phase 3 Execution Modes | `branch`, `base_branch`, `worktree_path` |
+| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. Worktree path is FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`). Branch name: `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — see `references.md` → Phase 3 Execution Modes | `branch`, `base_branch`, `worktree_path` |
 | 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window / background agent); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR | implementation |
 | 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
@@ -358,7 +358,7 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 **Trigger:** After dogfooding passes. **Requires user confirmation.**
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
-   - Note: `worktree_path` follows the convention `.claude/worktree/<branch-name>`
+   - Note: `worktree_path` follows the convention `.worktree/<branch-name>`
 2. Detect PR merge status: `gf pr view` (parse merged state)
 3. **PR merged** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)

@@ -19,6 +19,9 @@ ruvector.db
 .gemini/
 .copilot/
 
+# Git worktrees (created by gf-workflow Phase 3)
+.worktree/
+
 # Secrets and credentials
 .env
 .env.*
@@ -40,7 +43,6 @@ credentials/
 .claude/skills/
 .superpowers/
 .codegraph/
-.claude/worktree/
 
 # Staged skills for crates.io publish (copied from workspace root skills/)
 # See: make stage-skills-for-publish

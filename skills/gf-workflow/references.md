@@ -82,11 +82,11 @@ Each workflow uses its own worktree, branch, and contract file — no interferen
 
 ### Worktree Path Convention
 
-All worktrees are created at a fixed location within the project: `.claude/worktree/<branch-name>`
+All worktrees are created at a fixed location within the project: `.worktree/<branch-name>`
 
-- **Path pattern:** `.claude/worktree/feat/<issue-number>-<short-description>`
+- **Path pattern:** `.worktree/feat/<issue-number>-<short-description>`
 - **Branch naming:** `feat/<issue-number>-<short-description>` (e.g., `feat/146-worktree-path`)
-- **Gitignore:** `.claude/worktree/` is included in `.gitignore`
+- **Gitignore:** `.worktree/` is included in `.gitignore`
 - **Benefits:**
   - Worktrees remain within the project directory for easy discovery and cleanup
   - Predictable paths for Phase 4 Branch Finish automation
@@ -95,10 +95,10 @@ All worktrees are created at a fixed location within the project: `.claude/workt
 **Example:**
 ```bash
 # Phase 3 Step 1: Create worktree
-git worktree add .claude/worktree/feat-146-worktree-path -b feat/146-worktree-path main
+git worktree add .worktree/feat-146-worktree-path -b feat/146-worktree-path main
 
 # Phase 4 Branch Finish: Remove worktree
-git worktree remove .claude/worktree/feat-146-worktree-path
+git worktree remove .worktree/feat-146-worktree-path
 ```
 
 ## Lifecycle Management
@@ -268,10 +268,10 @@ compensate (`make test` before PR + Phase 4 `gf-review`). SDD carries per-task r
 
 ### Worktree Location Convention (Issue #146)
 
-All gf-workflow worktrees are created at a **fixed path**: `.claude/worktree/<branch-name>`.
+All gf-workflow worktrees are created at a **fixed path**: `.worktree/<branch-name>`.
 
 - Branch name format: `feat/<issue-number>-<short-description>`
-- Full path example: `.claude/worktree/feat/141-dual-skill-sources`
-- `.claude/` is already in `.gitignore` → worktrees are automatically excluded from version control
+- Full path example: `.worktree/feat/141-dual-skill-sources`
+- `.worktree/` is in `.gitignore` → worktrees are automatically excluded from version control
 - Phase 4 Branch Finish cleanup uses this predictable path for `git worktree remove`
 - Background agents and new-window executors create worktrees at this same location
