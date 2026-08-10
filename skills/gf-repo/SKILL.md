@@ -5,6 +5,8 @@ description: |
   当用户需要通过 gf 列出、克隆、创建、同步或查看仓库时使用。
 ---
 
+> **[PLANNED]** The `gf repo` command group is not yet implemented. The commands documented below (`gf repo clone`, `gf repo list`, etc.) do not currently exist in the CLI. Use `git clone`, `gh repo list`, etc. as alternatives. See Issue #179.
+
 # gf-repo
 
 ## Overview

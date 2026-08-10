@@ -50,7 +50,7 @@ command -v gf && git cat-file -t <sha>   # preconditions
 gf commit view <sha>                       # verify + read
 gf commit diff <sha>                       # diff
 gf commit patch <sha>                      # patch
-gf comment <sha> --body <t> --path <p> --line <n>
+gf commit comment <sha> --body <t> --path <p> --line <n>
 ```
 
 ## Quick Reference

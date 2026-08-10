@@ -23,6 +23,13 @@ Manages authentication lifecycle: login, logout, status, token retrieval. Does n
 ## Preconditions
 - `gf` installed: `command -v gf`
 - `gf` authenticated: `gf auth status`
+
+## Known Caveats
+
+> **Note:** `gf auth status` may show cached login state. If commands fail with
+> auth errors, run `gh auth status` to verify the underlying token is valid.
+> Re-run `gf auth login` or `gh auth login` if the token has expired.
+
 ## When to Use
 
 | English | 中文 | Context |

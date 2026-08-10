@@ -48,18 +48,18 @@ Publishes inline comments on PR changed lines. No review decisions, no code fixe
 
 ```bash
 gf pr view <n>    # 1. verify PR open
-gf pr diff <n>          # 2. fetch diff
+gh pr diff <n>          # 2. fetch diff
 # 3. analyze → draft comments
 # 4. show draft → await user confirm
-gf comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
+gf commit comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
 ```
 
 ## Quick Reference
 
 | Goal | Command |
 |------|---------|
-| Fetch | `gf pr view <n>` + `pr diff <n>` |
-| Publish | `gf comment <sha> --body "<body>" --path <file> --line <n>` |
+| Fetch | `gf pr view <n>` + `gh pr diff <n>` |
+| Publish | `gf commit comment <sha> --body "<body>" --path <file> --line <n>` |
 
 **Dimensions:** `[logic]` `[security]` `[naming]` `[boundary]`
 
@@ -73,7 +73,7 @@ gf comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
 
 ### Step 1: Fetch Diff
 
-`gf pr diff <n>`. Parse files, hunks, `+` lines. Empty → stop.
+`gh pr diff <n>`. Parse files, hunks, `+` lines. Empty → stop.
 
 ### Step 2: Analyze
 
@@ -89,7 +89,7 @@ Present draft. **STOP. Do NOT publish until user confirms.** Non-skippable.
 
 ### Step 4: Publish
 
-For each approved comment: `gf comment <head-sha> --body "<body>" --path <file> --line <line>`. Use PR HEAD sha, repo-relative path, `+` line number.
+For each approved comment: `gf commit comment <head-sha> --body "<body>" --path <file> --line <line>`. Use PR HEAD sha, repo-relative path, `+` line number.
 
 ### Step 5: Summary
 

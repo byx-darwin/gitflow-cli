@@ -53,7 +53,7 @@ gf pr view <pr>                               # fetch + list pending
 # prioritize → confirm each comment with user
 git checkout <pr-branch>                                       # confirmed PR branch
 # per comment: edit → test → commit (referencing reviewer + location)
-gf pr resolve-comment <pr> --comment-id <id>          # mark resolved
+# Note: resolve comments via platform web UI (GitHub/GitLab)
 git push origin <pr-branch>                                    # ONLY after explicit confirmation
 gf pr comment <pr> --body "<summary>"                 # notify
 ```
