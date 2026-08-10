@@ -11,6 +11,21 @@ description: >
 Encapsulates CRUD operations for `gf label` and `milestone` command families.
 Detailed parameters: docs/references/gf-label-milestone-params.md
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
+
 ## Overview
 
 Unified CRUD router for Labels (4 ops) and Milestones (5 ops).
@@ -29,7 +44,7 @@ CLI `gf label|milestone <subcommand>`
 | Analyzing label distribution | This skill creates/edits/deletes labels, not analyzes usage | `/gf-label-stats` for read-only label analytics |
 | Bulk closing or listing Issues | This skill manages labels and milestones only | `/gf-issue` for Issue CRUD operations |
 | Automated release versioning | This skill manages milestone metadata, not release creation | `/gf-release-helper` for SemVer-based release automation |
-| Batch deleting labels | This skill requires explicit confirmation per deletion and avoids destructive batch ops | Manual `gh label delete` scripting |
+| Batch deleting labels | This skill requires explicit confirmation per deletion and avoids destructive batch ops | Manual scripting with platform CLI |
 
 ## CRUD Matrix
 

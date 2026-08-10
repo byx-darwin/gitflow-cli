@@ -21,6 +21,20 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
 > **Violating the letter of these rules is violating the spirit of these rules.**
 > No "I'm following the spirit" rationalizations. The rules are explicit for a reason.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## Core Rule: Contract First
 
 **Before ANY phase executes, the orchestrator MUST:**

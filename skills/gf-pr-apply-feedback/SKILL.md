@@ -7,6 +7,20 @@ description: |
 
 # gf-pr-apply-feedback
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## Overview
 
 Fetch pending review feedback · prioritize (security → logic → boundary → naming → style) · apply per-comment fix after user confirmation · mark resolved · push + notify reviewer. Does not review or merge.

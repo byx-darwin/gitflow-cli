@@ -11,6 +11,21 @@ description: |
 
 Wraps `gf issue`. 8 subcommands: `create · list · view · close · reopen · comment · comments · label`.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
+
 ## When to Use
 
 | Trigger | 中文 | Redirect |
@@ -34,8 +49,8 @@ Wraps `gf issue`. 8 subcommands: `create · list · view · close · reopen · c
 | Analyzing Issue requirement quality | This skill performs CRUD operations, not requirement analysis | `/gf-issue-review` for three-dimension scoring |
 | Batch classifying all open Issues | This skill operates on individual Issues, not bulk triage | `/gf-issue-triage` for batch type+priority classification |
 | Automated bug reporting | This skill requires manual command invocation | `/gf-autoreport-bug` for automated `pending.json` processing |
-| Editing Issue title or description | `gf issue` does not support editing body fields | Platform web UI or `gh issue edit` |
-| Deleting Issues | `gf issue` has no delete subcommand | `gh issue delete` via GitHub CLI |
+| Editing Issue title or description | `gf issue` does not support editing body fields | Platform web UI |
+| Deleting Issues | `gf issue` has no delete subcommand | Platform web UI |
 
 ## Core Pattern
 
@@ -116,7 +131,7 @@ flowchart TD
 ## Red Flags
 
 - 🚩 "Close all open issues" — scope with user
-- 🚩 "Delete issue" — `gh issue delete`
+- 🚩 "Delete issue" — not supported; use platform web UI
 - 🚩 "Edit issue title" — not supported; web UI
 - 🚩 "Archive project" — out of scope
 

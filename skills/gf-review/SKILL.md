@@ -10,6 +10,20 @@ description: |
 
 Submits review verdicts via `gf review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gf-pr-review` or `/gf-pr-inline-review` first to form verdict, or supply verdict explicitly.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## When to Use
 
 | English | 中文 | Context |

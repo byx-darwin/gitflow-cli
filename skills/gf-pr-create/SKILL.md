@@ -9,6 +9,20 @@ description: |
 
 Validates branch state, collects title/description, invokes `gf pr create`, returns the new PR URL. Does not review, approve, merge, or close PRs.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## When to Use
 
 | English | 中文 | Context |

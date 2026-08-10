@@ -13,6 +13,20 @@ Three-dimensional analysis: success-rate trends / failure patterns / duration di
 Read-only: never triggers/reruns/cancels pipelines.
 Full params & report template: docs/references/gf-pipeline-analyzer-params.md
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## Overview
 
 Read-only analysis of three CI/CD health dimensions, with improvement suggestions sorted by priority.

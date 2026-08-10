@@ -9,6 +9,20 @@ description: |
 
 Three-dimensional Issue requirement review — title clarity / description sufficiency / acceptance criteria — emits a structured analysis report, then posts it as an Issue comment. Does not edit the Issue itself.
 
+## CLI Requirement
+
+**MUST use `gf` CLI, NOT `gh` CLI.**
+
+| CLI | Scope | Platform Support |
+|-----|-------|------------------|
+| `gf` | This project | GitHub + GitLab + GitCode |
+| `gh` | GitHub only | GitHub only |
+
+**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+
+## Preconditions
+- `gf` installed: `command -v gf`
+- `gf` authenticated: `gf auth status`
 ## When to Use
 
 | English | 中文 | Context |
