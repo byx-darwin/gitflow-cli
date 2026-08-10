@@ -625,10 +625,15 @@ execute_release() {
     # Step 6: Publish to crates.io
     if confirm "Publish to crates.io?"; then
         log_info "Step 6/6: Publishing to crates.io..."
+        # Stage skills into package before publish (Issue #164)
+        log_info "Staging skills for crates.io package..."
+        make stage-skills-for-publish
         cargo publish --all-features || {
             log_error "Failed to publish to crates.io"
-            log_warn "You can retry manually: cargo publish --all-features"
+            log_warn "You can retry manually: make stage-skills-for-publish && cargo publish --all-features"
         }
+        # Clean up staged skills (they're gitignored but keep workspace clean)
+        make clean-staged-skills
     else
         log_warn "Skipping crates.io publish"
         log_info "Step 6/6: Skipped"

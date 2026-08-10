@@ -32,10 +32,18 @@ use std::{
 fn main() {
     built::write_built_file().expect("Failed to acquire build-time information");
 
-    // Generate skills manifest from skills/ directory
-    // skills/ is at <workspace_root>/skills, two levels up from apps/cli
+    // Generate skills manifest from skills/ directory.
+    // Search order:
+    //   1. CARGO_MANIFEST_DIR/skills — crates.io package (skills copied into package before
+    //      publish)
+    //   2. CARGO_MANIFEST_DIR/../../skills — workspace build (skills at workspace root)
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let skills_dir = manifest_dir.join("../../skills");
+    let skills_dir = manifest_dir.join("skills");
+    let skills_dir = if skills_dir.exists() {
+        skills_dir
+    } else {
+        manifest_dir.join("../../skills")
+    };
 
     if skills_dir.exists() {
         // Canonicalize to absolute path for include_bytes!

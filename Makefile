@@ -18,6 +18,16 @@ local-install: ## Install gf to ~/.cargo/bin (release build)
 	@echo "✓ Installed successfully"
 	@gf --version
 
+stage-skills-for-publish: ## Copy workspace skills/ into apps/cli/skills/ for crates.io packaging
+	@echo "Staging skills for crates.io publish..."
+	@mkdir -p apps/cli/skills
+	@rsync -a --exclude='.git' --exclude='target' skills/ apps/cli/skills/
+	@echo "✓ Staged $$(find apps/cli/skills -type f | wc -l | tr -d ' ') skill files into apps/cli/skills/"
+
+clean-staged-skills: ## Remove staged skills from apps/cli/skills/
+	@rm -rf apps/cli/skills
+	@echo "✓ Cleaned staged skills"
+
 local-rebuild: ## Clean, rebuild, and reinstall
 	@cargo clean
 	@$(MAKE) local-install
