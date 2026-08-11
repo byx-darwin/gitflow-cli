@@ -48,7 +48,7 @@ Publishes inline comments on PR changed lines. No review decisions, no code fixe
 
 ```bash
 gf pr view <n>    # 1. verify PR open
-gh pr diff <n>          # 2. fetch diff
+gf pr diff <n>          # 2. fetch diff
 # 3. analyze → draft comments
 # 4. show draft → await user confirm
 gf commit comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
@@ -58,7 +58,7 @@ gf commit comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
 
 | Goal | Command |
 |------|---------|
-| Fetch | `gf pr view <n>` + `gh pr diff <n>` |
+| Fetch | `gf pr view <n>` + `gf pr diff <n>` |
 | Publish | `gf commit comment <sha> --body "<body>" --path <file> --line <n>` |
 
 **Dimensions:** `[logic]` `[security]` `[naming]` `[boundary]`
@@ -73,7 +73,7 @@ gf commit comment <sha> --body "<c>" --path <f> --line <l>  # 5. publish
 
 ### Step 1: Fetch Diff
 
-`gh pr diff <n>`. Parse files, hunks, `+` lines. Empty → stop.
+`gf pr diff <n>`. Parse files, hunks, `+` lines. Empty → stop.
 
 ### Step 2: Analyze
 

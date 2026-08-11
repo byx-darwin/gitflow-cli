@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -490,6 +491,57 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
 
         Ok(())
     }
+
+    /// 获取指定 MR 的统一差异格式（unified diff）文本。
+    ///
+    /// 调用 `glab mr diff <iid>` 获取平台原生的 formatted diff 输出。
+    ///
+    /// # Errors
+    ///
+    /// 当 MR 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn diff(&self, number: u64) -> Result<String> {
+        debug!(repo = %self.repo, number, "spawning `glab mr diff`");
+
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("glab", &["mr", "diff", &number_str])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab mr diff: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// 获取指定 MR 的 patch 格式文本（含邮件头信息）。
+    ///
+    /// 调用 `glab api projects/{encoded}/merge_requests/{iid}.patch` 获取
+    /// 包含 commit 元数据的 patch 格式输出，可用于 `git am`。
+    ///
+    /// # Errors
+    ///
+    /// 当 MR 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn patch(&self, number: u64) -> Result<String> {
+        debug!(repo = %self.repo, number, "spawning `glab api mr patch`");
+
+        let encoded_path = encode_project_path(&self.repo);
+        let api_path = format!("projects/{encoded_path}/merge_requests/{number}.patch");
+
+        let output = self
+            .runner
+            .run("glab", &["api", &api_path])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api mr patch: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
 }
 
 #[cfg(test)]
@@ -847,6 +899,64 @@ mod tests {
 
         let result = provider.mark_wip(42).await;
 
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    // --- diff() tests ---
+
+    #[tokio::test]
+    async fn test_should_fetch_mr_diff() {
+        use gitflow_core::pr::PrProvider;
+
+        let diff_output = "diff --git a/src/lib.rs b/src/lib.rs\nindex 1234567..abcdefg \
+                           100644\n--- a/src/lib.rs\n+++ b/src/lib.rs\n@@ -1 +1 @@\n-old\n+new\n";
+        let runner = MockCommandRunner::success(diff_output);
+        let provider = GitLabMrProvider::with_runner("group/project", runner);
+
+        let result = provider.diff(42).await.expect("diff should succeed");
+        assert_eq!(result, diff_output);
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_mr_diff_fails() {
+        use gitflow_core::pr::PrProvider;
+
+        let runner = MockCommandRunner::failure(r#"{"message": "404 Not Found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("group/project", runner);
+
+        let result = provider.diff(999).await;
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    // --- patch() tests ---
+
+    #[tokio::test]
+    async fn test_should_fetch_mr_patch() {
+        use gitflow_core::pr::PrProvider;
+
+        let patch_output =
+            "From abc123\nSubject: [PATCH] Update file\n\ndiff --git a/src/lib.rs b/src/lib.rs\n";
+        let runner = MockCommandRunner::success(patch_output);
+        let provider = GitLabMrProvider::with_runner("group/project", runner);
+
+        let result = provider.patch(42).await.expect("patch should succeed");
+        assert_eq!(result, patch_output);
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_mr_patch_fails() {
+        use gitflow_core::pr::PrProvider;
+
+        let runner = MockCommandRunner::failure(r#"{"message": "404 Not Found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("group/project", runner);
+
+        let result = provider.patch(999).await;
         assert!(matches!(
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)

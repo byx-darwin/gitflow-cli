@@ -170,6 +170,28 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
     ///
     /// 当 PR 不存在或同步失败时返回错误。
     async fn sync_branch(&self, number: u64) -> Result<()>;
+
+    /// 获取指定 PR 的统一差异格式（unified diff）文本。
+    ///
+    /// 返回平台原生的 unified diff 输出，可直接用于 `git apply`。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或平台 API 调用失败时返回 [`CoreError`]。
+    ///
+    /// [`CoreError`]: crate::CoreError
+    async fn diff(&self, number: u64) -> Result<String>;
+
+    /// 获取指定 PR 的 patch 格式文本（含邮件头信息）。
+    ///
+    /// 返回包含 commit 元数据的 patch 格式输出，可用于 `git am`。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或平台 API 调用失败时返回 [`CoreError`]。
+    ///
+    /// [`CoreError`]: crate::CoreError
+    async fn patch(&self, number: u64) -> Result<String>;
 }
 
 #[cfg(test)]
@@ -281,5 +303,73 @@ mod tests {
         let args = ListPrArgs::default();
         assert!(args.state.is_none());
         assert!(args.limit.is_none());
+    }
+
+    /// Compile-time check that `PrProvider` has `diff()` and `patch()` methods.
+    ///
+    /// This test passes if the code compiles; the runtime assertion is trivial.
+    #[test]
+    fn test_should_have_diff_and_patch_methods_on_trait() {
+        use async_trait::async_trait;
+
+        use crate::{Result, pr::PrProvider};
+
+        #[derive(Debug)]
+        struct Check;
+
+        #[async_trait]
+        impl PrProvider for Check {
+            async fn create(&self, _args: crate::pr::CreatePrArgs) -> Result<crate::pr::PrData> {
+                unimplemented!()
+            }
+            async fn list(&self, _args: crate::pr::ListPrArgs) -> Result<Vec<crate::pr::PrData>> {
+                unimplemented!()
+            }
+            async fn view(&self, _number: u64) -> Result<crate::pr::PrData> {
+                unimplemented!()
+            }
+            async fn close(&self, _number: u64) -> Result<crate::pr::PrData> {
+                unimplemented!()
+            }
+            async fn reopen(&self, _number: u64) -> Result<crate::pr::PrData> {
+                unimplemented!()
+            }
+            async fn comment(
+                &self,
+                _number: u64,
+                _body: &str,
+            ) -> Result<crate::types::CommentData> {
+                unimplemented!()
+            }
+            async fn merge(
+                &self,
+                _number: u64,
+                _strategy: Option<crate::types::MergeStrategy>,
+            ) -> Result<crate::types::MergeResult> {
+                unimplemented!()
+            }
+            async fn checkout(&self, _number: u64) -> Result<()> {
+                unimplemented!()
+            }
+            async fn mark_ready(&self, _number: u64) -> Result<crate::pr::PrData> {
+                unimplemented!()
+            }
+            async fn mark_wip(&self, _number: u64) -> Result<crate::pr::PrData> {
+                unimplemented!()
+            }
+            async fn sync_branch(&self, _number: u64) -> Result<()> {
+                unimplemented!()
+            }
+            async fn diff(&self, _number: u64) -> Result<String> {
+                unimplemented!()
+            }
+            async fn patch(&self, _number: u64) -> Result<String> {
+                unimplemented!()
+            }
+        }
+
+        // Verify Check implements PrProvider with diff() and patch()
+        let check = Check;
+        let _ = format!("{check:?}");
     }
 }

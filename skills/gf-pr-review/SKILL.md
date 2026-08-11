@@ -49,7 +49,7 @@ description: |
 
 ```bash
 gf pr view <n>              # 1. verify
-gh pr diff <n>                          # 2. diff
+gf pr diff <n>                          # 2. diff
 # 3. assess 6 dims; draft conclusion
 gf review approve <n> --body "<c>"      # 4. submit (or request-changes / comment)
 ```
@@ -72,7 +72,7 @@ Dimensions: correctness, security, performance, maintainability, test-coverage, 
 
 ### Step 1: Fetch
 
-`gf pr view <n>` then `gh pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
+`gf pr view <n>` then `gf pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
 
 ### Step 2: Assess 6 Dimensions
 

@@ -187,7 +187,7 @@ impl From<CommitApiResponse> for CommitDetail {
 /// 将 `namespace/project` 转换为 URL 编码的项目路径。
 ///
 /// GitLab API 需要 URL 编码的项目路径（如 `namespace%2Fproject`）。
-fn encode_project_path(repo: &str) -> String {
+pub(crate) fn encode_project_path(repo: &str) -> String {
     repo.replace('/', "%2F")
 }
 
