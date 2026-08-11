@@ -715,6 +715,135 @@ Ready for release! 🚀" 2>&1)
     git tag "v${RELEASE_VERSION}"
     git push origin "v${RELEASE_VERSION}"
 
+    # Wait for GitHub Actions to build binaries
+    log_info "Waiting for GitHub Actions to build binaries..."
+    sleep 30
+
+    # Publish to crates.io
+    if confirm "Publish to crates.io?"; then
+        log_info "Publishing to crates.io..."
+        # Stage skills for crates.io package
+        make stage-skills-for-publish
+        # Publish using cargo release
+        cargo release publish --execute --no-confirm --registry crates-io --allow-dirty || {
+            log_error "Failed to publish to crates.io"
+            log_warn "You can retry manually: make stage-skills-for-publish && cargo release publish --execute --no-confirm --registry crates-io --allow-dirty"
+        }
+        # Clean up staged skills
+        make clean-staged-skills
+        log_success "Published to crates.io"
+    else
+        log_warn "Skipping crates.io publish"
+    fi
+
+    # Update Homebrew formula
+    if confirm "Update Homebrew formula?"; then
+        log_info "Updating Homebrew formula..."
+
+        # Wait for GitHub release to be created
+        log_info "Waiting for GitHub release to be created..."
+        local release_url="https://github.com/byx-darwin/gitflow-cli/releases/download/v${RELEASE_VERSION}"
+        local max_attempts=20
+        local attempt=0
+
+        while [ $attempt -lt $max_attempts ]; do
+            if curl -s -I "${release_url}/gf-aarch64-apple-darwin.tar.gz" | grep -q "200"; then
+                log_success "GitHub release binaries ready"
+                break
+            fi
+            echo -n "."
+            sleep 15
+            attempt=$((attempt + 1))
+        done
+
+        if [ $attempt -ge $max_attempts ]; then
+            log_warn "Timeout waiting for GitHub release binaries"
+            log_warn "Please update Homebrew formula manually later"
+        else
+            # Download and calculate SHA256 for each platform
+            local tmp_dir=$(mktemp -d)
+            cd "$tmp_dir"
+
+            local platforms=(
+                "aarch64-apple-darwin"
+                "x86_64-apple-darwin"
+                "aarch64-unknown-linux-gnu"
+                "x86_64-unknown-linux-gnu"
+            )
+
+            declare -A sha256_sums
+
+            for platform in "${platforms[@]}"; do
+                local tarball="gf-${platform}.tar.gz"
+                log_info "Downloading $tarball..."
+                curl -sL -o "$tarball" "${release_url}/${tarball}"
+                local sha256=$(shasum -a 256 "$tarball" | awk '{print $1}')
+                sha256_sums[$platform]=$sha256
+                log_success "$platform: $sha256"
+            done
+
+            cd - > /dev/null
+            rm -rf "$tmp_dir"
+
+            # Update Homebrew formula
+            local formula_file="HomebrewFormula/gf.rb"
+            log_info "Updating $formula_file..."
+
+            # Create updated formula
+            cat > "$formula_file" <<EOF
+class Gf < Formula
+  desc "Multi-platform Git forge CLI — unified interface for GitHub, GitLab, and GitCode"
+  homepage "https://github.com/byx-darwin/gitflow-cli"
+  license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "${release_url}/gf-aarch64-apple-darwin.tar.gz"
+      sha256 "${sha256_sums[aarch64-apple-darwin]}"
+    else
+      url "${release_url}/gf-x86_64-apple-darwin.tar.gz"
+      sha256 "${sha256_sums[x86_64-apple-darwin]}"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.arm?
+      url "${release_url}/gf-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "${sha256_sums[aarch64-unknown-linux-gnu]}"
+    else
+      url "${release_url}/gf-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "${sha256_sums[x86_64-unknown-linux-gnu]}"
+    end
+  end
+
+  # gh CLI 是运行时依赖（GitHub 平台需要）
+  # glab 和 gc 是可选的（GitLab/GitCode 平台需要）
+  depends_on "gh"
+
+  def install
+    bin.install "gf"
+
+    # 安装 Shell 补全
+    generate_completions_from_executable(bin/"gf", "completions")
+  end
+
+  test do
+    system "#{bin}/gf", "--version"
+    system "#{bin}/gf", "--help"
+  end
+end
+EOF
+
+            # Commit and push Homebrew formula update
+            git add "$formula_file"
+            git commit -m "chore: update Homebrew formula to v${RELEASE_VERSION}"
+            git push origin HEAD:main
+            log_success "Homebrew formula updated"
+        fi
+    else
+        log_warn "Skipping Homebrew formula update"
+    fi
+
     # Sync main back to dev
     log_info "Syncing main back to dev..."
     git checkout dev
