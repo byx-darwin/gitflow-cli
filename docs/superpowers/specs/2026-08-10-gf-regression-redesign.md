@@ -10,7 +10,7 @@
 The `gf-regression` skill has three critical issues:
 
 1. **Insufficient documentation** - Users don't know when to use it
-2. **Vague trigger words** - AI Agent easily mis-matches the skill
+2. **Vague trigger words** - AI Agent easily mismatches the skill
 3. **Limited scope** - Only supports `gf` CLI testing, poor generalizability
 
 ## Design Approach: Option B (Documentation + Trigger Refactor)
@@ -56,7 +56,7 @@ We chose the balanced approach that directly addresses the core issues without o
 | CI pipeline | Smoke tests with autoreport shouldn't run in CI | Use `scripts/smoke-test.sh` directly with exit code |
 | Performance testing | This skill checks functionality, not performance | Use benchmarking tools |
 
-**Rationale**: Explicit boundaries prevent mis-matching and guide users to the right skill.
+**Rationale**: Explicit boundaries prevent mismatching and guide users to the right skill.
 
 ### 3. Trigger System Refactor
 

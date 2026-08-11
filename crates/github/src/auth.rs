@@ -597,7 +597,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_return_logged_in_status_when_authenticated() {
-        let stdout = "Logged in to github.com as testuser (keyring)\n  - Token scopes: 'repo', 'read:org'\n";
+        let stdout =
+            "Logged in to github.com as testuser (keyring)\n  - Token scopes: 'repo', 'read:org'\n";
         let runner = MockCommandRunner::success(stdout);
         let provider = GitHubAuthProvider::with_runner(runner);
 
