@@ -30,6 +30,21 @@ const faqPageJsonLd = generateFAQPageJsonLd();
     <meta name="description" content={description} />
     <link rel="canonical" href={Astro.url.href} />
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={`${base}/og-image.png`} />
+    <meta property="og:locale" content="zh_CN" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${base}/og-image.png`} />
+
     <script is:inline>document.documentElement.classList.remove("no-js");</script>
     <script type="application/ld+json" is:inline>
       {JSON.stringify(softwareAppJsonLd)}
@@ -39,7 +54,7 @@ const faqPageJsonLd = generateFAQPageJsonLd();
     </script>
   </head>
   <body>
-    <nav class="nav">
+    <nav class="nav" aria-label="主导航">
       <a class="nav-brand" href={`${base}/`}><span class="brand-mark">❯_</span> gf</a>
       <div class="nav-links">
         <a href={`${base}/docs/`}>文档</a>
@@ -56,9 +71,11 @@ const faqPageJsonLd = generateFAQPageJsonLd();
       </div>
     </nav>
 
-    <slot />
+    <main id="main-content">
+      <slot />
+    </main>
 
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
       <div class="footer-inner">
         <span class="footer-brand"><span style="color:var(--gf-orange)">❯_</span> gf</span>
         <span>MIT License · Rust 2024 · 跨平台 Git 工程化工作流编排框架</span>
