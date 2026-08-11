@@ -1,0 +1,52 @@
+name: "\U0001F41B Bug 报告"
+description: 报告一个缺陷，帮助我们改进
+title: "[Bug]: "
+labels: ["bug", "triage:needed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报告 Bug！请填写以下信息帮助我们复现问题。
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰简洁地描述问题
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 提供复现问题的步骤
+      placeholder: |
+        1. 执行命令 `gf ...`
+        2. 看到错误 `...`
+        3. 预期行为是 `...`
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 运行 `gf doctor` 并粘贴输出
+      placeholder: |
+        - gf 版本:
+        - 平台: GitHub / GitLab / GitCode
+        - 操作系统:
+        - 底层 CLI 版本:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误日志
+      description: 粘贴完整的错误输出
+      render: shell
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: 确认清单
+      options:
+        - label: 我已运行 `gf doctor` 并确认环境配置
+        - label: 我已搜索现有 Issues 确认无重复
