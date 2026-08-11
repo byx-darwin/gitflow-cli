@@ -155,6 +155,9 @@ release-quick: ## Quick release without interactive previews (for automation)
 release-rehearse: ## Full dry-run release drill (mandatory checklist, no changes)
 	@bash scripts/release.sh --rehearse
 
+release-from-dev: ## Release from dev branch (auto-switches to main, merges, releases)
+	@bash scripts/release-from-dev.sh
+
 release-push: ## Legacy: Step 1: bump version, commit, generate changelog, tag, push
 ifndef VERSION
 	$(error Usage: make release-push VERSION=patch|minor|major)
