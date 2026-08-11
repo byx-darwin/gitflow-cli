@@ -2,10 +2,8 @@
 set -euo pipefail
 
 # Release script that automatically switches from dev to main branch
-# Usage: ./scripts/release-from-dev.sh [VERSION_TYPE]
-# VERSION_TYPE: patch (default), minor, major
-
-VERSION_TYPE="${1:-patch}"
+# Usage: ./scripts/release-from-dev.sh
+# This will merge dev into main and start the interactive release process
 
 echo "🚀 gf-workflow Release Script"
 echo "================================"
@@ -53,5 +51,5 @@ echo ""
 echo "📦 Starting release process..."
 echo ""
 
-# Run the standard release script
-exec bash scripts/release.sh "$VERSION_TYPE"
+# Run the standard release script (interactive mode)
+exec bash scripts/release.sh
