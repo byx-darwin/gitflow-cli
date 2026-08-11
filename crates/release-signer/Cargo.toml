@@ -16,6 +16,7 @@ ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 miette = { workspace = true, features = ["fancy"] }
 rand = { workspace = true }
+zipsign-api = { workspace = true, features = ["sign-tar", "sign-zip", "verify-tar", "verify-zip"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
