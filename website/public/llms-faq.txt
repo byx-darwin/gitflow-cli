@@ -71,7 +71,7 @@ issues: 3 open
 
 **Homebrew（macOS）**：
 ```bash
-brew tap byx-darwin/gitflow-cli
+brew tap byx-darwin/tap
 brew install gf
 ```
 

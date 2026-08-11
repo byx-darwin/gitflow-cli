@@ -84,7 +84,7 @@ gf (app)
 ## 分发渠道
 
 - **crates.io**：5 个 crate（gitflow-cli / -core / -github / -gitlab / -gitcode）
-- **Homebrew**：`brew tap byx-darwin/gitflow-cli && brew install gf`
+- **Homebrew**：`brew tap byx-darwin/tap && brew install gf`
 - **源码编译**：`cargo install --path apps/cli`
 
 ## Agent 生态集成

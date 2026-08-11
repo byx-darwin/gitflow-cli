@@ -18,7 +18,7 @@
     },
     {
       "question": "如何安装 gf？",
-      "answer": "Homebrew: brew tap byx-darwin/gitflow-cli && brew install gf。Cargo: cargo install gf。"
+      "answer": "Homebrew: brew tap byx-darwin/tap && brew install gf。Cargo: cargo install gf。"
     }
   ]
 }

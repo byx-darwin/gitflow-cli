@@ -785,8 +785,23 @@ Ready for release! 🚀" 2>&1)
             cd - > /dev/null
             rm -rf "$tmp_dir"
 
-            # Update Homebrew formula
-            local formula_file="HomebrewFormula/gf.rb"
+            # Update Homebrew formula in homebrew-tap repository
+            local tap_repo="../homebrew-tap"
+            log_info "Updating Homebrew formula in homebrew-tap..."
+
+            # Clone or update homebrew-tap repository
+            if [ ! -d "$tap_repo" ]; then
+                log_info "Cloning homebrew-tap repository..."
+                git clone git@github.com:byx-darwin/homebrew-tap.git "$tap_repo"
+            else
+                log_info "Updating homebrew-tap repository..."
+                cd "$tap_repo"
+                git checkout main
+                git pull origin main
+                cd - > /dev/null
+            fi
+
+            local formula_file="$tap_repo/Formula/gf.rb"
             log_info "Updating $formula_file..."
 
             # Create updated formula
@@ -798,20 +813,20 @@ class Gf < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "${release_url}/gf-aarch64-apple-darwin.tar.gz"
+      url "${release_url}/gf-${RELEASE_VERSION}-aarch64-apple-darwin.tar.gz"
       sha256 "${sha256_sums[aarch64-apple-darwin]}"
     else
-      url "${release_url}/gf-x86_64-apple-darwin.tar.gz"
+      url "${release_url}/gf-${RELEASE_VERSION}-x86_64-apple-darwin.tar.gz"
       sha256 "${sha256_sums[x86_64-apple-darwin]}"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "${release_url}/gf-aarch64-unknown-linux-gnu.tar.gz"
+      url "${release_url}/gf-${RELEASE_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
       sha256 "${sha256_sums[aarch64-unknown-linux-gnu]}"
     else
-      url "${release_url}/gf-x86_64-unknown-linux-gnu.tar.gz"
+      url "${release_url}/gf-${RELEASE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
       sha256 "${sha256_sums[x86_64-unknown-linux-gnu]}"
     end
   end
@@ -835,10 +850,12 @@ end
 EOF
 
             # Commit and push Homebrew formula update
+            cd "$tap_repo"
             git add "$formula_file"
-            git commit -m "chore: update Homebrew formula to v${RELEASE_VERSION}"
-            git push origin HEAD:main
-            log_success "Homebrew formula updated"
+            git commit -m "feat: update gf formula to v${RELEASE_VERSION}"
+            git push origin main
+            cd - > /dev/null
+            log_success "Homebrew formula updated in homebrew-tap"
         fi
     else
         log_warn "Skipping Homebrew formula update"
