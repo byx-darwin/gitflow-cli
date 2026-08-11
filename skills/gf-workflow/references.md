@@ -97,6 +97,11 @@ All worktrees are created at a fixed location within the project: `.worktree/<br
 # Phase 3 Step 1: Create worktree
 git worktree add .worktree/feat-146-worktree-path -b feat/146-worktree-path main
 
+# Symlink shared directories (workflow contracts + Claude config)
+mkdir -p .worktree/feat-146-worktree-path/.cache
+ln -s $(pwd)/.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
+ln -s $(pwd)/.claude .worktree/feat-146-worktree-path/.claude
+
 # Phase 4 Branch Finish: Remove worktree
 git worktree remove .worktree/feat-146-worktree-path
 ```

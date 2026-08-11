@@ -8,7 +8,7 @@
 #   2. Shallow-validates JSON
 #   3. Uses auth cache (24h TTL) to avoid redundant auth checks
 #   4. On auth failure: outputs login guide + Issue template and exits
-#   5. On auth success: outputs banner that triggers gf-autoreport-bug skill
+#   5. On auth success: outputs banner that triggers gitflow-autoreport-bug skill
 #
 # Exit codes: 0 always (silent no-op when nothing to do)
 
@@ -16,6 +16,16 @@ set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || exit 0)
 [ -z "$REPO_ROOT" ] && exit 0
+
+# Find .claude directory - check worktree first, then main repo
+if [ -d "$REPO_ROOT/.claude" ]; then
+  CLAUDE_DIR="$REPO_ROOT/.claude"
+else
+  # In worktree - find main repo via git-common-dir
+  COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null || exit 0)
+  MAIN_REPO=$(dirname "$COMMON_DIR")
+  CLAUDE_DIR="$MAIN_REPO/.claude"
+fi
 
 PENDING_FILE="$REPO_ROOT/.cache/bug-reports/pending.json"
 
@@ -120,8 +130,8 @@ echo "  原始报告:"
 echo "$PENDING_CONTENT"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  请加载 gf-autoreport-bug Skill 执行自动 Bug 报告流程。"
-echo "  Skill 路径: .claude/skills/gf-autoreport-bug/SKILL.md"
+echo "  请加载 gitflow-autoreport-bug Skill 执行自动 Bug 报告流程。"
+echo "  Skill 路径: $CLAUDE_DIR/skills/gf-autoreport-bug/SKILL.md"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
