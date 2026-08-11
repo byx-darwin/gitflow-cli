@@ -426,6 +426,70 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
 
         Ok(())
     }
+
+    /// 获取指定 PR 的统一差异格式（unified diff）文本。
+    ///
+    /// 调用 `gh pr diff <number> --repo <repo>` 获取平台原生的 unified diff
+    /// 输出，可直接用于 `git apply`。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或 `gh` CLI 调用失败时返回错误。
+    async fn diff(&self, number: u64) -> Result<String> {
+        debug!(repo = %self.repo, number, "spawning `gh pr diff`");
+
+        let number_str = number.to_string();
+        let output = self
+            .runner
+            .run("gh", &["pr", "diff", &number_str, "--repo", &self.repo])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh pr diff: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gh_error(&output.stderr).into());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// 获取指定 PR 的 patch 格式文本（含邮件头信息）。
+    ///
+    /// 调用 `gh api repos/{repo}/pulls/{number}` 并设置 `Accept` 头为
+    /// `application/vnd.github.v3.patch`，返回包含 commit 元数据的 patch 格式输出，
+    /// 可用于 `git am`。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或 `gh` CLI 调用失败时返回错误。
+    async fn patch(&self, number: u64) -> Result<String> {
+        debug!(repo = %self.repo, number, "spawning `gh api pr patch`");
+
+        let api_path = format!(
+            "repos/{repo}/pulls/{number}",
+            repo = self.repo,
+            number = number
+        );
+
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "api",
+                    &api_path,
+                    "-H",
+                    "Accept: application/vnd.github.v3.patch",
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api pr patch: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gh_error(&output.stderr).into());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
 }
 
 /// Parse PR number from GitHub URL.
@@ -948,6 +1012,58 @@ mod tests {
 
         let result = provider.comment(42, "a comment").await;
 
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    // --- diff() tests ---
+
+    #[tokio::test]
+    async fn test_should_fetch_pr_diff() {
+        let diff_output = "diff --git a/file.txt b/file.txt\nindex 1234567..abcdefg 100644\n--- \
+                           a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        let runner = MockCommandRunner::success(diff_output);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.diff(42).await.expect("diff should succeed");
+        assert_eq!(result, diff_output);
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_pr_diff_fails() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.diff(999).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    // --- patch() tests ---
+
+    #[tokio::test]
+    async fn test_should_fetch_pr_patch() {
+        let patch_output =
+            "From abc123\nSubject: [PATCH] Update file\n\ndiff --git a/file.txt b/file.txt\n";
+        let runner = MockCommandRunner::success(patch_output);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.patch(42).await.expect("patch should succeed");
+        assert_eq!(result, patch_output);
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_pr_patch_fails() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.patch(999).await;
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),

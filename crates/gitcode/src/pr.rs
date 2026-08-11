@@ -590,6 +590,58 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 
         Ok(())
     }
+
+    /// 获取指定 PR 的统一差异格式（unified diff）文本。
+    ///
+    /// 调用 `gc mr diff <number> -R <repo>` 获取平台原生的 diff 输出，
+    /// 可直接用于 `git apply`。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或 `gitcode` CLI 调用失败时返回错误。
+    async fn diff(&self, number: u64) -> Result<String> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
+        debug!(repo = %self.repo, number, "spawning `gc mr diff`");
+
+        let output = self
+            .runner
+            .run(&binary, &["mr", "diff", &number_str, "-R", &self.repo])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode mr diff: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gitcode_error(&output.stderr).into());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// 获取指定 PR 的 patch 格式文本（含邮件头信息）。
+    ///
+    /// 调用 `gc mr patch <number> -R <repo>` 获取包含 commit 元数据的
+    /// patch 格式输出，可用于 `git am`。
+    ///
+    /// # Errors
+    ///
+    /// 当 PR 不存在或 `gitcode` CLI 调用失败时返回错误。
+    async fn patch(&self, number: u64) -> Result<String> {
+        let binary = crate::gitcode_binary();
+        let number_str = number.to_string();
+        debug!(repo = %self.repo, number, "spawning `gc mr patch`");
+
+        let output = self
+            .runner
+            .run(&binary, &["mr", "patch", &number_str, "-R", &self.repo])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode mr patch: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gitcode_error(&output.stderr).into());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
 }
 
 #[cfg(test)]
@@ -985,6 +1037,64 @@ mod tests {
 
         let result = provider.mark_wip(42).await;
 
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    // --- diff() tests ---
+
+    #[tokio::test]
+    async fn test_should_fetch_mr_diff() {
+        use gitflow_core::pr::PrProvider;
+
+        let diff_output = "diff --git a/src/main.rs b/src/main.rs\nindex 1234567..abcdefg \
+                           100644\n--- a/src/main.rs\n+++ b/src/main.rs\n@@ -1 +1 @@\n-old\n+new\n";
+        let runner = MockCommandRunner::success(diff_output);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.diff(42).await.expect("diff should succeed");
+        assert_eq!(result, diff_output);
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_mr_diff_fails() {
+        use gitflow_core::pr::PrProvider;
+
+        let runner = MockCommandRunner::failure("404 not found", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.diff(999).await;
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    // --- patch() tests ---
+
+    #[tokio::test]
+    async fn test_should_fetch_mr_patch() {
+        use gitflow_core::pr::PrProvider;
+
+        let patch_output =
+            "From abc123\nSubject: [PATCH] Update file\n\ndiff --git a/src/main.rs b/src/main.rs\n";
+        let runner = MockCommandRunner::success(patch_output);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.patch(42).await.expect("patch should succeed");
+        assert_eq!(result, patch_output);
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_mr_patch_fails() {
+        use gitflow_core::pr::PrProvider;
+
+        let runner = MockCommandRunner::failure("404 not found", 256);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let result = provider.patch(999).await;
         assert!(matches!(
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)

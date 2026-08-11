@@ -19,7 +19,7 @@ use crate::OutputFormat;
 /// PR 子命令集合。
 ///
 /// 支持 `create`、`list`、`view`、`close`、`reopen`、`comment`、
-/// `merge`、`checkout`、`ready`、`wip`、`sync` 操作。
+/// `merge`、`checkout`、`ready`、`wip`、`sync`、`diff`、`patch` 操作。
 #[derive(Debug, Subcommand)]
 pub enum PrCommand {
     /// 创建一条新的 Pull Request。
@@ -126,6 +126,18 @@ pub enum PrCommand {
 
     /// 同步 PR 的分支（将 base 分支的最新变更合入 head 分支）。
     Sync {
+        /// PR 编号。
+        number: u64,
+    },
+
+    /// 获取 Pull Request 的差异（unified diff 格式）。
+    Diff {
+        /// PR 编号。
+        number: u64,
+    },
+
+    /// 获取 Pull Request 的 patch（含邮件头信息）。
+    Patch {
         /// PR 编号。
         number: u64,
     },
@@ -354,6 +366,30 @@ pub async fn handle(
                 "synced": true,
             });
             let output = CliOutput::success(result, platform, "pr sync");
+            print_output(&output, &output_format)?;
+        }
+        PrCommand::Diff { number } => {
+            let diff = provider
+                .diff(number)
+                .await
+                .map_err(|e| miette::miette!("Failed to get diff for pr #{number}: {e}"))?;
+            let output = CliOutput::success(
+                serde_json::json!({ "number": number, "diff": diff }),
+                platform,
+                "pr diff",
+            );
+            print_output(&output, &output_format)?;
+        }
+        PrCommand::Patch { number } => {
+            let patch = provider
+                .patch(number)
+                .await
+                .map_err(|e| miette::miette!("Failed to get patch for pr #{number}: {e}"))?;
+            let output = CliOutput::success(
+                serde_json::json!({ "number": number, "patch": patch }),
+                platform,
+                "pr patch",
+            );
             print_output(&output, &output_format)?;
         }
         PrCommand::Cleanup {
@@ -696,6 +732,30 @@ mod tests {
                 assert_eq!(number, 20);
             }
             _ => panic!("Expected PrCommand::Sync"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_diff() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "diff", "42"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Diff { number }) => {
+                assert_eq!(number, 42);
+            }
+            _ => panic!("Expected PrCommand::Diff"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_patch() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "patch", "17"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Patch { number }) => {
+                assert_eq!(number, 17);
+            }
+            _ => panic!("Expected PrCommand::Patch"),
         }
     }
 
