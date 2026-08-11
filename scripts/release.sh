@@ -261,6 +261,14 @@ preflight_checks() {
     fi
     log_success "Clippy passed"
 
+    # Run format check
+    log_info "Running format check..."
+    if ! make fmt > /dev/null 2>&1; then
+        log_error "Format check failed. Run 'cargo +nightly fmt' to fix."
+        exit 1
+    fi
+    log_success "Format check passed"
+
     echo ""
 }
 
