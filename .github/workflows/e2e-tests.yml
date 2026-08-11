@@ -68,3 +68,4 @@ jobs:
           name: e2e-results-github
           path: target/nextest/
           retention-days: 7
+# Trigger E2E
