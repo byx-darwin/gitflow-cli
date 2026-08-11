@@ -116,6 +116,7 @@ fn main() -> std::process::ExitCode {
             | Commands::Completions(_)
             | Commands::Workflow(_)
             | Commands::Update(_)
+            | Commands::Doctor(_)
     );
     let (platform, repo) = if platform_needed {
         match resolve_platform(cli.platform.clone()) {
@@ -176,6 +177,7 @@ async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> 
             | Commands::Completions(_)
             | Commands::Workflow(_)
             | Commands::Update(_)
+            | Commands::Doctor(_)
     ) {
         commands::prerequisites::check(platform).map_err(|e| miette::miette!("{e}"))?;
     }
@@ -213,6 +215,7 @@ async fn router(
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
         Commands::Pipeline(cmd) => commands::pipeline::handle(cmd, platform, repo, output).await,
         Commands::Workflow(cmd) => commands::workflow::handle(cmd),
+        Commands::Doctor(ref args) => commands::doctor::handle(args),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd),
         Commands::Update(cmd) => {
             // `handle_update` uses `self_update` (reqwest::blocking), which creates its own
@@ -466,6 +469,7 @@ impl Cli {
             Commands::Commit(_) => "commit",
             Commands::Pipeline(_) => "pipeline",
             Commands::Workflow(_) => "workflow",
+            Commands::Doctor(_) => "doctor",
         }
         .into()
     }
@@ -513,6 +517,9 @@ enum Commands {
     /// Workflow contract and gate management.
     #[command(subcommand)]
     Workflow(WorkflowCommand),
+
+    /// Diagnose environments health (CLI, Agent, skills, config).
+    Doctor(commands::doctor::DoctorArgs),
 
     /// Skills management operations (install, list, uninstall, update).
     #[command(subcommand)]

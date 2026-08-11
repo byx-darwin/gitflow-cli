@@ -23,11 +23,20 @@ pub fn parse_glab_error(stderr: &[u8]) -> PlatformCliError {
         let user_message: String = match code.as_deref() {
             Some("NOT_FOUND") => "资源不存在".into(),
             Some("FORBIDDEN") => "权限不足".into(),
+            Some("RATE_LIMITED") => "API 请求频率超限".into(),
+            Some("VALIDATION_FAILED") => "请求参数校验失败".into(),
+            Some("CONFLICT") => "存在冲突，请先合并最新变更".into(),
             _ => format!("GitLab 操作失败：{msg}"),
         };
 
+        let hint = match code.as_deref() {
+            Some("RATE_LIMITED") => Some("等待几分钟后重试".into()),
+            Some("VALIDATION_FAILED") => Some("检查请求参数格式是否正确".into()),
+            Some("CONFLICT") => Some("运行 `git pull --rebase` 解决冲突后重试".into()),
+            _ => Some("运行 `glab auth status` 检查认证状态".into()),
+        };
         let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitLab);
-        err.hint = Some("运行 `glab auth status` 检查认证状态".into());
+        err.hint = hint;
         err.doc_link = Some("https://gitlab.com/gitlab-org/cli/-/blob/main/docs/".into());
         err.code = code;
         return err;
@@ -107,5 +116,29 @@ mod tests {
         let err = parse_glab_error(stderr);
         assert!(err.user_message.contains("登录"));
         assert_eq!(err.platform, Platform::GitLab);
+    }
+
+    #[test]
+    fn test_should_parse_glab_rate_limited_error() {
+        let json = br#"{"message": "Rate limit exceeded", "code": "RATE_LIMITED"}"#;
+        let err = parse_glab_error(json);
+        assert_eq!(err.code.as_deref(), Some("RATE_LIMITED"));
+        assert!(err.user_message.contains("频率"));
+    }
+
+    #[test]
+    fn test_should_parse_glab_validation_failed_error() {
+        let json = br#"{"message": "Validation failed", "code": "VALIDATION_FAILED"}"#;
+        let err = parse_glab_error(json);
+        assert_eq!(err.code.as_deref(), Some("VALIDATION_FAILED"));
+        assert!(err.hint.is_some());
+    }
+
+    #[test]
+    fn test_should_parse_glab_conflict_error() {
+        let json = br#"{"message": "Conflict detected", "code": "CONFLICT"}"#;
+        let err = parse_glab_error(json);
+        assert_eq!(err.code.as_deref(), Some("CONFLICT"));
+        assert!(err.user_message.contains("冲突"));
     }
 }

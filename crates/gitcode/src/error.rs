@@ -23,11 +23,24 @@ pub fn parse_gitcode_error(stderr: &[u8]) -> PlatformCliError {
         let user_message: String = match code.as_deref() {
             Some("UNAUTHORIZED" | "FORBIDDEN") => "认证失败或权限不足".into(),
             Some("NOT_FOUND") => "资源不存在".into(),
+            Some("PR_DISABLED") => "此仓库未启用拉取请求".into(),
+            Some("BRANCH_PROTECTED") => "目标分支受保护，无法直接推送".into(),
+            Some("RATE_LIMITED") => "API 请求频率超限".into(),
+            Some("VALIDATION_FAILED") => "请求参数校验失败".into(),
+            Some("CONFLICT") => "存在冲突，请先合并最新变更".into(),
             _ => format!("GitCode 操作失败：{msg}"),
         };
 
+        let hint = match code.as_deref() {
+            Some("PR_DISABLED") => Some("在仓库设置中启用拉取请求功能".into()),
+            Some("BRANCH_PROTECTED") => Some("检查分支保护规则，或使用有权限的分支".into()),
+            Some("RATE_LIMITED") => Some("等待几分钟后重试".into()),
+            Some("VALIDATION_FAILED") => Some("检查请求参数格式是否正确".into()),
+            Some("CONFLICT") => Some("运行 `git pull --rebase` 解决冲突后重试".into()),
+            _ => Some("运行 `gc auth status` 检查认证状态".into()),
+        };
         let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitCode);
-        err.hint = Some("运行 `gc auth status` 检查认证状态".into());
+        err.hint = hint;
         err.doc_link = Some("https://gitcode.com/gitcode-cli/cli/blob/main/README.md".into());
         err.code = code;
         return err;
@@ -112,5 +125,51 @@ mod tests {
         assert!(err.code.is_none());
         assert!(err.user_message.contains("Internal server error"));
         assert_eq!(err.platform, Platform::GitCode);
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_pr_disabled_error() {
+        let json = br#"{"message": "Pull requests are disabled", "code": "PR_DISABLED"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("PR_DISABLED"));
+        assert!(err.user_message.contains("拉取请求"));
+        assert!(err.hint.is_some());
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_branch_protected_error() {
+        let json = br#"{"message": "Branch is protected", "code": "BRANCH_PROTECTED"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("BRANCH_PROTECTED"));
+        assert!(err.hint.is_some());
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_rate_limited_error() {
+        let json = br#"{"message": "API rate limit exceeded", "code": "RATE_LIMITED"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("RATE_LIMITED"));
+        assert!(
+            err.hint
+                .as_ref()
+                .is_some_and(|h| h.contains("等待") || h.contains("重试"))
+        );
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_validation_error() {
+        let json = br#"{"message": "Validation failed", "code": "VALIDATION_FAILED"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("VALIDATION_FAILED"));
+        assert!(err.hint.is_some());
+    }
+
+    #[test]
+    fn test_should_parse_gitcode_conflict_error() {
+        let json = br#"{"message": "Merge conflict", "code": "CONFLICT"}"#;
+        let err = parse_gitcode_error(json);
+        assert_eq!(err.code.as_deref(), Some("CONFLICT"));
+        assert!(err.user_message.contains("冲突"));
+        assert!(err.hint.is_some());
     }
 }

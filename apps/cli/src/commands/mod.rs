@@ -3,6 +3,7 @@
 pub mod auth;
 pub mod commit;
 pub mod completions;
+pub mod doctor;
 pub mod issue;
 pub mod label;
 pub mod output;

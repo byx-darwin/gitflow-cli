@@ -29,6 +29,7 @@ pub mod cleanup;
 pub mod cli_error;
 pub mod commit;
 pub mod compatibility;
+pub mod doctor;
 pub mod git_ops;
 pub mod issue;
 pub mod label;
@@ -45,6 +46,7 @@ pub mod types;
 pub use auth_checker::{AuthCheckResult, AuthChecker};
 pub use cli_error::PlatformCliError;
 pub use compatibility::{PlatformCompat, platform_compatibility, platform_requirement};
+pub use doctor::{CheckItem, CheckStatus, DoctorReport, DoctorSummary, HealthCheck};
 pub use output::{CliError, CliOutput};
 
 /// Application error type.

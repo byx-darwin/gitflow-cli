@@ -452,4 +452,3 @@ Three real-world non-Rust projects were validated to confirm the skill works cor
 | `docs/research/dogfooding-python.md` | Created | Python dogfooding report (click) |
 | `docs/references/gf-quality-params.md` | Modified | Documentation sync |
 | `docs/research/skill-analysis-gf-quality.md` | Modified | This update section |
-
