@@ -99,8 +99,8 @@ git worktree add .worktree/feat-146-worktree-path -b feat/146-worktree-path main
 
 # Symlink shared directories (workflow contracts + Claude config)
 mkdir -p .worktree/feat-146-worktree-path/.cache
-ln -s $(pwd)/.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
-ln -s $(pwd)/.claude .worktree/feat-146-worktree-path/.claude
+ln -s ../../.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
+ln -s ../../.claude .worktree/feat-146-worktree-path/.claude
 
 # Phase 4 Branch Finish: Remove worktree
 git worktree remove .worktree/feat-146-worktree-path
