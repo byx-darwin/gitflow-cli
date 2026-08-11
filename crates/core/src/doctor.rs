@@ -105,7 +105,7 @@ impl DoctorReport {
 /// The `gf doctor` command iterates over all registered categories and collects results.
 pub trait HealthCheck: Send + Sync {
     /// Category name for grouping (e.g., `platform_cli`).
-    fn category(&self) -> &str;
+    fn category(&self) -> &'static str;
 
     /// Run all checks in this category, returning results.
     /// Must not fail fast — collect all results even if some checks fail.
