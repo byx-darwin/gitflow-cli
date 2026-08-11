@@ -23,11 +23,22 @@ pub fn parse_gh_error(stderr: &[u8]) -> PlatformCliError {
         let user_message: String = match code.as_deref() {
             Some("NOT_FOUND") => "资源不存在".into(),
             Some("FORBIDDEN") => "权限不足".into(),
+            Some("RATE_LIMITED") => "API 请求频率超限".into(),
+            Some("VALIDATION_FAILED") => "请求参数校验失败".into(),
+            Some("CONFLICT") => "存在冲突，请先合并最新变更".into(),
+            Some("GONE") => "资源已被删除或迁移".into(),
             _ => format!("GitHub 操作失败：{msg}"),
         };
 
+        let hint = match code.as_deref() {
+            Some("RATE_LIMITED") => Some("等待几分钟后重试".into()),
+            Some("VALIDATION_FAILED") => Some("检查请求参数格式是否正确".into()),
+            Some("CONFLICT") => Some("运行 `git pull --rebase` 解决冲突后重试".into()),
+            Some("GONE") => Some("确认资源是否存在，可能已被删除或重命名".into()),
+            _ => Some("运行 `gh auth status` 检查认证状态".into()),
+        };
         let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitHub);
-        err.hint = Some("运行 `gh auth status` 检查认证状态".into());
+        err.hint = hint;
         err.doc_link = Some("https://cli.github.com/manual/".into());
         err.code = code;
         return err;
@@ -101,5 +112,42 @@ mod tests {
         assert!(err.code.is_none());
         assert!(err.user_message.contains("Something went wrong"));
         assert_eq!(err.platform, Platform::GitHub);
+    }
+
+    #[test]
+    fn test_should_parse_gh_rate_limited_error() {
+        let json = br#"{"message": "API rate limit exceeded", "code": "RATE_LIMITED"}"#;
+        let err = parse_gh_error(json);
+        assert_eq!(err.code.as_deref(), Some("RATE_LIMITED"));
+        assert!(err.user_message.contains("频率"));
+        assert!(
+            err.hint
+                .as_ref()
+                .is_some_and(|h| h.contains("等待") || h.contains("重试"))
+        );
+    }
+
+    #[test]
+    fn test_should_parse_gh_validation_failed_error() {
+        let json = br#"{"message": "Validation failed", "code": "VALIDATION_FAILED"}"#;
+        let err = parse_gh_error(json);
+        assert_eq!(err.code.as_deref(), Some("VALIDATION_FAILED"));
+        assert!(err.hint.is_some());
+    }
+
+    #[test]
+    fn test_should_parse_gh_conflict_error() {
+        let json = br#"{"message": "Merge conflict", "code": "CONFLICT"}"#;
+        let err = parse_gh_error(json);
+        assert_eq!(err.code.as_deref(), Some("CONFLICT"));
+        assert!(err.user_message.contains("冲突"));
+    }
+
+    #[test]
+    fn test_should_parse_gh_gone_error() {
+        let json = br#"{"message": "Resource gone", "code": "GONE"}"#;
+        let err = parse_gh_error(json);
+        assert_eq!(err.code.as_deref(), Some("GONE"));
+        assert!(err.user_message.contains("删除") || err.user_message.contains("迁移"));
     }
 }
