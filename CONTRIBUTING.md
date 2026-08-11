@@ -136,3 +136,26 @@ gf/
 - 查阅 `CLAUDE.md` 了解完整的代码规范
 - 查阅 `specs/` 了解设计决策
 - 使用 `gf issue create` 提交问题
+
+## Issue 运营承诺
+
+### 分流时效
+
+- **48 小时内**完成新 Issue 初审（分类、标签、优先级评估）
+- 紧急 Bug（影响核心功能）：**24 小时内**响应
+
+### 标签体系
+
+| 标签 | 含义 |
+|------|------|
+| `triage:needed` | 新提交，待分类 |
+| `triage:done` | 已完成分类 |
+| `priority:high` | 高优先级 |
+| `priority:medium` | 中优先级 |
+| `priority:low` | 低优先级 |
+| `good first issue` | 适合新手贡献者 |
+
+### 贡献指南
+
+欢迎外部贡献！请选择标记为 `good first issue` 的任务作为起点。
+开发环境搭建请参照上方「安装开发工具」章节。
