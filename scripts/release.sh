@@ -223,14 +223,22 @@ check_prerequisites() {
 preflight_checks() {
     log_info "Running pre-flight checks..."
 
-    # Check if on main branch
+    # Check if on dev or main branch
     local current_branch
     current_branch=$(git branch --show-current)
-    if [ "$current_branch" != "main" ]; then
-        log_error "Must be on 'main' branch. Current: $current_branch"
+    if [ "$current_branch" != "dev" ] && [ "$current_branch" != "main" ]; then
+        log_error "Must be on 'dev' or 'main' branch. Current: $current_branch"
         exit 1
     fi
-    log_success "On main branch"
+    log_success "On $current_branch branch"
+
+    # If on main, switch to dev
+    if [ "$current_branch" = "main" ]; then
+        log_info "Switching to dev branch..."
+        git checkout dev
+        git pull origin dev
+        log_success "Switched to dev"
+    fi
 
     # Check working directory is clean
     if [ -n "$(git status --porcelain)" ]; then
@@ -239,11 +247,6 @@ preflight_checks() {
         exit 1
     fi
     log_success "Working directory clean"
-
-    # Check if there are unpushed commits
-    if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main 2>/dev/null || echo '')" ]; then
-        log_warn "There are unpushed commits on main. Make sure they are reviewed."
-    fi
 
     # Run tests
     log_info "Running tests..."
@@ -583,12 +586,17 @@ check_ci_status() {
 execute_release() {
     log_info "Executing release v${RELEASE_VERSION}..."
 
-    # Step 1: Bump version
-    log_info "Step 1/6: Bumping version..."
+    # Step 1: Create release branch from dev
+    local release_branch="release/v${RELEASE_VERSION}"
+    log_info "Step 1/8: Creating release branch: $release_branch"
+    git checkout -b "$release_branch"
+
+    # Step 2: Bump version
+    log_info "Step 2/8: Bumping version..."
     cargo release version "${RELEASE_BUMP}" --execute --workspace --no-confirm
 
-    # Step 2: Commit version
-    log_info "Step 2/6: Committing version bump..."
+    # Step 3: Commit version
+    log_info "Step 3/8: Committing version bump..."
     cargo release commit --execute --no-confirm
 
     # Gate: validate the release commit subject (blocks v{{version}}-class incidents)
@@ -597,83 +605,260 @@ execute_release() {
     if ! validate_commit_subject "$commit_subject"; then
         log_error "Release commit validation failed. Rolling back bump commit."
         git reset --hard HEAD~1
+        git checkout dev
+        git branch -D "$release_branch"
         trap - EXIT
         exit 1
     fi
     log_success "Release commit subject validated"
 
-    # Step 3: Generate changelog
-    log_info "Step 3/6: Generating CHANGELOG.md..."
+    # Step 4: Generate changelog
+    log_info "Step 4/8: Generating CHANGELOG.md..."
     git cliff -o CHANGELOG.md
 
-    # Step 4: Commit changelog
-    log_info "Step 4/6: Committing changelog..."
+    # Step 5: Commit changelog
+    log_info "Step 5/8: Committing changelog..."
     git add CHANGELOG.md
     git commit -m "chore: update CHANGELOG.md for v${RELEASE_VERSION}" || true
 
     # Gate: no template residue in the generated changelog
     if ! validate_no_template_residue CHANGELOG.md; then
         log_error "CHANGELOG.md contains unsubstituted template variables. Aborting."
+        git checkout dev
+        git branch -D "$release_branch"
         trap - EXIT
         exit 1
     fi
     log_success "CHANGELOG.md validated"
 
-    # Step 5: Push and check CI
-    log_info "Step 5/6: Pushing to trigger CI..."
-    git push origin main
+    # Step 6: Push release branch
+    log_info "Step 6/8: Pushing release branch..."
+    git push -u origin "$release_branch"
 
-    # Wait a moment for CI to start
-    log_info "Waiting for CI to start..."
-    sleep 5
+    # Step 7: Create PR to main
+    log_info "Step 7/8: Creating PR to main..."
+    local pr_url
+    pr_url=$(gh pr create \
+        --base main \
+        --head "$release_branch" \
+        --title "chore: release v${RELEASE_VERSION}" \
+        --body "## Release v${RELEASE_VERSION}
 
-    # Check CI status
-    check_ci_status
+Automated release PR created by release script.
 
-    # Step 6: Publish to crates.io
+### Changes
+- Version bump: v${RELEASE_VERSION}
+- Updated CHANGELOG.md
+
+### Commits since last release
+$(git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null || echo 'HEAD')..HEAD" | head -20)
+
+Ready for release! 🚀" 2>&1)
+
+    if [ -z "$pr_url" ]; then
+        log_error "Failed to create PR"
+        exit 1
+    fi
+
+    local pr_number
+    pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+    log_success "PR created: $pr_url"
+
+    # Step 8: Wait for CI and merge
+    log_info "Step 8/8: Waiting for CI checks..."
+    local max_wait=600  # 10 minutes
+    local waited=0
+
+    while true; do
+        local checks_output
+        checks_output=$(gh pr checks "$pr_number" 2>&1)
+        local pending_count
+        pending_count=$(echo "$checks_output" | grep -c "pending" || echo "0")
+        local failed_count
+        failed_count=$(echo "$checks_output" | grep -c "fail" || echo "0")
+
+        if [ "$failed_count" -gt 0 ]; then
+            log_error "CI checks failed!"
+            echo "$checks_output" | grep "fail"
+            log_error "Fix CI issues and retry"
+            log_info "PR: $pr_url"
+            exit 1
+        fi
+
+        if [ "$pending_count" -eq 0 ]; then
+            log_success "All CI checks passed!"
+            break
+        fi
+
+        if [ $waited -ge $max_wait ]; then
+            log_error "Timeout waiting for CI"
+            log_info "Please check manually: $pr_url"
+            exit 1
+        fi
+
+        echo -n "."
+        sleep 30
+        waited=$((waited + 30))
+    done
+
+    echo ""
+    log_info "Merging PR..."
+    gh pr merge "$pr_number" --squash --delete-branch
+
+    # Switch to main and pull
+    log_info "Switching to main..."
+    git checkout main
+    git pull origin main
+
+    # Create and push tag
+    log_info "Creating tag v${RELEASE_VERSION}..."
+    git tag "v${RELEASE_VERSION}"
+    git push origin "v${RELEASE_VERSION}"
+
+    # Wait for GitHub Actions to build binaries
+    log_info "Waiting for GitHub Actions to build binaries..."
+    sleep 30
+
+    # Publish to crates.io
     if confirm "Publish to crates.io?"; then
-        log_info "Step 6/6: Publishing to crates.io..."
-        # Stage skills into package before publish (Issue #164)
-        log_info "Staging skills for crates.io package..."
+        log_info "Publishing to crates.io..."
+        # Stage skills for crates.io package
         make stage-skills-for-publish
-        # Use cargo release publish to handle workspace dependency order
-        # --allow-dirty needed because staged skills create uncommitted files
+        # Publish using cargo release
         cargo release publish --execute --no-confirm --registry crates-io --allow-dirty || {
             log_error "Failed to publish to crates.io"
             log_warn "You can retry manually: make stage-skills-for-publish && cargo release publish --execute --no-confirm --registry crates-io --allow-dirty"
         }
-        # Clean up staged skills (they're gitignored but keep workspace clean)
+        # Clean up staged skills
         make clean-staged-skills
+        log_success "Published to crates.io"
     else
         log_warn "Skipping crates.io publish"
-        log_info "Step 6/6: Skipped"
     fi
 
-    # Step 7: Create tag and push
-    log_info "Creating tag and pushing..."
-    cargo release tag --execute --workspace --no-confirm
+    # Update Homebrew formula
+    if confirm "Update Homebrew formula?"; then
+        log_info "Updating Homebrew formula..."
 
-    # Gate: validate the created tag before pushing it anywhere
-    local created_tag
-    created_tag=$(git tag --points-at HEAD | head -1)
-    if [ -z "$created_tag" ]; then
-        log_error "No tag found at HEAD after cargo release tag. Aborting."
-        trap - EXIT
-        exit 1
-    fi
-    if ! validate_tag_name "$created_tag"; then
-        log_error "Tag validation failed. Removing local tag."
-        git tag -d "$created_tag"
-        trap - EXIT
-        exit 1
-    fi
-    log_success "Tag $created_tag validated"
+        # Wait for GitHub release to be created
+        log_info "Waiting for GitHub release to be created..."
+        local release_url="https://github.com/byx-darwin/gitflow-cli/releases/download/v${RELEASE_VERSION}"
+        local max_attempts=20
+        local attempt=0
 
-    git push origin main --tags
+        while [ $attempt -lt $max_attempts ]; do
+            if curl -s -I "${release_url}/gf-aarch64-apple-darwin.tar.gz" | grep -q "200"; then
+                log_success "GitHub release binaries ready"
+                break
+            fi
+            echo -n "."
+            sleep 15
+            attempt=$((attempt + 1))
+        done
+
+        if [ $attempt -ge $max_attempts ]; then
+            log_warn "Timeout waiting for GitHub release binaries"
+            log_warn "Please update Homebrew formula manually later"
+        else
+            # Download and calculate SHA256 for each platform
+            local tmp_dir=$(mktemp -d)
+            cd "$tmp_dir"
+
+            local platforms=(
+                "aarch64-apple-darwin"
+                "x86_64-apple-darwin"
+                "aarch64-unknown-linux-gnu"
+                "x86_64-unknown-linux-gnu"
+            )
+
+            declare -A sha256_sums
+
+            for platform in "${platforms[@]}"; do
+                local tarball="gf-${platform}.tar.gz"
+                log_info "Downloading $tarball..."
+                curl -sL -o "$tarball" "${release_url}/${tarball}"
+                local sha256=$(shasum -a 256 "$tarball" | awk '{print $1}')
+                sha256_sums[$platform]=$sha256
+                log_success "$platform: $sha256"
+            done
+
+            cd - > /dev/null
+            rm -rf "$tmp_dir"
+
+            # Update Homebrew formula
+            local formula_file="HomebrewFormula/gf.rb"
+            log_info "Updating $formula_file..."
+
+            # Create updated formula
+            cat > "$formula_file" <<EOF
+class Gf < Formula
+  desc "Multi-platform Git forge CLI — unified interface for GitHub, GitLab, and GitCode"
+  homepage "https://github.com/byx-darwin/gitflow-cli"
+  license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "${release_url}/gf-aarch64-apple-darwin.tar.gz"
+      sha256 "${sha256_sums[aarch64-apple-darwin]}"
+    else
+      url "${release_url}/gf-x86_64-apple-darwin.tar.gz"
+      sha256 "${sha256_sums[x86_64-apple-darwin]}"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.arm?
+      url "${release_url}/gf-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "${sha256_sums[aarch64-unknown-linux-gnu]}"
+    else
+      url "${release_url}/gf-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "${sha256_sums[x86_64-unknown-linux-gnu]}"
+    end
+  end
+
+  # gh CLI 是运行时依赖（GitHub 平台需要）
+  # glab 和 gc 是可选的（GitLab/GitCode 平台需要）
+  depends_on "gh"
+
+  def install
+    bin.install "gf"
+
+    # 安装 Shell 补全
+    generate_completions_from_executable(bin/"gf", "completions")
+  end
+
+  test do
+    system "#{bin}/gf", "--version"
+    system "#{bin}/gf", "--help"
+  end
+end
+EOF
+
+            # Commit and push Homebrew formula update
+            git add "$formula_file"
+            git commit -m "chore: update Homebrew formula to v${RELEASE_VERSION}"
+            git push origin HEAD:main
+            log_success "Homebrew formula updated"
+        fi
+    else
+        log_warn "Skipping Homebrew formula update"
+    fi
+
+    # Sync main back to dev
+    log_info "Syncing main back to dev..."
+    git checkout dev
+    git merge main -m "chore: sync main back to dev after release v${RELEASE_VERSION}"
+    git push origin dev
+
+    # Cleanup
+    log_info "Cleaning up..."
+    git branch -D "$release_branch" 2>/dev/null || true
 
     echo ""
     log_success "Release v${RELEASE_VERSION} completed!"
     log_info "GitHub Release will be created automatically by CI"
+    log_info "PR: $pr_url"
+    log_info "Tag: v${RELEASE_VERSION}"
 }
 
 # Post-release info
