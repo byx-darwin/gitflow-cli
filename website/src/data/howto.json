@@ -7,7 +7,7 @@
       "steps": [
         {
           "name": "安装 gf",
-          "text": "运行 brew tap byx-darwin/gitflow-cli && brew install gf 或 cargo install gf。"
+          "text": "运行 brew tap byx-darwin/tap && brew install gf 或 cargo install gf。"
         },
         {
           "name": "安装 Skills",

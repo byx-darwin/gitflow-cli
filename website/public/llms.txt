@@ -14,8 +14,8 @@ gf 是一个 Rust 编写的命令行工具，统一封装 GitHub（gh）、GitLa
 ## Distribution
 
 - [crates.io](https://crates.io/crates/gitflow-cli): cargo install gf
-- [GitHub](https://github.com/byx-darwin/gitflow-cli): 源码、Issues、Releases
-- [Homebrew](https://github.com/byx-darwin/gitflow-cli/tree/main/HomebrewFormula): brew tap byx-darwin/gitflow-cli
+- [GitHub](https://github.com/byx-darwin/tap): 源码、Issues、Releases
+- [Homebrew](https://github.com/byx-darwin/tap/tree/main/HomebrewFormula): brew tap byx-darwin/tap
 
 ## Optional
 
