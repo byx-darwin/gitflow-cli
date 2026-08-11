@@ -7,6 +7,48 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(release)** use --registry crates-io for publishing - ([a8c170a](https://github.com/byx-darwin/gitflow-cli/commit/a8c170a69d5d5a368c42774aef8aa12e52549236)) - baoyx
+- **(release)** use cargo release publish for workspace dependency order - ([3225bd1](https://github.com/byx-darwin/gitflow-cli/commit/3225bd14e50605c93defc2b9f08aac2eead0ffa1)) - baoyx
+- **(release)** add --allow-dirty for crates.io publish - ([53bbfa9](https://github.com/byx-darwin/gitflow-cli/commit/53bbfa9bb60cc5d7dc92718331bf4f0c03bb937e)) - baoyx
+- **(update)** use zipsign format for release signatures - ([1b6e7c0](https://github.com/byx-darwin/gitflow-cli/commit/1b6e7c00a9ddbf15a3fa9f6c44efc2661687d568)) - baoyx
+- **(workflow)** symlink .claude directory for worktree compatibility - ([221cf73](https://github.com/byx-darwin/gitflow-cli/commit/221cf73dbe010121a6a230be606630c1210e444b)) - baoyx
+- **(workflow)** remove .claude symlink and use relative paths - ([e1b88aa](https://github.com/byx-darwin/gitflow-cli/commit/e1b88aa9b5d98b740221086583e257308e46e5bc)) - baoyx
+
+### Features
+
+- **(doctor)** add gf doctor command + error audit + issue ops (#186) - ([d1410ac](https://github.com/byx-darwin/gitflow-cli/commit/d1410ac41a1311a804cd2120c66d5083d96c91ce)) - mc-ai
+- **(pr)** add gf pr diff and patch commands (#191) - ([0591faa](https://github.com/byx-darwin/gitflow-cli/commit/0591faafbe6842f583d98a38a00d1b29ebcc4ff7)) - mc-ai
+- **(website)** SEO optimization and content matrix guides (#189) - ([24767ba](https://github.com/byx-darwin/gitflow-cli/commit/24767babf7ba2f7c24ad171dbc41e8ffff827a54)) - mc-ai
+- add release-from-dev automation script - ([22c2f59](https://github.com/byx-darwin/gitflow-cli/commit/22c2f597aee1dcf753d3cc56354e14e582e0ec7e)) - baoyx
+
+### Miscellaneous Chores
+
+- **(release)** add format check to preflight - ([c61b877](https://github.com/byx-darwin/gitflow-cli/commit/c61b8776e8d412009a6ee4ca77bace99cbf5e523)) - baoyx
+- update Homebrew formula to v1.2.0 - ([304d5b0](https://github.com/byx-darwin/gitflow-cli/commit/304d5b040a25b29f575a918efb3144feeb628550)) - github-actions[bot]
+
+### Other
+
+- Merge pull request #184 from byx-darwin/fix/update-signature-verification
+
+fix(update): use zipsign format for release signatures - ([9973db9](https://github.com/byx-darwin/gitflow-cli/commit/9973db98fa9a8f0eb59ee576367067cb167b2bb7)) - mc-ai
+- Merge pull request #185 from byx-darwin/fix/worktree-symlink-compatibility
+
+fix(workflow): symlink .claude directory for worktree compatibility - ([a42213f](https://github.com/byx-darwin/gitflow-cli/commit/a42213f44d8594f0414b5b64f8e35ab9cdaa5c69)) - mc-ai
+- trigger E2E tests - ([1acd611](https://github.com/byx-darwin/gitflow-cli/commit/1acd611980f22b0cc27206f8a53fe215f3880e39)) - baoyx
+- Merge pull request #187 from byx-darwin/fix/worktree-symlink-broken
+
+fix(workflow): remove .claude symlink and use relative paths - ([66ea209](https://github.com/byx-darwin/gitflow-cli/commit/66ea209572845f5b98f58a09f0a7c3d70ba4a057)) - mc-ai
+- update workflows to support dev branch - ([ea4be64](https://github.com/byx-darwin/gitflow-cli/commit/ea4be6497e3119b59e4fa86af9ca83b57be602ce)) - baoyx
+
+### Style
+
+- **(auth)** fix nightly rustfmt violation and docs typos - ([6ea3960](https://github.com/byx-darwin/gitflow-cli/commit/6ea3960fb59af6a012e08734380c1fb0c3e0dcfc)) - baoyx
+
+---
+## [1.2.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.1.0..v1.2.0) - 2026-08-10
+
+### Bug Fixes
+
 - **(auth)** parse token scopes from gh auth status output - ([8c3db1a](https://github.com/byx-darwin/gitflow-cli/commit/8c3db1a95dbf5f75afbe09f114afe134a4008331)) - baoyx
 - **(examples)** remove main() from Go example to meet coverage threshold - ([715f54a](https://github.com/byx-darwin/gitflow-cli/commit/715f54abc1e871fa6d0dc547597710562333ab38)) - baoyx
 - **(gitcode)** use 'gc' instead of 'gitcode' in error hints - ([6382696](https://github.com/byx-darwin/gitflow-cli/commit/6382696cea477a332096bae0c9863754a575c28f)) - baoyx
@@ -48,6 +90,7 @@ All notable changes to this project will be documented in this file. See [conven
 - update Homebrew formula to v1.1.0 - ([82809d8](https://github.com/byx-darwin/gitflow-cli/commit/82809d8f41f9be35a295a2b53e1917a9376eb532)) - github-actions[bot]
 - remove gf-weekly-report skill - ([b0a6b4a](https://github.com/byx-darwin/gitflow-cli/commit/b0a6b4adcc3ba455db268da29643594dfb2b3108)) - baoyx
 - release v1.2.0 - ([89e1d6d](https://github.com/byx-darwin/gitflow-cli/commit/89e1d6df441cb56e3c17e281f987d802f951d4d8)) - baoyx
+- update CHANGELOG.md for v1.2.0 - ([0b80ba3](https://github.com/byx-darwin/gitflow-cli/commit/0b80ba3de4ecf4f79a0ff1fdef396aab0fd0cd1c)) - baoyx
 
 ### Other
 
