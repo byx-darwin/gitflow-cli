@@ -201,7 +201,7 @@ Use `cargo-dist` for automated release building and Homebrew formula generation.
 [dist]
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
 installers = ["homebrew"]
-tap = "byx-darwin/homebrew-tap"
+tap = "byx-darwin/tap"
 ```
 
 Then release with:

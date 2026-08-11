@@ -13,8 +13,7 @@
 
 ```bash
 # Homebrew (macOS)
-brew tap byx-darwin/gitflow-cli
-brew install gf
+brew tap byx-darwin/tap && brew install gf
 
 # 或 Cargo
 cargo install gitflow-cli

@@ -37,7 +37,7 @@ const compareRows = [
   },
   {
     dimension: "安装方式",
-    gf: "<code>brew tap byx-darwin/gitflow-cli && brew install gf</code> 或 <code>cargo install gf</code>；底层复用 gh / glab / gitcode。",
+    gf: "<code>brew tap byx-darwin/tap && brew install gf</code> 或 <code>cargo install gf</code>；底层复用 gh / glab / gitcode。",
     gh: "brew / 官方安装脚本 / 各平台包管理器。",
     glab: "brew / 官方安装脚本 / 各平台包管理器。",
   },
@@ -189,7 +189,7 @@ const commandMap = [
         </p>
         <h3>1. 安装 gf</h3>
         <p>无需删除 gh / glab。gf 启动时会校验底层 CLI 版本，不满足时给出修复指引。</p>
-        <CopyCommand command="brew tap byx-darwin/gitflow-cli && brew install gf" />
+        <CopyCommand command="brew tap byx-darwin/tap && brew install gf" />
 
         <h3>2. 认证</h3>
         <p>使用 <code>gf auth login</code> 完成各平台认证，或在已有 gh / glab 凭据基础上直接使用。</p>
@@ -243,7 +243,7 @@ const commandMap = [
     <section class="section cta-band">
       <div class="reveal">
         <h2 class="cta-heading">选 gf，把工程循环交给 Agent。</h2>
-        <CopyCommand command="brew tap byx-darwin/gitflow-cli && brew install gf" />
+        <CopyCommand command="brew tap byx-darwin/tap && brew install gf" />
         <div class="hero-ctas">
           <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手 →</a>
           <a class="btn btn-ghost" href={`${base}/compatibility/`}>兼容性矩阵</a>

@@ -543,3 +543,4 @@ mod tests {
         assert!(msg.contains("认证失败"));
     }
 }
+// Trigger E2E tests for documentation-only PR
