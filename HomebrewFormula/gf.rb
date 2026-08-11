@@ -5,21 +5,21 @@ class Gf < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.2.0/gf-aarch64-apple-darwin.tar.gz"
-      sha256 "cf8cc034c15866ca94da7175531c308e4b1e013da478911645bd678959138c3a"
+      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.3.0/gf-1.3.0-aarch64-apple-darwin.tar.gz"
+      sha256 "63d0fe43a2a74f42e950ab466501e969cd8a03c07bc4eeb069380ec78d6a98aa"
     else
-      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.2.0/gf-x86_64-apple-darwin.tar.gz"
-      sha256 "68de790202600dcd4c7f747a48bd730d5c241163ecc1383994c6e6ec04bd298c"
+      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.3.0/gf-1.3.0-x86_64-apple-darwin.tar.gz"
+      sha256 "f476d7de92602f90f5e44017723d775133b3361a55fb16638430a68751b31325"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.2.0/gf-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "b02c560db916618aa646e3f40bd5cf07d291a7abdf9528e985e9b268ad82d3bf"
+      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.3.0/gf-1.3.0-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "cf544d748ef5b5cd0bb84c47472694c447e2708c9819d861a587abd1c41b7226"
     else
-      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.2.0/gf-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "7ddab83316a01bd6ce18229457c368f52bfff8d78ed808e6cedff20a9faa1073"
+      url "https://github.com/byx-darwin/gitflow-cli/releases/download/v1.3.0/gf-1.3.0-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "d0188385cb18974160f6ff32adf4720983f40e8bdbb40da2dc6f160c99e95feb"
     end
   end
 
