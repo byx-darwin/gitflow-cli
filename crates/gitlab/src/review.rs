@@ -115,37 +115,9 @@ struct MrViewResponse {
 impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
     /// 在指定 MR 上添加审查评论。
     ///
-    /// 调用 `glab mr note` 发布评论，并通过 `glab mr view` 获取当前用户信息
-    /// 以构造 [`ReviewData`]。
+    /// 调用 `glab api --method POST` 发布 note 评论并构造 [`ReviewData`]。
     async fn comment(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
-        debug!(repo = %self.repo, number = pr_number, "spawning `glab mr note`");
-
-        let output = self
-            .runner
-            .run(
-                "glab",
-                &[
-                    "mr",
-                    "note",
-                    &pr_number.to_string(),
-                    "--repo",
-                    &self.repo,
-                    "--body",
-                    body,
-                    "--output",
-                    "json",
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let note: NoteApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
+        let note = self.post_note(pr_number, body).await?;
         let author = note.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
@@ -214,43 +186,11 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
 
     /// 对指定 MR 要求修改。
     ///
-    /// glab 没有直接的 "request changes" 命令，通过 `glab mr note` 发布
-    /// 包含要求修改意见的评论，并标记为 `ChangesRequested` 状态。
+    /// glab 没有直接的 "request changes" 命令，通过 `glab api --method POST`
+    /// 发布包含要求修改意见的 note 评论，并标记为 `ChangesRequested` 状态。
     async fn request_changes(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
-        debug!(
-            repo = %self.repo,
-            number = pr_number,
-            "spawning `glab mr note` (request changes)"
-        );
-
         let changes_body = format!("Changes requested:\n\n{body}");
-
-        let output = self
-            .runner
-            .run(
-                "glab",
-                &[
-                    "mr",
-                    "note",
-                    &pr_number.to_string(),
-                    "--repo",
-                    &self.repo,
-                    "--body",
-                    &changes_body,
-                    "--output",
-                    "json",
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let note: NoteApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
+        let note = self.post_note(pr_number, &changes_body).await?;
         let author = note.author.as_ref().map_or_else(
             || UserSummary {
                 login: "unknown".into(),
@@ -295,6 +235,39 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
 }
 
 impl<R: CommandRunner> GitLabReviewProvider<R> {
+    /// 在指定 MR 上发布一条 note（内部辅助方法）。
+    ///
+    /// 调用 `glab api --method POST /projects/{owner}%2F{project}/merge_requests/{pr_number}/notes`。
+    ///
+    /// # Errors
+    ///
+    /// 当 MR 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn post_note(&self, pr_number: u64, body: &str) -> Result<NoteApiResponse> {
+        debug!(repo = %self.repo, number = pr_number, "spawning `glab api` POST mr note");
+
+        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
+            CoreError::Platform(format!(
+                "Invalid repo format '{}', expected 'owner/project'",
+                self.repo
+            ))
+        })?;
+
+        let api_path = format!("/projects/{owner}%2F{project}/merge_requests/{pr_number}/notes");
+        let body_arg = format!("body={body}");
+
+        let output = self
+            .runner
+            .run("glab", &["api", "--method", "POST", &api_path, "-f", &body_arg])
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)
+    }
+
     /// 获取当前登录用户信息（内部辅助方法）。
     async fn get_current_user(&self) -> Result<UserSummary> {
         let output = self
@@ -437,6 +410,65 @@ mod tests {
         let provider = GitLabReviewProvider::with_runner("owner/repo", runner);
         let result = provider.comment(7, "fix this").await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_post_review_note_via_glab_api() {
+        let runner = MockCommandRunner::success(
+            r#"{"id":99,"body":"fix this","author":{"username":"alice","id":1},"created_at":"2026-08-18T00:00:00Z"}"#,
+        );
+        let provider = GitLabReviewProvider::with_runner("owner/repo", runner.clone());
+
+        let review = provider.comment(7, "fix this").await.expect("should post");
+
+        assert_eq!(review.id, 99);
+        assert_eq!(review.author.login, "alice");
+        assert_eq!(review.body.as_deref(), Some("fix this"));
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "--method",
+                "POST",
+                "/projects/owner%2Frepo/merge_requests/7/notes",
+                "-f",
+                "body=fix this",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_request_changes_via_glab_api() {
+        let runner = MockCommandRunner::success(
+            r#"{"id":100,"body":"Changes requested:\n\nredo it","author":{"username":"alice","id":1},"created_at":"2026-08-18T00:00:00Z"}"#,
+        );
+        let provider = GitLabReviewProvider::with_runner("owner/repo", runner.clone());
+
+        let review = provider
+            .request_changes(7, "redo it")
+            .await
+            .expect("should post");
+
+        assert_eq!(review.id, 100);
+        assert_eq!(review.state, ReviewState::ChangesRequested);
+        assert_eq!(review.body.as_deref(), Some("Changes requested:\n\nredo it"));
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "--method",
+                "POST",
+                "/projects/owner%2Frepo/merge_requests/7/notes",
+                "-f",
+                "body=Changes requested:\n\nredo it",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[test]
