@@ -135,3 +135,19 @@ JSON
   [[ "$output" == *"检测到 gitflow CLI 错误报告"* ]]
   [ ! -s "$GH_CALL_LOG" ]
 }
+
+@test "auth success -> banner instruction uses gf-autoreport-bug (no stale gitflow-) and MUST directive" {
+  write_pending
+
+  run_hook
+
+  [ "$status" -eq 0 ]
+  # The load instruction must reference the current skill name and be directive.
+  [[ "$output" == *"gf-autoreport-bug"* ]]
+  [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]
+  # The stale skill name must not appear anywhere in the banner.
+  if echo "$output" | grep -q "gitflow-autoreport-bug"; then
+    echo "❌ banner still references stale gitflow-autoreport-bug" >&2
+    return 1
+  fi
+}

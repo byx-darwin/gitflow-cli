@@ -187,6 +187,12 @@ pub(crate) fn maybe_report_error(
         return Ok(());
     }
 
+    // User input/argument errors are not CLI bugs — skip auto-reporting so
+    // they do not pollute the Issue stream as false positives.
+    if is_user_input_error(error_code) {
+        return Ok(());
+    }
+
     let report = ErrorReport::from_error(command, platform, error_message, error_code);
     let repo_root = find_repo_root()?;
     report.write_to_disk(&repo_root)
@@ -243,6 +249,15 @@ pub(crate) fn read_co_contribution_flag(path: &Path) -> bool {
 fn should_skip_reporting() -> bool {
     use is_terminal::IsTerminal;
     std::io::stderr().is_terminal()
+}
+
+/// Returns `true` when the given error code represents a user input or
+/// argument error (not a real CLI defect).
+///
+/// Such errors are silently skipped by [`maybe_report_error`] so that
+/// invalid user input is never auto-reported as a bug.
+fn is_user_input_error(error_code: &str) -> bool {
+    error_code == "USER_INPUT_ERROR"
 }
 
 /// Generate a unique report identifier from the current nanosecond
@@ -529,5 +544,13 @@ mod tests {
         let path = tmp.path().join("settings.json");
         std::fs::write(&path, "not json").expect("write");
         assert!(!read_co_contribution_flag(&path));
+    }
+
+    #[test]
+    fn test_should_classify_user_input_error() {
+        assert!(is_user_input_error("USER_INPUT_ERROR"));
+        assert!(!is_user_input_error("CLI_ERROR"));
+        assert!(!is_user_input_error("AUTH_FAILED"));
+        assert!(!is_user_input_error(""));
     }
 }
