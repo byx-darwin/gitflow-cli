@@ -418,8 +418,7 @@ mod tests {
         );
         assert!(sanitized.contains("[REDACTED]"));
 
-        let fine_grained =
-            "clone failed: \
+        let fine_grained = "clone failed: \
              github_pat_1234567890abcdef_GHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         let sanitized = sanitize_error_message(fine_grained);
         assert!(
@@ -591,10 +590,17 @@ mod tests {
                     && std::path::Path::new(n).extension() == Some(std::ffi::OsStr::new("json"))
             })
             .collect();
-        assert_eq!(archived.len(), 1, "exactly one archived report: {archived:?}");
+        assert_eq!(
+            archived.len(),
+            1,
+            "exactly one archived report: {archived:?}"
+        );
 
         let archived_content =
             std::fs::read_to_string(dir.join(&archived[0])).expect("read archived");
-        assert!(archived_content.contains("first"), "archived report keeps first content");
+        assert!(
+            archived_content.contains("first"),
+            "archived report keeps first content"
+        );
     }
 }
