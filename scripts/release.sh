@@ -130,6 +130,25 @@ validate_no_template_residue() {
     return 0
 }
 
+# Classify `gh pr checks` output into passed|failed|pending.
+# gh exits 8 while any check is pending or failed, so callers must tolerate a
+# non-zero exit from the command itself (see execute_release); this function
+# only parses the captured text. `grep -c` with zero matches prints "0" and
+# exits 1, so `|| true` keeps the count as "0" without set -e aborting.
+ci_checks_state() {
+    local checks_output="$1"
+    local pending_count failed_count
+    pending_count=$(printf '%s\n' "$checks_output" | grep -c "pending" || true)
+    failed_count=$(printf '%s\n' "$checks_output" | grep -c "fail" || true)
+    if [ "$failed_count" -gt 0 ]; then
+        echo "failed"
+    elif [ "$pending_count" -eq 0 ]; then
+        echo "passed"
+    else
+        echo "pending"
+    fi
+}
+
 run_self_test() {
     local failures=0
 
@@ -182,6 +201,13 @@ run_self_test() {
     printf -- '- Merge pull request #159: fix(release) use {{version}} template syntax for cargo-release 1.1.3\n' >> "$tmp"
     expect_pass "changelog: merge msg with {{version}} excluded" validate_no_template_residue "$tmp"
     rm -f "$tmp"
+
+    # ci_checks_state: `gh pr checks` output (NAME<TAB>STATE<TAB>...) → passed|failed|pending
+    expect_pass "ci state: all pass → passed" test "$(ci_checks_state $'lint\tpass\t0\nbuild\tpass\t0')" = "passed"
+    expect_pass "ci state: some pending → pending" test "$(ci_checks_state $'lint\tpass\t0\nbuild\tpending\t0')" = "pending"
+    expect_pass "ci state: failed + pending → failed" test "$(ci_checks_state $'lint\tfail\t0\nbuild\tpending\t0')" = "failed"
+    expect_fail "ci state: failed not misread as passed" test "$(ci_checks_state $'lint\tfail\t0')" = "passed"
+    expect_fail "ci state: pending not misread as passed" test "$(ci_checks_state $'build\tpending\t0')" = "passed"
 
     echo ""
     if [ "$failures" -eq 0 ]; then
@@ -670,14 +696,14 @@ Ready for release! 🚀" 2>&1)
     local waited=0
 
     while true; do
+        # gh pr checks exits 8 while any check is pending/failed; tolerate that
+        # here so set -euo pipefail does not abort the loop before checks settle.
         local checks_output
-        checks_output=$(gh pr checks "$pr_number" 2>&1)
-        local pending_count
-        pending_count=$(echo "$checks_output" | grep -c "pending" || echo "0")
-        local failed_count
-        failed_count=$(echo "$checks_output" | grep -c "fail" || echo "0")
+        checks_output=$(gh pr checks "$pr_number" 2>&1 || true)
+        local state
+        state=$(ci_checks_state "$checks_output")
 
-        if [ "$failed_count" -gt 0 ]; then
+        if [ "$state" = "failed" ]; then
             log_error "CI checks failed!"
             echo "$checks_output" | grep "fail"
             log_error "Fix CI issues and retry"
@@ -685,7 +711,7 @@ Ready for release! 🚀" 2>&1)
             exit 1
         fi
 
-        if [ "$pending_count" -eq 0 ]; then
+        if [ "$state" = "passed" ]; then
             log_success "All CI checks passed!"
             break
         fi
