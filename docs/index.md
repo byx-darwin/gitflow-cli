@@ -20,6 +20,8 @@
 
 - [多角色项目评估与产品路线图](./superpowers/specs/2026-07-31-product-evaluation-roadmap-design.md) — 五角色现状评估与 2026 下半年路线图（稳定化 → 增长 → 扩张，含官方网站与 GEO/SEO 方案）。
 - [gf-workflow 双 skills 来源兼容设计](./superpowers/specs/2026-08-08-workflow-dual-skill-sources-design.md) — Issue #141：superpowers + mattpocock/skills 双来源检测、分支适配、GO 闸门与安装时硬阻断。
+- [GitLab glab 1.113 兼容修复设计](./superpowers/specs/2026-08-18-gitlab-glab113-compat-design.md) — Issue #199：gf 写操作去 `--output json`、`auth status --show-token`、`mr update --draft`、`label edit --label-id`、`/work_items/N` 解析等。实施计划见 [plans/2026-08-18-gitlab-glab113-compat.md](./superpowers/plans/2026-08-18-gitlab-glab113-compat.md)。
+- [GitHub (gh) 兼容性检查报告](./gh-compat-check-2026-08-18.md) — Issue #200 前置调研：gh 2.97 实测 + 源码审查，发现 `gh label view` 缺失致 `gf label edit` 假失败（P1）等。
 
 ## 官网与 GEO
 
