@@ -401,7 +401,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         match strategy {
             Some(MergeStrategy::Squash) => cmd_args.push("--squash"),
             Some(MergeStrategy::Rebase) => cmd_args.push("--rebase"),
-            Some(MergeStrategy::Merge) | None => cmd_args.push("--merge"),
+            Some(MergeStrategy::Merge) | None => {}
         }
 
         let output = self
@@ -941,6 +941,41 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_merge_without_merge_flag() {
+        let runner = MockCommandRunner::success("Merged!");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .merge(9, Some(MergeStrategy::Merge))
+            .await
+            .expect("should merge");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["mr", "merge", "9", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_merge_without_strategy_flag() {
+        let runner = MockCommandRunner::success("Merged!");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider.merge(9, None).await.expect("should merge");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["mr", "merge", "9", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
