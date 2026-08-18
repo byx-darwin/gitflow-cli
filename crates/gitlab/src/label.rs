@@ -448,23 +448,30 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
     }
 
     async fn close(&self, number: u64) -> Result<MilestoneData> {
-        debug!(repo = %self.repo, number, "spawning `glab milestone close`");
+        debug!(
+            repo = %self.repo,
+            number,
+            "spawning `glab milestone edit --state close`"
+        );
 
+        let number_str = number.to_string();
         let output = self
             .runner
             .run(
                 "glab",
                 &[
                     "milestone",
+                    "edit",
+                    &number_str,
+                    "--state",
                     "close",
-                    &number.to_string(),
                     "--project",
                     &self.repo,
                 ],
             )
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn glab milestone close: {e}"))
+                CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}"))
             })?;
 
         if !output.status.success() {
@@ -479,23 +486,30 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
     }
 
     async fn reopen(&self, number: u64) -> Result<MilestoneData> {
-        debug!(repo = %self.repo, number, "spawning `glab milestone reopen`");
+        debug!(
+            repo = %self.repo,
+            number,
+            "spawning `glab milestone edit --state activate`"
+        );
 
+        let number_str = number.to_string();
         let output = self
             .runner
             .run(
                 "glab",
                 &[
                     "milestone",
-                    "reopen",
-                    &number.to_string(),
+                    "edit",
+                    &number_str,
+                    "--state",
+                    "activate",
                     "--project",
                     &self.repo,
                 ],
             )
             .await
             .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn glab milestone reopen: {e}"))
+                CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}"))
             })?;
 
         if !output.status.success() {
@@ -747,12 +761,28 @@ mod tests {
                 r#"[{"id":1,"iid":3,"title":"v1.0","description":null,"state":"closed","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
             ),
         ]);
-        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner.clone());
 
         let ms = provider.close(3).await.expect("should close");
 
         assert_eq!(ms.number, 3);
         assert_eq!(ms.state, State::Closed);
+        // glab 1.113 has no `milestone close`; closing is `milestone edit --state close`.
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "milestone",
+                "edit",
+                "3",
+                "--state",
+                "close",
+                "--project",
+                "owner/repo"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
@@ -764,12 +794,28 @@ mod tests {
                 r#"[{"id":1,"iid":3,"title":"v1.0","description":null,"state":"active","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
             ),
         ]);
-        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner.clone());
 
         let ms = provider.reopen(3).await.expect("should reopen");
 
         assert_eq!(ms.number, 3);
         assert_eq!(ms.state, State::Open);
+        // glab 1.113 has no `milestone reopen`; reopening is `milestone edit --state activate`.
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "milestone",
+                "edit",
+                "3",
+                "--state",
+                "activate",
+                "--project",
+                "owner/repo"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     // --- MilestoneData deserialization tests ---
