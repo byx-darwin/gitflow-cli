@@ -428,34 +428,30 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 在指定 Issue 上添加评论。
     ///
-    /// 调用 `glab issue note <number> --repo <repo> --body "<body>" --output json` 发布评论，
-    /// 并返回评论文数据。
+    /// 调用 `glab api --method POST /projects/{owner}%2F{project}/issues/{number}/notes`
+    /// 发布评论，并返回评论文数据。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在、`body` 为空或 `glab` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
-        debug!(repo = %self.repo, number, "spawning `glab issue note`");
+        debug!(repo = %self.repo, number, "spawning `glab api` POST issue note");
 
-        let number_str = number.to_string();
+        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
+            CoreError::Platform(format!(
+                "Invalid repo format '{}', expected 'owner/project'",
+                self.repo
+            ))
+        })?;
+
+        let api_path = format!("/projects/{owner}%2F{project}/issues/{number}/notes");
+        let body_arg = format!("body={body}");
+
         let output = self
             .runner
-            .run(
-                "glab",
-                &[
-                    "issue",
-                    "note",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--body",
-                    body,
-                    "--output",
-                    "json",
-                ],
-            )
+            .run("glab", &["api", "--method", "POST", &api_path, "-f", &body_arg])
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -1074,6 +1070,33 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_post_issue_note_via_glab_api_with_message_field() {
+        let runner = MockCommandRunner::success(
+            r#"{"id":77,"body":"hello","author":{"username":"alice","id":1},"created_at":"2026-08-18T00:00:00Z"}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let comment = provider.comment(42, "hello").await.expect("should post");
+
+        assert_eq!(comment.id, 77);
+        assert_eq!(comment.author.login, "alice");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "--method",
+                "POST",
+                "/projects/owner%2Frepo/issues/42/notes",
+                "-f",
+                "body=hello",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
