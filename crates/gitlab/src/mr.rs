@@ -69,6 +69,37 @@ impl<R: CommandRunner> GitLabMrProvider<R> {
             runner,
         }
     }
+
+    /// 切换 MR 的草稿状态。
+    ///
+    /// 调用 `glab mr update <number> --draft=false/true` 更新草稿标记。
+    ///
+    /// # Errors
+    ///
+    /// 当 MR 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn run_mr_update(&self, number: u64, draft: bool) -> Result<()> {
+        let number_str = number.to_string();
+        let draft_flag = if draft { "--draft=true" } else { "--draft=false" };
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "update",
+                    &number_str,
+                    "--repo",
+                    &self.repo,
+                    draft_flag,
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab mr update: {e}")))?;
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+        Ok(())
+    }
 }
 
 // ── 中间 API 响应类型 ──────────────────────────────────────────────
@@ -412,36 +443,14 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
     }
 
     async fn mark_ready(&self, number: u64) -> Result<PrData> {
-        debug!(repo = %self.repo, number, "spawning `glab mr ready`");
-
-        let number_str = number.to_string();
-        let output = self
-            .runner
-            .run("glab", &["mr", "ready", &number_str, "--repo", &self.repo])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
+        debug!(repo = %self.repo, number, "spawning `glab mr update --draft=false`");
+        self.run_mr_update(number, false).await?;
         self.view(number).await
     }
 
     async fn mark_wip(&self, number: u64) -> Result<PrData> {
-        debug!(repo = %self.repo, number, "spawning `glab mr draft`");
-
-        let number_str = number.to_string();
-        let output = self
-            .runner
-            .run("glab", &["mr", "draft", &number_str, "--repo", &self.repo])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
+        debug!(repo = %self.repo, number, "spawning `glab mr update --draft=true`");
+        self.run_mr_update(number, true).await?;
         self.view(number).await
     }
 
@@ -980,6 +989,45 @@ mod tests {
 
         let result = provider.mark_wip(42).await;
 
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_mark_ready_with_mr_update_draft_false() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+        provider.run_mr_update(5, false).await.expect("should succeed");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["mr", "update", "5", "--repo", "owner/repo", "--draft=false"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_mark_wip_with_mr_update_draft_true() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+        provider.run_mr_update(5, true).await.expect("should succeed");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["mr", "update", "5", "--repo", "owner/repo", "--draft=true"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_fail_when_mr_update_glab_fails() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+        let result = provider.run_mr_update(5, false).await;
         assert!(matches!(
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
