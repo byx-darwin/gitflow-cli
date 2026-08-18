@@ -372,8 +372,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 关闭指定编号的 Issue。
     ///
-    /// 调用 `glab issue close <number> --repo <repo> --output json` 关闭 Issue，
-    /// 并返回更新后的完整 Issue 数据。
+    /// 调用 `glab issue close <number> --repo <repo>` 关闭 Issue，
+    /// 然后通过 [`view`](Self::view) 重新拉取最新数据并返回。
     ///
     /// # Errors
     ///
@@ -386,15 +386,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &[
-                    "issue",
-                    "close",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--output",
-                    "json",
-                ],
+                &["issue", "close", &number_str, "--repo", &self.repo],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -403,16 +395,13 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: IssueApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(number).await
     }
 
     /// 重新打开指定编号的 Issue。
     ///
-    /// 调用 `glab issue reopen <number> --repo <repo> --output json` 重新打开已关闭的 Issue，
-    /// 并返回更新后的完整 Issue 数据。
+    /// 调用 `glab issue reopen <number> --repo <repo>` 重新打开已关闭的 Issue，
+    /// 然后通过 [`view`](Self::view) 重新拉取最新数据并返回。
     ///
     /// # Errors
     ///
@@ -425,15 +414,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &[
-                    "issue",
-                    "reopen",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--output",
-                    "json",
-                ],
+                &["issue", "reopen", &number_str, "--repo", &self.repo],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -442,10 +423,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: IssueApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(number).await
     }
 
     /// 在指定 Issue 上添加评论。
@@ -1022,6 +1000,52 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_close_issue_without_output_json_flag_and_refetch_via_view() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"closed","description":null,"labels":[]}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider.close(42).await.expect("close should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.state, State::Closed);
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls[0].1,
+            vec!["issue", "close", "42", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        // 第二次调用是重新拉取 view（带 --output json，读操作保留）
+        assert_eq!(calls[1].0, "glab");
+        assert!(calls[1].1.contains(&"--output".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_reopen_issue_without_output_json_flag_and_refetch_via_view() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"opened","description":null,"labels":[]}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider.reopen(42).await.expect("reopen should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.state, State::Open);
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls[0].1,
+            vec!["issue", "reopen", "42", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        assert!(calls[1].1.contains(&"--output".to_string()));
     }
 
     #[tokio::test]
