@@ -198,4 +198,4 @@ package: ## Build and package current platform binary into dist/
 
 .PHONY: compatibility-matrix
 compatibility-matrix: ## 从 JSON 生成兼容性矩阵 Markdown
-	cargo run -p gf-core --example gen_compat_matrix
+	cargo run -p gitflow-core --example gen_compat_matrix
