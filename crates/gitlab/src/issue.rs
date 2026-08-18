@@ -643,17 +643,23 @@ fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
 /// Extracts the numeric IID from URLs like:
 /// - `https://gitlab.com/owner/repo/-/issues/123`
 /// - `https://gitlab.example.com/group/project/-/issues/456`
+/// - `https://gitlab.example.com/group/project/-/work_items/789`
 fn parse_issue_iid_from_url(url: &str) -> Option<u64> {
     url.lines().find_map(|line| {
         let line = line.trim();
-        if line.contains("/-/issues/") {
-            line.rsplit("/-/issues/")
-                .next()
-                .and_then(|s| s.split('/').next())
-                .and_then(|s| s.parse().ok())
-        } else {
-            None
+        for marker in ["/-/issues/", "/-/work_items/"] {
+            if line.contains(marker) {
+                if let Some(id) = line
+                    .rsplit(marker)
+                    .next()
+                    .and_then(|s| s.split('/').next())
+                    .and_then(|s| s.parse().ok())
+                {
+                    return Some(id);
+                }
+            }
         }
+        None
     })
 }
 
@@ -843,6 +849,22 @@ mod tests {
             parse_issue_iid_from_url("https://gitlab.com/owner/repo/-/issues/"),
             None
         );
+    }
+
+    #[test]
+    fn test_should_parse_work_item_url() {
+        assert_eq!(
+            parse_issue_iid_from_url(
+                "http://192.168.230.23/iproost/iproost-docs/-/work_items/1"
+            ),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_work_item_url_among_lines() {
+        let output = "Creating issue...\nhttp://192.168.230.23/iproost/iproost-docs/-/work_items/7\nDone.";
+        assert_eq!(parse_issue_iid_from_url(output), Some(7));
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---
