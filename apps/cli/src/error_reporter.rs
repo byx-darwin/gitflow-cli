@@ -88,6 +88,19 @@ impl ErrorReport {
         let dir = repo_root.join(".cache").join("bug-reports");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join("pending.json");
+
+        // Preserve any existing pending report so a burst of failures does
+        // not silently drop earlier reports (P1-5).
+        if path.exists() {
+            let archived = dir.join(format!(
+                "pending.{}.json",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |d| d.as_millis())
+            ));
+            std::fs::rename(&path, &archived)?;
+        }
+
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         let mut file = std::fs::File::create(&path)?;
@@ -552,5 +565,43 @@ mod tests {
         assert!(!is_user_input_error("CLI_ERROR"));
         assert!(!is_user_input_error("AUTH_FAILED"));
         assert!(!is_user_input_error(""));
+    }
+
+    #[test]
+    fn test_should_archive_previous_pending_on_second_write() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let first = ErrorReport::from_error("issue list", "github", "first", "CLI_ERROR");
+        first.write_to_disk(tmp.path()).expect("first write");
+
+        let second = ErrorReport::from_error("pr list", "github", "second", "CLI_ERROR");
+        second.write_to_disk(tmp.path()).expect("second write");
+
+        let dir = tmp.path().join(".cache/bug-reports");
+        let pending = dir.join("pending.json");
+        assert!(pending.exists(), "pending.json must exist");
+
+        // Old report must be preserved under a timestamped name.
+        let archived: Vec<_> = std::fs::read_dir(&dir)
+            .expect("read bug-reports dir")
+            .filter_map(Result::ok)
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| {
+                n.starts_with("pending.")
+                    && n != "pending.json"
+                    && std::path::Path::new(n).extension() == Some(std::ffi::OsStr::new("json"))
+            })
+            .collect();
+        assert_eq!(
+            archived.len(),
+            1,
+            "exactly one archived report: {archived:?}"
+        );
+
+        let archived_content =
+            std::fs::read_to_string(dir.join(&archived[0])).expect("read archived");
+        assert!(
+            archived_content.contains("first"),
+            "archived report keeps first content"
+        );
     }
 }

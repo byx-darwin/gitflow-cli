@@ -8,13 +8,9 @@ description: |
 
 # gf-autoreport-bug
 
-Processes `pending.json` → validate → auth → dedup → create → cleanup.
+Processes `pending.json` → validate → auth → dedup → create → cleanup.## CLI Requirement
 
-## CLI Requirement
-
-MUST use `gh`, NOT `gf`.
-
-**Why:** This skill reports bugs *about* `gf` itself — a broken `gf` can't report its own failure. Use `gh` (repo is GitHub-hosted).
+MUST use `gh`, NOT `gf` — this skill reports bugs *about* `gf`; a broken `gf` can't report its own failure.
 
 ## Preconditions
 
@@ -46,9 +42,10 @@ flowchart TD
     NEW --> KEEP[Keep file, stop]
     D -->|Yes| G{Duplicate?}
     G -->|Yes| I[Clean, stop]
-    G -->|No| J[Create Issue]
+    G -->|No| P[Preview]
+    P --> J[Create Issue]
     J -->|Fail| F[Keep + failed.log]
-    J -->|Pass| M[Success]
+    J -->|Pass| M[Success + log]
     M --> K[Remove pending]
 ```
 
@@ -56,9 +53,11 @@ flowchart TD
 
 1. **Validate** — require `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop.
 2. **Auth** — `gh auth status`. Fail → login guide + template, keep file, stop.
-3. **Dedup** — `gh issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
-4. **Create** — Analyze root cause + severity, then `gh issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+3. **Dedup** — `gh issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}" --state all`. Match → clean, stop.
+3b. **Preview** — Print sanitized summary + planned title/body. Ask: `create / skip / modify`. Non-interactive default: create.
+4. **Create** — On confirm (or default), analyze root cause + severity, then `gh issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
 5. **Notify** — Output `✅ 已自动报告 bug: {issue_url}`.
+5b. **Log** — Append `[timestamp] issue created: {issue_url}` to `.cache/bug-reports/processing.log`.
 6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
 
 ## Error Handling
@@ -70,6 +69,7 @@ flowchart TD
 | Auth failure | Login guide + template, keep file |
 | Dedup hit | Clean, show existing Issue |
 | Create failure | Keep file + `failed.log` |
+
 ## Responsibility
 
 - ✅ Report bugs only; never fix.
@@ -82,7 +82,7 @@ flowchart TD
 - 🔴 Reading `src/` to "understand the bug" — crosses the fix boundary.
 - 🔴 "I'll just fix this too" — report only.
 - 🔴 Skipping dedup — always search first.
-- 🔴 Missing `--repo` — always target the fixed repo.
+- 🔴 Missing `--repo` — always target fixed repo.
 
 ## Rationalization Excuses
 
@@ -90,4 +90,3 @@ flowchart TD
 |--------|---------|
 | "Only looking, not fixing" | Any source analysis crosses the boundary |
 | "Same bug, fix together" | Report only; fixes need user workflow |
-| "Dedup wastes time" | Duplicates pollute the tracker |

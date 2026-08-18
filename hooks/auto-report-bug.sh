@@ -42,6 +42,15 @@ fi
 # Read pending report content.
 PENDING_CONTENT=$(cat "$PENDING_FILE")
 
+# Observability: append a timestamped line to hook.log (P1-3).
+HOOK_LOG="$REPO_ROOT/.cache/bug-reports/hook.log"
+mkdir -p "$(dirname "$HOOK_LOG")"
+log_hook() {
+  local ts
+  ts=$(date +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || python3 -c 'import time;print(time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()))')
+  echo "[$ts] $1" >> "$HOOK_LOG"
+}
+
 # Shallow JSON validation — require at least "error_code" field.
 if ! echo "$PENDING_CONTENT" | grep -q '"error_code"'; then
   mv "$PENDING_FILE" "${PENDING_FILE}.invalid"
@@ -54,10 +63,13 @@ COMMAND=$(echo "$PENDING_CONTENT" | grep -o '"command"[[:space:]]*:[[:space:]]*"
 ERROR_CODE=$(echo "$PENDING_CONTENT" | grep -o '"error_code"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 PLATFORM=$(echo "$PENDING_CONTENT" | grep -o '"platform"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 TIMESTAMP=$(echo "$PENDING_CONTENT" | grep -o '"timestamp"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+log_hook "detect pending.json (command=${COMMAND:-unknown}, platform=${PLATFORM:-unknown})"
 
 # Auth cache check (24h TTL) with failure fallback.
 CACHE_FILE="$REPO_ROOT/.cache/auth-cache/${PLATFORM}.ttl"
-AUTH_CACHE_TTL=86400
+# Optional per-report TTL override from pending.json (B1); default 86400.
+PENDING_TTL=$(echo "$PENDING_CONTENT" | grep -o '"auth_cache_ttl"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | sed 's/.*:[[:space:]]*//' || true)
+AUTH_CACHE_TTL=${PENDING_TTL:-86400}
 AUTH_STATUS="未知"
 AUTH_CHECK_FAILED=false
 
@@ -82,10 +94,12 @@ else
     else
       AUTH_STATUS="❌ 未登录"
       AUTH_CHECK_FAILED=true
+      log_hook "auth failed (platform=${PLATFORM:-unknown})"
     fi
   else
     AUTH_STATUS="❌ gh CLI 未安装"
     AUTH_CHECK_FAILED=true
+    log_hook "auth failed (gh not installed, platform=${PLATFORM:-unknown})"
   fi
 fi
 
@@ -117,6 +131,7 @@ fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_hook "banner emitted (command=${COMMAND:-unknown}, platform=${PLATFORM:-unknown})"
 echo "  🐛 检测到 gf CLI 错误报告"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
