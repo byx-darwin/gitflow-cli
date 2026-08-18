@@ -254,8 +254,9 @@ pub async fn handle(
                 .map(|s| match s {
                     "open" => Ok(State::Open),
                     "closed" => Ok(State::Closed),
+                    "all" => Ok(State::All),
                     other => Err(miette::miette!(
-                        "Invalid state '{other}'. Expected 'open' or 'closed'."
+                        "Invalid state '{other}'. Expected 'open', 'closed', or 'all'."
                     )),
                 })
                 .transpose()?;
@@ -859,6 +860,13 @@ mod tests {
             }
             _ => panic!("Expected PrCommand::List"),
         }
+    }
+
+    #[test]
+    fn test_should_accept_state_all_for_pr_list() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gf", "pr", "list", "--state", "all"]);
+        assert!(cli.is_ok());
     }
 
     #[test]

@@ -205,8 +205,9 @@ pub async fn handle(
                 .map(|s| match s {
                     "open" => Ok(State::Open),
                     "closed" => Ok(State::Closed),
+                    "all" => Ok(State::All),
                     other => Err(miette::miette!(
-                        "Invalid state '{other}'. Expected 'open' or 'closed'."
+                        "Invalid state '{other}'. Expected 'open', 'closed', or 'all'."
                     )),
                 })
                 .transpose()?;

@@ -266,12 +266,14 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
         let mut cmd_args: Vec<&str> = vec!["mr", "list", "--repo", &self.repo, "--output", "json"];
 
-        // glab uses --closed for closed MRs
+        // glab uses --closed for closed MRs, --all for all MRs
         // Default (no flag) shows open MRs
-        if let Some(state) = &args.state
-            && matches!(state, State::Closed)
-        {
-            cmd_args.push("--closed");
+        if let Some(state) = &args.state {
+            match state {
+                State::Closed => cmd_args.push("--closed"),
+                State::All => cmd_args.push("--all"),
+                State::Open => {}
+            }
         }
 
         let limit_str = args.limit.map(|limit| limit.to_string());
@@ -837,6 +839,27 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_list_all_mrs_with_all_flag() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListPrArgs {
+                state: Some(State::All),
+                ..Default::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["mr", "list", "--repo", "owner/repo", "--output", "json", "--all"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]

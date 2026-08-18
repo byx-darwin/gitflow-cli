@@ -111,6 +111,8 @@ pub enum State {
     /// Closed or merged.
     #[serde(alias = "CLOSED", alias = "MERGED", alias = "merged")]
     Closed,
+    /// Both open and closed items.
+    All,
 }
 
 /// A label attached to an Issue or Pull Request.

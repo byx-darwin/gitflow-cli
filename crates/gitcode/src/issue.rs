@@ -346,6 +346,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
             cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
+                State::All => "all",
             });
         }
         if let Some(ref search) = args.search {

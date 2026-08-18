@@ -304,10 +304,12 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
         // glab uses --closed for closed issues, --all for all issues
         // Default (no flag) shows open issues
-        if let Some(state) = &args.state
-            && matches!(state, State::Closed)
-        {
-            cmd_args.push("--closed");
+        if let Some(state) = &args.state {
+            match state {
+                State::Closed => cmd_args.push("--closed"),
+                State::All => cmd_args.push("--all"),
+                State::Open => {}
+            }
         }
 
         if let Some(ref search) = args.search {
@@ -923,6 +925,27 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_list_all_issues_with_all_flag() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                state: Some(State::All),
+                ..Default::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["issue", "list", "--repo", "owner/repo", "--output", "json", "--all"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 
     fn sample_create_args() -> CreateIssueArgs {
