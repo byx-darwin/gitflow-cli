@@ -257,6 +257,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
+                State::All => "all",
             });
         }
 

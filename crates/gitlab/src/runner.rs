@@ -5,6 +5,8 @@
 //! controlled outputs in tests.
 
 use std::process::ExitStatus;
+#[cfg(test)]
+use std::sync::Arc;
 
 /// Output from a CLI command execution.
 #[derive(Debug, Clone)]
@@ -92,6 +94,14 @@ impl CommandRunner for RealCommandRunner {
     }
 }
 
+/// A single recorded command invocation: `(program, args)`.
+#[cfg(test)]
+type RecordedCall = (String, Vec<String>);
+
+/// All recorded command invocations in execution order.
+#[cfg(test)]
+type RecordedCalls = Vec<RecordedCall>;
+
 /// Mock implementation for testing failure scenarios.
 ///
 /// Stores either a success output or an error kind with a message,
@@ -100,6 +110,8 @@ impl CommandRunner for RealCommandRunner {
 #[derive(Debug, Clone)]
 pub struct MockCommandRunner {
     result: MockResult,
+    /// Recorded `(program, args)` sequences for every `run`/`run_with_stdin` call.
+    recorded: Arc<std::sync::Mutex<RecordedCalls>>,
 }
 
 #[cfg(test)]
@@ -136,6 +148,24 @@ impl MockCommandRunner {
                 stdout: stdout.as_bytes().to_vec(),
                 stderr: Vec::new(),
             }),
+            recorded: Arc::new(std::sync::Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Create a mock that returns success with the given stdout and stderr.
+    ///
+    /// `glab auth status --show-token` writes its status block (including the
+    /// `Token found ...` line) to stderr while still exiting 0, so tests must
+    /// be able to place data on either stream.
+    #[must_use]
+    pub fn success_with_stderr(stdout: &str, stderr: &str) -> Self {
+        Self {
+            result: MockResult::Output(CommandOutput {
+                status: Self::make_exit_status(0),
+                stdout: stdout.as_bytes().to_vec(),
+                stderr: stderr.as_bytes().to_vec(),
+            }),
+            recorded: Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
@@ -148,6 +178,7 @@ impl MockCommandRunner {
                 stdout: Vec::new(),
                 stderr: stderr.as_bytes().to_vec(),
             }),
+            recorded: Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
@@ -156,14 +187,30 @@ impl MockCommandRunner {
     pub fn spawn_error() -> Self {
         Self {
             result: MockResult::Error(std::io::ErrorKind::NotFound, "command not found".to_owned()),
+            recorded: Arc::new(std::sync::Mutex::new(Vec::new())),
         }
+    }
+
+    /// Return the recorded `(program, args)` sequences from every executed call.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal recording mutex is poisoned (a prior panic while
+    /// holding the lock).
+    #[must_use]
+    pub fn recorded_calls(&self) -> Vec<(String, Vec<String>)> {
+        self.recorded.lock().expect("mock mutex poisoned").clone()
     }
 }
 
 #[cfg(test)]
 #[async_trait::async_trait]
 impl CommandRunner for MockCommandRunner {
-    async fn run(&self, _program: &str, _args: &[&str]) -> std::io::Result<CommandOutput> {
+    async fn run(&self, program: &str, args: &[&str]) -> std::io::Result<CommandOutput> {
+        self.recorded.lock().expect("mock mutex poisoned").push((
+            program.to_string(),
+            args.iter().map(|s| (*s).to_string()).collect(),
+        ));
         match &self.result {
             MockResult::Output(output) => Ok(output.clone()),
             MockResult::Error(kind, message) => Err(std::io::Error::new(*kind, message.clone())),
@@ -176,6 +223,10 @@ impl CommandRunner for MockCommandRunner {
         args: &[&str],
         _stdin_data: &[u8],
     ) -> std::io::Result<CommandOutput> {
+        self.recorded.lock().expect("mock mutex poisoned").push((
+            program.to_string(),
+            args.iter().map(|s| (*s).to_string()).collect(),
+        ));
         self.run(program, args).await
     }
 }
@@ -189,6 +240,8 @@ impl CommandRunner for MockCommandRunner {
 #[derive(Debug, Clone)]
 pub struct SequencedMockCommandRunner {
     responses: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<CommandOutput>>>,
+    /// Recorded `(program, args)` sequences for every `run`/`run_with_stdin` call.
+    recorded: Arc<std::sync::Mutex<RecordedCalls>>,
 }
 
 #[cfg(test)]
@@ -198,6 +251,7 @@ impl SequencedMockCommandRunner {
     pub fn new(outputs: Vec<CommandOutput>) -> Self {
         Self {
             responses: std::sync::Arc::new(std::sync::Mutex::new(outputs.into())),
+            recorded: Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
@@ -227,12 +281,27 @@ impl SequencedMockCommandRunner {
             .collect();
         Self::new(outputs)
     }
+
+    /// Return the recorded `(program, args)` sequences from every executed call.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal recording mutex is poisoned (a prior panic while
+    /// holding the lock).
+    #[must_use]
+    pub fn recorded_calls(&self) -> Vec<(String, Vec<String>)> {
+        self.recorded.lock().expect("mock mutex poisoned").clone()
+    }
 }
 
 #[cfg(test)]
 #[async_trait::async_trait]
 impl CommandRunner for SequencedMockCommandRunner {
-    async fn run(&self, _program: &str, _args: &[&str]) -> std::io::Result<CommandOutput> {
+    async fn run(&self, program: &str, args: &[&str]) -> std::io::Result<CommandOutput> {
+        self.recorded.lock().expect("mock mutex poisoned").push((
+            program.to_string(),
+            args.iter().map(|s| (*s).to_string()).collect(),
+        ));
         let mut guard = self
             .responses
             .lock()
@@ -337,5 +406,45 @@ mod tests {
         let _ = runner.run("glab", &[]).await.expect("first call");
         let err = runner.run("glab", &[]).await.expect_err("exhausted");
         assert_eq!(err.kind(), std::io::ErrorKind::Other);
+    }
+
+    #[tokio::test]
+    async fn test_should_record_glab_calls() {
+        let runner = MockCommandRunner::success("ok");
+        runner
+            .run("glab", &["issue", "close", "42", "--repo", "owner/repo"])
+            .await
+            .expect("should succeed");
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, "glab");
+        assert_eq!(
+            calls[0].1,
+            vec!["issue", "close", "42", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_record_sequenced_glab_calls() {
+        let runner = SequencedMockCommandRunner::from_results(&[(true, "first"), (true, "second")]);
+        runner
+            .run("glab", &["issue", "list", "--repo", "owner/repo"])
+            .await
+            .expect("first should succeed");
+        runner
+            .run("glab", &["issue", "view", "1", "--repo", "owner/repo"])
+            .await
+            .expect("second should succeed");
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].0, "glab");
+        assert_eq!(calls[1].0, "glab");
+        assert_eq!(
+            calls[1].1,
+            vec!["issue", "view", "1", "--repo", "owner/repo"]
+        );
     }
 }

@@ -51,7 +51,7 @@ pub enum IssueCommand {
 
     /// 列出 Issue。
     List {
-        /// 按状态过滤（`open` 或 `closed`）。
+        /// 按状态过滤（`open`、`closed` 或 `all`）。
         #[arg(long)]
         state: Option<String>,
 
@@ -205,8 +205,9 @@ pub async fn handle(
                 .map(|s| match s {
                     "open" => Ok(State::Open),
                     "closed" => Ok(State::Closed),
+                    "all" => Ok(State::All),
                     other => Err(miette::miette!(
-                        "Invalid state '{other}'. Expected 'open' or 'closed'."
+                        "Invalid state '{other}'. Expected 'open', 'closed', or 'all'."
                     )),
                 })
                 .transpose()?;

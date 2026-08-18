@@ -304,10 +304,12 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
         // glab uses --closed for closed issues, --all for all issues
         // Default (no flag) shows open issues
-        if let Some(state) = &args.state
-            && matches!(state, State::Closed)
-        {
-            cmd_args.push("--closed");
+        if let Some(state) = &args.state {
+            match state {
+                State::Closed => cmd_args.push("--closed"),
+                State::All => cmd_args.push("--all"),
+                State::Open => {}
+            }
         }
 
         if let Some(ref search) = args.search {
@@ -372,8 +374,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 关闭指定编号的 Issue。
     ///
-    /// 调用 `glab issue close <number> --repo <repo> --output json` 关闭 Issue，
-    /// 并返回更新后的完整 Issue 数据。
+    /// 调用 `glab issue close <number> --repo <repo>` 关闭 Issue，
+    /// 然后通过 [`view`](Self::view) 重新拉取最新数据并返回。
     ///
     /// # Errors
     ///
@@ -386,15 +388,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &[
-                    "issue",
-                    "close",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--output",
-                    "json",
-                ],
+                &["issue", "close", &number_str, "--repo", &self.repo],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -403,16 +397,13 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: IssueApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(number).await
     }
 
     /// 重新打开指定编号的 Issue。
     ///
-    /// 调用 `glab issue reopen <number> --repo <repo> --output json` 重新打开已关闭的 Issue，
-    /// 并返回更新后的完整 Issue 数据。
+    /// 调用 `glab issue reopen <number> --repo <repo>` 重新打开已关闭的 Issue，
+    /// 然后通过 [`view`](Self::view) 重新拉取最新数据并返回。
     ///
     /// # Errors
     ///
@@ -425,15 +416,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &[
-                    "issue",
-                    "reopen",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--output",
-                    "json",
-                ],
+                &["issue", "reopen", &number_str, "--repo", &self.repo],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -442,42 +425,38 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: IssueApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(number).await
     }
 
     /// 在指定 Issue 上添加评论。
     ///
-    /// 调用 `glab issue note <number> --repo <repo> --body "<body>" --output json` 发布评论，
-    /// 并返回评论文数据。
+    /// 调用 `glab api --method POST /projects/{owner}%2F{project}/issues/{number}/notes`
+    /// 发布评论，并返回评论文数据。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在、`body` 为空或 `glab` CLI 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
-        debug!(repo = %self.repo, number, "spawning `glab issue note`");
+        debug!(repo = %self.repo, number, "spawning `glab api` POST issue note");
 
-        let number_str = number.to_string();
+        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
+            CoreError::Platform(format!(
+                "Invalid repo format '{}', expected 'owner/project'",
+                self.repo
+            ))
+        })?;
+
+        let api_path = format!("/projects/{owner}%2F{project}/issues/{number}/notes");
+        let body_arg = format!("body={body}");
+
         let output = self
             .runner
             .run(
                 "glab",
-                &[
-                    "issue",
-                    "note",
-                    &number_str,
-                    "--repo",
-                    &self.repo,
-                    "--body",
-                    body,
-                    "--output",
-                    "json",
-                ],
+                &["api", "--method", "POST", &api_path, "-f", &body_arg],
             )
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -669,17 +648,22 @@ fn extract_missing_labels_from_error(stderr: &[u8]) -> Vec<String> {
 /// Extracts the numeric IID from URLs like:
 /// - `https://gitlab.com/owner/repo/-/issues/123`
 /// - `https://gitlab.example.com/group/project/-/issues/456`
+/// - `https://gitlab.example.com/group/project/-/work_items/789`
 fn parse_issue_iid_from_url(url: &str) -> Option<u64> {
     url.lines().find_map(|line| {
         let line = line.trim();
-        if line.contains("/-/issues/") {
-            line.rsplit("/-/issues/")
-                .next()
-                .and_then(|s| s.split('/').next())
-                .and_then(|s| s.parse().ok())
-        } else {
-            None
+        for marker in ["/-/issues/", "/-/work_items/"] {
+            if line.contains(marker)
+                && let Some(id) = line
+                    .rsplit(marker)
+                    .next()
+                    .and_then(|s| s.split('/').next())
+                    .and_then(|s| s.parse().ok())
+            {
+                return Some(id);
+            }
         }
+        None
     })
 }
 
@@ -871,6 +855,21 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_should_parse_work_item_url() {
+        assert_eq!(
+            parse_issue_iid_from_url("http://192.168.230.23/iproost/iproost-docs/-/work_items/1"),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn test_should_parse_work_item_url_among_lines() {
+        let output =
+            "Creating issue...\nhttp://192.168.230.23/iproost/iproost-docs/-/work_items/7\nDone.";
+        assert_eq!(parse_issue_iid_from_url(output), Some(7));
+    }
+
     // --- Failure-path tests using an injected MockCommandRunner ---
 
     #[tokio::test]
@@ -927,6 +926,35 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_list_all_issues_with_all_flag() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                state: Some(State::All),
+                ..Default::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--all"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     fn sample_create_args() -> CreateIssueArgs {
@@ -1025,6 +1053,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_close_issue_without_output_json_flag_and_refetch_via_view() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"closed","description":null,"labels":[]}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider.close(42).await.expect("close should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.state, State::Closed);
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls[0].1,
+            vec!["issue", "close", "42", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        // 第二次调用是重新拉取 view（带 --output json，读操作保留）
+        assert_eq!(calls[1].0, "glab");
+        assert!(calls[1].1.contains(&"--output".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_reopen_issue_without_output_json_flag_and_refetch_via_view() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"opened","description":null,"labels":[]}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider.reopen(42).await.expect("reopen should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.state, State::Open);
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls[0].1,
+            vec!["issue", "reopen", "42", "--repo", "owner/repo"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        assert!(calls[1].1.contains(&"--output".to_string()));
+    }
+
+    #[tokio::test]
     async fn test_should_return_platform_error_when_glab_fails_for_comment() {
         let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
         let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
@@ -1050,6 +1124,33 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_post_issue_note_via_glab_api_with_message_field() {
+        let runner = MockCommandRunner::success(
+            r#"{"id":77,"body":"hello","author":{"username":"alice","id":1},"created_at":"2026-08-18T00:00:00Z"}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let comment = provider.comment(42, "hello").await.expect("should post");
+
+        assert_eq!(comment.id, 77);
+        assert_eq!(comment.author.login, "alice");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "--method",
+                "POST",
+                "/projects/owner%2Frepo/issues/42/notes",
+                "-f",
+                "body=hello",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
