@@ -11,6 +11,15 @@ use gitflow_core::{PlatformCliError, platform::Platform};
 pub fn parse_gh_error(stderr: &[u8]) -> PlatformCliError {
     let text = String::from_utf8_lossy(stderr);
 
+    let is_auth_failure = |t: &str| {
+        let lower = t.to_ascii_lowercase();
+        lower.contains("not authenticated")
+            || lower.contains("unauthorized")
+            || lower.contains("not logged in")
+            || lower.contains("401")
+            || lower.contains("token")
+    };
+
     // 尝试解析 gh 的 JSON 错误格式
     if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr)
         && let Some(msg) = json.get("message").and_then(serde_json::Value::as_str)
@@ -31,11 +40,15 @@ pub fn parse_gh_error(stderr: &[u8]) -> PlatformCliError {
         };
 
         let hint = match code.as_deref() {
+            Some("UNAUTHORIZED") => Some("运行 `gh auth status` 检查认证状态".into()),
             Some("RATE_LIMITED") => Some("等待几分钟后重试".into()),
             Some("VALIDATION_FAILED") => Some("检查请求参数格式是否正确".into()),
             Some("CONFLICT") => Some("运行 `git pull --rebase` 解决冲突后重试".into()),
             Some("GONE") => Some("确认资源是否存在，可能已被删除或重命名".into()),
-            _ => Some("运行 `gh auth status` 检查认证状态".into()),
+            Some("NOT_FOUND") => Some("检查资源名称或编号是否正确".into()),
+            Some("FORBIDDEN") => Some("检查当前账号对该资源的权限".into()),
+            _ if is_auth_failure(&text) => Some("运行 `gh auth login` 完成登录".into()),
+            _ => None,
         };
         let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitHub);
         err.hint = hint;
@@ -45,14 +58,17 @@ pub fn parse_gh_error(stderr: &[u8]) -> PlatformCliError {
     }
 
     // 回退：纯文本解析
-    let user_message: String = if text.contains("Not logged in") || text.contains("auth") {
+    let is_auth = is_auth_failure(&text);
+    let user_message: String = if is_auth {
         "未登录 GitHub".into()
     } else {
         "GitHub CLI 执行失败".into()
     };
 
     let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitHub);
-    err.hint = Some("运行 `gh auth login` 完成登录".into());
+    if is_auth {
+        err.hint = Some("运行 `gh auth login` 完成登录".into());
+    }
     err.doc_link = Some("https://cli.github.com/manual/".into());
     err
 }
@@ -93,7 +109,31 @@ mod tests {
     fn test_should_handle_empty_stderr() {
         let err = parse_gh_error(b"");
         assert!(!err.user_message.is_empty());
-        assert!(err.hint.is_some());
+        assert!(err.hint.is_none());
+    }
+
+    #[test]
+    fn test_should_not_hint_auth_login_on_unknown_flag_error() {
+        let err = parse_gh_error(b"unknown flag: --json\nUsage: gh label <command> [flags]");
+        assert!(!err.user_message.contains("未登录"));
+        assert!(err.hint.is_none());
+    }
+
+    #[test]
+    fn test_should_hint_auth_login_on_not_authenticated_error() {
+        let err = parse_gh_error(b"gh: Not logged in. Please run `gh auth login` to authenticate.");
+        assert!(err.user_message.contains("登录"));
+        assert!(
+            err.hint
+                .as_deref()
+                .is_some_and(|h| h.contains("gh auth login"))
+        );
+    }
+
+    #[test]
+    fn test_should_not_hint_auth_login_on_generic_json_error() {
+        let err = parse_gh_error(br#"{"message": "Something went wrong"}"#);
+        assert!(err.hint.is_none());
     }
 
     #[test]

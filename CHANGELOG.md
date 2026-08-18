@@ -7,6 +7,36 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(gitlab)** compat with glab 1.113 for GitLab write operations (#201) - ([980d5c5](https://github.com/byx-darwin/gitflow-cli/commit/980d5c5180cd96a2587910b82ee9496729359cf5)) - mc-ai
+
+### Documentation
+
+- archive #199 glab 1.113 compat workflow artifacts (#202) - ([94a5d5a](https://github.com/byx-darwin/gitflow-cli/commit/94a5d5aec3979e55f8f6869f7a917c898f03912a)) - mc-ai
+- archive #200 gh 2.97 label edit workflow artifacts - ([38f9d95](https://github.com/byx-darwin/gitflow-cli/commit/38f9d95acfeb0ba2fd682931e3801b0a2b5b229f)) - baoyx
+
+### Features
+
+- **(release)** update release script for PR-based workflow - ([3b5da59](https://github.com/byx-darwin/gitflow-cli/commit/3b5da59b16d5f532da32aeb645635be676179571)) - baoyx
+- **(release)** add crates.io and Homebrew publishing - ([7ddd135](https://github.com/byx-darwin/gitflow-cli/commit/7ddd135152d84d0ddc158f3fc40aa4f13592ecae)) - baoyx
+- **(release)** add crates.io and Homebrew publishing (#195) - ([324c7f8](https://github.com/byx-darwin/gitflow-cli/commit/324c7f81ab7a586013e08ecd15a5fe375eb77c65)) - mc-ai
+
+### Miscellaneous Chores
+
+- remove HomebrewFormula directory (#197) - ([858ba10](https://github.com/byx-darwin/gitflow-cli/commit/858ba101f1d214c7e72fa2c3ac2883258b10ec51)) - mc-ai
+- release v1.4.0 - ([81bc12f](https://github.com/byx-darwin/gitflow-cli/commit/81bc12fc69adfd636224504f1723dcf6ab88ab0c)) - baoyx
+
+### Other
+
+- Merge branch 'main' into dev - ([f0b8b12](https://github.com/byx-darwin/gitflow-cli/commit/f0b8b122b2c9f3dfb588a8ac17a7ee3bc1e13913)) - baoyx
+- Merge remote-tracking branch 'origin/main' into dev - ([7917b45](https://github.com/byx-darwin/gitflow-cli/commit/7917b45aeaec162424f2149aeae91d87bfbd3178)) - baoyx
+- Merge remote-tracking branch 'origin/main' into dev - ([fc1b9e3](https://github.com/byx-darwin/gitflow-cli/commit/fc1b9e39e058a5b6b9fccdebbe2f6d8248f35135)) - baoyx
+- Merge remote-tracking branch 'origin/main' into dev - ([de642d4](https://github.com/byx-darwin/gitflow-cli/commit/de642d48c6301bed9eb47a51204ef0f54e3a72f4)) - baoyx
+
+---
+## [1.3.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.2.0..v1.3.0) - 2026-08-11
+
+### Bug Fixes
+
 - **(release)** use --registry crates-io for publishing - ([a8c170a](https://github.com/byx-darwin/gitflow-cli/commit/a8c170a69d5d5a368c42774aef8aa12e52549236)) - baoyx
 - **(release)** use cargo release publish for workspace dependency order - ([3225bd1](https://github.com/byx-darwin/gitflow-cli/commit/3225bd14e50605c93defc2b9f08aac2eead0ffa1)) - baoyx
 - **(release)** add --allow-dirty for crates.io publish - ([53bbfa9](https://github.com/byx-darwin/gitflow-cli/commit/53bbfa9bb60cc5d7dc92718331bf4f0c03bb937e)) - baoyx
@@ -25,6 +55,9 @@ All notable changes to this project will be documented in this file. See [conven
 
 - **(release)** add format check to preflight - ([c61b877](https://github.com/byx-darwin/gitflow-cli/commit/c61b8776e8d412009a6ee4ca77bace99cbf5e523)) - baoyx
 - update Homebrew formula to v1.2.0 - ([304d5b0](https://github.com/byx-darwin/gitflow-cli/commit/304d5b040a25b29f575a918efb3144feeb628550)) - github-actions[bot]
+- release v1.3.0 - ([a21a401](https://github.com/byx-darwin/gitflow-cli/commit/a21a4014b8af995e65cac2f459801cf942301213)) - baoyx
+- fix release-from-dev script (#193) - ([04002e6](https://github.com/byx-darwin/gitflow-cli/commit/04002e6b6dbcc9624d9b5ab9826e2ce9a6bc7055)) - mc-ai
+- release v1.3.0 (#194) - ([41e8dfd](https://github.com/byx-darwin/gitflow-cli/commit/41e8dfd36cb6638c92553b591b4c9aea153724dd)) - mc-ai
 
 ### Other
 
@@ -39,6 +72,7 @@ fix(workflow): symlink .claude directory for worktree compatibility - ([a42213f]
 
 fix(workflow): remove .claude symlink and use relative paths - ([66ea209](https://github.com/byx-darwin/gitflow-cli/commit/66ea209572845f5b98f58a09f0a7c3d70ba4a057)) - mc-ai
 - update workflows to support dev branch - ([ea4be64](https://github.com/byx-darwin/gitflow-cli/commit/ea4be6497e3119b59e4fa86af9ca83b57be602ce)) - baoyx
+- Merge branch 'main' into dev - ([a4f3e58](https://github.com/byx-darwin/gitflow-cli/commit/a4f3e58cf7a9de33c8160e7a755af9686e565e78)) - baoyx
 
 ### Style
 
