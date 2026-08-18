@@ -335,8 +335,6 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             &args.title,
             "--project",
             &self.repo,
-            "--output",
-            "json",
         ];
 
         if let Some(ref desc) = args.description {
@@ -359,10 +357,11 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: MilestoneApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        let milestones = self.list().await?;
+        milestones
+            .into_iter()
+            .find(|m| m.title == args.title)
+            .ok_or_else(|| CoreError::Platform("Milestone not found after create".into()))
     }
 
     async fn list(&self) -> Result<Vec<MilestoneData>> {
@@ -406,8 +405,6 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             &self.repo,
             "--title",
             &args.title,
-            "--output",
-            "json",
         ];
 
         if let Some(ref desc) = args.description {
@@ -430,10 +427,11 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: MilestoneApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        let milestones = self.list().await?;
+        milestones
+            .into_iter()
+            .find(|m| m.title == args.title || m.number == number)
+            .ok_or_else(|| CoreError::Platform("Milestone not found after edit".into()))
     }
 
     async fn close(&self, number: u64) -> Result<MilestoneData> {
@@ -449,8 +447,6 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
                     &number.to_string(),
                     "--project",
                     &self.repo,
-                    "--output",
-                    "json",
                 ],
             )
             .await
@@ -462,10 +458,11 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: MilestoneApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        let milestones = self.list().await?;
+        milestones
+            .into_iter()
+            .find(|m| m.number == number)
+            .ok_or_else(|| CoreError::Platform("Milestone not found after close".into()))
     }
 
     async fn reopen(&self, number: u64) -> Result<MilestoneData> {
@@ -481,8 +478,6 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
                     &number.to_string(),
                     "--project",
                     &self.repo,
-                    "--output",
-                    "json",
                 ],
             )
             .await
@@ -494,10 +489,11 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: MilestoneApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        let milestones = self.list().await?;
+        milestones
+            .into_iter()
+            .find(|m| m.number == number)
+            .ok_or_else(|| CoreError::Platform("Milestone not found after reopen".into()))
     }
 }
 
@@ -685,6 +681,85 @@ mod tests {
                 .map(String::from)
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn test_should_create_milestone_without_output_json_and_refetch() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // milestone create 成功（stdout 为纯文本，忽略）
+            (
+                true,
+                r#"[{"id":1,"iid":3,"title":"v1.0","description":null,"state":"active","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
+            ),
+        ]);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+
+        let args = CreateMilestoneArgs {
+            title: "v1.0".to_string(),
+            description: None,
+            due_on: None,
+        };
+
+        let ms = provider.create(args).await.expect("should create");
+
+        assert_eq!(ms.number, 3);
+        assert_eq!(ms.title, "v1.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_milestone_without_output_json_and_refetch() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // milestone edit 成功
+            (
+                true,
+                r#"[{"id":1,"iid":3,"title":"v1.1","description":null,"state":"active","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
+            ),
+        ]);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+
+        let args = CreateMilestoneArgs {
+            title: "v1.1".to_string(),
+            description: None,
+            due_on: None,
+        };
+
+        let ms = provider.edit(3, args).await.expect("should edit");
+
+        assert_eq!(ms.title, "v1.1");
+    }
+
+    #[tokio::test]
+    async fn test_should_close_milestone_without_output_json_and_refetch() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (
+                true,
+                r#"[{"id":1,"iid":3,"title":"v1.0","description":null,"state":"closed","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
+            ),
+        ]);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+
+        let ms = provider.close(3).await.expect("should close");
+
+        assert_eq!(ms.number, 3);
+        assert_eq!(ms.state, State::Closed);
+    }
+
+    #[tokio::test]
+    async fn test_should_reopen_milestone_without_output_json_and_refetch() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (
+                true,
+                r#"[{"id":1,"iid":3,"title":"v1.0","description":null,"state":"active","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
+            ),
+        ]);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+
+        let ms = provider.reopen(3).await.expect("should reopen");
+
+        assert_eq!(ms.number, 3);
+        assert_eq!(ms.state, State::Open);
     }
 
     // --- MilestoneData deserialization tests ---
