@@ -11,6 +11,14 @@ use gitflow_core::{PlatformCliError, platform::Platform};
 pub fn parse_glab_error(stderr: &[u8]) -> PlatformCliError {
     let text = String::from_utf8_lossy(stderr);
 
+    let is_auth_failure = |t: &str| {
+        let lower = t.to_ascii_lowercase();
+        lower.contains("not authenticated")
+            || lower.contains("unauthorized")
+            || lower.contains("401")
+            || lower.contains("token")
+    };
+
     // 尝试解析 glab 的 JSON 错误格式
     if let Ok(json) = serde_json::from_slice::<serde_json::Value>(stderr)
         && let Some(msg) = json.get("message").and_then(serde_json::Value::as_str)
@@ -26,14 +34,19 @@ pub fn parse_glab_error(stderr: &[u8]) -> PlatformCliError {
             Some("RATE_LIMITED") => "API 请求频率超限".into(),
             Some("VALIDATION_FAILED") => "请求参数校验失败".into(),
             Some("CONFLICT") => "存在冲突，请先合并最新变更".into(),
+            _ if is_auth_failure(&text) => "未登录 GitLab".into(),
             _ => format!("GitLab 操作失败：{msg}"),
         };
 
         let hint = match code.as_deref() {
+            Some("UNAUTHORIZED") => Some("运行 `glab auth login` 完成登录".into()),
             Some("RATE_LIMITED") => Some("等待几分钟后重试".into()),
             Some("VALIDATION_FAILED") => Some("检查请求参数格式是否正确".into()),
             Some("CONFLICT") => Some("运行 `git pull --rebase` 解决冲突后重试".into()),
-            _ => Some("运行 `glab auth status` 检查认证状态".into()),
+            Some("NOT_FOUND") => Some("检查资源编号或项目路径是否正确".into()),
+            Some("FORBIDDEN") => Some("检查当前账号对该资源的权限".into()),
+            _ if is_auth_failure(&text) => Some("运行 `glab auth login` 完成登录".into()),
+            _ => None,
         };
         let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitLab);
         err.hint = hint;
@@ -43,14 +56,17 @@ pub fn parse_glab_error(stderr: &[u8]) -> PlatformCliError {
     }
 
     // 回退：纯文本解析
-    let user_message: String = if text.contains("not authenticated") || text.contains("auth") {
+    let is_auth = is_auth_failure(&text);
+    let user_message: String = if is_auth {
         "未登录 GitLab".into()
     } else {
         "GitLab CLI 执行失败".into()
     };
 
     let mut err = PlatformCliError::new(user_message, text.into_owned(), Platform::GitLab);
-    err.hint = Some("运行 `glab auth login` 完成登录".into());
+    if is_auth {
+        err.hint = Some("运行 `glab auth login` 完成登录".into());
+    }
     err.doc_link = Some("https://gitlab.com/gitlab-org/cli/-/blob/main/docs/".into());
     err
 }
@@ -89,7 +105,8 @@ mod tests {
     fn test_should_handle_empty_stderr() {
         let err = parse_glab_error(b"");
         assert!(!err.user_message.is_empty());
-        assert!(err.hint.is_some());
+        assert_eq!(err.user_message, "GitLab CLI 执行失败");
+        assert!(err.hint.is_none());
     }
 
     #[test]
@@ -112,9 +129,15 @@ mod tests {
 
     #[test]
     fn test_should_parse_glab_plain_text_auth_error() {
-        let stderr = b"ERROR: auth failed";
+        let stderr = b"ERROR: not authenticated";
         let err = parse_glab_error(stderr);
         assert!(err.user_message.contains("登录"));
+        assert!(
+            err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("glab auth login")
+        );
         assert_eq!(err.platform, Platform::GitLab);
     }
 
@@ -140,5 +163,34 @@ mod tests {
         let err = parse_glab_error(json);
         assert_eq!(err.code.as_deref(), Some("CONFLICT"));
         assert!(err.user_message.contains("冲突"));
+    }
+
+    #[test]
+    fn test_should_not_hint_auth_login_on_unknown_flag_error() {
+        let err = parse_glab_error(b"ERROR: Unknown flag: --output");
+        assert!(
+            !err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("glab auth login")
+        );
+        assert!(err.user_message.contains("执行失败") || !err.user_message.contains("未登录"));
+    }
+
+    #[test]
+    fn test_should_hint_auth_login_on_not_authenticated_error() {
+        let err = parse_glab_error(b"ERROR: not authenticated");
+        assert!(
+            err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("glab auth login")
+        );
+    }
+
+    #[test]
+    fn test_should_not_hint_auth_login_on_not_found_json_error() {
+        let err = parse_glab_error(br#"{"message": "404 Not Found", "code": "NOT_FOUND"}"#);
+        assert!(!err.hint.as_deref().unwrap_or("").contains("glab auth"));
     }
 }

@@ -143,20 +143,47 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
     }
 
     async fn token(&self) -> Result<String> {
-        debug!("spawning `glab auth token`");
+        // 环境变量优先（与 AuthChecker::is_authenticated 一致）
+        if let Ok(tok) = std::env::var("GL_TOKEN") {
+            return Ok(tok);
+        }
 
-        let output = self
-            .runner
-            .run("glab", &["auth", "token"])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth token: {e}")))?;
+        debug!("spawning `glab auth status --show-token`");
+
+        let host = std::env::var("GITLAB_HOST").ok();
+        let mut args: Vec<&str> = vec!["auth", "status", "--show-token"];
+        if let Some(ref h) = host {
+            args.push("--hostname");
+            args.push(h);
+        }
+
+        let output =
+            self.runner.run("glab", &args).await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab auth status: {e}"))
+            })?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let token = String::from_utf8_lossy(&output.stdout);
-        Ok(token.trim().to_string())
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // glab writes the status block (including the `Token found ...` line) to
+        // stderr even on success; parse both streams like `status()` does.
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = format!("{stdout}{stderr}");
+        combined
+            .lines()
+            .find_map(|line| {
+                if line.contains("Token found") {
+                    line.rsplit_once(": ").map(|(_, t)| t.trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .filter(|t| !t.is_empty())
+            .ok_or_else(|| {
+                CoreError::Platform("No GitLab token found (run `glab auth login`)".into())
+            })
     }
 }
 
@@ -389,16 +416,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_should_return_empty_token_when_stdout_is_empty() {
+    async fn test_should_error_when_stdout_has_no_token_line() {
         let runner = MockCommandRunner::success("");
         let provider = GitLabAuthProvider::with_runner(runner);
 
-        let token = provider
-            .token()
-            .await
-            .expect("empty stdout yields empty token");
+        let result = provider.token().await;
 
-        assert!(token.is_empty());
+        assert!(result.is_err());
     }
 
     // --- Success-path tests using an injected MockCommandRunner ---
@@ -461,7 +485,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_return_token_successfully() {
-        let runner = MockCommandRunner::success("glpat-test12345\n");
+        let stdout = "  ✓ Token found in operating system keyring: glpat-test12345\n";
+        let runner = MockCommandRunner::success(stdout);
         let provider = GitLabAuthProvider::with_runner(runner);
 
         let result = provider.token().await;
@@ -472,13 +497,63 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_trim_whitespace_from_token() {
-        let runner = MockCommandRunner::success("  glpat-test12345  \n\n");
+        let stdout = "  ✓ Token found in keyring: glpat-test12345  \n\n";
+        let runner = MockCommandRunner::success(stdout);
         let provider = GitLabAuthProvider::with_runner(runner);
 
         let result = provider.token().await;
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "glpat-test12345");
+    }
+
+    #[tokio::test]
+    async fn test_should_extract_token_from_auth_status_show_token() {
+        let stdout = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  \
+                      ✓ Token found in operating system keyring: glpat-abcdef\n";
+        let runner = MockCommandRunner::success(stdout);
+        let provider = GitLabAuthProvider::with_runner(runner.clone());
+
+        let token = provider.token().await.expect("should get token");
+
+        assert_eq!(token, "glpat-abcdef");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["auth", "status", "--show-token"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_extract_token_from_stderr_like_real_glab() {
+        // `glab auth status --show-token` writes the status block (including the
+        // `Token found ...` line) to stderr while exiting 0. Regression test for
+        // the real self-hosted GitLab smoke test (Issue #199).
+        let stderr = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  \
+                      ✓ Token found in operating system keyring: glpat-abcdef\n";
+        let runner = MockCommandRunner::success_with_stderr("", stderr);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let token = provider
+            .token()
+            .await
+            .expect("should get token from stderr");
+
+        assert_eq!(token, "glpat-abcdef");
+    }
+
+    #[tokio::test]
+    async fn test_should_error_when_no_token_found() {
+        let stdout =
+            "  ! No token found (checked config file, keyring, and environment variables).\n";
+        let runner = MockCommandRunner::success(stdout);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.token().await;
+
+        assert!(result.is_err());
     }
 
     // --- Spawn-error tests using an injected MockCommandRunner ---

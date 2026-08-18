@@ -140,15 +140,8 @@ impl From<ReleaseApiResponse> for ReleaseData {
 #[async_trait]
 impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd_args: Vec<&str> = vec![
-            "release",
-            "create",
-            &args.tag_name,
-            "--repo",
-            &self.repo,
-            "--output",
-            "json",
-        ];
+        let mut cmd_args: Vec<&str> =
+            vec!["release", "create", &args.tag_name, "--repo", &self.repo];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -160,13 +153,9 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             cmd_args.push(body);
         }
 
-        if args.draft {
-            cmd_args.push("--draft");
-        }
-
-        if args.prerelease {
-            cmd_args.push("--prerelease");
-        }
+        // glab 1.113 has no `--draft`/`--prerelease` flags on `release create`;
+        // `CreateReleaseArgs.draft/prerelease` are GitHub-only and must not be
+        // forwarded to the GitLab CLI (passing them fails with "Unknown flag").
 
         if let Some(ref commitish) = args.target_commitish {
             cmd_args.push("--ref");
@@ -189,10 +178,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: ReleaseApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(&args.tag_name).await
     }
 
     async fn list(&self) -> Result<Vec<ReleaseData>> {
@@ -242,9 +228,10 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd_args: Vec<&str> = vec![
-            "release", "edit", tag_name, "--repo", &self.repo, "--output", "json",
-        ];
+        // glab 1.113 has no `release edit` subcommand (it prints parent help and
+        // exits 0, silently swallowing the edit). `release create <tag>` updates
+        // an existing release, so the edit path reuses it.
+        let mut cmd_args: Vec<&str> = vec!["release", "create", tag_name, "--repo", &self.repo];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -256,13 +243,9 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             cmd_args.push(body);
         }
 
-        if args.draft {
-            cmd_args.push("--draft");
-        }
-
-        if args.prerelease {
-            cmd_args.push("--prerelease");
-        }
+        // glab 1.113 has no `--draft`/`--prerelease` flags on `release create`;
+        // `CreateReleaseArgs.draft/prerelease` are GitHub-only and must not be
+        // forwarded to the GitLab CLI (passing them fails with "Unknown flag").
 
         if let Some(ref commitish) = args.target_commitish {
             cmd_args.push("--ref");
@@ -272,7 +255,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
         debug!(
             repo = %self.repo,
             tag = %tag_name,
-            "spawning `glab release edit`"
+            "spawning `glab release create` (edit path)"
         );
 
         let output = self
@@ -285,10 +268,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: ReleaseApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(tag_name).await
     }
 
     async fn upload_asset(&self, tag_name: &str, file_path: &str, _asset_name: &str) -> Result<()> {
@@ -397,7 +377,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitlab_release_provider() {
@@ -792,6 +772,147 @@ mod tests {
             .await
             .expect("create should succeed");
         assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_create_release_without_output_json_and_refetch_via_view() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release create 成功（stdout 为纯文本，忽略）
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#,
+            ),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: None,
+            body: Some("notes".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        };
+
+        let rel = provider.create(args).await.expect("should create");
+
+        assert_eq!(rel.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_not_pass_draft_or_prerelease_flags_on_release_create() {
+        // glab 1.113 has no `--draft`/`--prerelease` flags on `release create`;
+        // passing them makes every release creation fail with "Unknown flag".
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release create 成功（stdout 为纯文本，忽略）
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"Version 1.0.0","description":"notes"}"#,
+            ),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Version 1.0.0".to_string()),
+            body: Some("notes".to_string()),
+            draft: true,
+            prerelease: true,
+            target_commitish: Some("main".to_string()),
+        };
+
+        provider.create(args).await.expect("should create");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            [
+                "release",
+                "create",
+                "v1.0.0",
+                "--repo",
+                "owner/repo",
+                "--name",
+                "Version 1.0.0",
+                "--notes",
+                "notes",
+                "--ref",
+                "main",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_without_output_json_and_refetch_via_view() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release edit 成功
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#,
+            ),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: None,
+            body: Some("notes".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        };
+
+        let rel = provider.edit("v1.0.0", args).await.expect("should edit");
+
+        assert_eq!(rel.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_via_release_create() {
+        // glab 1.113 has no `release edit` subcommand (it prints parent help and
+        // exits 0, silently swallowing the edit). `release create <tag>` updates
+        // an existing release, so the edit path must reuse it.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release create (edit path) 成功
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"Version 1.0.0","description":"notes"}"#,
+            ),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Version 1.0.0".to_string()),
+            body: Some("notes".to_string()),
+            draft: true,
+            prerelease: true,
+            target_commitish: Some("main".to_string()),
+        };
+
+        provider.edit("v1.0.0", args).await.expect("should edit");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            [
+                "release",
+                "create",
+                "v1.0.0",
+                "--repo",
+                "owner/repo",
+                "--name",
+                "Version 1.0.0",
+                "--notes",
+                "notes",
+                "--ref",
+                "main",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]

@@ -191,14 +191,6 @@ impl From<JobApiResponse> for JobData {
     }
 }
 
-/// Helper struct for parsing `glab ci view` output that may contain
-/// a pipeline object with an embedded `jobs` field.
-#[derive(Debug, Deserialize)]
-struct PipelineWithJobs {
-    #[serde(default)]
-    jobs: Vec<JobApiResponse>,
-}
-
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
@@ -255,36 +247,32 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
 
     /// 获取指定 Pipeline 的 Job 列表。
     ///
-    /// 调用 `glab ci view <pipeline_id> --output json`。
+    /// 调用 `glab api /projects/{owner}%2F{project}/pipelines/{pipeline_id}/jobs`。
     async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
-        debug!(repo = %self.repo, pipeline_id, "spawning `glab ci view`");
+        debug!(repo = %self.repo, pipeline_id, "spawning `glab api` GET pipeline jobs");
 
-        let id_str = pipeline_id.to_string();
+        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
+            CoreError::Platform(format!(
+                "Invalid repo format '{}', expected 'owner/project'",
+                self.repo
+            ))
+        })?;
+
+        let api_path = format!("/projects/{owner}%2F{project}/pipelines/{pipeline_id}/jobs");
+
         let output = self
             .runner
-            .run(
-                "glab",
-                &[
-                    "ci", "view", &id_str, "--repo", &self.repo, "--output", "json",
-                ],
-            )
+            .run("glab", &["api", &api_path])
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab ci view: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        // glab ci view may return the pipeline object with embedded jobs,
-        // or a jobs list depending on version. Try parsing as jobs first.
-        if let Ok(jobs) = serde_json::from_slice::<Vec<JobApiResponse>>(&output.stdout) {
-            return Ok(jobs.into_iter().map(JobData::from).collect());
-        }
-
-        // If that fails, try parsing as a pipeline with jobs field
-        let pipeline: PipelineWithJobs =
+        let jobs: Vec<JobApiResponse> =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-        Ok(pipeline.jobs.into_iter().map(JobData::from).collect())
+        Ok(jobs.into_iter().map(JobData::from).collect())
     }
 
     /// 生成指定分支最近 `days` 天的 Pipeline 报告。
@@ -611,6 +599,25 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_fetch_jobs_via_glab_api() {
+        let runner = MockCommandRunner::success(
+            r#"[{"id":1,"name":"build","status":"success"},{"id":2,"name":"test","status":"running"}]"#,
+        );
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner.clone());
+
+        let jobs = provider.jobs(5).await.expect("should fetch");
+
+        assert_eq!(jobs.len(), 2);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["api", "/projects/owner%2Frepo/pipelines/5/jobs"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]

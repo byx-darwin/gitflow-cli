@@ -197,6 +197,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             cmd_args.push(match state {
                 State::Open => "open",
                 State::Closed => "closed",
+                State::All => "all",
             });
         }
 
