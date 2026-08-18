@@ -20,3 +20,7 @@ zipsign-api = { workspace = true, features = ["sign-tar", "sign-zip", "verify-ta
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# Test-only: build a structurally valid zip for zip-signing tests. Default
+# features pull bzip2/ppmd/lzma/zstd codecs that fail cargo-deny license checks;
+# deflate via zlib-rs is enough to create a plain zip entry.
+zip = { version = "4.6", default-features = false, features = ["deflate-flate2-zlib-rs"] }
