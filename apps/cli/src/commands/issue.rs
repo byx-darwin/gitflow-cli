@@ -51,7 +51,7 @@ pub enum IssueCommand {
 
     /// 列出 Issue。
     List {
-        /// 按状态过滤（`open` 或 `closed`）。
+        /// 按状态过滤（`open`、`closed` 或 `all`）。
         #[arg(long)]
         state: Option<String>,
 

@@ -451,7 +451,10 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
         let output = self
             .runner
-            .run("glab", &["api", "--method", "POST", &api_path, "-f", &body_arg])
+            .run(
+                "glab",
+                &["api", "--method", "POST", &api_path, "-f", &body_arg],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
@@ -650,15 +653,14 @@ fn parse_issue_iid_from_url(url: &str) -> Option<u64> {
     url.lines().find_map(|line| {
         let line = line.trim();
         for marker in ["/-/issues/", "/-/work_items/"] {
-            if line.contains(marker) {
-                if let Some(id) = line
+            if line.contains(marker)
+                && let Some(id) = line
                     .rsplit(marker)
                     .next()
                     .and_then(|s| s.split('/').next())
                     .and_then(|s| s.parse().ok())
-                {
-                    return Some(id);
-                }
+            {
+                return Some(id);
             }
         }
         None
@@ -856,16 +858,15 @@ mod tests {
     #[test]
     fn test_should_parse_work_item_url() {
         assert_eq!(
-            parse_issue_iid_from_url(
-                "http://192.168.230.23/iproost/iproost-docs/-/work_items/1"
-            ),
+            parse_issue_iid_from_url("http://192.168.230.23/iproost/iproost-docs/-/work_items/1"),
             Some(1)
         );
     }
 
     #[test]
     fn test_should_parse_work_item_url_among_lines() {
-        let output = "Creating issue...\nhttp://192.168.230.23/iproost/iproost-docs/-/work_items/7\nDone.";
+        let output =
+            "Creating issue...\nhttp://192.168.230.23/iproost/iproost-docs/-/work_items/7\nDone.";
         assert_eq!(parse_issue_iid_from_url(output), Some(7));
     }
 
@@ -941,10 +942,18 @@ mod tests {
 
         assert_eq!(
             runner.recorded_calls()[0].1,
-            vec!["issue", "list", "--repo", "owner/repo", "--output", "json", "--all"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
+            vec![
+                "issue",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--all"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 

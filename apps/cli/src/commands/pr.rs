@@ -55,7 +55,7 @@ pub enum PrCommand {
 
     /// 列出 Pull Request。
     List {
-        /// 按状态过滤（`open` 或 `closed`）。
+        /// 按状态过滤（`open`、`closed` 或 `all`）。
         #[arg(long)]
         state: Option<String>,
 

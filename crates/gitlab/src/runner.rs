@@ -94,6 +94,14 @@ impl CommandRunner for RealCommandRunner {
     }
 }
 
+/// A single recorded command invocation: `(program, args)`.
+#[cfg(test)]
+type RecordedCall = (String, Vec<String>);
+
+/// All recorded command invocations in execution order.
+#[cfg(test)]
+type RecordedCalls = Vec<RecordedCall>;
+
 /// Mock implementation for testing failure scenarios.
 ///
 /// Stores either a success output or an error kind with a message,
@@ -103,7 +111,7 @@ impl CommandRunner for RealCommandRunner {
 pub struct MockCommandRunner {
     result: MockResult,
     /// Recorded `(program, args)` sequences for every `run`/`run_with_stdin` call.
-    recorded: Arc<std::sync::Mutex<Vec<(String, Vec<String>)>>>,
+    recorded: Arc<std::sync::Mutex<RecordedCalls>>,
 }
 
 #[cfg(test)]
@@ -167,6 +175,11 @@ impl MockCommandRunner {
     }
 
     /// Return the recorded `(program, args)` sequences from every executed call.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal recording mutex is poisoned (a prior panic while
+    /// holding the lock).
     #[must_use]
     pub fn recorded_calls(&self) -> Vec<(String, Vec<String>)> {
         self.recorded.lock().expect("mock mutex poisoned").clone()
@@ -211,7 +224,7 @@ impl CommandRunner for MockCommandRunner {
 pub struct SequencedMockCommandRunner {
     responses: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<CommandOutput>>>,
     /// Recorded `(program, args)` sequences for every `run`/`run_with_stdin` call.
-    recorded: Arc<std::sync::Mutex<Vec<(String, Vec<String>)>>>,
+    recorded: Arc<std::sync::Mutex<RecordedCalls>>,
 }
 
 #[cfg(test)]
@@ -253,6 +266,11 @@ impl SequencedMockCommandRunner {
     }
 
     /// Return the recorded `(program, args)` sequences from every executed call.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal recording mutex is poisoned (a prior panic while
+    /// holding the lock).
     #[must_use]
     pub fn recorded_calls(&self) -> Vec<(String, Vec<String>)> {
         self.recorded.lock().expect("mock mutex poisoned").clone()
@@ -407,6 +425,9 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].0, "glab");
         assert_eq!(calls[1].0, "glab");
-        assert_eq!(calls[1].1, vec!["issue", "view", "1", "--repo", "owner/repo"]);
+        assert_eq!(
+            calls[1].1,
+            vec!["issue", "view", "1", "--repo", "owner/repo"]
+        );
     }
 }

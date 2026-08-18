@@ -132,7 +132,12 @@ mod tests {
         let stderr = b"ERROR: not authenticated";
         let err = parse_glab_error(stderr);
         assert!(err.user_message.contains("登录"));
-        assert!(err.hint.as_deref().unwrap_or("").contains("glab auth login"));
+        assert!(
+            err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("glab auth login")
+        );
         assert_eq!(err.platform, Platform::GitLab);
     }
 
@@ -163,16 +168,24 @@ mod tests {
     #[test]
     fn test_should_not_hint_auth_login_on_unknown_flag_error() {
         let err = parse_glab_error(b"ERROR: Unknown flag: --output");
-        assert!(!err.hint.as_deref().unwrap_or("").contains("glab auth login"));
         assert!(
-            err.user_message.contains("执行失败") || !err.user_message.contains("未登录")
+            !err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("glab auth login")
         );
+        assert!(err.user_message.contains("执行失败") || !err.user_message.contains("未登录"));
     }
 
     #[test]
     fn test_should_hint_auth_login_on_not_authenticated_error() {
         let err = parse_glab_error(b"ERROR: not authenticated");
-        assert!(err.hint.as_deref().unwrap_or("").contains("glab auth login"));
+        assert!(
+            err.hint
+                .as_deref()
+                .unwrap_or("")
+                .contains("glab auth login")
+        );
     }
 
     #[test]

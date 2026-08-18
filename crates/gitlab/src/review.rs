@@ -142,13 +142,7 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
         debug!(repo = %self.repo, number = pr_number, "spawning `glab mr approve`");
 
         let pr_number_str = pr_number.to_string();
-        let mut cmd_args: Vec<&str> = vec![
-            "mr",
-            "approve",
-            &pr_number_str,
-            "--repo",
-            &self.repo,
-        ];
+        let mut cmd_args: Vec<&str> = vec!["mr", "approve", &pr_number_str, "--repo", &self.repo];
 
         if let Some(b) = body {
             cmd_args.push("--comment");
@@ -237,7 +231,8 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
 impl<R: CommandRunner> GitLabReviewProvider<R> {
     /// 在指定 MR 上发布一条 note（内部辅助方法）。
     ///
-    /// 调用 `glab api --method POST /projects/{owner}%2F{project}/merge_requests/{pr_number}/notes`。
+    /// 调用 `glab api --method POST
+    /// /projects/{owner}%2F{project}/merge_requests/{pr_number}/notes`。
     ///
     /// # Errors
     ///
@@ -257,7 +252,10 @@ impl<R: CommandRunner> GitLabReviewProvider<R> {
 
         let output = self
             .runner
-            .run("glab", &["api", "--method", "POST", &api_path, "-f", &body_arg])
+            .run(
+                "glab",
+                &["api", "--method", "POST", &api_path, "-f", &body_arg],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
@@ -454,7 +452,10 @@ mod tests {
 
         assert_eq!(review.id, 100);
         assert_eq!(review.state, ReviewState::ChangesRequested);
-        assert_eq!(review.body.as_deref(), Some("Changes requested:\n\nredo it"));
+        assert_eq!(
+            review.body.as_deref(),
+            Some("Changes requested:\n\nredo it")
+        );
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![

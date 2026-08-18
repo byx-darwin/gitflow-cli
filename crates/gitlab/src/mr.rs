@@ -79,7 +79,11 @@ impl<R: CommandRunner> GitLabMrProvider<R> {
     /// 当 MR 不存在或 `glab` CLI 调用失败时返回错误。
     async fn run_mr_update(&self, number: u64, draft: bool) -> Result<()> {
         let number_str = number.to_string();
-        let draft_flag = if draft { "--draft=true" } else { "--draft=false" };
+        let draft_flag = if draft {
+            "--draft=true"
+        } else {
+            "--draft=false"
+        };
         let output = self
             .runner
             .run(
@@ -380,7 +384,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
 
         let output = self
             .runner
-            .run("glab", &["api", "--method", "POST", &api_path, "-f", &body_arg])
+            .run(
+                "glab",
+                &["api", "--method", "POST", &api_path, "-f", &body_arg],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
@@ -763,7 +770,10 @@ mod tests {
         ]);
         let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
 
-        let pr = provider.create(sample_create_args()).await.expect("should create");
+        let pr = provider
+            .create(sample_create_args())
+            .await
+            .expect("should create");
         assert_eq!(pr.number, 12);
         let calls = runner.recorded_calls();
         assert!(!calls[0].1.contains(&"--output".to_string()));
@@ -855,10 +865,18 @@ mod tests {
 
         assert_eq!(
             runner.recorded_calls()[0].1,
-            vec!["mr", "list", "--repo", "owner/repo", "--output", "json", "--all"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
+            vec![
+                "mr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--all"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 
@@ -1057,7 +1075,10 @@ mod tests {
     async fn test_should_mark_ready_with_mr_update_draft_false() {
         let runner = MockCommandRunner::success("");
         let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
-        provider.run_mr_update(5, false).await.expect("should succeed");
+        provider
+            .run_mr_update(5, false)
+            .await
+            .expect("should succeed");
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec!["mr", "update", "5", "--repo", "owner/repo", "--draft=false"]
@@ -1071,7 +1092,10 @@ mod tests {
     async fn test_should_mark_wip_with_mr_update_draft_true() {
         let runner = MockCommandRunner::success("");
         let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
-        provider.run_mr_update(5, true).await.expect("should succeed");
+        provider
+            .run_mr_update(5, true)
+            .await
+            .expect("should succeed");
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec!["mr", "update", "5", "--repo", "owner/repo", "--draft=true"]

@@ -134,11 +134,10 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             cmd_args.push(desc);
         }
 
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label create: {e}")))?;
+        let output =
+            self.runner.run("glab", &cmd_args).await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab label create: {e}"))
+            })?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -176,16 +175,25 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
 
         let id_str = label_id.to_string();
         let mut cmd_args: Vec<&str> = vec![
-            "label", "edit", "--label-id", &id_str, "--repo", &self.repo, "--new-name",
-            &args.name, "--color", &args.color,
+            "label",
+            "edit",
+            "--label-id",
+            &id_str,
+            "--repo",
+            &self.repo,
+            "--new-name",
+            &args.name,
+            "--color",
+            &args.color,
         ];
         if let Some(ref desc) = args.description {
             cmd_args.push("--description");
             cmd_args.push(desc);
         }
-        let output = self.runner.run("glab", &cmd_args).await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn glab label edit: {e}"))
-        })?;
+        let output =
+            self.runner.run("glab", &cmd_args).await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab label edit: {e}"))
+            })?;
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
         }
@@ -194,7 +202,9 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
         labels
             .into_iter()
             .find(|l| l.name == args.name)
-            .ok_or_else(|| CoreError::Platform(format!("Label '{}' not found after edit", args.name)))
+            .ok_or_else(|| {
+                CoreError::Platform(format!("Label '{}' not found after edit", args.name))
+            })
     }
 
     async fn delete(&self, name: &str) -> Result<()> {
@@ -347,11 +357,9 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             cmd_args.push(due_str);
         }
 
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone create: {e}")))?;
+        let output = self.runner.run("glab", &cmd_args).await.map_err(|e| {
+            CoreError::Platform(format!("Failed to spawn glab milestone create: {e}"))
+        })?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -371,7 +379,14 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             .runner
             .run(
                 "glab",
-                &["milestone", "list", "--project", &self.repo, "--output", "json"],
+                &[
+                    "milestone",
+                    "list",
+                    "--project",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
             )
             .await
             .map_err(|e| {
@@ -417,11 +432,9 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             cmd_args.push(due_str);
         }
 
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}")))?;
+        let output = self.runner.run("glab", &cmd_args).await.map_err(|e| {
+            CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}"))
+        })?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -627,10 +640,7 @@ mod tests {
     async fn test_should_create_label_without_output_json_and_refetch_via_list() {
         let runner = SequencedMockCommandRunner::from_results(&[
             (true, ""), // label create 成功（stdout 为纯文本，忽略）
-            (
-                true,
-                r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##,
-            ), // list 找回
+            (true, r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##), // list 找回
         ]);
         let provider = GitLabLabelProvider::with_runner("owner/repo", runner);
 

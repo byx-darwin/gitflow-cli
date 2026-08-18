@@ -157,11 +157,10 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
             args.push(h);
         }
 
-        let output = self
-            .runner
-            .run("glab", &args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab auth status: {e}")))?;
+        let output =
+            self.runner.run("glab", &args).await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn glab auth status: {e}"))
+            })?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -178,7 +177,9 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
                 }
             })
             .filter(|t| !t.is_empty())
-            .ok_or_else(|| CoreError::Platform("No GitLab token found (run `glab auth login`)".into()))
+            .ok_or_else(|| {
+                CoreError::Platform("No GitLab token found (run `glab auth login`)".into())
+            })
     }
 }
 
@@ -504,7 +505,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_extract_token_from_auth_status_show_token() {
-        let stdout = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  ✓ Token found in operating system keyring: glpat-abcdef\n";
+        let stdout = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  \
+                      ✓ Token found in operating system keyring: glpat-abcdef\n";
         let runner = MockCommandRunner::success(stdout);
         let provider = GitLabAuthProvider::with_runner(runner.clone());
 
@@ -522,7 +524,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_error_when_no_token_found() {
-        let stdout = "  ! No token found (checked config file, keyring, and environment variables).\n";
+        let stdout =
+            "  ! No token found (checked config file, keyring, and environment variables).\n";
         let runner = MockCommandRunner::success(stdout);
         let provider = GitLabAuthProvider::with_runner(runner);
 

@@ -140,13 +140,8 @@ impl From<ReleaseApiResponse> for ReleaseData {
 #[async_trait]
 impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd_args: Vec<&str> = vec![
-            "release",
-            "create",
-            &args.tag_name,
-            "--repo",
-            &self.repo,
-        ];
+        let mut cmd_args: Vec<&str> =
+            vec!["release", "create", &args.tag_name, "--repo", &self.repo];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -237,13 +232,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd_args: Vec<&str> = vec![
-            "release",
-            "edit",
-            tag_name,
-            "--repo",
-            &self.repo,
-        ];
+        let mut cmd_args: Vec<&str> = vec!["release", "edit", tag_name, "--repo", &self.repo];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -794,7 +783,10 @@ mod tests {
     async fn test_should_create_release_without_output_json_and_refetch_via_view() {
         let runner = SequencedMockCommandRunner::from_results(&[
             (true, ""), // release create 成功（stdout 为纯文本，忽略）
-            (true, r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#),
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#,
+            ),
         ]);
         let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
 
@@ -816,7 +808,10 @@ mod tests {
     async fn test_should_edit_release_without_output_json_and_refetch_via_view() {
         let runner = SequencedMockCommandRunner::from_results(&[
             (true, ""), // release edit 成功
-            (true, r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#),
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#,
+            ),
         ]);
         let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
 
