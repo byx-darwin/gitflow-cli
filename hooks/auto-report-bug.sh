@@ -73,8 +73,8 @@ if [ -f "$CACHE_FILE" ]; then
   fi
 else
   # No cache — attempt live auth check
-  if command -v gh >/dev/null 2>&1; then
-    if gh auth status >/dev/null 2>&1; then
+  if command -v gf >/dev/null 2>&1; then
+    if gf auth status --platform "$PLATFORM" >/dev/null 2>&1; then
       AUTH_STATUS="✅ 已登录"
       # Update cache
       mkdir -p "$(dirname "$CACHE_FILE")"
@@ -84,7 +84,7 @@ else
       AUTH_CHECK_FAILED=true
     fi
   else
-    AUTH_STATUS="❌ gh CLI 未安装"
+    AUTH_STATUS="❌ gf CLI 未安装"
     AUTH_CHECK_FAILED=true
   fi
 fi
@@ -97,7 +97,7 @@ if [ "$AUTH_CHECK_FAILED" = "true" ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   echo "  方式 1: 登录后重新触发（推荐）"
-  echo "    gh auth login"
+  echo "    gf auth login"
   echo ""
   echo "  方式 2: 手动创建 Issue"
   echo "    URL: https://github.com/byx-darwin/gitflow-cli/issues/new"
@@ -117,7 +117,7 @@ fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  🐛 检测到 gitflow CLI 错误报告"
+echo "  🐛 检测到 gf CLI 错误报告"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "  命令:   ${COMMAND:-unknown}"
