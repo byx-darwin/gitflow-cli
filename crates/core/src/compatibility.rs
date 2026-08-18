@@ -26,13 +26,6 @@ struct MatrixRoot {
         reason = "Deserialized for validation, not yet used at runtime"
     )]
     updated_at: String,
-    /// gf 版本。
-    #[allow(
-        dead_code,
-        reason = "Deserialized for validation, not yet used at runtime"
-    )]
-    #[serde(rename = "gitflow_cli_version")]
-    gf_version: String,
     /// 平台列表。
     platforms: Vec<PlatformCompat>,
 }

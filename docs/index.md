@@ -24,6 +24,7 @@
 - [GitHub (gh) 兼容性检查报告](./gh-compat-check-2026-08-18.md) — Issue #200 前置调研：gh 2.97 实测 + 源码审查，发现 `gh label view` 缺失致 `gf label edit` 假失败（P1）等。
 - [GitHub gh 2.97 label edit 假失败修复设计](./superpowers/specs/2026-08-18-github-gh-label-edit-design.md) — Issue #200：`fetch_label` 改走 `gh api repos/{owner}/{repo}/labels/{name}`、`parse_gh_error` 仅在真实认证失败时提示登录、`label list --limit 100`。实施计划见 [plans/2026-08-18-github-gh-label-edit.md](./superpowers/plans/2026-08-18-github-gh-label-edit.md)。
 - [GitLab glab 1.113.0 兼容性矩阵更新设计](./superpowers/specs/2026-08-18-gitlab-glab113-matrix-design.md) — Issue #198：glab 1.113.0 验证通过（smoke-test 54 passed）后更新 GitLab `tested_versions` + 重新生成矩阵文档 + 修复 `make compatibility-matrix` 包名。实施计划见 [plans/2026-08-18-gitlab-glab113-matrix.md](./superpowers/plans/2026-08-18-gitlab-glab113-matrix.md)。
+- [兼容性矩阵 gf 版本派生设计](./superpowers/specs/2026-08-18-compat-matrix-cargo-pkg-version-design.md) — Issue #207：移除 JSON 冗余 `gitflow_cli_version` 字段，矩阵文档版本头部由 `env!("CARGO_PKG_VERSION")` 自动派生，发版无需手动同步版本元数据。
 
 ## 官网与 GEO
 

@@ -1,6 +1,15 @@
 ---
 import Base from "../layouts/Base.astro";
 import matrix from "../../../crates/core/resources/compatibility-matrix.json";
+import { readFileSync } from "node:fs";
+
+// gf 版本从工作区 Cargo.toml 构建期派生（Issue #207），不再读取已被移除的
+// JSON `gitflow_cli_version` 字段——版本跟随 crate 构建，永不手动同步。
+const gfVersion = readFileSync(
+  new URL("../../../Cargo.toml", import.meta.url),
+  "utf-8",
+)
+  .match(/^version\s*=\s*"([^"]+)"/m)?.[1] ?? "";
 ---
 
 <Base title="兼容性矩阵 — gf">
@@ -8,7 +17,7 @@ import matrix from "../../../crates/core/resources/compatibility-matrix.json";
     <h1 class="page-title">兼容性矩阵</h1>
     <p class="page-lede">
       数据源：<code style="font-family:var(--font-mono);color:var(--gf-teal)">crates/core/resources/compatibility-matrix.json</code>
-      （自动生成）· 更新时间 {matrix.updated_at} · gf v{matrix.gitflow_cli_version}
+      （自动生成）· 更新时间 {matrix.updated_at} · gf v{gfVersion}
     </p>
     <table class="matrix-table">
       <thead>

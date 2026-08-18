@@ -23,9 +23,6 @@ const MATRIX_JSON_REL: &str = "resources/compatibility-matrix.json";
 struct MatrixRoot {
     /// 最后更新日期。
     updated_at: String,
-    /// gf 版本。
-    #[serde(rename = "gitflow_cli_version")]
-    gf_version: String,
     /// 平台列表。
     platforms: Vec<PlatformEntry>,
 }
@@ -58,7 +55,8 @@ fn main() {
     md.push_str(&format!(
         "> 自动生成，请勿手动编辑。数据源：`crates/core/resources/compatibility-matrix.json`\n> \
          更新时间：{} · gf v{}\n\n",
-        root.updated_at, root.gf_version
+        root.updated_at,
+        env!("CARGO_PKG_VERSION")
     ));
     md.push_str("| 平台 | CLI 工具 | 最低版本 | 已测试版本 | 功能覆盖 |\n");
     md.push_str("|------|---------|---------|-----------|--------|\n");
