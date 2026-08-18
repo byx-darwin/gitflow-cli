@@ -16,7 +16,10 @@ use gitflow_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab Label 提供者，通过 `glab` CLI 管理仓库标签。
 ///
@@ -28,18 +31,37 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabLabelProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabLabelProvider {
+pub struct GitLabLabelProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabLabelProvider {
+impl GitLabLabelProvider<RealCommandRunner> {
     /// 创建新的 GitLab Label 提供者。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
-    pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+    pub fn new(repo: impl Into<String>) -> GitLabLabelProvider<RealCommandRunner> {
+        GitLabLabelProvider {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabLabelProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -65,7 +87,7 @@ impl From<LabelApiResponse> for LabelData {
 }
 
 #[async_trait]
-impl LabelProvider for GitLabLabelProvider {
+impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(
             repo = %self.repo,
@@ -74,23 +96,27 @@ impl LabelProvider for GitLabLabelProvider {
             "spawning `glab label create`"
         );
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["label", "create"])
-            .arg("--name")
-            .arg(&args.name)
-            .arg("--color")
-            .arg(&args.color)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json");
+        let mut cmd_args: Vec<&str> = vec![
+            "label",
+            "create",
+            "--name",
+            &args.name,
+            "--color",
+            &args.color,
+            "--repo",
+            &self.repo,
+            "--output",
+            "json",
+        ];
 
         if let Some(ref desc) = args.description {
-            cmd.arg("--description").arg(desc);
+            cmd_args.push("--description");
+            cmd_args.push(desc);
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label create: {e}")))?;
 
@@ -107,13 +133,12 @@ impl LabelProvider for GitLabLabelProvider {
     async fn list(&self) -> Result<Vec<LabelData>> {
         debug!(repo = %self.repo, "spawning `glab label list`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["label", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &["label", "list", "--repo", &self.repo, "--output", "json"],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label list: {e}")))?;
 
@@ -130,23 +155,27 @@ impl LabelProvider for GitLabLabelProvider {
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(repo = %self.repo, name, "spawning `glab label edit`");
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["label", "edit"])
-            .arg("--name")
-            .arg(name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--color")
-            .arg(&args.color)
-            .arg("--output")
-            .arg("json");
+        let mut cmd_args: Vec<&str> = vec![
+            "label",
+            "edit",
+            "--name",
+            name,
+            "--repo",
+            &self.repo,
+            "--color",
+            &args.color,
+            "--output",
+            "json",
+        ];
 
         if let Some(ref desc) = args.description {
-            cmd.arg("--description").arg(desc);
+            cmd_args.push("--description");
+            cmd_args.push(desc);
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label edit: {e}")))?;
 
@@ -163,13 +192,9 @@ impl LabelProvider for GitLabLabelProvider {
     async fn delete(&self, name: &str) -> Result<()> {
         debug!(repo = %self.repo, name, "spawning `glab label delete`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["label", "delete"])
-            .arg(name)
-            .arg("--yes")
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run("glab", &["label", "delete", name, "--yes", "--repo", &self.repo])
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label delete: {e}")))?;
 
@@ -193,18 +218,37 @@ impl LabelProvider for GitLabLabelProvider {
 /// let provider = GitLabMilestoneProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabMilestoneProvider {
+pub struct GitLabMilestoneProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabMilestoneProvider {
+impl GitLabMilestoneProvider<RealCommandRunner> {
     /// 创建新的 GitLab Milestone 提供者。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
-    pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+    pub fn new(repo: impl Into<String>) -> GitLabMilestoneProvider<RealCommandRunner> {
+        GitLabMilestoneProvider {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabMilestoneProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -267,31 +311,41 @@ impl From<MilestoneApiResponse> for MilestoneData {
 }
 
 #[async_trait]
-impl MilestoneProvider for GitLabMilestoneProvider {
+impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R> {
     async fn create(&self, args: CreateMilestoneArgs) -> Result<MilestoneData> {
         debug!(repo = %self.repo, title = %args.title, "spawning `glab milestone create`");
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["milestone", "create"])
-            .arg("--title")
-            .arg(&args.title)
-            .arg("--project")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json");
+        let due_arg = args
+            .due_on
+            .as_ref()
+            .map(|due| due.format("%Y-%m-%d").to_string());
+
+        let mut cmd_args: Vec<&str> = vec![
+            "milestone",
+            "create",
+            "--title",
+            &args.title,
+            "--project",
+            &self.repo,
+            "--output",
+            "json",
+        ];
 
         if let Some(ref desc) = args.description {
-            cmd.arg("--description").arg(desc);
+            cmd_args.push("--description");
+            cmd_args.push(desc);
         }
 
-        if let Some(ref due) = args.due_on {
-            cmd.arg("--due-date")
-                .arg(due.format("%Y-%m-%d").to_string());
+        if let Some(ref due_str) = due_arg {
+            cmd_args.push("--due-date");
+            cmd_args.push(due_str);
         }
 
-        let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn glab milestone create: {e}"))
-        })?;
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone create: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -306,13 +360,12 @@ impl MilestoneProvider for GitLabMilestoneProvider {
     async fn list(&self) -> Result<Vec<MilestoneData>> {
         debug!(repo = %self.repo, "spawning `glab milestone list`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["milestone", "list"])
-            .arg("--project")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &["milestone", "list", "--project", &self.repo, "--output", "json"],
+            )
             .await
             .map_err(|e| {
                 CoreError::Platform(format!("Failed to spawn glab milestone list: {e}"))
@@ -331,28 +384,39 @@ impl MilestoneProvider for GitLabMilestoneProvider {
     async fn edit(&self, number: u64, args: CreateMilestoneArgs) -> Result<MilestoneData> {
         debug!(repo = %self.repo, number, "spawning `glab milestone edit`");
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["milestone", "edit"])
-            .arg(number.to_string())
-            .arg("--project")
-            .arg(&self.repo)
-            .arg("--title")
-            .arg(&args.title)
-            .arg("--output")
-            .arg("json");
+        let due_arg = args
+            .due_on
+            .as_ref()
+            .map(|due| due.format("%Y-%m-%d").to_string());
+        let number_str = number.to_string();
+
+        let mut cmd_args: Vec<&str> = vec![
+            "milestone",
+            "edit",
+            &number_str,
+            "--project",
+            &self.repo,
+            "--title",
+            &args.title,
+            "--output",
+            "json",
+        ];
 
         if let Some(ref desc) = args.description {
-            cmd.arg("--description").arg(desc);
+            cmd_args.push("--description");
+            cmd_args.push(desc);
         }
 
-        if let Some(ref due) = args.due_on {
-            cmd.arg("--due-date")
-                .arg(due.format("%Y-%m-%d").to_string());
+        if let Some(ref due_str) = due_arg {
+            cmd_args.push("--due-date");
+            cmd_args.push(due_str);
         }
 
-        let output = cmd.output().await.map_err(|e| {
-            CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}"))
-        })?;
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone edit: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_glab_error(&output.stderr).into());
@@ -367,14 +431,20 @@ impl MilestoneProvider for GitLabMilestoneProvider {
     async fn close(&self, number: u64) -> Result<MilestoneData> {
         debug!(repo = %self.repo, number, "spawning `glab milestone close`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["milestone", "close"])
-            .arg(number.to_string())
-            .arg("--project")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "milestone",
+                    "close",
+                    &number.to_string(),
+                    "--project",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| {
                 CoreError::Platform(format!("Failed to spawn glab milestone close: {e}"))
@@ -393,14 +463,20 @@ impl MilestoneProvider for GitLabMilestoneProvider {
     async fn reopen(&self, number: u64) -> Result<MilestoneData> {
         debug!(repo = %self.repo, number, "spawning `glab milestone reopen`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["milestone", "reopen"])
-            .arg(number.to_string())
-            .arg("--project")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "milestone",
+                    "reopen",
+                    &number.to_string(),
+                    "--project",
+                    &self.repo,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| {
                 CoreError::Platform(format!("Failed to spawn glab milestone reopen: {e}"))
@@ -420,6 +496,7 @@ impl MilestoneProvider for GitLabMilestoneProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     // --- GitLabLabelProvider tests ---
 
@@ -512,6 +589,34 @@ mod tests {
         let original = GitLabMilestoneProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_fail_when_label_create_glab_fails() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner);
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "#d73a4a".to_string(),
+            description: None,
+        };
+        let result = provider.create(args).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_fail_when_milestone_create_glab_fails() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner);
+        let args = CreateMilestoneArgs {
+            title: "v1.0".to_string(),
+            description: None,
+            due_on: None,
+        };
+        let result = provider.create(args).await;
+        assert!(result.is_err());
     }
 
     // --- MilestoneData deserialization tests ---

@@ -22,7 +22,10 @@ use gitflow_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_glab_error;
+use crate::{
+    error::parse_glab_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitLab Review 提供者，通过 `glab` CLI 操作。
 ///
@@ -34,18 +37,37 @@ use crate::error::parse_glab_error;
 /// let provider = GitLabReviewProvider::new("gitlab-org/gitlab");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitLabReviewProvider {
+pub struct GitLabReviewProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 用于执行 `glab` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitLabReviewProvider {
+impl GitLabReviewProvider<RealCommandRunner> {
     /// 创建新的 GitLab Review 提供者。
     ///
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
-    pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+    pub fn new(repo: impl Into<String>) -> GitLabReviewProvider<RealCommandRunner> {
+        GitLabReviewProvider {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitLabReviewProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `glab` CLI 的输出。
+    /// `repo` 格式为 `namespace/project`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -90,7 +112,7 @@ struct MrViewResponse {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl ReviewProvider for GitLabReviewProvider {
+impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
     /// 在指定 MR 上添加审查评论。
     ///
     /// 调用 `glab mr note` 发布评论，并通过 `glab mr view` 获取当前用户信息
@@ -98,16 +120,22 @@ impl ReviewProvider for GitLabReviewProvider {
     async fn comment(&self, pr_number: u64, body: &str) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, "spawning `glab mr note`");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "note"])
-            .arg(pr_number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(body)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "note",
+                    &pr_number.to_string(),
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    body,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -141,18 +169,23 @@ impl ReviewProvider for GitLabReviewProvider {
     async fn approve(&self, pr_number: u64, body: Option<&str>) -> Result<ReviewData> {
         debug!(repo = %self.repo, number = pr_number, "spawning `glab mr approve`");
 
-        let mut cmd = tokio::process::Command::new("glab");
-        cmd.args(["mr", "approve"])
-            .arg(pr_number.to_string())
-            .arg("--repo")
-            .arg(&self.repo);
+        let pr_number_str = pr_number.to_string();
+        let mut cmd_args: Vec<&str> = vec![
+            "mr",
+            "approve",
+            &pr_number_str,
+            "--repo",
+            &self.repo,
+        ];
 
         if let Some(b) = body {
-            cmd.arg("--comment").arg(b);
+            cmd_args.push("--comment");
+            cmd_args.push(b);
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -192,16 +225,22 @@ impl ReviewProvider for GitLabReviewProvider {
 
         let changes_body = format!("Changes requested:\n\n{body}");
 
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "note"])
-            .arg(pr_number.to_string())
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--body")
-            .arg(&changes_body)
-            .arg("--output")
-            .arg("json")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "note",
+                    &pr_number.to_string(),
+                    "--repo",
+                    &self.repo,
+                    "--body",
+                    &changes_body,
+                    "--output",
+                    "json",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -255,18 +294,24 @@ impl ReviewProvider for GitLabReviewProvider {
     }
 }
 
-impl GitLabReviewProvider {
+impl<R: CommandRunner> GitLabReviewProvider<R> {
     /// 获取当前登录用户信息（内部辅助方法）。
     async fn get_current_user(&self) -> Result<UserSummary> {
-        let output = tokio::process::Command::new("glab")
-            .args(["mr", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--output")
-            .arg("json")
-            .arg("--per-page")
-            .arg("1")
-            .output()
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "mr",
+                    "list",
+                    "--repo",
+                    &self.repo,
+                    "--output",
+                    "json",
+                    "--per-page",
+                    "1",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -296,6 +341,7 @@ impl GitLabReviewProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     #[test]
     fn test_should_construct_gitlab_review_provider() {
@@ -381,6 +427,16 @@ mod tests {
         let original = GitLabReviewProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    // --- Failure-path tests using an injected MockCommandRunner ---
+
+    #[tokio::test]
+    async fn test_should_fail_when_review_comment_glab_fails() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
+        let provider = GitLabReviewProvider::with_runner("owner/repo", runner);
+        let result = provider.comment(7, "fix this").await;
+        assert!(result.is_err());
     }
 
     #[test]

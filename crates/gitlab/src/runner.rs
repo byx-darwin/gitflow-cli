@@ -5,6 +5,7 @@
 //! controlled outputs in tests.
 
 use std::process::ExitStatus;
+#[cfg(test)]
 use std::sync::Arc;
 
 /// Output from a CLI command execution.
