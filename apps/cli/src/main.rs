@@ -44,6 +44,7 @@ pub mod built_info {
 
 mod commands;
 mod error_reporter;
+mod errors;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use commands::{
@@ -141,7 +142,12 @@ fn main() -> std::process::ExitCode {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
             if platform_needed {
-                report_error_noninteractive(&command_name, &platform, &e.to_string(), "CLI_ERROR");
+                let error_code = if e.code().is_some_and(|c| c.to_string() == "gf::user_input") {
+                    "USER_INPUT_ERROR"
+                } else {
+                    "CLI_ERROR"
+                };
+                report_error_noninteractive(&command_name, &platform, &e.to_string(), error_code);
             }
             eprintln!("{e:?}");
             std::process::ExitCode::from(1)

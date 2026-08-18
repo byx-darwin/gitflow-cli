@@ -255,9 +255,9 @@ pub async fn handle(
                     "open" => Ok(State::Open),
                     "closed" => Ok(State::Closed),
                     "all" => Ok(State::All),
-                    other => Err(miette::miette!(
+                    other => Err(crate::errors::UserInputError::new(format!(
                         "Invalid state '{other}'. Expected 'open', 'closed', or 'all'."
-                    )),
+                    ))),
                 })
                 .transpose()?;
 
