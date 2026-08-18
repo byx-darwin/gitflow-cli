@@ -146,8 +146,6 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             &args.tag_name,
             "--repo",
             &self.repo,
-            "--output",
-            "json",
         ];
 
         if let Some(ref name) = args.name {
@@ -189,10 +187,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: ReleaseApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(&args.tag_name).await
     }
 
     async fn list(&self) -> Result<Vec<ReleaseData>> {
@@ -243,7 +238,11 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
         let mut cmd_args: Vec<&str> = vec![
-            "release", "edit", tag_name, "--repo", &self.repo, "--output", "json",
+            "release",
+            "edit",
+            tag_name,
+            "--repo",
+            &self.repo,
         ];
 
         if let Some(ref name) = args.name {
@@ -285,10 +284,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let api_response: ReleaseApiResponse =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_response.into())
+        self.view(tag_name).await
     }
 
     async fn upload_asset(&self, tag_name: &str, file_path: &str, _asset_name: &str) -> Result<()> {
@@ -397,7 +393,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitlab_release_provider() {
@@ -792,6 +788,50 @@ mod tests {
             .await
             .expect("create should succeed");
         assert_eq!(release.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_create_release_without_output_json_and_refetch_via_view() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release create 成功（stdout 为纯文本，忽略）
+            (true, r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: None,
+            body: Some("notes".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        };
+
+        let rel = provider.create(args).await.expect("should create");
+
+        assert_eq!(rel.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_without_output_json_and_refetch_via_view() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release edit 成功
+            (true, r#"{"tag_name":"v1.0.0","name":"v1.0.0","description":"notes"}"#),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: None,
+            body: Some("notes".to_string()),
+            draft: false,
+            prerelease: false,
+            target_commitish: None,
+        };
+
+        let rel = provider.edit("v1.0.0", args).await.expect("should edit");
+
+        assert_eq!(rel.tag_name, "v1.0.0");
     }
 
     #[tokio::test]
