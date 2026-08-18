@@ -8,119 +8,93 @@ description: |
 
 # gf-autoreport-bug
 
-Detects `pending.json` → validates → auth check → dedup → Claude analysis → creates Issue → cleans up.
+Processes `pending.json` → validate → auth → dedup → create → cleanup.
 
 ## CLI Requirement
 
-**MUST use `gf` CLI, NOT `gh` CLI.**
-
-| CLI | Scope | Platform Support |
-|-----|-------|------------------|
-| `gf` | This project | GitHub + GitLab + GitCode |
-| `gh` | GitHub only | GitHub only |
-
-**Why**: `gf` is the unified CLI for this project. Using `gh` breaks GitLab/GitCode compatibility.
+MUST use `gf` CLI (GitHub + GitLab + GitCode), NOT `gh` (GitHub only).
 
 ## Preconditions
+
 - `gf` installed: `command -v gf`
 - `gf` authenticated: `gf auth status`
+
+## When to Use
+
+| EN | ZH |
+|----|----|
+| pending.json exists | 存在待处理 bug 报告 |
+| auto-report a bug | 自动上报缺陷 |
+| Stop Hook triggered | Stop Hook 触发 |
+
+## When NOT to Use
+
+| Scenario | Use Instead |
+|----------|-------------|
+| Manual bug Issue | `/gf-issue-create` |
+| Fixing the reported bug | `/gf-workflow` |
+| Other repositories | Manual Issue creation |
 
 ## Decision Flow
 
 ```mermaid
 flowchart TD
-    A[Read pending.json] --> B{Valid JSON?}
-    B -->|No| C[Rename .invalid, warn, stop]
-    B -->|Yes| D{Auth check}
-    D -->|Pass| G{Duplicate Issue?}
-    D -->|Fail| NEW[输出登录提示 + Issue 模板]
-    NEW --> KEEP[保留 pending.json, stop]
+    A[Read pending.json] --> B{Valid?}
+    B -->|No| C[Rename .invalid, stop]
+    B -->|Yes| D{Auth ok?}
+    D -->|No| NEW[Login guide + template]
+    NEW --> KEEP[Keep file, stop]
+    D -->|Yes| G{Duplicate?}
     G -->|Yes| I[Clean, stop]
     G -->|No| J[Create Issue]
     J -->|Fail| F[Keep file + failed.log]
-    J -->|Pass| M[输出: ✅ 已自动报告 bug]
+    J -->|Pass| M[Success]
     M --> K[Remove pending.json]
 ```
 
-## When NOT to Use
-
-| Scenario | Why Not | Use Instead |
-|----------|---------|-------------|
-| Manually creating a bug Issue | This skill is for automated processing of `pending.json` only | `/gf-issue-create` for manual Issue creation |
-| Fixing the reported bug | This skill only reports bugs, never fixes them | `/gf-workflow` after the Issue is created |
-| No `pending.json` exists | This skill requires `.cache/bug-reports/pending.json` to exist | Check if bug report was generated first |
-| Other repositories | This skill only reports to `byx-darwin/gitflow-cli` | Manual Issue creation for other repos |
-| Dedup check on custom criteria | This skill uses command + error_code for dedup | Manual search in Issues |
-| Batch bug reporting | This skill processes one `pending.json` at a time | Script multiple invocations if needed |
-
-## Auth 失败处理
-
-当 `gf auth status` 返回未登录时，不要尝试创建 Issue。改为：
-
-1. 输出登录提示：`gf auth login`
-2. 输出手动 Issue URL：`https://github.com/byx-darwin/gitflow-cli/issues/new`
-3. 格式化 `pending.json` 内容为可复制的 Issue 模板：
-   - **命令**: `{command}`
-   - **平台**: `{platform}`
-   - **错误码**: `{error_code}`
-   - **错误信息**: `{error_message}`
-   - **时间**: `{timestamp}`
-4. 保留 `pending.json`，不做清理（等待用户登录后下次触发）
-
-## ⚠️ Responsibility Boundary
-
-**This skill ONLY detects and reports bugs. It NEVER fixes bugs.**
-
-### 🚫 Forbidden
-
-- ❌ Modify any code files — even if you think you know the bug cause
-- ❌ Launch subagents to fix — no code modification flows
-- ❌ Trigger `gf-workflow` repair — no auto-repair workflows
-- ❌ Analyze source code or attempt fixes — analysis only, no remediation
-- ❌ Continue after Issue creation — end immediately after Issue is created
-
-### ✅ Scope
-
-- Read `pending.json`, validate JSON
-- Auth check (GitHub login verification)
-- Dedup via existing Issue search
-- Analyze root cause (analysis only, no fixes)
-- Create Issue with `[auto-report]` prefix
-- Clean up `pending.json` on success
-
-### 🔧 Fix Flow (User-Initiated Only)
-
-User must manually run `/gf-workflow --fast` or explicitly request fix.
-
-## Target Repository
-
-**All auto-reports → fixed repo:** `byx-darwin/gitflow-cli`
-
-Always use `--repo byx-darwin/gitflow-cli` for dedup and issue creation.
-
 ## Workflow
 
-1. **Read & Validate** — `.cache/bug-reports/pending.json`. Required: `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop. Pre-check: `command -v gf`.
-2. **Auth Check** — `gf auth status --platform {platform}`. Pass → proceed. Fail → output login prompt + Issue template, keep `pending.json`, stop.
+1. **Validate** — require `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop.
+2. **Auth** — `gf auth status --platform {platform}`. Fail → login guide + template, keep file, stop.
 3. **Dedup** — `gf issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
-4. **Create Issue** — Analyze root cause, fix direction, severity. Create Issue via `gf issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gitflow {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
-5. **Success Notification** — Output `✅ 已自动报告 bug: {issue_url}` to the user.
+4. **Create** — Analyze root cause + severity, then `gf issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+5. **Notify** — Output `✅ 已自动报告 bug: {issue_url}`.
 6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
 
 ## Error Handling
 
 | Error | Action |
 |-------|--------|
-| Missing `pending.json` | "No pending reports", stop |
-| Invalid JSON | Rename to `.invalid`, warn, stop |
-| Auth check failure | Output login guide + Issue template, keep `pending.json` |
-| Dedup hit | Clean `pending.json`, show existing Issue |
-| Issue creation failure | Keep `pending.json` + log to `failed.log` |
+| Missing pending.json | "No pending reports", stop |
+| Invalid JSON | Rename `.invalid`, warn, stop |
+| Auth failure | Login guide + template, keep file |
+| Dedup hit | Clean, show existing Issue |
+| Create failure | Keep file + `failed.log` |
 
-For Schema and failed.log format, see `docs/references/gf-autoreport-bug-params.md`.
+## Responsibility
+
+- ✅ Report bugs only; never fix.
+- ✅ Read, auth, dedup, create, cleanup.
+- ❌ Modify code, launch fix flows, or analyze source for remediation.
+- 🔧 Fix flow: user-initiated via `/gf-workflow --fast`.
+
+## Red Flags
+
+- 🔴 Reading `src/` to "understand the bug" — crosses the fix boundary.
+- 🔴 "I'll just fix this too" — report only.
+- 🔴 Skipping dedup — always search before create.
+- 🔴 Missing `--repo` — always target the fixed repo.
+
+## Rationalization Excuses
+
+| Excuse | Reality |
+|--------|---------|
+| "Only looking, not fixing" | Any source analysis crosses the boundary |
+| "Same bug, fix together" | Report only; fixes need user workflow |
+| "Dedup wastes time" | Duplicates pollute the tracker |
 
 ## Common Mistakes
 
-- ❌ **Attempting to fix the bug** — this skill reports only; fixes require user-initiated workflow
-- ❌ **Skipping dedup** — always search before creating to avoid duplicate Issues
-- ❌ **Missing --repo** — always use `--repo byx-darwin/gitflow-cli`
+- ❌ Fixing the bug — report only.
+- ❌ Skipping dedup — always search first.
+- ❌ Missing `--repo` — always target the fixed repo.

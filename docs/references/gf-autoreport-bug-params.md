@@ -7,7 +7,7 @@
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "command": "gitflow issue create",
+  "command": "gf issue create",
   "platform": "github",
   "error_code": "401",
   "error_message": "Unauthorized",
@@ -22,8 +22,8 @@
 ## failed.log 格式
 
 ```
-[2026-07-03T10:00:00Z] 命令: gitflow issue create | 平台: github | 错误: 401 | 失败原因: auth 检查失败
-[2026-07-03T11:30:00Z] 命令: gitflow pr create | 平台: gitlab | 错误: 500 | 失败原因: issue create 失败
+[2026-07-03T10:00:00Z] 命令: gf issue create | 平台: github | 错误: 401 | 失败原因: auth 检查失败
+[2026-07-03T11:30:00Z] 命令: gf pr create | 平台: gitlab | 错误: 500 | 失败原因: issue create 失败
 ```
 
 ## Auth Cache 机制
@@ -41,7 +41,7 @@
 command -v gf                                   # CLI 可用性检查
 gf auth status --platform {platform}            # 平台认证状态
 gf issue list --search "[auto-report] {cmd} {err}" --state all
-gf issue create --title "[auto-report] gitflow {cmd} — {err}" \
+gf issue create --title "[auto-report] gf {cmd} — {err}" \
                          --body "..." --label "auto-report"
 ```
 
