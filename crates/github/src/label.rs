@@ -16,7 +16,10 @@ use gitflow_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gh_error;
+use crate::{
+    error::parse_gh_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitHub Label 提供者，通过 `gh` CLI 管理仓库标签。
 ///
@@ -28,18 +31,37 @@ use crate::error::parse_gh_error;
 /// let provider = GitHubLabelProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubLabelProvider {
+pub struct GitHubLabelProvider<R: CommandRunner = RealCommandRunner> {
     /// GitHub `owner/repo`。
     repo: String,
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitHubLabelProvider {
+impl GitHubLabelProvider<RealCommandRunner> {
     /// 创建新的 GitHub Label 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubLabelProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
+        }
     }
 }
 
@@ -47,7 +69,7 @@ impl GitHubLabelProvider {
 const LABEL_FIELDS: &str = "name,color,description";
 
 #[async_trait]
-impl LabelProvider for GitHubLabelProvider {
+impl<R: CommandRunner + 'static> LabelProvider for GitHubLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(
             repo = %self.repo,
@@ -56,22 +78,25 @@ impl LabelProvider for GitHubLabelProvider {
             "spawning `gh label create`"
         );
 
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["label", "create"])
-            .arg(&args.name)
-            .arg("--color")
-            .arg(&args.color)
-            .arg("--repo")
-            .arg(&self.repo);
+        let mut cmd_args: Vec<&str> = vec![
+            "label",
+            "create",
+            &args.name,
+            "--color",
+            &args.color,
+            "--repo",
+            &self.repo,
+        ];
 
         if let Some(ref desc) = args.description {
-            cmd.arg("--description").arg(desc);
+            cmd_args.push("--description");
+            cmd_args.push(desc);
         }
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label create: {e}")))?;
+        let output =
+            self.runner.run("gh", &cmd_args).await.map_err(|e| {
+                CoreError::Platform(format!("Failed to spawn gh label create: {e}"))
+            })?;
 
         if !output.status.success() {
             return Err(parse_gh_error(&output.stderr).into());
@@ -88,13 +113,21 @@ impl LabelProvider for GitHubLabelProvider {
     async fn list(&self) -> Result<Vec<LabelData>> {
         debug!(repo = %self.repo, "spawning `gh label list`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["label", "list"])
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(LABEL_FIELDS)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "label",
+                    "list",
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    LABEL_FIELDS,
+                    "--limit",
+                    "100",
+                ],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label list: {e}")))?;
 
@@ -111,20 +144,24 @@ impl LabelProvider for GitHubLabelProvider {
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(repo = %self.repo, name, "spawning `gh label edit`");
 
-        let mut cmd = tokio::process::Command::new("gh");
-        cmd.args(["label", "edit"])
-            .arg(name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--color")
-            .arg(&args.color);
+        let mut cmd_args: Vec<&str> = vec![
+            "label",
+            "edit",
+            name,
+            "--repo",
+            &self.repo,
+            "--color",
+            &args.color,
+        ];
 
         if let Some(ref desc) = args.description {
-            cmd.arg("--description").arg(desc);
+            cmd_args.push("--description");
+            cmd_args.push(desc);
         }
 
-        let output = cmd
-            .output()
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label edit: {e}")))?;
 
@@ -139,13 +176,12 @@ impl LabelProvider for GitHubLabelProvider {
     async fn delete(&self, name: &str) -> Result<()> {
         debug!(repo = %self.repo, name, "spawning `gh label delete`");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["label", "delete"])
-            .arg(name)
-            .arg("--yes")
-            .arg("--repo")
-            .arg(&self.repo)
-            .output()
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &["label", "delete", name, "--yes", "--repo", &self.repo],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label delete: {e}")))?;
 
@@ -157,19 +193,23 @@ impl LabelProvider for GitHubLabelProvider {
     }
 }
 
-impl GitHubLabelProvider {
+impl<R: CommandRunner> GitHubLabelProvider<R> {
     /// 获取指定名称的标签数据（内部辅助方法）。
+    ///
+    /// 调用 `gh api` REST 端点 `repos/{owner}/{repo}/labels/{name}` 重新拉取。
+    /// gh 2.97 没有 `label view` 子命令，故不能用 `gh label view --json`。
     async fn fetch_label(&self, name: &str) -> Result<LabelData> {
-        let output = tokio::process::Command::new("gh")
-            .args(["label", "view"])
-            .arg(name)
-            .arg("--repo")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(LABEL_FIELDS)
-            .output()
+        let api_path = format!(
+            "repos/{repo}/labels/{name}",
+            repo = self.repo,
+            name = encode_path_segment(name)
+        );
+
+        let output = self
+            .runner
+            .run("gh", &["api", &api_path])
             .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label view: {e}")))?;
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api label: {e}")))?;
 
         if !output.status.success() {
             return Err(parse_gh_error(&output.stderr).into());
@@ -180,6 +220,29 @@ impl GitHubLabelProvider {
 
         Ok(label)
     }
+}
+
+/// RFC 3986 路径段编码：仅保留 unreserved 字符，其余按字节百分号编码（大写十六进制）。
+///
+/// 用于在 `gh api repos/{owner}/{repo}/labels/{name}` 路径中编码标签名，
+/// 标签名可能包含空格或特殊字符（如 `good first issue`）。
+#[must_use]
+fn encode_path_segment(value: &str) -> String {
+    const HEX_DIGITS: &[u8; 16] = b"0123456789ABCDEF";
+    let mut out = String::with_capacity(value.len());
+    for b in value.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                out.push(char::from(b));
+            }
+            _ => {
+                out.push('%');
+                out.push(char::from(HEX_DIGITS[usize::from(b >> 4)]));
+                out.push(char::from(HEX_DIGITS[usize::from(b & 0x0F)]));
+            }
+        }
+    }
+    out
 }
 
 /// GitHub 里程碑提供者，通过 `gh api` 管理仓库里程碑。
@@ -382,6 +445,7 @@ impl MilestoneProvider for GitHubMilestoneProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runner::MockCommandRunner;
 
     // --- GitHubLabelProvider tests ---
 
@@ -411,6 +475,162 @@ mod tests {
         let original = GitHubLabelProvider::new("owner/repo");
         let cloned = original.clone();
         assert_eq!(original.repo, cloned.repo);
+    }
+
+    #[tokio::test]
+    async fn test_should_fetch_label_via_gh_api() {
+        let runner = MockCommandRunner::success(
+            r#"{"name":"bug","color":"d73a4a","description":"Something isn't working"}"#,
+        );
+        let provider = GitHubLabelProvider::with_runner("octocat/hello-world", runner.clone());
+
+        let label = provider.fetch_label("bug").await.expect("should fetch");
+
+        assert_eq!(label.name, "bug");
+        assert_eq!(label.color.as_deref(), Some("d73a4a"));
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["api", "repos/octocat/hello-world/labels/bug"]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_encode_label_name_in_api_path() {
+        let runner = MockCommandRunner::success(r#"{"name":"good first issue","color":"7057ff"}"#);
+        let provider = GitHubLabelProvider::with_runner("octocat/hello-world", runner.clone());
+
+        let label = provider
+            .fetch_label("good first issue")
+            .await
+            .expect("should fetch");
+
+        assert_eq!(label.name, "good first issue");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "repos/octocat/hello-world/labels/good%20first%20issue"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_label_and_refetch_via_gh_api() {
+        let runner =
+            MockCommandRunner::success(r#"{"name":"bug","color":"3344ff","description":"probe2"}"#);
+        let provider = GitHubLabelProvider::with_runner("byx-darwin/gitflow-cli", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "3344ff".to_string(),
+            description: Some("probe2".to_string()),
+        };
+        let label = provider.edit("bug", args).await.expect("should edit");
+
+        assert_eq!(label.color.as_deref(), Some("3344ff"));
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "label",
+                "edit",
+                "bug",
+                "--repo",
+                "byx-darwin/gitflow-cli",
+                "--color",
+                "3344ff",
+                "--description",
+                "probe2"
+            ]
+        );
+        // P1 regression: second call must be `gh api`, NEVER `gh label view`.
+        assert_eq!(
+            calls[1].1,
+            vec!["api", "repos/byx-darwin/gitflow-cli/labels/bug"]
+        );
+        assert!(
+            calls
+                .iter()
+                .all(|(_, args)| args.first().is_some_and(|a| a != "view")),
+            "no `gh label view` call may remain"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_fail_when_fetch_label_api_fails() {
+        let runner = MockCommandRunner::failure("HTTP 404", 1);
+        let provider = GitHubLabelProvider::with_runner("owner/repo", runner);
+
+        let err = provider
+            .fetch_label("missing")
+            .await
+            .expect_err("should fail");
+        assert!(err.to_string().contains("GitHub") || err.to_string().contains("执行失败"));
+    }
+
+    #[tokio::test]
+    async fn test_should_list_labels_with_limit_flag() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let labels = provider.list().await.expect("should list");
+
+        assert!(labels.is_empty());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "label",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                "name,color,description",
+                "--limit",
+                "100"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_create_label_via_runner() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "d73a4a".to_string(),
+            description: None,
+        };
+        let label = provider.create(args).await.expect("should create");
+
+        assert_eq!(label.name, "bug");
+        assert_eq!(label.color.as_deref(), Some("d73a4a"));
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "label",
+                "create",
+                "bug",
+                "--color",
+                "d73a4a",
+                "--repo",
+                "owner/repo"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_delete_label_via_runner() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubLabelProvider::with_runner("owner/repo", runner.clone());
+
+        provider.delete("bug").await.expect("should delete");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["label", "delete", "bug", "--yes", "--repo", "owner/repo"]
+        );
     }
 
     // --- GitHubMilestoneProvider tests ---
