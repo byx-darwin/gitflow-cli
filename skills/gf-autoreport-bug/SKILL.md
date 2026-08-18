@@ -56,7 +56,7 @@ flowchart TD
 
 1. **Validate** — require `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop.
 2. **Auth** — `gh auth status`. Fail → login guide + template, keep file, stop.
-3. **Dedup** — `gh issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}"`. Match → clean, stop.
+3. **Dedup** — `gh issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}" --state all`. Match → clean, stop.
 4. **Create** — Analyze root cause + severity, then `gh issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
 5. **Notify** — Output `✅ 已自动报告 bug: {issue_url}`.
 6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
