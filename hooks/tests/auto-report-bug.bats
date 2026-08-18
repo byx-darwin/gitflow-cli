@@ -29,22 +29,22 @@ fi
 MOCK
   chmod +x "$bindir/git"
 
-  # --- Mock `gf`: records every invocation; auth result from $GF_AUTH_STATUS ---
-  cat > "$bindir/gf" <<'MOCK'
+  # --- Mock `gh`: records every invocation; auth result from $GH_AUTH_STATUS ---
+  cat > "$bindir/gh" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$GF_CALL_LOG"
-if [ "${GF_AUTH_STATUS:-ok}" = "fail" ]; then
+printf '%s\n' "$*" >> "$GH_CALL_LOG"
+if [ "${GH_AUTH_STATUS:-ok}" = "fail" ]; then
   exit 1
 fi
 exit 0
 MOCK
-  chmod +x "$bindir/gf"
+  chmod +x "$bindir/gh"
 
   export PATH="$bindir:$PATH"
   export GIT_TOPLEVEL="$SANDBOX"
-  export GF_AUTH_STATUS="ok"
-  export GF_CALL_LOG="$BATS_TEST_TMPDIR/gf-calls.log"
-  : > "$GF_CALL_LOG"
+  export GH_AUTH_STATUS="ok"
+  export GH_CALL_LOG="$BATS_TEST_TMPDIR/gh-calls.log"
+  : > "$GH_CALL_LOG"
 
   # --- The hook under test (sibling of this tests/ directory) ---
   HOOK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/auto-report-bug.sh"
@@ -97,13 +97,13 @@ JSON
 
 @test "auth failure -> outputs login guide" {
   write_pending
-  export GF_AUTH_STATUS="fail"
+  export GH_AUTH_STATUS="fail"
 
   run_hook
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"GitHub 未登录"* ]]
-  [[ "$output" == *"gf auth login"* ]]
+  [[ "$output" == *"gh auth login"* ]]
   [[ "$output" == *"报告内容"* ]]
 }
 
@@ -117,7 +117,7 @@ JSON
   [[ "$output" == *"gf-autoreport-bug"* ]]
   [ -f "$AUTH_CACHE_DIR/github.ttl" ]
   # Live auth check must have run exactly once.
-  [ "$(wc -l < "$GF_CALL_LOG")" -eq 1 ]
+  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
 }
 
 @test "auth cache valid -> skips gf CLI call" {
@@ -126,14 +126,14 @@ JSON
   echo $(( $(date +%s) - 60 )) > "$AUTH_CACHE_DIR/github.ttl"
 
   # If the hook wrongly called gf, auth would fail and this test would catch it.
-  export GF_AUTH_STATUS="fail"
+  export GH_AUTH_STATUS="fail"
 
   run_hook
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"cache 命中"* ]]
   [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
-  [ ! -s "$GF_CALL_LOG" ]
+  [ ! -s "$GH_CALL_LOG" ]
 }
 
 @test "auth success -> banner instruction uses gf-autoreport-bug (no stale gitflow-) and MUST directive" {
@@ -152,13 +152,13 @@ JSON
   fi
 }
 
-@test "auth success -> calls gf auth status with platform flag" {
+@test "auth success -> calls gh auth status" {
   write_pending
-  GF_AUTH_STATUS="ok"
+  GH_AUTH_STATUS="ok"
   run_hook
 
   [ "$status" -eq 0 ]
-  # Live auth check must run exactly once, with the platform flag.
-  [ "$(wc -l < "$GF_CALL_LOG")" -eq 1 ]
-  grep -q "auth status --platform github" "$GF_CALL_LOG"
+  # Live auth check must run exactly once.
+  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
+  grep -q "auth status" "$GH_CALL_LOG"
 }
