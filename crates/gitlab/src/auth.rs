@@ -167,7 +167,11 @@ impl<R: CommandRunner + 'static> AuthProvider for GitLabAuthProvider<R> {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout
+        // glab writes the status block (including the `Token found ...` line) to
+        // stderr even on success; parse both streams like `status()` does.
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = format!("{stdout}{stderr}");
+        combined
             .lines()
             .find_map(|line| {
                 if line.contains("Token found") {
@@ -520,6 +524,24 @@ mod tests {
                 .map(String::from)
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn test_should_extract_token_from_stderr_like_real_glab() {
+        // `glab auth status --show-token` writes the status block (including the
+        // `Token found ...` line) to stderr while exiting 0. Regression test for
+        // the real self-hosted GitLab smoke test (Issue #199).
+        let stderr = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  \
+                      ✓ Token found in operating system keyring: glpat-abcdef\n";
+        let runner = MockCommandRunner::success_with_stderr("", stderr);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let token = provider
+            .token()
+            .await
+            .expect("should get token from stderr");
+
+        assert_eq!(token, "glpat-abcdef");
     }
 
     #[tokio::test]

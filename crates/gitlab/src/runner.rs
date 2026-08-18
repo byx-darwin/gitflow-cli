@@ -152,6 +152,23 @@ impl MockCommandRunner {
         }
     }
 
+    /// Create a mock that returns success with the given stdout and stderr.
+    ///
+    /// `glab auth status --show-token` writes its status block (including the
+    /// `Token found ...` line) to stderr while still exiting 0, so tests must
+    /// be able to place data on either stream.
+    #[must_use]
+    pub fn success_with_stderr(stdout: &str, stderr: &str) -> Self {
+        Self {
+            result: MockResult::Output(CommandOutput {
+                status: Self::make_exit_status(0),
+                stdout: stdout.as_bytes().to_vec(),
+                stderr: stderr.as_bytes().to_vec(),
+            }),
+            recorded: Arc::new(std::sync::Mutex::new(Vec::new())),
+        }
+    }
+
     /// Create a mock that returns failure with the given stderr and exit code.
     #[must_use]
     pub fn failure(stderr: &str, code: i32) -> Self {
