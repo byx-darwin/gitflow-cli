@@ -228,7 +228,10 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     }
 
     async fn edit(&self, tag_name: &str, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd_args: Vec<&str> = vec!["release", "edit", tag_name, "--repo", &self.repo];
+        // glab 1.113 has no `release edit` subcommand (it prints parent help and
+        // exits 0, silently swallowing the edit). `release create <tag>` updates
+        // an existing release, so the edit path reuses it.
+        let mut cmd_args: Vec<&str> = vec!["release", "create", tag_name, "--repo", &self.repo];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -252,7 +255,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
         debug!(
             repo = %self.repo,
             tag = %tag_name,
-            "spawning `glab release edit`"
+            "spawning `glab release create` (edit path)"
         );
 
         let output = self
@@ -864,6 +867,52 @@ mod tests {
         let rel = provider.edit("v1.0.0", args).await.expect("should edit");
 
         assert_eq!(rel.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_release_via_release_create() {
+        // glab 1.113 has no `release edit` subcommand (it prints parent help and
+        // exits 0, silently swallowing the edit). `release create <tag>` updates
+        // an existing release, so the edit path must reuse it.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release create (edit path) 成功
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"Version 1.0.0","description":"notes"}"#,
+            ),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Version 1.0.0".to_string()),
+            body: Some("notes".to_string()),
+            draft: true,
+            prerelease: true,
+            target_commitish: Some("main".to_string()),
+        };
+
+        provider.edit("v1.0.0", args).await.expect("should edit");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            [
+                "release",
+                "create",
+                "v1.0.0",
+                "--repo",
+                "owner/repo",
+                "--name",
+                "Version 1.0.0",
+                "--notes",
+                "notes",
+                "--ref",
+                "main",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
