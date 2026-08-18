@@ -153,13 +153,9 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             cmd_args.push(body);
         }
 
-        if args.draft {
-            cmd_args.push("--draft");
-        }
-
-        if args.prerelease {
-            cmd_args.push("--prerelease");
-        }
+        // glab 1.113 has no `--draft`/`--prerelease` flags on `release create`;
+        // `CreateReleaseArgs.draft/prerelease` are GitHub-only and must not be
+        // forwarded to the GitLab CLI (passing them fails with "Unknown flag").
 
         if let Some(ref commitish) = args.target_commitish {
             cmd_args.push("--ref");
@@ -244,13 +240,9 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             cmd_args.push(body);
         }
 
-        if args.draft {
-            cmd_args.push("--draft");
-        }
-
-        if args.prerelease {
-            cmd_args.push("--prerelease");
-        }
+        // glab 1.113 has no `--draft`/`--prerelease` flags on `release create`;
+        // `CreateReleaseArgs.draft/prerelease` are GitHub-only and must not be
+        // forwarded to the GitLab CLI (passing them fails with "Unknown flag").
 
         if let Some(ref commitish) = args.target_commitish {
             cmd_args.push("--ref");
@@ -802,6 +794,51 @@ mod tests {
         let rel = provider.create(args).await.expect("should create");
 
         assert_eq!(rel.tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_not_pass_draft_or_prerelease_flags_on_release_create() {
+        // glab 1.113 has no `--draft`/`--prerelease` flags on `release create`;
+        // passing them makes every release creation fail with "Unknown flag".
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""), // release create 成功（stdout 为纯文本，忽略）
+            (
+                true,
+                r#"{"tag_name":"v1.0.0","name":"Version 1.0.0","description":"notes"}"#,
+            ),
+        ]);
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateReleaseArgs {
+            tag_name: "v1.0.0".to_string(),
+            name: Some("Version 1.0.0".to_string()),
+            body: Some("notes".to_string()),
+            draft: true,
+            prerelease: true,
+            target_commitish: Some("main".to_string()),
+        };
+
+        provider.create(args).await.expect("should create");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            [
+                "release",
+                "create",
+                "v1.0.0",
+                "--repo",
+                "owner/repo",
+                "--name",
+                "Version 1.0.0",
+                "--notes",
+                "notes",
+                "--ref",
+                "main",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
