@@ -372,14 +372,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `glab api` POST mr note");
 
-        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
-            CoreError::Platform(format!(
-                "Invalid repo format '{}', expected 'owner/project'",
-                self.repo
-            ))
-        })?;
-
-        let api_path = format!("/projects/{owner}%2F{project}/merge_requests/{number}/notes");
+        let encoded_path = encode_project_path(&self.repo);
+        let api_path = format!("/projects/{encoded_path}/merge_requests/{number}/notes");
         let body_arg = format!("body={body}");
 
         let output = self
@@ -962,6 +956,32 @@ mod tests {
                 "--method",
                 "POST",
                 "/projects/owner%2Frepo/merge_requests/7/notes",
+                "-f",
+                "body=lgtm",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_encode_nested_group_repo_path_for_mr_note() {
+        let runner = MockCommandRunner::success(
+            r#"{"id":88,"body":"lgtm","author":{"username":"bob","id":2},"created_at":"2026-08-18T00:00:00Z"}"#,
+        );
+        let provider = GitLabMrProvider::with_runner("group/subgroup/project", runner.clone());
+
+        let comment = provider.comment(7, "lgtm").await.expect("should post");
+
+        assert_eq!(comment.id, 88);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "--method",
+                "POST",
+                "/projects/group%2Fsubgroup%2Fproject/merge_requests/7/notes",
                 "-f",
                 "body=lgtm",
             ]
