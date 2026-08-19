@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -430,8 +431,10 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 在指定 Issue 上添加评论。
     ///
-    /// 调用 `glab api --method POST /projects/{owner}%2F{project}/issues/{number}/notes`
-    /// 发布评论，并返回评论文数据。
+    /// 调用 `glab api --method POST /projects/{repo-encoded}/issues/{number}/notes`
+    /// 发布评论，其中 `{repo-encoded}` 为全量 URL 编码的项目路径
+    /// （如 `group/subgroup/project` → `group%2Fsubgroup%2Fproject`），
+    /// 并返回评论文数据。
     ///
     /// # Errors
     ///
@@ -439,14 +442,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData> {
         debug!(repo = %self.repo, number, "spawning `glab api` POST issue note");
 
-        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
-            CoreError::Platform(format!(
-                "Invalid repo format '{}', expected 'owner/project'",
-                self.repo
-            ))
-        })?;
-
-        let api_path = format!("/projects/{owner}%2F{project}/issues/{number}/notes");
+        let encoded_path = encode_project_path(&self.repo);
+        let api_path = format!("/projects/{encoded_path}/issues/{number}/notes");
         let body_arg = format!("body={body}");
 
         let output = self
@@ -470,7 +467,9 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 列出指定 Issue 的所有评论。
     ///
-    /// 调用 `glab api /projects/{project}/issues/{iid}/notes` 获取评论列表，
+    /// 调用 `glab api /projects/{repo-encoded}/issues/{iid}/notes` 获取评论列表，
+    /// 其中 `{repo-encoded}` 为全量 URL 编码的项目路径
+    /// （如 `group/subgroup/project` → `group%2Fsubgroup%2Fproject`），
     /// 并返回评论数据数组。
     ///
     /// # Errors
@@ -479,14 +478,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
         debug!(repo = %self.repo, number, "spawning `glab api` GET issue notes");
 
-        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
-            CoreError::Platform(format!(
-                "Invalid repo format '{}', expected 'owner/project'",
-                self.repo
-            ))
-        })?;
-
-        let api_path = format!("/projects/{owner}%2F{project}/issues/{number}/notes");
+        let encoded_path = encode_project_path(&self.repo);
+        let api_path = format!("/projects/{encoded_path}/issues/{number}/notes");
 
         let output = self
             .runner
@@ -1150,6 +1143,51 @@ mod tests {
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_encode_nested_group_repo_path_for_comment() {
+        let runner = MockCommandRunner::success(
+            r#"{"id":77,"body":"hello","author":{"username":"alice","id":1},"created_at":"2026-08-18T00:00:00Z"}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("group/subgroup/project", runner.clone());
+
+        let comment = provider.comment(42, "hello").await.expect("should post");
+
+        assert_eq!(comment.id, 77);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "--method",
+                "POST",
+                "/projects/group%2Fsubgroup%2Fproject/issues/42/notes",
+                "-f",
+                "body=hello",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_encode_nested_group_repo_path_for_list_comments() {
+        let runner = MockCommandRunner::success(
+            r#"[{"id":77,"body":"hello","author":{"username":"alice","id":1},"created_at":"2026-08-18T00:00:00Z"}]"#,
+        );
+        let provider = GitLabIssueProvider::with_runner("group/subgroup/project", runner.clone());
+
+        let comments = provider.list_comments(42).await.expect("should list");
+
+        assert_eq!(comments.len(), 1);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["api", "/projects/group%2Fsubgroup%2Fproject/issues/42/notes"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
         );
     }
 
