@@ -8,7 +8,16 @@ on:
     paths:
       - 'crates/**'
       - 'apps/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'release.toml'
+      - 'CHANGELOG.md'
+      - 'Makefile'
+      - 'scripts/**'
       - '.github/workflows/e2e-tests.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/cd.yml'
+      - 'docs/compatibility-matrix.md'
   schedule:
     - cron: '0 2 * * 1'  # 每周一 02:00 UTC 定时回归(真实凭据)
   workflow_dispatch:  # 手动触发（如 docs-only PR 绕过 paths 过滤时，供维护者手动补跑）
