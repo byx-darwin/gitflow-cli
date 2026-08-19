@@ -622,17 +622,21 @@ mod tests {
         let runner = MockCommandRunner::success(
             r#"[{"id":1,"name":"build","status":"success"},{"id":2,"name":"test","status":"running"}]"#,
         );
-        let provider = GitLabPipelineProvider::with_runner("group/subgroup/project", runner.clone());
+        let provider =
+            GitLabPipelineProvider::with_runner("group/subgroup/project", runner.clone());
 
         let jobs = provider.jobs(5).await.expect("should fetch");
 
         assert_eq!(jobs.len(), 2);
         assert_eq!(
             runner.recorded_calls()[0].1,
-            vec!["api", "/projects/group%2Fsubgroup%2Fproject/pipelines/5/jobs"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
+            vec![
+                "api",
+                "/projects/group%2Fsubgroup%2Fproject/pipelines/5/jobs"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 

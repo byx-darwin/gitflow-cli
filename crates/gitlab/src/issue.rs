@@ -1184,10 +1184,13 @@ mod tests {
         assert_eq!(comments.len(), 1);
         assert_eq!(
             runner.recorded_calls()[0].1,
-            vec!["api", "/projects/group%2Fsubgroup%2Fproject/issues/42/notes"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
+            vec![
+                "api",
+                "/projects/group%2Fsubgroup%2Fproject/issues/42/notes"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 
