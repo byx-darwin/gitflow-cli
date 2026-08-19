@@ -141,6 +141,25 @@ fn test_should_have_valid_geo_files() {
 }
 
 #[test]
+fn test_should_have_compat_matrix_doc_version_matching_pkg() {
+    // #207：矩阵文档头部版本必须由 crate 版本派生（`make compatibility-matrix`），
+    // 不得在 JSON 中手工同步。
+    let matrix_json = read("crates/core/resources/compatibility-matrix.json");
+    assert!(
+        !matrix_json.contains("gitflow_cli_version"),
+        "compatibility-matrix.json 不得包含已废弃的 `gitflow_cli_version` 字段（Issue #207）"
+    );
+
+    let md = read("docs/compatibility-matrix.md");
+    let pkg_version = env!("CARGO_PKG_VERSION");
+    assert!(
+        md.contains(&format!("gf v{pkg_version}")),
+        "compatibility-matrix.md 头部必须跟随 crate 版本（期望 `gf v{pkg_version}`）——请用 `make \
+         compatibility-matrix` 重新生成"
+    );
+}
+
+#[test]
 fn test_should_have_binstall_metadata_matching_release_layout() {
     let cli = read("apps/cli/Cargo.toml");
     let doc: toml::Value = cli.parse().expect("apps/cli/Cargo.toml must be valid TOML");

@@ -113,25 +113,52 @@ JSON
   run_hook
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"检测到 gitflow CLI 错误报告"* ]]
+  [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
   [[ "$output" == *"gf-autoreport-bug"* ]]
   [ -f "$AUTH_CACHE_DIR/github.ttl" ]
   # Live auth check must have run exactly once.
   [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
 }
 
-@test "auth cache valid -> skips gh CLI call" {
+@test "auth cache valid -> skips gf CLI call" {
   write_pending
   mkdir -p "$AUTH_CACHE_DIR"
   echo $(( $(date +%s) - 60 )) > "$AUTH_CACHE_DIR/github.ttl"
 
-  # If the hook wrongly called gh, auth would fail and this test would catch it.
+  # If the hook wrongly called gf, auth would fail and this test would catch it.
   export GH_AUTH_STATUS="fail"
 
   run_hook
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"cache 命中"* ]]
-  [[ "$output" == *"检测到 gitflow CLI 错误报告"* ]]
+  [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
   [ ! -s "$GH_CALL_LOG" ]
+}
+
+@test "auth success -> banner instruction uses gf-autoreport-bug (no stale gitflow-) and MUST directive" {
+  write_pending
+
+  run_hook
+
+  [ "$status" -eq 0 ]
+  # The load instruction must reference the current skill name and be directive.
+  [[ "$output" == *"gf-autoreport-bug"* ]]
+  [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]
+  # The stale skill name must not appear anywhere in the banner.
+  if echo "$output" | grep -q "gitflow-autoreport-bug"; then
+    echo "❌ banner still references stale gitflow-autoreport-bug" >&2
+    return 1
+  fi
+}
+
+@test "auth success -> calls gh auth status" {
+  write_pending
+  GH_AUTH_STATUS="ok"
+  run_hook
+
+  [ "$status" -eq 0 ]
+  # Live auth check must run exactly once.
+  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
+  grep -q "auth status" "$GH_CALL_LOG"
 }

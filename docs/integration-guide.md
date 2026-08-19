@@ -251,7 +251,7 @@ Stop Hook 注册在**全局** `~/.claude/settings.json`，命令指向 **git 跟
   "hooks": {
     "Stop": [
       {
-        "matcher": "gitflow",
+        "matcher": "gf|gitflow",
         "hooks": [
           {
             "type": "command",
@@ -269,7 +269,7 @@ Stop Hook 注册在**全局** `~/.claude/settings.json`，命令指向 **git 跟
 | 字段 | 说明 |
 |------|------|
 | `hooks.Stop` | Claude Code 停止时触发的 Hook 数组 |
-| `matcher` | 匹配器，`"gitflow"` 表示与 gitflow 相关的会话触发 |
+| `matcher` | 匹配器，`"gf\|gitflow"` 表示 gf 或 gitflow 相关会话触发（兼容新旧 CLI 名） |
 | `command` | 解析 repo 根目录并执行 `hooks/auto-report-bug.sh`；非 git 仓库或脚本缺失时静默跳过 |
 
 > **为什么用全局注册 + git 跟踪脚本?** `.claude/` 目录被 `.gitignore` 忽略，

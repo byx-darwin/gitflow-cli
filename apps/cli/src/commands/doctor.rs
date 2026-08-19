@@ -275,6 +275,42 @@ impl HealthCheck for GfSelfCheck {
     }
 }
 
+/// Checks the co-contribution flag (bug auto-report opt-in).
+///
+/// Reports whether the user has joined the co-contribution plan and how to
+/// opt out, making the auto-report feature discoverable and reversible.
+pub struct CoContributionCheck;
+
+impl HealthCheck for CoContributionCheck {
+    fn category(&self) -> &'static str {
+        "co_contribution"
+    }
+
+    fn run(&self) -> Vec<CheckItem> {
+        let enabled = dirs::home_dir().is_some_and(|home| {
+            crate::error_reporter::read_co_contribution_flag(&home.join(".claude/settings.json"))
+        });
+        let mut items = Vec::new();
+        let item = if enabled {
+            CheckItem::pass(
+                self.category(),
+                "共建计划",
+                "bug 自动上报已开启（~/.claude/settings.json）",
+            )
+        } else {
+            CheckItem::pass(
+                self.category(),
+                "共建计划",
+                "未加入共建计划，bug 自动上报未开启",
+            )
+        };
+        items.push(item.with_detail(
+            "退出方式：编辑 ~/.claude/settings.json，移除 gitflow.co_contribution 字段后保存",
+        ));
+        items
+    }
+}
+
 /// Checks Agent runtime environment (`.claude/`, `CLAUDE.md`, hooks).
 pub struct AgentEnvCheck;
 
@@ -385,6 +421,7 @@ pub fn handle(args: &DoctorArgs) -> miette::Result<()> {
         Box::new(AgentSkillsCheck),
         Box::new(GfSelfCheck),
         Box::new(AgentEnvCheck),
+        Box::new(CoContributionCheck),
     ];
 
     let mut all_items: Vec<CheckItem> = Vec::new();
@@ -577,6 +614,7 @@ mod tests {
             Box::new(AgentSkillsCheck),
             Box::new(GfSelfCheck),
             Box::new(AgentEnvCheck),
+            Box::new(CoContributionCheck),
         ];
         let mut all_items = Vec::new();
         for check in &checks {
@@ -589,5 +627,20 @@ mod tests {
         assert!(categories.contains("agent"));
         assert!(categories.contains("gf_self"));
         assert!(categories.contains("agent_env"));
+        assert!(categories.contains("co_contribution"));
+    }
+
+    #[test]
+    fn test_co_contribution_check_reports_opt_out_guide() {
+        let items = CoContributionCheck.run();
+        assert_eq!(items.len(), 1);
+        let item = &items[0];
+        assert_eq!(item.category, "co_contribution");
+        assert_eq!(item.name, "共建计划");
+        let detail = item.detail.clone().unwrap_or_default();
+        assert!(
+            detail.contains("gitflow.co_contribution"),
+            "opt-out guide must mention the config key: {detail}"
+        );
     }
 }

@@ -7,7 +7,7 @@
 #![allow(clippy::disallowed_methods, clippy::disallowed_types)]
 
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{BufReader, Write},
     path::Path,
 };
@@ -89,9 +89,17 @@ fn sign_file(file_path: &Path, signing_key: &ed25519_dalek::SigningKey) -> miett
         .map_err(|e| miette::miette!("读取文件失败 {}: {e}", file_path.display()))?;
     let mut reader = BufReader::new(input_file);
 
-    // Create a temporary output file
+    // Create a temporary output file. Zip signing (copy_and_sign_zip) reads the
+    // signature region back from the output to compute the prehash, so the file
+    // must be opened read+write — File::create (write-only) fails with
+    // "could not read output" for .zip archives.
     let temp_path = file_path.with_extension("tmp");
-    let mut output_file = File::create(&temp_path)
+    let mut output_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&temp_path)
         .map_err(|e| miette::miette!("创建临时文件失败 {}: {e}", temp_path.display()))?;
 
     // Sign using zipsign format
@@ -354,17 +362,46 @@ mod tests {
     }
 
     #[test]
-    fn test_should_sign_zip_archives() {
-        // Note: zipsign requires valid zip structure, so we skip actual signing
-        // In production, real zip archives from build tools will be used
-        let (private_hex, _public_hex) = generate_keypair();
+    fn test_should_sign_zip_archive_with_real_zip() {
+        // Generate a keypair
+        let (private_hex, public_hex) = generate_keypair();
+        let public_bytes = hex::decode(&public_hex).expect("valid hex");
+        let private_bytes = hex::decode(&private_hex).expect("valid hex");
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(
+            private_bytes.as_slice().try_into().expect("32 bytes"),
+        );
 
+        // Build a real zip archive: zip signing parses the input zip, so it
+        // must be structurally valid (the old test skipped actual signing).
         let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::write(dir.path().join("readme.md"), b"not an archive").expect("write");
+        let archive_path = dir.path().join("test-archive.zip");
+        {
+            let file = std::fs::File::create(&archive_path).expect("create zip");
+            let mut writer = zip::ZipWriter::new(file);
+            writer
+                .start_file("gf", zip::write::SimpleFileOptions::default())
+                .expect("start file");
+            writer.write_all(b"binary payload").expect("write payload");
+            writer.finish().expect("finish zip");
+        }
 
-        // Only test that non-archive files are skipped
-        let result = sign_archives(&private_hex, dir.path().to_str().expect("utf8"));
-        assert!(result.is_err(), "Should error when no archives found");
+        // Sign it via the production path
+        sign_file(&archive_path, &signing_key).expect("sign zip");
+
+        // Verify the signed zip with zipsign-api
+        let mut signed_file = std::fs::File::open(&archive_path).expect("open signed zip");
+        let verifying_key =
+            VerifyingKey::from_bytes(public_bytes.as_slice().try_into().expect("32 bytes"))
+                .expect("valid public key");
+        let result = zipsign_api::verify::verify_zip(
+            &mut signed_file,
+            &[verifying_key],
+            Some(b"test-archive.zip"),
+        );
+        assert!(
+            result.is_ok(),
+            "Signed zip should be verifiable with zipsign-api: {result:?}"
+        );
     }
 
     #[test]
