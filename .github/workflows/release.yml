@@ -157,6 +157,8 @@ jobs:
   update-homebrew:
     name: Update Homebrew Formula
     needs: [release]
+    # TEMP: disabled for v1.5.0 per user request (no Homebrew publish this release); revert after
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write
