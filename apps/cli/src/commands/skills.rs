@@ -366,14 +366,23 @@ fn check_skill_source(platform: AgentPlatform) -> miette::Result<()> {
     check_skill_source_at(&home)
 }
 
+/// 未检测到技能来源时打印的安装引导。
+///
+/// 硬阻断前展示三条安装路径，并附上 Node.js 版本前置条件——
+/// `mattpocock-skills` / `npx skills` 均要求 Node.js ≥ 22.20.0，
+/// 早期文档缺此说明导致用户装技能来源时踩坑（Issue #192）。
+const SKILL_SOURCE_GUIDANCE: &str = "\
+⛔ 未检测到任何技能来源，gf-workflow 无法运行。请先安装其一：
+  · claude plugins install superpowers
+  · claude plugins install mattpocock-skills
+  · npx skills@latest add mattpocock/skills
+提示：安装 mattpocock-skills / npx skills 需要 Node.js ≥ 22.20.0，先运行 `node --version` 确认。";
+
 /// 核心检测逻辑（参数化 HOME，便于单测注入临时目录）。
 fn check_skill_source_at(home: &Path) -> miette::Result<()> {
     let sources = detect_skill_sources(home);
     if sources.is_empty() {
-        eprintln!("⛔ 未检测到任何技能来源，gf-workflow 无法运行。请先安装其一：");
-        eprintln!("  · claude plugins install superpowers");
-        eprintln!("  · claude plugins install mattpocock-skills");
-        eprintln!("  · npx skills@latest add mattpocock/skills");
+        eprintln!("{SKILL_SOURCE_GUIDANCE}");
         return Err(miette::miette!("技能来源缺失，安装中止"));
     }
     let names: Vec<String> = sources.iter().map(ToString::to_string).collect();
@@ -2061,6 +2070,20 @@ mod tests {
         assert!(
             err.to_string().contains("技能来源缺失"),
             "error must state missing source: {err}"
+        );
+    }
+
+    #[test]
+    fn test_should_include_node_version_hint_in_skill_source_guidance() {
+        // Issue #192：装 mattpocock-skills / npx skills 需 Node.js ≥ 22.20.0，
+        // 硬阻断引导须内联提示该前置条件，避免用户装来源时二次踩坑。
+        assert!(
+            SKILL_SOURCE_GUIDANCE.contains("Node.js"),
+            "guidance must mention Node.js: {SKILL_SOURCE_GUIDANCE}"
+        );
+        assert!(
+            SKILL_SOURCE_GUIDANCE.contains("22.20.0"),
+            "guidance must state the Node.js minimum version 22.20.0: {SKILL_SOURCE_GUIDANCE}"
         );
     }
 

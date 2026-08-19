@@ -19,9 +19,30 @@ brew tap byx-darwin/tap && brew install gf
 cargo install gitflow-cli
 ```
 
+## 前置条件
+
+`gf` 本体只依赖对应平台的 Git CLI（见[平台支持](#平台支持)）。但要跑 `/gf-workflow` 四阶段工作流，还需先准备好 Agent 运行环境与技能来源：
+
+| 依赖 | 要求 | 说明 |
+|------|------|------|
+| **Claude Code** | 近期版本 | Agent 运行环境。推荐[原生安装](https://code.claude.com/docs/en/setup)（`curl -fsSL https://claude.ai/install.sh \| bash`，自带二进制、无需 Node.js）；若用 npm 安装则需 Node.js 22+。 |
+| **技能来源** | `superpowers` 或 `mattpocock-skills` 之一 | `/gf-workflow` 的编排引擎来自其中之一。**未安装任一来源时 `gf skills install` 会硬阻断并中止。** |
+| **Node.js** | **≥ 22.20.0** | 仅安装 `mattpocock-skills` 来源时需要——`claude plugins install mattpocock-skills` 与 `npx skills@latest` 都会拉起 `mattpocock/skills` 工具链（其 `skills` CLI 要求 Node ≥ 22.20.0）。`superpowers` 为纯 skills，无需 Node.js。先运行 `node --version` 确认。 |
+
+安装技能来源（任选其一，装完再执行下面的「30 秒上手」）：
+
+```bash
+claude plugins install superpowers        # 全自动流水线
+claude plugins install mattpocock-skills  # 人工驾驶流水线（需 Node.js ≥ 22.20.0）
+# 或
+npx skills@latest add mattpocock/skills   # 需 Node.js ≥ 22.20.0
+```
+
 ## 30 秒上手
 
 ```bash
+# 0. 先装好前置条件：Claude Code + 技能来源（见上「前置条件」）
+
 # 1. 安装 Skills（项目级，跟随仓库）
 gf skills install
 
