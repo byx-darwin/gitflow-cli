@@ -7,6 +7,29 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(release)** tolerate gh pr checks pending exit in CI wait loop - ([2247155](https://github.com/byx-darwin/gitflow-cli/commit/2247155db2ca377e7f6f8889290ce25b018a0277)) - baoyx
+- **(release-signer)** open temp output read+write for zip signing - ([554daed](https://github.com/byx-darwin/gitflow-cli/commit/554daed55b38c1da9f7049bb9f9a781d0b8ce3a9)) - baoyx
+
+### Documentation
+
+- **(workflow)** plan + design for autoreport-bug P0 fix (wf-2026-08-18-006) - ([0862eda](https://github.com/byx-darwin/gitflow-cli/commit/0862edaecc9d9bd0af96f800e4a9d7359e04c513)) - baoyx
+- archive #198 glab 1.113 matrix workflow artifacts - ([5b120b2](https://github.com/byx-darwin/gitflow-cli/commit/5b120b271157dea9e306c64a9ba878185b125890)) - baoyx
+
+### Miscellaneous Chores
+
+- **(deps)** add glab 1.113.0 to compatibility matrix (#206) - ([d68c42b](https://github.com/byx-darwin/gitflow-cli/commit/d68c42b7abd04e4db47f9d6e7e0f06663af13fb3)) - mc-ai
+- sync main back to dev after release v1.4.0 - ([900d76e](https://github.com/byx-darwin/gitflow-cli/commit/900d76ee6e3f00c6787e18403ee12ee07f0d13be)) - baoyx
+- release v1.5.0 - ([89a1ea9](https://github.com/byx-darwin/gitflow-cli/commit/89a1ea9292c3c510141bd2edb9830e54fddac690)) - baoyuexing
+
+### Refactoring
+
+- **(core)** derive matrix gf version from CARGO_PKG_VERSION (#208) - ([d2ec7f9](https://github.com/byx-darwin/gitflow-cli/commit/d2ec7f9bfb6b48c26fad3d88cf3e9a818bab42b3)) - mc-ai
+
+---
+## [1.4.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.3.0..v1.4.0) - 2026-08-18
+
+### Bug Fixes
+
 - **(gitlab)** compat with glab 1.113 for GitLab write operations (#201) - ([980d5c5](https://github.com/byx-darwin/gitflow-cli/commit/980d5c5180cd96a2587910b82ee9496729359cf5)) - mc-ai
 
 ### Documentation
@@ -23,7 +46,6 @@ All notable changes to this project will be documented in this file. See [conven
 ### Miscellaneous Chores
 
 - remove HomebrewFormula directory (#197) - ([858ba10](https://github.com/byx-darwin/gitflow-cli/commit/858ba101f1d214c7e72fa2c3ac2883258b10ec51)) - mc-ai
-- release v1.4.0 - ([81bc12f](https://github.com/byx-darwin/gitflow-cli/commit/81bc12fc69adfd636224504f1723dcf6ab88ab0c)) - baoyx
 
 ### Other
 

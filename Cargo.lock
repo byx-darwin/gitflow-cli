@@ -1123,7 +1123,7 @@ checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 
 [[package]]
 name = "gitflow-cli"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "assert_cmd",
  "built",
@@ -1156,7 +1156,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-core"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1172,7 +1172,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-gitcode"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1188,7 +1188,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-github"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1203,7 +1203,7 @@ dependencies = [
 
 [[package]]
 name = "gitflow-gitlab"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
