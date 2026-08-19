@@ -839,20 +839,20 @@ class Gf < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "${release_url}/gf-${RELEASE_VERSION}-aarch64-apple-darwin.tar.gz"
+      url "${release_url}/gf-aarch64-apple-darwin.tar.gz"
       sha256 "${sha256_sums[aarch64-apple-darwin]}"
     else
-      url "${release_url}/gf-${RELEASE_VERSION}-x86_64-apple-darwin.tar.gz"
+      url "${release_url}/gf-x86_64-apple-darwin.tar.gz"
       sha256 "${sha256_sums[x86_64-apple-darwin]}"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "${release_url}/gf-${RELEASE_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
+      url "${release_url}/gf-aarch64-unknown-linux-gnu.tar.gz"
       sha256 "${sha256_sums[aarch64-unknown-linux-gnu]}"
     else
-      url "${release_url}/gf-${RELEASE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+      url "${release_url}/gf-x86_64-unknown-linux-gnu.tar.gz"
       sha256 "${sha256_sums[x86_64-unknown-linux-gnu]}"
     end
   end

@@ -112,6 +112,10 @@ jobs:
     name: Create GitHub Release
     needs: [build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     outputs:
       tag_name: ${{ steps.set-tag.outputs.tag_name }}
     steps:
@@ -129,10 +133,12 @@ jobs:
           mkdir -p release
           find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) | while read f; do cp "$f" release/; done
 
-      - name: Checksums
-        run: |
-          cd release
-          sha256sum * > checksums.txt
+      # SLSA 供应链证明:对签名前的构建产物做 attestation(签名会修改文件哈希,
+      # 故须在 Sign 之前;与移除前的 build.yml release job 行为一致)
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*.tar.gz
 
       - name: Sign release assets
         env:
@@ -141,6 +147,12 @@ jobs:
           cargo run --bin release-signer -- sign \
             --key "$RELEASE_SIGNING_PRIVATE_KEY" \
             --input release/
+
+      # 签名后再计算校验和:签名是嵌入式修改,先算哈希会对不上已发布资产
+      - name: Checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
