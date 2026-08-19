@@ -41,7 +41,8 @@ gf-workflow 支持两种外部技能来源：**superpowers** 与 **mattpocock/sk
 
 **安装前置**：`gf skills install` 会检测来源，两者皆无时硬阻断并给出安装引导
 （`claude plugins install superpowers` / `claude plugins install mattpocock-skills` /
-`npx skills@latest add mattpocock/skills`）。
+`npx skills@latest add mattpocock/skills`）。其中 `mattpocock-skills` 与 `npx skills`
+两条路径要求 **Node.js ≥ 22.20.0**，安装前先 `node --version` 确认。
 
 **Phase 3 GO 闸门**：Gate 2→3 批准后选择执行模式——后台代理（默认，仅 superpowers）/
 手动新窗口 / 同会话（仅显式要求）。mattpocock 来源菜单自动裁剪。
@@ -61,6 +62,9 @@ gf auth login --platform github
 
 # 确认在 git 仓库内
 git rev-parse --show-toplevel
+
+# 安装技能来源（superpowers / mattpocock 任选其一；后者需 Node.js ≥ 22.20.0）
+claude plugins install superpowers
 
 # 安装本仓库的 skills（一次性）
 gf skills install --agent claude --force
