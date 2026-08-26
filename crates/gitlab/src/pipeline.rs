@@ -21,6 +21,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -247,18 +248,14 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
 
     /// 获取指定 Pipeline 的 Job 列表。
     ///
-    /// 调用 `glab api /projects/{owner}%2F{project}/pipelines/{pipeline_id}/jobs`。
+    /// 调用 `glab api /projects/{repo-encoded}/pipelines/{pipeline_id}/jobs`，
+    /// 其中 `{repo-encoded}` 为全量 URL 编码的项目路径
+    /// （如 `group/subgroup/project` → `group%2Fsubgroup%2Fproject`）。
     async fn jobs(&self, pipeline_id: u64) -> Result<Vec<JobData>> {
         debug!(repo = %self.repo, pipeline_id, "spawning `glab api` GET pipeline jobs");
 
-        let (owner, project) = self.repo.split_once('/').ok_or_else(|| {
-            CoreError::Platform(format!(
-                "Invalid repo format '{}', expected 'owner/project'",
-                self.repo
-            ))
-        })?;
-
-        let api_path = format!("/projects/{owner}%2F{project}/pipelines/{pipeline_id}/jobs");
+        let encoded_path = encode_project_path(&self.repo);
+        let api_path = format!("/projects/{encoded_path}/pipelines/{pipeline_id}/jobs");
 
         let output = self
             .runner
@@ -617,6 +614,29 @@ mod tests {
                 .into_iter()
                 .map(String::from)
                 .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_encode_nested_group_repo_path_for_pipeline_jobs() {
+        let runner = MockCommandRunner::success(
+            r#"[{"id":1,"name":"build","status":"success"},{"id":2,"name":"test","status":"running"}]"#,
+        );
+        let provider =
+            GitLabPipelineProvider::with_runner("group/subgroup/project", runner.clone());
+
+        let jobs = provider.jobs(5).await.expect("should fetch");
+
+        assert_eq!(jobs.len(), 2);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "api",
+                "/projects/group%2Fsubgroup%2Fproject/pipelines/5/jobs"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 
