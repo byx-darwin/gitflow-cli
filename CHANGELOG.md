@@ -5,35 +5,35 @@ All notable changes to this project will be documented in this file. See [conven
 ---
 ## [1.6.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.5.0..v1.6.0) - 2026-08-26
 
-### Features
+### ✨ 新特性
 
-- **(cli)** add Standard variant to WorkflowMode - ([92cc0ce](https://github.com/byx-darwin/gitflow-cli/commit/92cc0ce11d0f9bb1db09e7b9bea94af1f24d3385)) - baoyuexing
-- **(release)** add crates.io and Homebrew publishing - ([7ddd135](https://github.com/byx-darwin/gitflow-cli/commit/7ddd135152d84d0ddc158f3fc40aa4f13592ecae)) - baoyx
-- **(release)** update release script for PR-based workflow - ([3b5da59](https://github.com/byx-darwin/gitflow-cli/commit/3b5da59b16d5f532da32aeb645635be676179571)) - baoyx
-- add release-from-dev automation script - ([22c2f59](https://github.com/byx-darwin/gitflow-cli/commit/22c2f597aee1dcf753d3cc56354e14e582e0ec7e)) - baoyx
+* **cli** — 新增 `WorkflowMode::Standard` 变体，`gf workflow create --mode standard` 现已可用 - ([92cc0ce](https://github.com/byx-darwin/gitflow-cli/commit/92cc0ce))
+* **release** — 支持 crates.io 与 Homebrew 自动发布 - ([7ddd135](https://github.com/byx-darwin/gitflow-cli/commit/7ddd135))
+* **release** — 发布脚本适配 PR 工作流 - ([3b5da59](https://github.com/byx-darwin/gitflow-cli/commit/3b5da59))
+* 新增 release-from-dev 自动化脚本 - ([22c2f59](https://github.com/byx-darwin/gitflow-cli/commit/22c2f59))
 
-### Bug Fixes
+### 🐛 Bug 修复
 
-- **(gitlab)** issue comment/comments 嵌套 group 项目路径 %2F 编码不全导致 404 (#221) - ([44e1cdf](https://github.com/byx-darwin/gitflow-cli/commit/44e1cdf)) - baoyuexing
-- **(gitlab)** review approve 去掉 `--repo`，修复嵌套 group 项目失败 (#231) - ([dff3c33](https://github.com/byx-darwin/gitflow-cli/commit/dff3c33)) - baoyuexing
-- **(release)** 修复 gf update 签名校验失败（消除重复发布、统一签名资产）(#226) - ([d3d0a87](https://github.com/byx-darwin/gitflow-cli/commit/d3d0a87)) - baoyuexing
-- **(github)** gf label edit 假失败 — gh 2.97 无 label view 子命令 (#203) - ([60c332a](https://github.com/byx-darwin/gitflow-cli/commit/60c332a)) - baoyuexing
-- **(bug-report)** 修复主动上报 bug 功能 P0/P1/P2 遗留问题 (#212, #214, #218) - baoyuexing
-- **(bug-report)** 上报 bug 路径改回 gh（边界修正）(#216) - ([4a60cda](https://github.com/byx-darwin/gitflow-cli/commit/4a60cda)) - baoyuexing
+* **gitlab** — 修复嵌套 group 项目路径 `%2F` 编码不全导致 issue 评论 404 (#221) - ([44e1cdf](https://github.com/byx-darwin/gitflow-cli/commit/44e1cdf))
+* **gitlab** — review approve 去掉 `--repo` 参数，修复嵌套 group 项目失败 (#231) - ([dff3c33](https://github.com/byx-darwin/gitflow-cli/commit/dff3c33))
+* **release** — 修复 gf update 签名校验失败（消除重复发布、统一签名资产）(#226) - ([d3d0a87](https://github.com/byx-darwin/gitflow-cli/commit/d3d0a87))
+* **github** — 修复 gf label 编辑假失败（gh 2.97 移除 label view 子命令）(#203) - ([60c332a](https://github.com/byx-darwin/gitflow-cli/commit/60c332a))
+* **bug-report** — 修复主动上报 bug 功能 P0/P1/P2 遗留问题（认证统一、触发确定性、错误分类等）(#212, #214, #218)
+* **bug-report** — 上报路径改回 gh（边界修正：项目托管在 GitHub）(#216) - ([4a60cda](https://github.com/byx-darwin/gitflow-cli/commit/4a60cda))
 
-### Documentation
+### 📝 文档
 
-- 补齐安装前置条件并在 skills install 阻断提示内联 Node 版本 (#220)
-- **(eval)** 多角色评估报告 — 主动上报 bug 功能是否 OK (#210)
+* 补齐安装前置条件，skills install 阻断提示内联 Node 版本说明 (#220)
+* 多角色评估报告 — 主动上报 bug 功能是否 OK (#210)
 
-### Miscellaneous Chores
+### 🔧 维护
 
-- **(ci)** 恢复 update-homebrew job + e2e paths 治本 (#225)
-- **(chore)** bump glab tested_version to 1.114.0 (#230)
+* **ci** — 恢复 update-homebrew job + e2e paths 治本 (#225)
+* **chore** — 升级 glab tested_version 至 1.114.0 (#230)
 
-### Refactoring
+### ♻️ 重构
 
-- **(core)** derive matrix gf version from CARGO_PKG_VERSION (#208)
+* **core** — 兼容性矩阵 gf 版本改为从 `CARGO_PKG_VERSION` 派生 (#208)
 
 ---
 ## [unreleased]
