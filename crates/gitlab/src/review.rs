@@ -143,7 +143,7 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
         debug!(repo = %self.repo, number = pr_number, "spawning `glab mr approve`");
 
         let pr_number_str = pr_number.to_string();
-        let mut cmd_args: Vec<&str> = vec!["mr", "approve", &pr_number_str, "--repo", &self.repo];
+        let mut cmd_args: Vec<&str> = vec!["mr", "approve", &pr_number_str];
 
         if let Some(b) = body {
             cmd_args.push("--comment");
@@ -269,16 +269,7 @@ impl<R: CommandRunner> GitLabReviewProvider<R> {
             .runner
             .run(
                 "glab",
-                &[
-                    "mr",
-                    "list",
-                    "--repo",
-                    &self.repo,
-                    "--output",
-                    "json",
-                    "--per-page",
-                    "1",
-                ],
+                &["mr", "list", "--output", "json", "--per-page", "1"],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -309,7 +300,7 @@ impl<R: CommandRunner> GitLabReviewProvider<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitlab_review_provider() {
@@ -550,5 +541,78 @@ mod tests {
         let summary: UserSummary = (&user).into();
         assert_eq!(summary.login, "bot");
         assert_eq!(summary.id, "0");
+    }
+
+    // --- approve() tests: --repo dropped, glab auto-detects from git remote ---
+
+    #[tokio::test]
+    async fn test_should_approve_mr_without_repo_flag() {
+        // Sequenced: first `glab mr approve` succeeds, then `glab mr list` (get_current_user).
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, "Approved MR #7"),
+            (true, r#"[{"author":{"username":"alice","id":1}}]"#),
+        ]);
+        let provider = GitLabReviewProvider::with_runner("owner/repo", runner.clone());
+
+        let review = provider
+            .approve(7, Some("LGTM"))
+            .await
+            .expect("should approve");
+
+        assert_eq!(review.state, ReviewState::Approved);
+        assert_eq!(review.author.login, "alice");
+
+        let calls = runner.recorded_calls();
+        // First call: `glab mr approve <num> --comment <body>` — NO --repo.
+        assert_eq!(
+            calls[0].1,
+            vec!["mr", "approve", "7", "--comment", "LGTM"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        // Second call: `glab mr list --output json --per-page 1` — NO --repo.
+        assert_eq!(
+            calls[1].1,
+            vec!["mr", "list", "--output", "json", "--per-page", "1"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_approve_nested_group_mr_without_repo_flag() {
+        // Regression: 3-segment path (iproost/proxy/edge) must NOT pass --repo,
+        // which glab cannot parse. Dropping --repo lets glab auto-detect.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, "Approved MR #26"),
+            (true, r#"[{"author":{"username":"reviewer","id":42}}]"#),
+        ]);
+        let provider = GitLabReviewProvider::with_runner("iproost/proxy/edge", runner.clone());
+
+        let review = provider
+            .approve(26, Some("LGTM"))
+            .await
+            .expect("should approve");
+
+        assert_eq!(review.state, ReviewState::Approved);
+        assert_eq!(review.author.login, "reviewer");
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls[0].1,
+            vec!["mr", "approve", "26", "--comment", "LGTM"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            calls[1].1,
+            vec!["mr", "list", "--output", "json", "--per-page", "1"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 }
