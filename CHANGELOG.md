@@ -3,27 +3,40 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [1.6.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.5.0..v1.6.0) - 2026-08-26
+
+### ✨ 新特性
+
+* **cli** — 新增 `WorkflowMode::Standard` 变体，`gf workflow create --mode standard` 现已可用 - ([92cc0ce](https://github.com/byx-darwin/gitflow-cli/commit/92cc0ce))
+* **release** — 支持 crates.io 与 Homebrew 自动发布 - ([7ddd135](https://github.com/byx-darwin/gitflow-cli/commit/7ddd135))
+* **release** — 发布脚本适配 PR 工作流 - ([3b5da59](https://github.com/byx-darwin/gitflow-cli/commit/3b5da59))
+* 新增 release-from-dev 自动化脚本 - ([22c2f59](https://github.com/byx-darwin/gitflow-cli/commit/22c2f59))
+
+### 🐛 Bug 修复
+
+* **gitlab** — 修复嵌套 group 项目路径 `%2F` 编码不全导致 issue 评论 404 (#221) - ([44e1cdf](https://github.com/byx-darwin/gitflow-cli/commit/44e1cdf))
+* **gitlab** — review approve 去掉 `--repo` 参数，修复嵌套 group 项目失败 (#231) - ([dff3c33](https://github.com/byx-darwin/gitflow-cli/commit/dff3c33))
+* **release** — 修复 gf update 签名校验失败（消除重复发布、统一签名资产）(#226) - ([d3d0a87](https://github.com/byx-darwin/gitflow-cli/commit/d3d0a87))
+* **github** — 修复 gf label 编辑假失败（gh 2.97 移除 label view 子命令）(#203) - ([60c332a](https://github.com/byx-darwin/gitflow-cli/commit/60c332a))
+* **bug-report** — 修复主动上报 bug 功能 P0/P1/P2 遗留问题（认证统一、触发确定性、错误分类等）(#212, #214, #218)
+* **bug-report** — 上报路径改回 gh（边界修正：项目托管在 GitHub）(#216) - ([4a60cda](https://github.com/byx-darwin/gitflow-cli/commit/4a60cda))
+
+### 📝 文档
+
+* 补齐安装前置条件，skills install 阻断提示内联 Node 版本说明 (#220)
+* 多角色评估报告 — 主动上报 bug 功能是否 OK (#210)
+
+### 🔧 维护
+
+* **ci** — 恢复 update-homebrew job + e2e paths 治本 (#225)
+* **chore** — 升级 glab tested_version 至 1.114.0 (#230)
+
+### ♻️ 重构
+
+* **core** — 兼容性矩阵 gf 版本改为从 `CARGO_PKG_VERSION` 派生 (#208)
+
+---
 ## [unreleased]
-
-### Bug Fixes
-
-- **(release)** tolerate gh pr checks pending exit in CI wait loop - ([2247155](https://github.com/byx-darwin/gitflow-cli/commit/2247155db2ca377e7f6f8889290ce25b018a0277)) - baoyx
-- **(release-signer)** open temp output read+write for zip signing - ([554daed](https://github.com/byx-darwin/gitflow-cli/commit/554daed55b38c1da9f7049bb9f9a781d0b8ce3a9)) - baoyx
-
-### Documentation
-
-- **(workflow)** plan + design for autoreport-bug P0 fix (wf-2026-08-18-006) - ([0862eda](https://github.com/byx-darwin/gitflow-cli/commit/0862edaecc9d9bd0af96f800e4a9d7359e04c513)) - baoyx
-- archive #198 glab 1.113 matrix workflow artifacts - ([5b120b2](https://github.com/byx-darwin/gitflow-cli/commit/5b120b271157dea9e306c64a9ba878185b125890)) - baoyx
-
-### Miscellaneous Chores
-
-- **(deps)** add glab 1.113.0 to compatibility matrix (#206) - ([d68c42b](https://github.com/byx-darwin/gitflow-cli/commit/d68c42b7abd04e4db47f9d6e7e0f06663af13fb3)) - mc-ai
-- sync main back to dev after release v1.4.0 - ([900d76e](https://github.com/byx-darwin/gitflow-cli/commit/900d76ee6e3f00c6787e18403ee12ee07f0d13be)) - baoyx
-- release v1.5.0 - ([89a1ea9](https://github.com/byx-darwin/gitflow-cli/commit/89a1ea9292c3c510141bd2edb9830e54fddac690)) - baoyuexing
-
-### Refactoring
-
-- **(core)** derive matrix gf version from CARGO_PKG_VERSION (#208) - ([d2ec7f9](https://github.com/byx-darwin/gitflow-cli/commit/d2ec7f9bfb6b48c26fad3d88cf3e9a818bab42b3)) - mc-ai
 
 ---
 ## [1.4.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.3.0..v1.4.0) - 2026-08-18
