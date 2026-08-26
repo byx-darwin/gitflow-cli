@@ -21,12 +21,14 @@ use chrono::{DateTime, TimeDelta, Utc};
 use clap::{Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
-/// 工作流模式：完整模式（四阶段）或快速模式（跳过阶段二）。
+/// 工作流模式：完整模式（四阶段）、标准模式（平衡安全与效率）或快速模式（跳过阶段二）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkflowMode {
     /// 完整四阶段流程。
     Full,
+    /// 标准模式（平衡安全与效率），门控行为与 Full 相同。
+    Standard,
     /// 快速模式，跳过计划制定阶段。
     Fast,
 }
@@ -35,6 +37,7 @@ impl fmt::Display for WorkflowMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Full => write!(f, "full"),
+            Self::Standard => write!(f, "standard"),
             Self::Fast => write!(f, "fast"),
         }
     }
@@ -167,7 +170,7 @@ impl WorkflowContract {
                 if phase1.evidence.issue_url.is_none() {
                     return GateCheck::MissingEvidence("issue_url".into());
                 }
-                if self.mode == WorkflowMode::Full && phase1.evidence.comment_id.is_none() {
+                if self.mode != WorkflowMode::Fast && phase1.evidence.comment_id.is_none() {
                     return GateCheck::MissingEvidence("comment_id".into());
                 }
                 GateCheck::Pass
@@ -1214,5 +1217,46 @@ mod tests {
         let contract: WorkflowContract =
             serde_json::from_str(SCHEMA_EXAMPLE_CONTRACT).expect("legacy contract");
         assert!(contract.skill_source.is_none());
+    }
+
+    #[test]
+    fn test_should_serialize_standard_mode_lowercase() {
+        let contract = base_contract("standard");
+        let json = serde_json::to_string(&contract).expect("serialize");
+        assert!(
+            json.contains(r#""mode":"standard""#),
+            "mode must serialize as lowercase 'standard': {json}"
+        );
+        let deserialized: WorkflowContract = serde_json::from_str(&json).expect("deserialize");
+        assert!(matches!(deserialized.mode, WorkflowMode::Standard));
+    }
+
+    #[test]
+    fn test_gate_1_to_2_standard_mode_requires_comment_id() {
+        let mut contract = base_contract("standard");
+        let phase1 = contract.phases.get_mut("1").expect("phase 1");
+        phase1.status = PhaseStatus::Complete;
+        phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        // Standard 模式应要求 comment_id（与 Full 相同）
+        let result = contract.can_enter_phase(2);
+        assert!(
+            matches!(result, GateCheck::MissingEvidence(ref ev) if ev == "comment_id"),
+            "standard mode should require comment_id for gate 1→2"
+        );
+    }
+
+    #[test]
+    fn test_gate_2_to_3_standard_mode_requires_phase2() {
+        let mut contract = base_contract("standard");
+        let phase1 = contract.phases.get_mut("1").expect("phase 1");
+        phase1.status = PhaseStatus::Complete;
+        phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        phase1.evidence.comment_id = Some("12345".to_string());
+        // Standard 模式不应跳过 Phase 2（与 Fast 不同）
+        let result = contract.can_enter_phase(3);
+        assert!(
+            matches!(result, GateCheck::PhaseNotComplete(2)),
+            "standard mode must not skip phase 2"
+        );
     }
 }
