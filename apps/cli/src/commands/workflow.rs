@@ -173,6 +173,10 @@ impl WorkflowContract {
                 if phase1.evidence.issue_url.is_none() {
                     return GateCheck::MissingEvidence("issue_url".into());
                 }
+                // design_doc_path 在所有模式下都是必填
+                if phase1.evidence.design_doc_path.is_none() {
+                    return GateCheck::MissingEvidence("design_doc_path".into());
+                }
                 if self.mode != WorkflowMode::Fast && phase1.evidence.comment_id.is_none() {
                     return GateCheck::MissingEvidence("comment_id".into());
                 }
@@ -732,6 +736,35 @@ mod tests {
         assert_eq!(deserialized.workflow_id, contract.workflow_id);
         assert_eq!(deserialized.title, contract.title);
         assert!(matches!(deserialized.mode, WorkflowMode::Fast));
+    }
+
+    #[test]
+    fn test_gate_1_to_2_blocks_without_design_doc_path() {
+        let mut contract = base_contract("full");
+        let phase1 = contract.phases.get_mut("1").expect("phase 1");
+        phase1.status = PhaseStatus::Complete;
+        phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        phase1.evidence.comment_id = Some("12345".to_string());
+        // design_doc_path is None
+        let result = contract.can_enter_phase(2);
+        assert!(
+            matches!(result, GateCheck::MissingEvidence(ref e) if e == "design_doc_path"),
+            "should block without design_doc_path, got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_gate_1_to_2_fast_mode_requires_design_doc_path() {
+        let mut contract = base_contract("fast");
+        let phase1 = contract.phases.get_mut("1").expect("phase 1");
+        phase1.status = PhaseStatus::Complete;
+        phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        // comment_id optional in Fast, but design_doc_path required
+        let result = contract.can_enter_phase(2);
+        assert!(
+            matches!(result, GateCheck::MissingEvidence(ref e) if e == "design_doc_path"),
+            "fast mode should require design_doc_path, got: {result:?}"
+        );
     }
 
     #[test]
