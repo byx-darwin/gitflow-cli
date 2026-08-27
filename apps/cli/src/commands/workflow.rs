@@ -786,6 +786,7 @@ mod tests {
         phase1.status = PhaseStatus::Complete;
         phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
         phase1.evidence.comment_id = Some("12345".to_string());
+        phase1.evidence.design_doc_path = Some("docs/design.md".to_string());
         let result = contract.can_enter_phase(2);
         assert!(matches!(result, GateCheck::Pass));
     }
@@ -859,7 +860,8 @@ mod tests {
       "executor": "claude-code-3.7",
       "evidence": {
         "issue_url": "https://github.com/org/repo/issues/74",
-        "comment_id": "4921173903"
+        "comment_id": "4921173903",
+        "design_doc_path": "docs/superpowers/specs/2026-07-09-toon-design.md"
       }
     },
     "2": {
@@ -1291,6 +1293,7 @@ mod tests {
         let phase1 = contract.phases.get_mut("1").expect("phase 1");
         phase1.status = PhaseStatus::Complete;
         phase1.evidence.issue_url = Some("https://github.com/org/repo/issues/1".to_string());
+        phase1.evidence.design_doc_path = Some("docs/design.md".to_string());
         // Standard 模式应要求 comment_id（与 Full 相同）
         let result = contract.can_enter_phase(2);
         assert!(
