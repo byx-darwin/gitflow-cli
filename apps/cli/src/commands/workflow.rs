@@ -67,6 +67,9 @@ pub struct PhaseEvidence {
     /// 评论 ID。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment_id: Option<String>,
+    /// 设计文档路径（Phase 1 产出）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub design_doc_path: Option<String>,
     /// 规格文件路径。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spec_path: Option<String>,
@@ -675,6 +678,24 @@ mod tests {
 }}"#
         );
         serde_json::from_str(&json).expect("deserialize base contract")
+    }
+
+    #[test]
+    fn test_phase_evidence_has_design_doc_path_field() {
+        let evidence = PhaseEvidence {
+            issue_url: None,
+            comment_id: None,
+            design_doc_path: Some("docs/design.md".to_string()),
+            spec_path: None,
+            ticket_refs: None,
+            user_approved: None,
+            branch: None,
+            pr_url: None,
+            tests_passed: None,
+            pipeline_ok: None,
+            review_report_path: None,
+        };
+        assert_eq!(evidence.design_doc_path.as_deref(), Some("docs/design.md"));
     }
 
     #[test]
