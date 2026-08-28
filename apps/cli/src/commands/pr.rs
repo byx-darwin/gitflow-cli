@@ -971,8 +971,7 @@ mod tests {
     fn test_should_parse_pr_create_with_multiple_closes() {
         use clap::Parser;
         let cli = crate::Cli::try_parse_from([
-            "gitflow", "pr", "create", "--title", "Feature",
-            "--closes", "24", "--closes", "23",
+            "gitflow", "pr", "create", "--title", "Feature", "--closes", "24", "--closes", "23",
         ])
         .expect("parse");
         match cli.command {
@@ -1001,10 +1000,8 @@ mod tests {
     #[test]
     fn test_should_parse_pr_create_without_closes() {
         use clap::Parser;
-        let cli = crate::Cli::try_parse_from([
-            "gitflow", "pr", "create", "--title", "Feature",
-        ])
-        .expect("parse");
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "create", "--title", "Feature"])
+            .expect("parse");
         match cli.command {
             crate::Commands::Pr(PrCommand::Create { closes, .. }) => {
                 assert!(closes.is_empty());

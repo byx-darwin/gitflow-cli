@@ -716,9 +716,8 @@ fn resolve_hook_paths(
 /// guard 保证非 git 仓库或脚本缺失时静默跳过，可安全用于全局注册。
 fn build_auto_report_hook_cmd(hooks_dir: &str) -> String {
     format!(
-        "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) \
-         && [ -x \"$p/{hooks_dir}/auto-report-bug.sh\" ] \
-         && bash \"$p/{hooks_dir}/auto-report-bug.sh\"'"
+        "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \
+         \"$p/{hooks_dir}/auto-report-bug.sh\" ] && bash \"$p/{hooks_dir}/auto-report-bug.sh\"'"
     )
 }
 

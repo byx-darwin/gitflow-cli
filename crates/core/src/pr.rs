@@ -212,11 +212,7 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
 /// assert_eq!(result, Some("Description\n\nCloses #24\nCloses #23".to_string()));
 /// ```
 #[must_use]
-pub fn format_closing_body(
-    body: &Option<String>,
-    issues: &[u64],
-    keyword: &str,
-) -> Option<String> {
+pub fn format_closing_body(body: &Option<String>, issues: &[u64], keyword: &str) -> Option<String> {
     if issues.is_empty() {
         return body.clone();
     }
@@ -435,7 +431,10 @@ mod tests {
     fn test_should_append_closing_to_existing_body() {
         let body = Some("Feature description".to_string());
         let result = crate::pr::format_closing_body(&body, &[24], "Closes");
-        assert_eq!(result, Some("Feature description\n\nCloses #24".to_string()));
+        assert_eq!(
+            result,
+            Some("Feature description\n\nCloses #24".to_string())
+        );
     }
 
     #[test]
@@ -456,7 +455,7 @@ mod tests {
 
     #[test]
     fn test_should_treat_empty_body_as_no_body() {
-        let body = Some("".to_string());
+        let body = Some(String::new());
         let result = crate::pr::format_closing_body(&body, &[10], "Closes");
         assert_eq!(result, Some("Closes #10".to_string()));
     }

@@ -230,11 +230,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
             &args.base,
         ];
 
-        let final_body = gitflow_core::pr::format_closing_body(
-            &args.body,
-            &args.closes_issues,
-            "Closes",
-        );
+        let final_body =
+            gitflow_core::pr::format_closing_body(&args.body, &args.closes_issues, "Closes");
 
         if let Some(body) = &final_body {
             cmd_args.push("--description");
