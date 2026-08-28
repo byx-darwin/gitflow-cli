@@ -148,6 +148,17 @@ impl GitHubPipelineProvider<RealCommandRunner> {
             runner: RealCommandRunner,
         }
     }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(session: &gitflow_core::Session) -> Self {
+        Self {
+            repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
 }
 
 impl<R: CommandRunner> GitHubPipelineProvider<R> {

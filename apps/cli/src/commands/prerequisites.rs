@@ -43,6 +43,9 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
     match platform {
         "github" => Some(CliRequirement {
             binary: "gh",
+            // gh 2.0+ provides `gh api`, `gh pr create/list/view/merge/close`,
+            // `gh issue create/list/view`, and `gh release create/list/view`.
+            // See docs/cli-compatibility.md for feature-level version breakdown.
             min_version: "2.0.0",
             install_url: "https://github.com/cli/cli#installation",
             install_hint: "brew install gh       # macOS/Linux\n\
@@ -55,6 +58,9 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
         }),
         "gitlab" => Some(CliRequirement {
             binary: "glab",
+            // glab 1.30+ provides `glab mr create/list/view/merge/close`,
+            // `glab issue create/list/view`, `glab release create/list/view`,
+            // and `glab ci list/trace`. See docs/cli-compatibility.md for details.
             min_version: "1.30.0",
             install_url: "https://gitlab.com/gitlab-org/cli#installation",
             install_hint: "brew install glab   # macOS/Linux\n\
@@ -65,7 +71,11 @@ pub fn requirement_for(platform: &str) -> Option<CliRequirement> {
             doc_link: "https://gitlab.com/gitlab-org/cli/-/blob/main/docs/",
         }),
         "gitcode" => Some(CliRequirement {
-            // 优先使用 gc（Linux/macOS 原生名称），gitcode 作为回退
+            // 优先使用 gc（Linux/macOS 原生名称），gitcode 作为回退。
+            // gc 0.6+ provides `issue create/list/view/close/reopen`,
+            // `pr create/list/view/merge/close/checkout`, `release create/list/view/edit/delete`,
+            // `label create/list/edit/delete/view`, and `milestone create/list/edit/close/reopen`.
+            // See docs/cli-compatibility.md for feature-level version breakdown.
             binary: "gc",
             min_version: "0.6.0",
             install_url: "https://gitcode.com/gitcode-cli/cli",

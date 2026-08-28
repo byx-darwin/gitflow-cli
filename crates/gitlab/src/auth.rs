@@ -43,6 +43,17 @@ impl GitLabAuthProvider<RealCommandRunner> {
             runner: RealCommandRunner,
         }
     }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// `AuthProvider` doesn't use repository context, so session.repo is ignored.
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(_session: &gitflow_core::Session) -> Self {
+        Self {
+            runner: RealCommandRunner,
+        }
+    }
 }
 
 impl<R: CommandRunner> GitLabAuthProvider<R> {

@@ -39,6 +39,7 @@ pub mod platform;
 pub mod pr;
 pub mod release;
 pub mod review;
+pub mod session;
 pub mod toon;
 pub mod types;
 
@@ -107,6 +108,7 @@ pub use commit::{CommitData, CommitDetail, CommitFile};
 pub use label::{CreateLabelArgs, CreateMilestoneArgs, LabelData, MilestoneData};
 pub use release::{CreateReleaseArgs, ReleaseData};
 pub use review::{ReviewCommentData, ReviewData, ReviewState};
+pub use session::Session;
 pub use types::{CommentData, MergeResult, MergeStrategy};
 
 /// Example domain struct demonstrating CLAUDE.md conventions.

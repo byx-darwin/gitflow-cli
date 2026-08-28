@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, Result, Session,
     review::{ReviewData, ReviewProvider, ReviewState},
 };
 use tracing::debug;
@@ -41,6 +41,16 @@ impl GitCodeReviewProvider {
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
         Self { repo: repo.into() }
+    }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(session: &Session) -> Self {
+        Self {
+            repo: session.repo.clone(),
+        }
     }
 }
 

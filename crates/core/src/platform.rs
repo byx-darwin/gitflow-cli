@@ -3,6 +3,31 @@
 //! Identifies the hosting platform (GitHub, GitLab, or `GitCode`) from a
 //! remote URL so that the CLI can select the correct API and workflow.
 
+/// Result of detecting a platform from a remote URL.
+///
+/// Carries both the detected [`Platform`] and whether the match was
+/// explicit (the URL contained a known platform domain) or a fallback
+/// default. Callers can use [`is_explicit`](Self::is_explicit) to decide
+/// whether to warn the user about an uncertain detection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlatformDetection {
+    /// The detected or default platform.
+    pub platform: Platform,
+    /// `true` when the URL matched a known platform domain pattern;
+    /// `false` when the result is a fallback default for an unrecognized
+    /// domain.
+    pub explicit: bool,
+}
+
+impl PlatformDetection {
+    /// Returns `true` if the URL explicitly matched a known platform domain.
+    #[inline]
+    #[must_use]
+    pub fn is_explicit(self) -> bool {
+        self.explicit
+    }
+}
+
 /// The Git platform hosting a remote repository.
 ///
 /// Used to determine which API client and workflow to use for
@@ -20,49 +45,54 @@ pub enum Platform {
 impl Platform {
     /// Detects the platform from a remote Git URL.
     ///
-    /// Performs a case-insensitive substring match against known platform
-    /// domain patterns. Supports both HTTPS and SSH remote formats, as
-    /// well as self-hosted instances.
+    /// Returns a [`PlatformDetection`] containing the platform and whether
+    /// the URL explicitly matched a known domain pattern. Unrecognized
+    /// domains default to GitLab with `explicit: false`, so callers can
+    /// warn the user.
     ///
     /// # Detection Strategy
     ///
-    /// - `github.com` or `github.*` → GitHub
-    /// - `gitcode.com` or `gitcode.*` → `GitCode`
-    /// - All other domains → GitLab (default, including self-hosted)
-    ///
-    /// This approach assumes that any unrecognized domain is a GitLab instance,
-    /// which covers custom domains like `xyun.git.nyuncloud.com`.
+    /// - `github.com` or `github.*` → GitHub (explicit)
+    /// - `gitcode.com` or `gitcode.*` → `GitCode` (explicit)
+    /// - `gitlab.com` or `gitlab.*` → GitLab (explicit)
+    /// - All other domains → GitLab (fallback, `explicit: false`)
     ///
     /// # Examples
     ///
     /// ```ignore
-    /// // Doctest skipped: crate name hyphen-to-underscore mapping
-    /// // prevents `use gitflow_core::Platform` from resolving.
-    /// use gitflow_core::Platform;
+    /// use gitflow_core::platform::{Platform, PlatformDetection};
     ///
-    /// assert_eq!(
-    ///     Platform::detect_from_remote_url("https://github.com/owner/repo.git"),
-    ///     Some(Platform::GitHub),
-    /// );
-    /// assert_eq!(
-    ///     Platform::detect_from_remote_url("git@gitlab.mycorp.com:group/project.git"),
-    ///     Some(Platform::GitLab),
-    /// );
-    /// assert_eq!(
-    ///     Platform::detect_from_remote_url("git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git"),
-    ///     Some(Platform::GitLab),
-    /// );
+    /// let result = Platform::detect_from_remote_url("https://github.com/owner/repo.git");
+    /// assert_eq!(result.platform, Platform::GitHub);
+    /// assert!(result.is_explicit());
+    ///
+    /// let result = Platform::detect_from_remote_url("https://example.com/repo.git");
+    /// assert_eq!(result.platform, Platform::GitLab);
+    /// assert!(!result.is_explicit());
     /// ```
     #[must_use]
-    pub fn detect_from_remote_url(url: &str) -> Option<Self> {
+    pub fn detect_from_remote_url(url: &str) -> PlatformDetection {
         let url_lower = url.to_lowercase();
         if url_lower.contains("github.com") || url_lower.contains("github.") {
-            Some(Self::GitHub)
+            PlatformDetection {
+                platform: Self::GitHub,
+                explicit: true,
+            }
         } else if url_lower.contains("gitcode.com") || url_lower.contains("gitcode.") {
-            Some(Self::GitCode)
+            PlatformDetection {
+                platform: Self::GitCode,
+                explicit: true,
+            }
+        } else if url_lower.contains("gitlab.com") || url_lower.contains("gitlab.") {
+            PlatformDetection {
+                platform: Self::GitLab,
+                explicit: true,
+            }
         } else {
-            // Default to GitLab for all other domains (including self-hosted GitLab)
-            Some(Self::GitLab)
+            PlatformDetection {
+                platform: Self::GitLab,
+                explicit: false,
+            }
         }
     }
 }
@@ -73,79 +103,71 @@ mod tests {
 
     #[test]
     fn test_should_detect_github_from_https_url() {
-        assert_eq!(
-            Platform::detect_from_remote_url("https://github.com/owner/repo.git"),
-            Some(Platform::GitHub),
-        );
+        let result = Platform::detect_from_remote_url("https://github.com/owner/repo.git");
+        assert_eq!(result.platform, Platform::GitHub);
+        assert!(result.is_explicit());
     }
 
     #[test]
     fn test_should_detect_github_from_ssh_url() {
-        assert_eq!(
-            Platform::detect_from_remote_url("git@github.com:owner/repo.git"),
-            Some(Platform::GitHub),
-        );
+        let result = Platform::detect_from_remote_url("git@github.com:owner/repo.git");
+        assert_eq!(result.platform, Platform::GitHub);
+        assert!(result.is_explicit());
     }
 
     #[test]
     fn test_should_detect_gitlab_from_https_url() {
-        assert_eq!(
-            Platform::detect_from_remote_url("https://gitlab.com/group/project.git"),
-            Some(Platform::GitLab),
-        );
+        let result = Platform::detect_from_remote_url("https://gitlab.com/group/project.git");
+        assert_eq!(result.platform, Platform::GitLab);
+        assert!(result.is_explicit());
     }
 
     #[test]
     fn test_should_detect_gitlab_from_self_hosted_url() {
-        assert_eq!(
-            Platform::detect_from_remote_url("git@gitlab.mycorp.com:group/project.git"),
-            Some(Platform::GitLab),
-        );
+        let result = Platform::detect_from_remote_url("git@gitlab.mycorp.com:group/project.git");
+        assert_eq!(result.platform, Platform::GitLab);
+        assert!(result.is_explicit());
     }
 
     #[test]
     fn test_should_detect_gitcode() {
-        assert_eq!(
-            Platform::detect_from_remote_url("https://gitcode.com/owner/repo.git"),
-            Some(Platform::GitCode),
-        );
+        let result = Platform::detect_from_remote_url("https://gitcode.com/owner/repo.git");
+        assert_eq!(result.platform, Platform::GitCode);
+        assert!(result.is_explicit());
     }
 
     #[test]
     fn test_should_detect_gitlab_from_custom_domain() {
-        // Custom GitLab domains should be detected as GitLab
-        assert_eq!(
-            Platform::detect_from_remote_url("git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git"),
-            Some(Platform::GitLab),
-        );
-        assert_eq!(
-            Platform::detect_from_remote_url("https://gitlab.mycorp.com/group/project.git"),
-            Some(Platform::GitLab),
-        );
+        let result =
+            Platform::detect_from_remote_url("git@xyun.git.nyuncloud.com:fusion-cdn/bff/admin.git");
+        assert_eq!(result.platform, Platform::GitLab);
+        assert!(!result.is_explicit());
+
+        let result =
+            Platform::detect_from_remote_url("https://gitlab.mycorp.com/group/project.git");
+        assert_eq!(result.platform, Platform::GitLab);
+        assert!(result.is_explicit());
     }
 
     #[test]
-    fn test_should_default_to_gitlab_for_unrecognized_url() {
-        // Unrecognized domains default to GitLab
-        assert_eq!(
-            Platform::detect_from_remote_url("https://example.com/repo.git"),
-            Some(Platform::GitLab),
-        );
+    fn test_should_fallback_to_gitlab_for_unrecognized_url() {
+        let result = Platform::detect_from_remote_url("https://example.com/repo.git");
+        assert_eq!(result.platform, Platform::GitLab);
+        assert!(!result.is_explicit());
     }
 
     #[test]
     fn test_should_be_case_insensitive() {
-        assert_eq!(
-            Platform::detect_from_remote_url("HTTPS://GITHUB.COM/Owner/Repo.git"),
-            Some(Platform::GitHub),
-        );
-        assert_eq!(
-            Platform::detect_from_remote_url("GIT@GITLAB.COM:Group/Project.git"),
-            Some(Platform::GitLab),
-        );
-        assert_eq!(
-            Platform::detect_from_remote_url("HTTPS://GITCODE.COM/Owner/Repo.git"),
-            Some(Platform::GitCode),
-        );
+        let result = Platform::detect_from_remote_url("HTTPS://GITHUB.COM/Owner/Repo.git");
+        assert_eq!(result.platform, Platform::GitHub);
+        assert!(result.is_explicit());
+
+        let result = Platform::detect_from_remote_url("GIT@GITLAB.COM:Group/Project.git");
+        assert_eq!(result.platform, Platform::GitLab);
+        assert!(result.is_explicit());
+
+        let result = Platform::detect_from_remote_url("HTTPS://GITCODE.COM/Owner/Repo.git");
+        assert_eq!(result.platform, Platform::GitCode);
+        assert!(result.is_explicit());
     }
 }

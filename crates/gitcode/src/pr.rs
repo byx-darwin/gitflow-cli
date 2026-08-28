@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, Result, Session,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -181,6 +181,17 @@ impl GitCodePrProvider<RealCommandRunner> {
             runner: RealCommandRunner,
         }
     }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(session: &Session) -> Self {
+        Self {
+            repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
 }
 
 impl<R: CommandRunner> GitCodePrProvider<R> {
@@ -215,7 +226,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             "--json",
         ];
 
-        if let Some(body) = &args.body {
+        let final_body =
+            gitflow_core::pr::format_closing_body(&args.body, &args.closes_issues, "Closes");
+
+        if let Some(body) = &final_body {
             cmd_args.push("--body");
             cmd_args.push(body);
         }
@@ -859,7 +873,21 @@ mod tests {
             base: "main".to_string(),
             draft: false,
             repo: None,
+            closes_issues: vec![],
         }
+    }
+
+    #[test]
+    fn test_should_format_gitcode_body_with_closing_issues() {
+        use gitflow_core::pr::format_closing_body;
+
+        let body = Some("PR description".to_string());
+        let issues = vec![10u64, 11];
+        let result = format_closing_body(&body, &issues, "Closes");
+        assert_eq!(
+            result,
+            Some("PR description\n\nCloses #10\nCloses #11".to_string())
+        );
     }
 
     #[tokio::test]

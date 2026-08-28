@@ -53,6 +53,10 @@ pub enum AgentPlatform {
     Gemini,
     /// GitHub Copilot CLI — `~/.copilot/skills/`
     Copilot,
+    /// Qoder — `~/.qoder-cn/skills/`
+    Qoder,
+    /// Pi Code Agent — `~/.pi/agent/skills/`
+    Pi,
 }
 
 impl AgentPlatform {
@@ -65,6 +69,8 @@ impl AgentPlatform {
             AgentPlatform::OpenCode => ".opencode/skills",
             AgentPlatform::Gemini => ".gemini/skills",
             AgentPlatform::Copilot => ".copilot/skills",
+            AgentPlatform::Qoder => ".qoder-cn/skills",
+            AgentPlatform::Pi => ".pi/agent/skills",
         }
     }
 
@@ -77,6 +83,8 @@ impl AgentPlatform {
             AgentPlatform::OpenCode => ".opencode/hooks",
             AgentPlatform::Gemini => ".gemini/hooks",
             AgentPlatform::Copilot => ".copilot/hooks",
+            AgentPlatform::Qoder => ".qoder-cn/hooks",
+            AgentPlatform::Pi => ".pi/agent/hooks",
         }
     }
 
@@ -89,6 +97,8 @@ impl AgentPlatform {
             AgentPlatform::OpenCode => ".opencode/settings.json",
             AgentPlatform::Gemini => ".gemini/settings.json",
             AgentPlatform::Copilot => ".copilot/settings.json",
+            AgentPlatform::Qoder => ".qoder-cn/settings.json",
+            AgentPlatform::Pi => ".pi/agent/settings.json",
         }
     }
 
@@ -99,6 +109,18 @@ impl AgentPlatform {
     #[must_use]
     pub const fn supports_hooks(self) -> bool {
         matches!(self, AgentPlatform::Claude | AgentPlatform::Codex)
+    }
+
+    /// 返回该 Agent 的全局（用户级）skills 子目录名。
+    ///
+    /// 默认与 `skills_dir_name()` 相同；仅当 Agent 的全局路径与项目级路径不同
+    /// 时才覆写（如 `OpenCode` 遵循 `XDG` 规范，全局配置在 `~/.config/opencode/`）。
+    #[must_use]
+    pub fn global_skills_dir_name(self) -> &'static str {
+        match self {
+            AgentPlatform::OpenCode => ".config/opencode/skills",
+            other => other.skills_dir_name(),
+        }
     }
 
     /// 返回默认 Agent 平台。
@@ -156,6 +178,19 @@ pub struct InstallArgs {
     /// 启用自动 bug 上报（Stop Hook），默认开启
     #[arg(long = "report-bug", default_value_t = true, action = ArgAction::Set)]
     pub report_bug: bool,
+
+    /// 外部技能集来源（superpowers 或 mattpocock）
+    #[arg(long, value_enum)]
+    pub source: Option<SkillSource>,
+}
+
+/// 外部技能集来源。
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum SkillSource {
+    /// Superpowers skill set (by Anthropic)
+    Superpowers,
+    /// Matt Pocock's skills collection
+    Mattpocock,
 }
 
 /// `skills list` 参数。
@@ -227,7 +262,7 @@ fn resolve_target_dir(
 
     if global {
         let home = dirs::home_dir().ok_or_else(|| miette::miette!("无法确定 HOME 目录"))?;
-        Ok(home.join(platform.skills_dir_name()))
+        Ok(home.join(platform.global_skills_dir_name()))
     } else {
         let repo_root = git_repo_root()?;
         Ok(resolve_project_target(&repo_root, platform))
@@ -409,6 +444,11 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     // 一次性解析目标平台；避免 `AgentPlatform::detect()` 在 resolve_target_dir
     // 与 install_hook 分支被重复调用。
     let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
+
+    // 处理外部技能集安装（--source superpowers|mattpocock）
+    if let Some(source) = &args.source {
+        return install_external_skills(source, args, platform);
+    }
 
     // Step 0（Issue #141）：技能来源前置检查；两来源皆无硬阻断。
     check_skill_source(platform)?;
@@ -593,6 +633,7 @@ pub fn update_skills(args: &SkillsUpdateArgs) -> miette::Result<()> {
             custom_path: args.custom_path.clone(),
             force: true,
             report_bug: false,
+            source: None,
         };
         install_skills_bundled(&target, &install_args)?;
     } else {
@@ -710,14 +751,16 @@ fn resolve_hook_paths(
     }
 }
 
-/// Stop Hook 命令：解析 git 仓库根目录，执行 git 跟踪的 `auto-report-bug.sh`。
+/// 构建 Stop hook 命令，使用正确的平台特定 hooks 路径。
 ///
-/// 脚本位于 git 跟踪的 `hooks/auto-report-bug.sh`（worktree 自动物化），而非
-/// gitignored 的 `.claude/hooks/`——否则 `git worktree add` 后 hook 会失效。
+/// 生成的命令解析 git 仓库根目录，检查脚本是否存在且可执行，然后运行。
 /// guard 保证非 git 仓库或脚本缺失时静默跳过，可安全用于全局注册。
-const AUTO_REPORT_HOOK_CMD: &str = "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ \
-                                    -x \"$p/hooks/auto-report-bug.sh\" ] && bash \
-                                    \"$p/hooks/auto-report-bug.sh\"'";
+fn build_auto_report_hook_cmd(hooks_dir: &str) -> String {
+    format!(
+        "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \
+         \"$p/{hooks_dir}/auto-report-bug.sh\" ] && bash \"$p/{hooks_dir}/auto-report-bug.sh\"'"
+    )
+}
 
 fn resolve_global_hook_paths(
     home: &std::path::Path,
@@ -725,7 +768,7 @@ fn resolve_global_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = AUTO_REPORT_HOOK_CMD.to_string();
+    let cmd = build_auto_report_hook_cmd(hooks_dir);
     (home.join(hooks_dir), home.join(settings_file), cmd)
 }
 
@@ -735,16 +778,103 @@ fn resolve_project_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = AUTO_REPORT_HOOK_CMD.to_string();
+    let cmd = build_auto_report_hook_cmd(hooks_dir);
     (repo.join(hooks_dir), repo.join(settings_file), cmd)
 }
 
-/// 从文件系统目录安装 skills（开发场景）。
+/// 从外部 GitHub 仓库安装技能集（superpowers 或 mattpocock）。
 ///
-/// hook 脚本由 git 跟踪（`hooks/auto-report-bug.sh`，worktree 自动物化），
-/// 命令通过 `AUTO_REPORT_HOOK_CMD` 直接引用跟踪脚本；`install_hook` 仍会向
-/// 平台 hooks 目录复制一份脚本，用于 `uninstall_hook` 清理历史遗留副本，
-/// 与向后兼容。配置写入平台对应的 settings 文件（Claude 下为
+/// # Errors
+///
+/// Returns an error if git clone fails, or if the skills directory cannot be found.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "Sync process invocation for git clone during skill installation"
+)]
+fn install_external_skills(
+    source: &SkillSource,
+    args: &InstallArgs,
+    platform: AgentPlatform,
+) -> miette::Result<()> {
+    let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
+
+    // Determine repository URL and skills subdirectory
+    let (repo_url, skills_subdir) = match source {
+        SkillSource::Superpowers => ("https://github.com/anthropics/superpowers.git", "skills"),
+        SkillSource::Mattpocock => ("https://github.com/mattpocock/skills.git", "skills"),
+    };
+
+    println!("📦 从 {repo_url} 克隆技能集...");
+
+    // Create temporary directory for cloning
+    let temp_dir = tempfile::tempdir().map_err(|e| miette::miette!("创建临时目录失败: {e}"))?;
+    let clone_path = temp_dir.path().join("repo");
+
+    // Clone repository
+    let output = std::process::Command::new("git")
+        .args([
+            "clone",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            repo_url,
+            &clone_path.to_string_lossy(),
+        ])
+        .output()
+        .map_err(|e| miette::miette!("git clone 失败: {e}\n请确保已安装 git"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(miette::miette!("git clone 失败:\n{}", stderr.trim()));
+    }
+
+    println!("✅ 克隆完成，正在提取 skills...");
+
+    // Find skills directory
+    let skills_source = clone_path.join(skills_subdir);
+    if !skills_source.exists() {
+        return Err(miette::miette!(
+            "未找到 skills 目录: {}\n仓库结构可能已变更",
+            skills_source.display()
+        ));
+    }
+
+    // Copy skills to target
+    let level = if args.global { "全局" } else { "项目级" };
+    println!("目标: {} ({})", target.display(), level);
+
+    let result = copy_skills_dir(&skills_source, &target, args.force)?;
+
+    // Clean up temporary directory
+    drop(temp_dir);
+
+    println!();
+    println!(
+        "安装完成: 新增 {} 个，覆盖 {} 个，跳过 {} 个",
+        result.installed, result.overwritten, result.skipped
+    );
+    if !result.failures.is_empty() {
+        println!(
+            "⚠ 失败 {} 个: {}",
+            result.failures.len(),
+            result.failures.join(", ")
+        );
+        return Err(miette::miette!(
+            "{} 个 skill 安装失败: {}",
+            result.failures.len(),
+            result.failures.join(", ")
+        ));
+    }
+
+    Ok(())
+}
+
+/// 安装 Stop hook 到项目级或全局配置。
+///
+/// `install_hook` 向平台 hooks 目录（如 `.claude/hooks/`）复制脚本，
+/// 并生成引用该路径的 hook 命令写入 settings 文件。
+/// 用于 `uninstall_hook` 清理历史遗留副本，与向后兼容。
+/// 配置写入平台对应的 settings 文件（Claude 下为
 /// `.claude/settings.json` 或 `~/.claude/settings.json`）。
 fn install_hook(global: bool, force: bool, platform: AgentPlatform) -> miette::Result<()> {
     let hook_script = include_bytes!("../../hooks/auto-report-bug.sh");
@@ -1247,6 +1377,26 @@ mod tests {
     }
 
     #[test]
+    fn test_agent_platform_qoder_dir() {
+        assert_eq!(AgentPlatform::Qoder.skills_dir_name(), ".qoder-cn/skills");
+    }
+
+    #[test]
+    fn test_agent_platform_pi_dir() {
+        assert_eq!(AgentPlatform::Pi.skills_dir_name(), ".pi/agent/skills");
+    }
+
+    #[test]
+    fn test_agent_platform_gemini_dir() {
+        assert_eq!(AgentPlatform::Gemini.skills_dir_name(), ".gemini/skills");
+    }
+
+    #[test]
+    fn test_agent_platform_copilot_dir() {
+        assert_eq!(AgentPlatform::Copilot.skills_dir_name(), ".copilot/skills");
+    }
+
+    #[test]
     fn test_agent_detect_always_returns_claude() {
         // 契约：detect() 默认固定返回 Claude，不扫描 $HOME 下其他平台目录。
         // 其他平台必须通过 `--agent` 显式指定。
@@ -1276,6 +1426,16 @@ mod tests {
     #[test]
     fn test_agent_platform_copilot_hooks_dir() {
         assert_eq!(AgentPlatform::Copilot.hooks_dir_name(), ".copilot/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_qoder_hooks_dir() {
+        assert_eq!(AgentPlatform::Qoder.hooks_dir_name(), ".qoder-cn/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_pi_hooks_dir() {
+        assert_eq!(AgentPlatform::Pi.hooks_dir_name(), ".pi/agent/hooks");
     }
 
     #[test]
@@ -1319,6 +1479,22 @@ mod tests {
     }
 
     #[test]
+    fn test_agent_platform_qoder_settings_path() {
+        assert_eq!(
+            AgentPlatform::Qoder.settings_file_path(),
+            ".qoder-cn/settings.json"
+        );
+    }
+
+    #[test]
+    fn test_agent_platform_pi_settings_path() {
+        assert_eq!(
+            AgentPlatform::Pi.settings_file_path(),
+            ".pi/agent/settings.json"
+        );
+    }
+
+    #[test]
     fn test_resolve_global_target_claude() {
         let dir = resolve_target_dir(true, Some(AgentPlatform::Claude), None).expect("resolve");
         assert!(dir.ends_with(".claude/skills"));
@@ -1337,6 +1513,58 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_global_target_qoder() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Qoder), None).expect("resolve");
+        assert!(dir.ends_with(".qoder-cn/skills"));
+    }
+
+    #[test]
+    fn test_resolve_global_target_opencode_xdg() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::OpenCode), None).expect("resolve");
+        assert!(
+            dir.ends_with(".config/opencode/skills"),
+            "OpenCode global must use XDG path, got {}",
+            dir.display()
+        );
+    }
+
+    #[test]
+    fn test_resolve_global_target_pi() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Pi), None).expect("resolve");
+        assert!(dir.ends_with(".pi/agent/skills"));
+    }
+
+    #[test]
+    fn test_resolve_global_target_copilot() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Copilot), None).expect("resolve");
+        assert!(dir.ends_with(".copilot/skills"));
+    }
+
+    #[test]
+    fn test_global_skills_dir_name_defaults_to_skills_dir() {
+        assert_eq!(
+            AgentPlatform::Claude.global_skills_dir_name(),
+            AgentPlatform::Claude.skills_dir_name()
+        );
+        assert_eq!(
+            AgentPlatform::Pi.global_skills_dir_name(),
+            ".pi/agent/skills"
+        );
+    }
+
+    #[test]
+    fn test_global_skills_dir_name_opencode_xdg() {
+        assert_eq!(
+            AgentPlatform::OpenCode.global_skills_dir_name(),
+            ".config/opencode/skills"
+        );
+        assert_ne!(
+            AgentPlatform::OpenCode.global_skills_dir_name(),
+            AgentPlatform::OpenCode.skills_dir_name()
+        );
+    }
+
+    #[test]
     fn test_resolve_project_target_respects_agent() {
         // 项目级必须遵循 --agent；不能硬编码到 .claude/skills
         let repo = PathBuf::from("/tmp/test-repo-skills");
@@ -1349,6 +1577,9 @@ mod tests {
 
         let dir_gemini = resolve_project_target(&repo, AgentPlatform::Gemini);
         assert!(dir_gemini.ends_with(".gemini/skills"));
+
+        let dir_qoder = resolve_project_target(&repo, AgentPlatform::Qoder);
+        assert!(dir_qoder.ends_with(".qoder-cn/skills"));
     }
 
     #[test]
@@ -1358,6 +1589,8 @@ mod tests {
         assert!(!AgentPlatform::OpenCode.supports_hooks());
         assert!(!AgentPlatform::Gemini.supports_hooks());
         assert!(!AgentPlatform::Copilot.supports_hooks());
+        assert!(!AgentPlatform::Qoder.supports_hooks());
+        assert!(!AgentPlatform::Pi.supports_hooks());
     }
 
     #[test]
@@ -1611,6 +1844,29 @@ mod tests {
     }
 
     #[test]
+    fn test_build_auto_report_hook_cmd_uses_provided_hooks_dir() {
+        let cmd = build_auto_report_hook_cmd(".claude/hooks");
+        assert!(
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
+        );
+        assert!(
+            cmd.contains("git rev-parse --show-toplevel"),
+            "command should resolve git repo root"
+        );
+        assert!(
+            cmd.contains("[ -x"),
+            "command should check script is executable"
+        );
+    }
+
+    #[test]
+    fn test_build_auto_report_hook_cmd_works_for_other_platforms() {
+        let cmd = build_auto_report_hook_cmd(".codex/hooks");
+        assert!(cmd.contains(".codex/hooks/auto-report-bug.sh"));
+    }
+
+    #[test]
     fn test_resolve_project_hook_paths_uses_hooks_dir() {
         let repo = PathBuf::from("/tmp/test-repo");
         let (hook_dir, settings_path, cmd) =
@@ -1622,12 +1878,8 @@ mod tests {
         );
         assert_eq!(settings_path, repo.join(".claude/settings.json"));
         assert!(
-            cmd.contains("hooks/auto-report-bug.sh"),
-            "command should reference git-tracked hooks/auto-report-bug.sh"
-        );
-        assert!(
-            !cmd.contains(".claude/hooks"),
-            "command must not reference gitignored .claude/hooks/"
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
         );
     }
 
@@ -1639,12 +1891,8 @@ mod tests {
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
         assert!(
-            cmd.contains("hooks/auto-report-bug.sh"),
-            "command should reference git-tracked hooks/auto-report-bug.sh"
-        );
-        assert!(
-            !cmd.contains(".claude/hooks"),
-            "command must not reference gitignored .claude/hooks/"
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
         );
     }
 
@@ -1709,6 +1957,7 @@ mod tests {
             force: true,
             report_bug: false,
             custom_path: None,
+            source: None,
         };
         let files: &[(&str, &[u8])] = &[("test.md", b"# Test Skill")];
 

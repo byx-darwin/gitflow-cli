@@ -3,40 +3,91 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
-## [1.6.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.5.0..v1.6.0) - 2026-08-26
+## [unreleased]
 
-### ✨ 新特性
+### Bug Fixes
 
-* **cli** — 新增 `WorkflowMode::Standard` 变体，`gf workflow create --mode standard` 现已可用 - ([92cc0ce](https://github.com/byx-darwin/gitflow-cli/commit/92cc0ce))
-* **release** — 支持 crates.io 与 Homebrew 自动发布 - ([7ddd135](https://github.com/byx-darwin/gitflow-cli/commit/7ddd135))
-* **release** — 发布脚本适配 PR 工作流 - ([3b5da59](https://github.com/byx-darwin/gitflow-cli/commit/3b5da59))
-* 新增 release-from-dev 自动化脚本 - ([22c2f59](https://github.com/byx-darwin/gitflow-cli/commit/22c2f59))
+- **(cli)** document SIGPIPE investigation results — no safe reset needed - ([d23b015](https://github.com/byx-darwin/gitflow-cli/commit/d23b01557f9a0aadf668b8c37d9cfe9ecccb4d65)) - baoyuexing
+- **(release)** update compatibility matrix after version bump - ([2b93ebf](https://github.com/byx-darwin/gitflow-cli/commit/2b93ebf5804840a2e02b1a9e154408c3d7a5349e)) - baoyuexing
+- **(workflow)** add design_doc_path validation to Phase 2 gate (#238) - ([6777785](https://github.com/byx-darwin/gitflow-cli/commit/6777785ca33460b665bf6af928a334d33fc8eb64)) - mc-ai
 
-### 🐛 Bug 修复
+### Documentation
 
-* **gitlab** — 修复嵌套 group 项目路径 `%2F` 编码不全导致 issue 评论 404 (#221) - ([44e1cdf](https://github.com/byx-darwin/gitflow-cli/commit/44e1cdf))
-* **gitlab** — review approve 去掉 `--repo` 参数，修复嵌套 group 项目失败 (#231) - ([dff3c33](https://github.com/byx-darwin/gitflow-cli/commit/dff3c33))
-* **release** — 修复 gf update 签名校验失败（消除重复发布、统一签名资产）(#226) - ([d3d0a87](https://github.com/byx-darwin/gitflow-cli/commit/d3d0a87))
-* **github** — 修复 gf label 编辑假失败（gh 2.97 移除 label view 子命令）(#203) - ([60c332a](https://github.com/byx-darwin/gitflow-cli/commit/60c332a))
-* **bug-report** — 修复主动上报 bug 功能 P0/P1/P2 遗留问题（认证统一、触发确定性、错误分类等）(#212, #214, #218)
-* **bug-report** — 上报路径改回 gh（边界修正：项目托管在 GitHub）(#216) - ([4a60cda](https://github.com/byx-darwin/gitflow-cli/commit/4a60cda))
+- **(changelog)** rewrite v1.6.0 entries in Chinese - ([fc9953b](https://github.com/byx-darwin/gitflow-cli/commit/fc9953b53dde92d63d8bb6f447da4b58a6937c7a)) - baoyuexing
+- **(core)** document sync git call rationale in resolve_platform - ([b23e2f8](https://github.com/byx-darwin/gitflow-cli/commit/b23e2f87caac50171453fadae5a3f7f74611743f)) - baoyuexing
+- **(ops)** add CLI version compatibility matrix - ([fe8abbe](https://github.com/byx-darwin/gitflow-cli/commit/fe8abbe5362d7425e5aa1a233e4bb11bddca8409)) - baoyuexing
+- add design spec for Pi Code Agent and OpenCode path fix - ([f6fa91e](https://github.com/byx-darwin/gitflow-cli/commit/f6fa91ee28e4e2ed8ba868f1b530becb69f5186f)) - baoyuexing
+- add implementation plan for Pi Code Agent and OpenCode path fix - ([e17a275](https://github.com/byx-darwin/gitflow-cli/commit/e17a275237a169423d58c2149563d570b3533564)) - baoyuexing
+- remove stale superpowers design docs - ([5885b74](https://github.com/byx-darwin/gitflow-cli/commit/5885b74aaba665d05b908fc8c580ad60c4aca716)) - baoyuexing
+- update compatibility matrix - ([332e422](https://github.com/byx-darwin/gitflow-cli/commit/332e4225343c6e02699b81b189ff54029b62b869)) - baoyuexing
 
-### 📝 文档
+### Features
 
-* 补齐安装前置条件，skills install 阻断提示内联 Node 版本说明 (#220)
-* 多角色评估报告 — 主动上报 bug 功能是否 OK (#210)
+- **(cli)** add Standard variant to WorkflowMode - ([92cc0ce](https://github.com/byx-darwin/gitflow-cli/commit/92cc0ce11d0f9bb1db09e7b9bea94af1f24d3385)) - baoyuexing
+- **(cli)** add --closes/--fixes arguments to pr create - ([9514e6c](https://github.com/byx-darwin/gitflow-cli/commit/9514e6c3e97b90c0cf984bd73903259d304bf700)) - baoyuexing
+- **(core)** add format_closing_body helper for PR issue linking - ([178e2d2](https://github.com/byx-darwin/gitflow-cli/commit/178e2d258c39d56f1f8cf588c9f94782b071cf10)) - baoyuexing
+- **(core)** add closes_issues field to CreatePrArgs - ([40e56d4](https://github.com/byx-darwin/gitflow-cli/commit/40e56d48729b8c74c462f13dff1e5fe9177f6a3c)) - baoyuexing
+- **(core)** add shared adapter Session context for workflow chains - ([5219402](https://github.com/byx-darwin/gitflow-cli/commit/521940280f5af14231f7127bd8d953b27eb439ef)) - baoyuexing
+- **(gitcode)** append closing keywords in PR create - ([aa66b5d](https://github.com/byx-darwin/gitflow-cli/commit/aa66b5d0401fd6d2709532283bb3131d3d247ab9)) - baoyuexing
+- **(github)** append closing keywords in PR create - ([fbf2f70](https://github.com/byx-darwin/gitflow-cli/commit/fbf2f703ca1cba4ebcbf5858fed3554f25a12a68)) - baoyuexing
+- **(gitlab)** append closing keywords in MR create - ([f0b7955](https://github.com/byx-darwin/gitflow-cli/commit/f0b7955d57c15947a76e22f65d969621ecc80619)) - baoyuexing
+- **(skills)** add Qoder variant to AgentPlatform enum - ([332fbd2](https://github.com/byx-darwin/gitflow-cli/commit/332fbd2217fdb4dea6b47eb594c950be3d0f5356)) - baoyuexing
+- **(skills)** add Pi Code Agent platform & fix OpenCode global path - ([9d883c7](https://github.com/byx-darwin/gitflow-cli/commit/9d883c7fed4818985761a705a05e8479190f3dd9)) - baoyuexing
+- **(skills)** add --source parameter for external skill set installation - ([0f70954](https://github.com/byx-darwin/gitflow-cli/commit/0f709543b3bb1f802dc1a97d9494c42fdc55b8b1)) - baoyuexing
 
-### 🔧 维护
+### Miscellaneous Chores
 
-* **ci** — 恢复 update-homebrew job + e2e paths 治本 (#225)
-* **chore** — 升级 glab tested_version 至 1.114.0 (#230)
+- sync main back to dev after release v1.5.0 - ([8513a85](https://github.com/byx-darwin/gitflow-cli/commit/8513a852f5c39dddc3a7f9185d4414144b05a61e)) - baoyuexing
+- sync main back to dev after PR #225 - ([d6ae1b1](https://github.com/byx-darwin/gitflow-cli/commit/d6ae1b1c5340017fe46d50a6ba0b9f753e1297f6)) - baoyuexing
+- sync main back to dev after PR #226 - ([a1a770f](https://github.com/byx-darwin/gitflow-cli/commit/a1a770fde258a556ebcbfcac18dcfc734073f0e6)) - baoyuexing
+- update CHANGELOG.md for v1.6.0 release - ([2198b76](https://github.com/byx-darwin/gitflow-cli/commit/2198b7662b9d8a121fc0382c84fdd15ef79c44ed)) - baoyuexing
+- release v1.6.0 - ([0f7cb08](https://github.com/byx-darwin/gitflow-cli/commit/0f7cb0868927241936253752f7a18dbc99260cb8)) - baoyuexing
+- release v1.7.0 - ([a5ec22b](https://github.com/byx-darwin/gitflow-cli/commit/a5ec22b264cfd26bbb2b2f3aa0b24be331fb3e66)) - baoyuexing
 
-### ♻️ 重构
+### Other
 
-* **core** — 兼容性矩阵 gf 版本改为从 `CARGO_PKG_VERSION` 派生 (#208)
+- Merge branch 'main' into feat/229-workflow-standard-mode - ([ea5a8cc](https://github.com/byx-darwin/gitflow-cli/commit/ea5a8cc5b93d2b32a2c1caaa91a25dc5086bbb34)) - mc-ai
+- Merge pull request #232 from byx-darwin/feat/229-workflow-standard-mode
+
+feat(cli): add Standard variant to WorkflowMode - ([8eacc9a](https://github.com/byx-darwin/gitflow-cli/commit/8eacc9a95bcdd7bce604b58cb4611eca6e0ae600)) - mc-ai
+- apply rustfmt formatting fixes - ([3ec5923](https://github.com/byx-darwin/gitflow-cli/commit/3ec59239705eb7139d4bc4fba6e5cc4b0612d6ef)) - baoyuexing
+- Merge pull request #246 from byx-darwin/feat/245-pi-agent-opencode-fix
+
+feat(skills): add Pi Code Agent platform & fix OpenCode global path - ([b69a598](https://github.com/byx-darwin/gitflow-cli/commit/b69a598bdf89688a757636b3af0dced3b8ecba77)) - mc-ai
+
+### Refactoring
+
+- **(arch)** P1-P3 architecture improvements — docs, platform detection, adapter dedup - ([1fa355c](https://github.com/byx-darwin/gitflow-cli/commit/1fa355c2da3fca10b4f1c8282492bbb2fef2edcc)) - baoyuexing
+
+### Style
+
+- **(skills)** fix nightly rustfmt formatting in tests - ([ba2bbcd](https://github.com/byx-darwin/gitflow-cli/commit/ba2bbcdd7ff6deb6871b78f0aa81ace1010e233a)) - baoyuexing
+
+### Tests
+
+- **(skills)** add tests for Qoder agent platform - ([2e0e752](https://github.com/byx-darwin/gitflow-cli/commit/2e0e7525367f03a7ed46a9fd4cf47f9fb0525f53)) - baoyuexing
 
 ---
-## [unreleased]
+## [1.5.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.4.0..v1.5.0) - 2026-08-19
+
+### Bug Fixes
+
+- **(release)** tolerate gh pr checks pending exit in CI wait loop - ([2247155](https://github.com/byx-darwin/gitflow-cli/commit/2247155db2ca377e7f6f8889290ce25b018a0277)) - baoyx
+- **(release-signer)** open temp output read+write for zip signing - ([554daed](https://github.com/byx-darwin/gitflow-cli/commit/554daed55b38c1da9f7049bb9f9a781d0b8ce3a9)) - baoyx
+
+### Documentation
+
+- **(workflow)** plan + design for autoreport-bug P0 fix (wf-2026-08-18-006) - ([0862eda](https://github.com/byx-darwin/gitflow-cli/commit/0862edaecc9d9bd0af96f800e4a9d7359e04c513)) - baoyx
+- archive #198 glab 1.113 matrix workflow artifacts - ([5b120b2](https://github.com/byx-darwin/gitflow-cli/commit/5b120b271157dea9e306c64a9ba878185b125890)) - baoyx
+
+### Miscellaneous Chores
+
+- **(deps)** add glab 1.113.0 to compatibility matrix (#206) - ([d68c42b](https://github.com/byx-darwin/gitflow-cli/commit/d68c42b7abd04e4db47f9d6e7e0f06663af13fb3)) - mc-ai
+- sync main back to dev after release v1.4.0 - ([900d76e](https://github.com/byx-darwin/gitflow-cli/commit/900d76ee6e3f00c6787e18403ee12ee07f0d13be)) - baoyx
+
+### Refactoring
+
+- **(core)** derive matrix gf version from CARGO_PKG_VERSION (#208) - ([d2ec7f9](https://github.com/byx-darwin/gitflow-cli/commit/d2ec7f9bfb6b48c26fad3d88cf3e9a818bab42b3)) - mc-ai
 
 ---
 ## [1.4.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.3.0..v1.4.0) - 2026-08-18

@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, Result, Session,
     auth::{AuthProvider, AuthStatus},
 };
 use tracing::debug;
@@ -38,6 +38,16 @@ impl GitCodeAuthProvider<RealCommandRunner> {
     /// 创建新的 GitCode 认证提供者。
     #[must_use]
     pub fn new() -> Self {
+        Self {
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(_session: &Session) -> Self {
         Self {
             runner: RealCommandRunner,
         }

@@ -1,0 +1,18 @@
+[package]
+name = "gitflow-cli-adapter-utils"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Shared utilities for gf platform adapter crates. Provides CommandRunner trait and implementations."
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/gitflow-cli-adapter-utils"
+readme = "README.md"
+keywords = ["cli", "gitflow", "adapter"]
+categories = ["development-tools"]
+
+[dependencies]
+async-trait.workspace = true
+tokio.workspace = true
