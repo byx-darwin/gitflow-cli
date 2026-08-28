@@ -240,6 +240,18 @@ async fn router(
 
 /// Resolve the target platform and repository from CLI args and git remote.
 ///
+/// # Why sync `std::process::Command`?
+///
+/// This function is called before the tokio runtime is constructed (see
+/// `main()` entry point). Using async process spawning would require an
+/// existing runtime, creating a chicken-and-egg problem. The sync call
+/// blocks only briefly (~10ms) to read the git remote URL — acceptable
+/// for CLI startup latency.
+///
+/// If future work adds network calls (e.g., resolving self-hosted domains
+/// via DNS or HTTP), migrate those to async after the tokio runtime starts,
+/// and keep this function limited to local filesystem / process operations.
+///
 /// Priority:
 /// 1. `--platform` flag (explicit override)
 /// 2. `git remote get-url origin` auto-detection
@@ -255,7 +267,7 @@ async fn router(
     reason = "Invoked before the tokio runtime is constructed"
 )]
 fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String, String)> {
-    // Get git remote URL
+    // Get git remote URL (sync — see doc comment above).
     let output = std::process::Command::new("git")
         .args(["remote", "get-url", "origin"])
         .output()
@@ -273,7 +285,10 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
 
     let remote_url = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    // Determine platform
+    // Determine platform.
+    // Note: detect_from_remote_url() never returns None — it always produces
+    // a PlatformDetection (explicit match or GitLab fallback). See
+    // crates/core/src/platform.rs:74-97.
     let platform = if let Some(p) = cli_platform {
         match p {
             PlatformArg::Github => "github",
