@@ -282,14 +282,14 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
         }
         .to_string()
     } else {
-        let detected = gitflow_core::platform::Platform::detect_from_remote_url(&remote_url)
-            .ok_or_else(|| {
-                miette::miette!(
-                    "Unable to detect platform from remote URL: {remote_url}\nUse --platform to \
-                     specify explicitly."
-                )
-            })?;
-        format!("{detected:?}").to_lowercase()
+        let detection = gitflow_core::platform::Platform::detect_from_remote_url(&remote_url);
+        if !detection.is_explicit() {
+            eprintln!(
+                "warning: unrecognized domain in remote URL: {remote_url}\nDefaulting to GitLab \
+                 adapter. Use --platform to specify explicitly."
+            );
+        }
+        format!("{:?}", detection.platform).to_lowercase()
     };
 
     // Extract owner/repo

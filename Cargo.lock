@@ -1155,6 +1155,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitflow-cli-adapter-utils"
+version = "1.5.0"
+dependencies = [
+ "async-trait",
+ "tokio",
+]
+
+[[package]]
 name = "gitflow-core"
 version = "1.5.0"
 dependencies = [
@@ -1176,6 +1184,7 @@ version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "gitflow-cli-adapter-utils",
  "gitflow-core",
  "serde",
  "serde_json",
@@ -1192,6 +1201,7 @@ version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "gitflow-cli-adapter-utils",
  "gitflow-core",
  "serde",
  "serde_json",
@@ -1207,6 +1217,7 @@ version = "1.5.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "gitflow-cli-adapter-utils",
  "gitflow-core",
  "serde",
  "serde_json",

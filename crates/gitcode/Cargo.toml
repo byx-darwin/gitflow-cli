@@ -15,6 +15,7 @@ categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 gitflow-core.workspace = true
+gitflow-cli-adapter-utils.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 serde.workspace = true
