@@ -194,6 +194,41 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
     async fn patch(&self, number: u64) -> Result<String>;
 }
 
+/// Format closing keywords and append to body.
+///
+/// `keyword` is the platform closing verb (e.g. `"Closes"`, `"Fixes"`).
+/// Returns `None` if both `body` is `None`/empty and `issues` is empty.
+/// Returns the original body unchanged if `issues` is empty.
+///
+/// # Examples
+///
+/// ```
+/// use gitflow_core::pr::format_closing_body;
+///
+/// let body = Some("Description".to_string());
+/// let result = format_closing_body(&body, &[24, 23], "Closes");
+/// assert_eq!(result, Some("Description\n\nCloses #24\nCloses #23".to_string()));
+/// ```
+#[must_use]
+pub fn format_closing_body(
+    body: &Option<String>,
+    issues: &[u64],
+    keyword: &str,
+) -> Option<String> {
+    if issues.is_empty() {
+        return body.clone();
+    }
+    let closing = issues
+        .iter()
+        .map(|n| format!("{keyword} #{n}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    Some(match body {
+        Some(b) if !b.is_empty() => format!("{b}\n\n{closing}"),
+        _ => closing,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,5 +406,56 @@ mod tests {
         // Verify Check implements PrProvider with diff() and patch()
         let check = Check;
         let _ = format!("{check:?}");
+    }
+
+    // --- format_closing_body tests ---
+
+    #[test]
+    fn test_should_return_body_unchanged_when_no_issues() {
+        let body = Some("Existing body".to_string());
+        let result = crate::pr::format_closing_body(&body, &[], "Closes");
+        assert_eq!(result, Some("Existing body".to_string()));
+    }
+
+    #[test]
+    fn test_should_return_none_when_no_body_and_no_issues() {
+        let result = crate::pr::format_closing_body(&None, &[], "Closes");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_should_create_closing_body_when_no_existing_body() {
+        let result = crate::pr::format_closing_body(&None, &[24], "Closes");
+        assert_eq!(result, Some("Closes #24".to_string()));
+    }
+
+    #[test]
+    fn test_should_append_closing_to_existing_body() {
+        let body = Some("Feature description".to_string());
+        let result = crate::pr::format_closing_body(&body, &[24], "Closes");
+        assert_eq!(result, Some("Feature description\n\nCloses #24".to_string()));
+    }
+
+    #[test]
+    fn test_should_handle_multiple_issues() {
+        let body = Some("Description".to_string());
+        let result = crate::pr::format_closing_body(&body, &[24, 23], "Closes");
+        assert_eq!(
+            result,
+            Some("Description\n\nCloses #24\nCloses #23".to_string())
+        );
+    }
+
+    #[test]
+    fn test_should_use_custom_keyword() {
+        let result = crate::pr::format_closing_body(&None, &[42], "Fixes");
+        assert_eq!(result, Some("Fixes #42".to_string()));
+    }
+
+    #[test]
+    fn test_should_treat_empty_body_as_no_body() {
+        let body = Some("".to_string());
+        let result = crate::pr::format_closing_body(&body, &[10], "Closes");
+        assert_eq!(result, Some("Closes #10".to_string()));
     }
 }
