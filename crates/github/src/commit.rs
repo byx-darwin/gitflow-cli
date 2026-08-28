@@ -37,6 +37,16 @@ impl GitHubCommitProvider {
     pub fn new(repo: impl Into<String>) -> Self {
         Self { repo: repo.into() }
     }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(session: &gitflow_core::Session) -> Self {
+        Self {
+            repo: session.repo.clone(),
+        }
+    }
 }
 
 /// `gh api repos/<repo>/commits/<sha>` 返回的 JSON 结构。

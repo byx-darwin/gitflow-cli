@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, Result, Session,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -178,6 +178,17 @@ impl GitCodePrProvider<RealCommandRunner> {
     pub fn new(repo: impl Into<String>) -> Self {
         Self {
             repo: repo.into(),
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// Create a new provider from a shared [`Session`].
+    ///
+    /// This enables state reuse across multiple operations in workflow chains.
+    #[must_use]
+    pub fn with_session(session: &Session) -> Self {
+        Self {
+            repo: session.repo.clone(),
             runner: RealCommandRunner,
         }
     }
