@@ -51,6 +51,10 @@ pub enum PrCommand {
         /// 目标仓库（`owner/name` 格式，可选，默认为当前仓库）。
         #[arg(long)]
         repo: Option<String>,
+
+        /// 合并 PR 时自动关闭的 Issue 编号（可多次指定）。
+        #[arg(long = "closes", alias = "fixes")]
+        closes: Vec<u64>,
     },
 
     /// 列出 Pull Request。
@@ -228,6 +232,7 @@ pub async fn handle(
             body_file,
             draft,
             repo: target_repo,
+            closes,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
             let resolved_head = resolve_head(head)?;
@@ -240,7 +245,7 @@ pub async fn handle(
                 base: resolved_base,
                 draft,
                 repo: target_repo,
-                closes_issues: vec![],
+                closes_issues: closes,
             };
             let pr = provider
                 .create(args)
@@ -942,6 +947,69 @@ mod tests {
                 assert!(merged);
             }
             _ => panic!("Expected PrCommand::Cleanup"),
+        }
+    }
+
+    // --- closes/issues argument parsing tests ---
+
+    #[test]
+    fn test_should_parse_pr_create_with_single_closes() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow", "pr", "create", "--title", "Feature", "--closes", "24",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { closes, .. }) => {
+                assert_eq!(closes, vec![24]);
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_with_multiple_closes() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow", "pr", "create", "--title", "Feature",
+            "--closes", "24", "--closes", "23",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { closes, .. }) => {
+                assert_eq!(closes, vec![24, 23]);
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_with_fixes_alias() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow", "pr", "create", "--title", "Feature", "--fixes", "42",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { closes, .. }) => {
+                assert_eq!(closes, vec![42]);
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_without_closes() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow", "pr", "create", "--title", "Feature",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { closes, .. }) => {
+                assert!(closes.is_empty());
+            }
+            _ => panic!("Expected PrCommand::Create"),
         }
     }
 }
