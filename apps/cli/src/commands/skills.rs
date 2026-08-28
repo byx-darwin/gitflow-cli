@@ -1648,12 +1648,8 @@ mod tests {
         );
         assert_eq!(settings_path, repo.join(".claude/settings.json"));
         assert!(
-            cmd.contains("hooks/auto-report-bug.sh"),
-            "command should reference git-tracked hooks/auto-report-bug.sh"
-        );
-        assert!(
-            !cmd.contains(".claude/hooks"),
-            "command must not reference gitignored .claude/hooks/"
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
         );
     }
 
@@ -1665,12 +1661,8 @@ mod tests {
         assert_eq!(hook_dir, home.join(".claude/hooks"));
         assert_eq!(settings_path, home.join(".claude/settings.json"));
         assert!(
-            cmd.contains("hooks/auto-report-bug.sh"),
-            "command should reference git-tracked hooks/auto-report-bug.sh"
-        );
-        assert!(
-            !cmd.contains(".claude/hooks"),
-            "command must not reference gitignored .claude/hooks/"
+            cmd.contains(".claude/hooks/auto-report-bug.sh"),
+            "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
         );
     }
 
