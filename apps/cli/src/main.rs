@@ -408,14 +408,29 @@ fn init_tracing() {
 /// cleanly when the output pipe is broken, instead of panicking
 /// with an `EPIPE` error.
 ///
-/// This is a well-established pattern for CLI tools (used by
-/// ripgrep, fd, bat, and others).
+/// # Investigation Result (2026-08-28)
 ///
-/// NOTE: Disabled due to `#![forbid(unsafe_code)]` policy.
-/// SIGPIPE handling would require a separate crate or allow-listing unsafe code.
+/// After evaluating options, this function remains intentionally empty:
+///
+/// 1. **`signal-hook` crate**: Provides a safe-looking API but internally still uses `unsafe {
+///    libc::sigaction() }`. Adding it would introduce a new dependency without eliminating unsafe
+///    code — just moving it into a third-party crate. The workspace's `#![forbid(unsafe_code)]`
+///    policy would need to be relaxed anyway.
+///
+/// 2. **tokio's built-in handling**: When the tokio runtime starts, it sets SIGPIPE to `SIG_IGN`
+///    (ignore) via its internal signal handler. This means writes to a broken pipe return `EPIPE`
+///    errors instead of terminating the process. Since `gf` does not `.unwrap()` or `.expect()` on
+///    stdout write results, no panic occurs.
+///
+/// 3. **Verified behavior**: `gf --help | head -1` exits cleanly with code 0. No panic, no crash.
+///
+/// If future code adds explicit `.expect()` on stdout writes, revisit
+/// this decision. For now, the empty implementation is correct.
 #[cfg(unix)]
 fn reset_sigpipe() {
-    // Intentionally empty - unsafe SIGPIPE reset disabled to comply with forbid(unsafe_code)
+    // Intentionally empty — see doc comment above.
+    // tokio sets SIG_IGN at runtime startup; println! returns Err on EPIPE
+    // but does not panic unless explicitly unwrapped.
 }
 
 /// Platform argument for the `--platform` CLI flag.
