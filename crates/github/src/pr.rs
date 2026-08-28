@@ -89,7 +89,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             &args.base,
         ];
 
-        if let Some(body) = &args.body {
+        let final_body =
+            gitflow_core::pr::format_closing_body(&args.body, &args.closes_issues, "Closes");
+
+        if let Some(body) = &final_body {
             cmd_args.push("--body");
             cmd_args.push(body);
         }
@@ -804,7 +807,21 @@ mod tests {
             base: "main".to_string(),
             draft: false,
             repo: None,
+            closes_issues: vec![],
         }
+    }
+
+    #[test]
+    fn test_should_format_github_body_with_closing_issues() {
+        use gitflow_core::pr::format_closing_body;
+
+        let body = Some("Feature description".to_string());
+        let issues = vec![24u64, 23];
+        let result = format_closing_body(&body, &issues, "Closes");
+        assert_eq!(
+            result,
+            Some("Feature description\n\nCloses #24\nCloses #23".to_string())
+        );
     }
 
     #[tokio::test]
