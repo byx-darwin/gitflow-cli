@@ -1254,6 +1254,14 @@ mod tests {
     }
 
     #[test]
+    fn test_agent_platform_qoder_dir() {
+        assert_eq!(
+            AgentPlatform::Qoder.skills_dir_name(),
+            ".qoder-cn/skills"
+        );
+    }
+
+    #[test]
     fn test_agent_detect_always_returns_claude() {
         // 契约：detect() 默认固定返回 Claude，不扫描 $HOME 下其他平台目录。
         // 其他平台必须通过 `--agent` 显式指定。
@@ -1283,6 +1291,11 @@ mod tests {
     #[test]
     fn test_agent_platform_copilot_hooks_dir() {
         assert_eq!(AgentPlatform::Copilot.hooks_dir_name(), ".copilot/hooks");
+    }
+
+    #[test]
+    fn test_agent_platform_qoder_hooks_dir() {
+        assert_eq!(AgentPlatform::Qoder.hooks_dir_name(), ".qoder-cn/hooks");
     }
 
     #[test]
@@ -1326,6 +1339,14 @@ mod tests {
     }
 
     #[test]
+    fn test_agent_platform_qoder_settings_path() {
+        assert_eq!(
+            AgentPlatform::Qoder.settings_file_path(),
+            ".qoder-cn/settings.json"
+        );
+    }
+
+    #[test]
     fn test_resolve_global_target_claude() {
         let dir = resolve_target_dir(true, Some(AgentPlatform::Claude), None).expect("resolve");
         assert!(dir.ends_with(".claude/skills"));
@@ -1344,6 +1365,12 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_global_target_qoder() {
+        let dir = resolve_target_dir(true, Some(AgentPlatform::Qoder), None).expect("resolve");
+        assert!(dir.ends_with(".qoder-cn/skills"));
+    }
+
+    #[test]
     fn test_resolve_project_target_respects_agent() {
         // 项目级必须遵循 --agent；不能硬编码到 .claude/skills
         let repo = PathBuf::from("/tmp/test-repo-skills");
@@ -1356,6 +1383,9 @@ mod tests {
 
         let dir_gemini = resolve_project_target(&repo, AgentPlatform::Gemini);
         assert!(dir_gemini.ends_with(".gemini/skills"));
+
+        let dir_qoder = resolve_project_target(&repo, AgentPlatform::Qoder);
+        assert!(dir_qoder.ends_with(".qoder-cn/skills"));
     }
 
     #[test]
@@ -1365,6 +1395,7 @@ mod tests {
         assert!(!AgentPlatform::OpenCode.supports_hooks());
         assert!(!AgentPlatform::Gemini.supports_hooks());
         assert!(!AgentPlatform::Copilot.supports_hooks());
+        assert!(!AgentPlatform::Qoder.supports_hooks());
     }
 
     #[test]
