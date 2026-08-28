@@ -47,7 +47,7 @@ impl GitHubAuthProvider<RealCommandRunner> {
     /// Create a new provider from a shared [`Session`].
     ///
     /// This enables state reuse across multiple operations in workflow chains.
-    /// Note: AuthProvider doesn't use repo, so session.repo is ignored.
+    /// Note: `AuthProvider` doesn't use repo, so session.repo is ignored.
     #[must_use]
     pub fn with_session(_session: &gitflow_core::Session) -> Self {
         Self {
