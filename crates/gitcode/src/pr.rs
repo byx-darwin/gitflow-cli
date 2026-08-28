@@ -859,6 +859,7 @@ mod tests {
             base: "main".to_string(),
             draft: false,
             repo: None,
+            closes_issues: vec![],
         }
     }
 

@@ -240,6 +240,7 @@ pub async fn handle(
                 base: resolved_base,
                 draft,
                 repo: target_repo,
+                closes_issues: vec![],
             };
             let pr = provider
                 .create(args)

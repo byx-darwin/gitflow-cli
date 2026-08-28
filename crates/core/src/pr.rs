@@ -66,6 +66,8 @@ pub struct CreatePrArgs {
     pub draft: bool,
     /// 可选的目标仓库（`owner/name` 格式），未设置时使用默认仓库。
     pub repo: Option<String>,
+    /// 需要在合并时自动关闭的 Issue 编号列表。
+    pub closes_issues: Vec<u64>,
 }
 
 /// 列出 PR 的过滤参数。
@@ -457,5 +459,19 @@ mod tests {
         let body = Some("".to_string());
         let result = crate::pr::format_closing_body(&body, &[10], "Closes");
         assert_eq!(result, Some("Closes #10".to_string()));
+    }
+
+    #[test]
+    fn test_should_have_closes_issues_field() {
+        let args = crate::pr::CreatePrArgs {
+            title: "Test".to_string(),
+            body: None,
+            head: "feature".to_string(),
+            base: "main".to_string(),
+            draft: false,
+            repo: None,
+            closes_issues: vec![24, 23],
+        };
+        assert_eq!(args.closes_issues, vec![24, 23]);
     }
 }
