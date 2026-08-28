@@ -621,6 +621,12 @@ execute_release() {
     log_info "Step 2/8: Bumping version..."
     cargo release version "${RELEASE_BUMP}" --execute --workspace --no-confirm
 
+    # Step 2.5: Update compatibility matrix to match new version
+    log_info "Step 2.5/8: Updating compatibility matrix..."
+    make compatibility-matrix > /dev/null 2>&1
+    git add docs/compatibility-matrix.md
+    git commit -m "docs: update compatibility matrix" --no-verify || true
+
     # Step 3: Commit version
     log_info "Step 3/8: Committing version bump..."
     cargo release commit --execute --no-confirm
