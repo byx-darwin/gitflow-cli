@@ -1272,34 +1272,22 @@ mod tests {
 
     #[test]
     fn test_agent_platform_qoder_dir() {
-        assert_eq!(
-            AgentPlatform::Qoder.skills_dir_name(),
-            ".qoder-cn/skills"
-        );
+        assert_eq!(AgentPlatform::Qoder.skills_dir_name(), ".qoder-cn/skills");
     }
 
     #[test]
     fn test_agent_platform_pi_dir() {
-        assert_eq!(
-            AgentPlatform::Pi.skills_dir_name(),
-            ".pi/agent/skills"
-        );
+        assert_eq!(AgentPlatform::Pi.skills_dir_name(), ".pi/agent/skills");
     }
 
     #[test]
     fn test_agent_platform_gemini_dir() {
-        assert_eq!(
-            AgentPlatform::Gemini.skills_dir_name(),
-            ".gemini/skills"
-        );
+        assert_eq!(AgentPlatform::Gemini.skills_dir_name(), ".gemini/skills");
     }
 
     #[test]
     fn test_agent_platform_copilot_dir() {
-        assert_eq!(
-            AgentPlatform::Copilot.skills_dir_name(),
-            ".copilot/skills"
-        );
+        assert_eq!(AgentPlatform::Copilot.skills_dir_name(), ".copilot/skills");
     }
 
     #[test]
@@ -1341,10 +1329,7 @@ mod tests {
 
     #[test]
     fn test_agent_platform_pi_hooks_dir() {
-        assert_eq!(
-            AgentPlatform::Pi.hooks_dir_name(),
-            ".pi/agent/hooks"
-        );
+        assert_eq!(AgentPlatform::Pi.hooks_dir_name(), ".pi/agent/hooks");
     }
 
     #[test]
@@ -1429,8 +1414,7 @@ mod tests {
 
     #[test]
     fn test_resolve_global_target_opencode_xdg() {
-        let dir =
-            resolve_target_dir(true, Some(AgentPlatform::OpenCode), None).expect("resolve");
+        let dir = resolve_target_dir(true, Some(AgentPlatform::OpenCode), None).expect("resolve");
         assert!(
             dir.ends_with(".config/opencode/skills"),
             "OpenCode global must use XDG path, got {}",
