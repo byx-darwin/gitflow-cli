@@ -53,6 +53,8 @@ pub enum AgentPlatform {
     Gemini,
     /// GitHub Copilot CLI — `~/.copilot/skills/`
     Copilot,
+    /// Qoder — `~/.qoder-cn/skills/`
+    Qoder,
 }
 
 impl AgentPlatform {
@@ -65,6 +67,7 @@ impl AgentPlatform {
             AgentPlatform::OpenCode => ".opencode/skills",
             AgentPlatform::Gemini => ".gemini/skills",
             AgentPlatform::Copilot => ".copilot/skills",
+            AgentPlatform::Qoder => ".qoder-cn/skills",
         }
     }
 
@@ -77,6 +80,7 @@ impl AgentPlatform {
             AgentPlatform::OpenCode => ".opencode/hooks",
             AgentPlatform::Gemini => ".gemini/hooks",
             AgentPlatform::Copilot => ".copilot/hooks",
+            AgentPlatform::Qoder => ".qoder-cn/hooks",
         }
     }
 
@@ -89,6 +93,7 @@ impl AgentPlatform {
             AgentPlatform::OpenCode => ".opencode/settings.json",
             AgentPlatform::Gemini => ".gemini/settings.json",
             AgentPlatform::Copilot => ".copilot/settings.json",
+            AgentPlatform::Qoder => ".qoder-cn/settings.json",
         }
     }
 
