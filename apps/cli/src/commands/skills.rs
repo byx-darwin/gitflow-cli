@@ -178,6 +178,19 @@ pub struct InstallArgs {
     /// 启用自动 bug 上报（Stop Hook），默认开启
     #[arg(long = "report-bug", default_value_t = true, action = ArgAction::Set)]
     pub report_bug: bool,
+
+    /// 外部技能集来源（superpowers 或 mattpocock）
+    #[arg(long, value_enum)]
+    pub source: Option<SkillSource>,
+}
+
+/// 外部技能集来源。
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum SkillSource {
+    /// Superpowers skill set (by Anthropic)
+    Superpowers,
+    /// Matt Pocock's skills collection
+    Mattpocock,
 }
 
 /// `skills list` 参数。
@@ -432,6 +445,11 @@ fn install_skills(args: &InstallArgs) -> miette::Result<()> {
     // 与 install_hook 分支被重复调用。
     let platform = args.agent.unwrap_or_else(AgentPlatform::detect);
 
+    // 处理外部技能集安装（--source superpowers|mattpocock）
+    if let Some(source) = &args.source {
+        return install_external_skills(source, args, platform);
+    }
+
     // Step 0（Issue #141）：技能来源前置检查；两来源皆无硬阻断。
     check_skill_source(platform)?;
 
@@ -615,6 +633,7 @@ pub fn update_skills(args: &SkillsUpdateArgs) -> miette::Result<()> {
             custom_path: args.custom_path.clone(),
             force: true,
             report_bug: false,
+            source: None,
         };
         install_skills_bundled(&target, &install_args)?;
     } else {
@@ -761,6 +780,93 @@ fn resolve_project_hook_paths(
     let settings_file = platform.settings_file_path();
     let cmd = build_auto_report_hook_cmd(hooks_dir);
     (repo.join(hooks_dir), repo.join(settings_file), cmd)
+}
+
+/// 从外部 GitHub 仓库安装技能集（superpowers 或 mattpocock）。
+///
+/// # Errors
+///
+/// Returns an error if git clone fails, or if the skills directory cannot be found.
+#[allow(
+    clippy::disallowed_methods,
+    reason = "Sync process invocation for git clone during skill installation"
+)]
+fn install_external_skills(
+    source: &SkillSource,
+    args: &InstallArgs,
+    platform: AgentPlatform,
+) -> miette::Result<()> {
+    let target = resolve_target_dir(args.global, Some(platform), args.custom_path.as_deref())?;
+
+    // Determine repository URL and skills subdirectory
+    let (repo_url, skills_subdir) = match source {
+        SkillSource::Superpowers => ("https://github.com/anthropics/superpowers.git", "skills"),
+        SkillSource::Mattpocock => ("https://github.com/mattpocock/skills.git", "skills"),
+    };
+
+    println!("📦 从 {repo_url} 克隆技能集...");
+
+    // Create temporary directory for cloning
+    let temp_dir = tempfile::tempdir().map_err(|e| miette::miette!("创建临时目录失败: {e}"))?;
+    let clone_path = temp_dir.path().join("repo");
+
+    // Clone repository
+    let output = std::process::Command::new("git")
+        .args([
+            "clone",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            repo_url,
+            &clone_path.to_string_lossy(),
+        ])
+        .output()
+        .map_err(|e| miette::miette!("git clone 失败: {e}\n请确保已安装 git"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(miette::miette!("git clone 失败:\n{}", stderr.trim()));
+    }
+
+    println!("✅ 克隆完成，正在提取 skills...");
+
+    // Find skills directory
+    let skills_source = clone_path.join(skills_subdir);
+    if !skills_source.exists() {
+        return Err(miette::miette!(
+            "未找到 skills 目录: {}\n仓库结构可能已变更",
+            skills_source.display()
+        ));
+    }
+
+    // Copy skills to target
+    let level = if args.global { "全局" } else { "项目级" };
+    println!("目标: {} ({})", target.display(), level);
+
+    let result = copy_skills_dir(&skills_source, &target, args.force)?;
+
+    // Clean up temporary directory
+    drop(temp_dir);
+
+    println!();
+    println!(
+        "安装完成: 新增 {} 个，覆盖 {} 个，跳过 {} 个",
+        result.installed, result.overwritten, result.skipped
+    );
+    if !result.failures.is_empty() {
+        println!(
+            "⚠ 失败 {} 个: {}",
+            result.failures.len(),
+            result.failures.join(", ")
+        );
+        return Err(miette::miette!(
+            "{} 个 skill 安装失败: {}",
+            result.failures.len(),
+            result.failures.join(", ")
+        ));
+    }
+
+    Ok(())
 }
 
 /// 安装 Stop hook 到项目级或全局配置。
@@ -1851,6 +1957,7 @@ mod tests {
             force: true,
             report_bug: false,
             custom_path: None,
+            source: None,
         };
         let files: &[(&str, &[u8])] = &[("test.md", b"# Test Skill")];
 
