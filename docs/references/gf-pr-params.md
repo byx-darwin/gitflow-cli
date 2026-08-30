@@ -51,6 +51,11 @@
 |------|------|------|------|
 | `<number>` | int | 是 | PR 编号 |
 | `--strategy` | string | 否 | 合并策略：`merge`/`squash`/`rebase` |
+| `--auto` | bool | 否 | 排队合并：由平台在必需检查/pipeline 通过后自动合并，调用立即返回，不必等待 CI。默认 `false` |
+
+> **`--auto` 平台支持**：GitHub（`gh pr merge --auto`，需仓库开启 *Allow auto-merge*）与 GitLab（`glab mr merge --auto-merge`）支持；GitCode 无排队合并语义，传 `--auto` 返回 `CoreError::Platform` 且不执行任何 CLI 调用。
+>
+> **返回语义**：`--auto` 成功时 `merged` 为 `false`（仅表示已排期，合并尚未落地），`message` 携带平台原文。
 
 ## `pr checkout`
 

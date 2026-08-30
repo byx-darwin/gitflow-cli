@@ -140,10 +140,19 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
     /// `strategy` 指定合并策略（merge/squash/rebase）。
     /// 未指定时使用平台默认策略。
     ///
+    /// `auto` 为 `true` 时**排队合并**：满足条件即由平台自动完成合并，
+    /// 调用方不必等待 CI。GitHub 与 GitLab 原生支持；GitCode 不支持，
+    /// 传 `true` 会返回 [`CoreError::Platform`]（与 `PipelineProvider` 的处理一致）。
+    ///
     /// # Errors
     ///
-    /// 当 PR 不存在、无法合并或平台 API 调用失败时返回错误。
-    async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult>;
+    /// 当 PR 不存在、无法合并、平台不支持 `auto` 或平台 API 调用失败时返回错误。
+    async fn merge(
+        &self,
+        number: u64,
+        strategy: Option<MergeStrategy>,
+        auto: bool,
+    ) -> Result<MergeResult>;
 
     /// 在本地检出指定 PR 的分支。
     ///
@@ -378,6 +387,7 @@ mod tests {
                 &self,
                 _number: u64,
                 _strategy: Option<crate::types::MergeStrategy>,
+                _auto: bool,
             ) -> Result<crate::types::MergeResult> {
                 unimplemented!()
             }

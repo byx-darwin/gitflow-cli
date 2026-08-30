@@ -409,8 +409,16 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         Ok(api_response.into())
     }
 
-    async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
-        debug!(repo = %self.repo, number, ?strategy, "spawning `glab mr merge`");
+    /// `auto` 为 `true` 时显式传 `--auto-merge`，由 GitLab 在 pipeline 通过后
+    /// 自动合并，调用立即返回；此时 `merged` 为 `false`。
+    /// 显式传参而非依赖 glab 的隐式默认，以免 glab 版本变更时行为漂移。
+    async fn merge(
+        &self,
+        number: u64,
+        strategy: Option<MergeStrategy>,
+        auto: bool,
+    ) -> Result<MergeResult> {
+        debug!(repo = %self.repo, number, ?strategy, auto, "spawning `glab mr merge`");
 
         let number_str = number.to_string();
         let mut cmd_args: Vec<&str> = vec!["mr", "merge", &number_str, "--repo", &self.repo];
@@ -419,6 +427,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
             Some(MergeStrategy::Squash) => cmd_args.push("--squash"),
             Some(MergeStrategy::Rebase) => cmd_args.push("--rebase"),
             Some(MergeStrategy::Merge) | None => {}
+        }
+
+        if auto {
+            cmd_args.push("--auto-merge");
         }
 
         let output = self
@@ -433,7 +445,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
 
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(MergeResult {
-            merged: true,
+            merged: !auto,
             sha: None,
             message: Some(message),
         })
@@ -1021,7 +1033,7 @@ mod tests {
         let runner = MockCommandRunner::failure(r#"{"message": "Not mergeable"}"#, 256);
         let provider = GitLabMrProvider::with_runner("owner/repo", runner);
 
-        let result = provider.merge(42, None).await;
+        let result = provider.merge(42, None, false).await;
 
         assert!(matches!(
             result.unwrap_err(),
@@ -1035,7 +1047,7 @@ mod tests {
         let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
 
         let _ = provider
-            .merge(9, Some(MergeStrategy::Merge))
+            .merge(9, Some(MergeStrategy::Merge), false)
             .await
             .expect("should merge");
 
@@ -1049,11 +1061,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_forward_auto_merge_and_report_not_merged() {
+        let runner = MockCommandRunner::success("Merge request !9 scheduled for auto-merge!");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .merge(9, None, true)
+            .await
+            .expect("should schedule merge");
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["mr", "merge", "9", "--repo", "owner/repo", "--auto-merge"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            !result.merged,
+            "a scheduled merge has not landed, so merged must be false"
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_merge_without_strategy_flag() {
         let runner = MockCommandRunner::success("Merged!");
         let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
 
-        let _ = provider.merge(9, None).await.expect("should merge");
+        let _ = provider.merge(9, None, false).await.expect("should merge");
 
         assert_eq!(
             runner.recorded_calls()[0].1,

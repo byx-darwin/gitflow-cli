@@ -108,6 +108,11 @@ pub enum PrCommand {
         /// 合并策略（`merge`、`squash` 或 `rebase`，默认为 `merge`）。
         #[arg(long)]
         strategy: Option<String>,
+
+        /// 排队合并：由平台在必需检查/pipeline 通过后自动合并，调用立即返回。
+        /// GitHub 与 GitLab 支持；GitCode 不支持并报错。
+        #[arg(long, default_value_t = false)]
+        auto: bool,
     },
 
     /// 在本地检出 Pull Request 的分支。
@@ -315,7 +320,11 @@ pub async fn handle(
             let output = CliOutput::success(comment, platform, "pr comment");
             print_output(&output, &output_format)?;
         }
-        PrCommand::Merge { number, strategy } => {
+        PrCommand::Merge {
+            number,
+            strategy,
+            auto,
+        } => {
             let parsed_strategy = match strategy.as_deref() {
                 Some("merge") => Some(MergeStrategy::Merge),
                 Some("squash") => Some(MergeStrategy::Squash),
@@ -329,7 +338,7 @@ pub async fn handle(
                 }
             };
             let result = provider
-                .merge(number, parsed_strategy)
+                .merge(number, parsed_strategy, auto)
                 .await
                 .map_err(|e| miette::miette!("Failed to merge pr #{number}: {e}"))?;
             let output = CliOutput::success(result, platform, "pr merge");
@@ -673,9 +682,14 @@ mod tests {
             crate::Cli::try_parse_from(["gitflow", "pr", "merge", "5", "--strategy", "squash"])
                 .expect("parse");
         match cli.command {
-            crate::Commands::Pr(PrCommand::Merge { number, strategy }) => {
+            crate::Commands::Pr(PrCommand::Merge {
+                number,
+                strategy,
+                auto,
+            }) => {
                 assert_eq!(number, 5);
                 assert_eq!(strategy, Some("squash".into()));
+                assert!(!auto, "auto must default to false");
             }
             _ => panic!("Expected PrCommand::Merge"),
         }
@@ -686,9 +700,28 @@ mod tests {
         use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "pr", "merge", "3"]).expect("parse");
         match cli.command {
-            crate::Commands::Pr(PrCommand::Merge { number, strategy }) => {
+            crate::Commands::Pr(PrCommand::Merge {
+                number,
+                strategy,
+                auto,
+            }) => {
                 assert_eq!(number, 3);
                 assert!(strategy.is_none());
+                assert!(!auto, "auto must default to false");
+            }
+            _ => panic!("Expected PrCommand::Merge"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_merge_with_auto() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "pr", "merge", "7", "--auto"]).expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Merge { auto, number, .. }) => {
+                assert_eq!(number, 7);
+                assert!(auto, "--auto must set auto to true");
             }
             _ => panic!("Expected PrCommand::Merge"),
         }
