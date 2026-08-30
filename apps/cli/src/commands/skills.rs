@@ -253,9 +253,12 @@ fn resolve_target_dir(
     agent: Option<AgentPlatform>,
     custom_path: Option<&str>,
 ) -> miette::Result<PathBuf> {
-    // 自定义路径优先
+    // 自定义路径优先（用户显式指定的目标目录，允许绝对路径，但仍拒绝
+    // `..`/NUL 字节/危险字符等注入形态的输入）
     if let Some(p) = custom_path {
-        return Ok(PathBuf::from(p));
+        let safe = gitflow_core::SafePath::new_allow_absolute(p)
+            .map_err(|e| miette::miette!("无效的 --path 参数: {e}"))?;
+        return Ok(safe.as_path().to_path_buf());
     }
 
     let platform = agent.unwrap_or_else(AgentPlatform::detect);
@@ -1598,6 +1601,22 @@ mod tests {
         let dir = resolve_target_dir(false, Some(AgentPlatform::Claude), Some("/tmp/my-skills"))
             .expect("resolve");
         assert_eq!(dir, PathBuf::from("/tmp/my-skills"));
+    }
+
+    #[test]
+    fn test_resolve_custom_path_rejects_parent_dir_traversal() {
+        let result = resolve_target_dir(
+            false,
+            Some(AgentPlatform::Claude),
+            Some("/tmp/my-skills/../../etc"),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_custom_path_rejects_null_byte() {
+        let result = resolve_target_dir(false, Some(AgentPlatform::Claude), Some("/tmp/x\0y"));
+        assert!(result.is_err());
     }
 
     #[test]

@@ -279,11 +279,33 @@ impl SafePath {
     /// # Ok::<(), gitflow_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        Self::validate(path.as_ref(), false)
+    }
+
+    /// Creates a new `SafePath` from a path string, permitting absolute paths.
+    ///
+    /// Use this only for arguments where an absolute path is a legitimate,
+    /// intentional input from the invoking user (e.g. a CLI `--path` flag
+    /// naming an install directory), not for path fragments that get joined
+    /// onto a trusted base directory.
+    ///
+    /// All other [`SafePath::new`] checks still apply: `..` traversal, null
+    /// bytes, reserved device names, invalid characters, dangerous Unicode
+    /// bidi control characters, and per-component length are still rejected.
+    ///
+    /// # Errors
+    ///
+    /// See [`SafePath::new`] for the full list of rejected inputs (absolute
+    /// paths excepted).
+    pub fn new_allow_absolute(path: impl AsRef<Path>) -> Result<Self> {
+        Self::validate(path.as_ref(), true)
+    }
+
+    fn validate(path: &Path, allow_absolute: bool) -> Result<Self> {
         const MAX_COMPONENT_LEN: usize = 255;
-        let path = path.as_ref();
 
         // Absolute path check
-        if path.is_absolute() {
+        if !allow_absolute && path.is_absolute() {
             return Err(PathError {
                 path: path.to_path_buf(),
                 kind: PathErrorKind::Absolute,
@@ -516,6 +538,44 @@ mod tests {
         let sp = SafePath::new(&max_component)?;
         assert_eq!(sp.as_path().as_os_str().len(), 255);
         Ok(())
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_accepts_absolute() -> Result<()> {
+        #[cfg(unix)]
+        let absolute_path = "/home/user/custom-skills";
+        #[cfg(windows)]
+        let absolute_path = r"C:\Users\user\custom-skills";
+        let sp = SafePath::new_allow_absolute(absolute_path)?;
+        assert_eq!(sp.as_path(), Path::new(absolute_path));
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_accepts_relative() -> Result<()> {
+        let sp = SafePath::new_allow_absolute("foo/bar.txt")?;
+        assert_eq!(sp.as_path(), Path::new("foo/bar.txt"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_rejects_parent_dir() {
+        assert!(matches!(
+            SafePath::new_allow_absolute("../secret.txt"),
+            Err(CoreError::Path(_))
+        ));
+        assert!(matches!(
+            SafePath::new_allow_absolute("/foo/../bar"),
+            Err(CoreError::Path(_))
+        ));
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_rejects_null_byte() {
+        assert!(matches!(
+            SafePath::new_allow_absolute("foo\0bar.txt"),
+            Err(CoreError::Path(_))
+        ));
     }
 
     #[test]

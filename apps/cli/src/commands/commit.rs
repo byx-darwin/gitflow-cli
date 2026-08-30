@@ -180,7 +180,9 @@ fn resolve_comment_body(body: Option<String>, body_file: Option<String>) -> miet
         ));
     }
     if let Some(path) = body_file {
-        let content = std::fs::read_to_string(&path)
+        let safe = gitflow_core::SafePath::new_allow_absolute(&path)
+            .map_err(|e| miette::miette!("无效的 --body-file 参数: {e}"))?;
+        let content = std::fs::read_to_string(safe.as_path())
             .map_err(|e| miette::miette!("Failed to read body file '{path}': {e}"))?;
         return Ok(content);
     }
@@ -250,6 +252,20 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Failed to read body file"));
+    }
+
+    #[test]
+    fn test_should_reject_body_file_with_parent_dir_traversal() {
+        let result = resolve_comment_body(None, Some("/tmp/../etc/passwd".into()));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(!err.contains("Failed to read body file"));
+    }
+
+    #[test]
+    fn test_should_reject_body_file_with_null_byte() {
+        let result = resolve_comment_body(None, Some("/tmp/x\0y".into()));
+        assert!(result.is_err());
     }
 
     // --- print_output 测试 ---
