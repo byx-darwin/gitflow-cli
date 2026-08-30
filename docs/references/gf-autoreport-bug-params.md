@@ -45,6 +45,12 @@ gh issue create --title "[auto-report] gf {cmd} — {err}" \
                          --body "..." --label "auto-report"
 ```
 
+## 安全网关（2026-08-30 加固）
+
+- **CI 跳过**：`error_reporter` 检测到 `CI`/`GITHUB_ACTIONS`/`GITLAB_CI`/`CI_PIPELINE_ID`/`CIRCLECI`/`BUILDKITE`/`JENKINS_URL` 任一环境变量存在时，直接跳过写入 `pending.json`，不会产生上报。
+- **标签预检查**：Stop Hook 在认证成功后会先执行 `gh label list --repo byx-darwin/gitflow-cli --search auto-report`，标签不存在则打印修复命令并停止，不再触发 skill。
+- **非交互默认值**：Preview 阶段在非交互场景（Stop Hook 触发即是此场景）下默认 `skip`，不会自动创建 Issue；只有交互式确认才会创建。
+
 ## Issue 正文模板
 
 ```

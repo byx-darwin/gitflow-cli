@@ -43,7 +43,8 @@ flowchart TD
     D -->|Yes| G{Duplicate?}
     G -->|Yes| I[Clean, stop]
     G -->|No| P[Preview]
-    P --> J[Create Issue]
+    P -->|interactive confirm| J[Create Issue]
+    P -->|non-interactive default| I
     J -->|Fail| F[Keep + failed.log]
     J -->|Pass| M[Success + log]
     M --> K[Remove pending]
@@ -54,8 +55,8 @@ flowchart TD
 1. **Validate** — require `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop.
 2. **Auth** — `gh auth status`. Fail → login guide + template, keep file, stop.
 3. **Dedup** — `gh issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}" --state all`. Match → clean, stop.
-3b. **Preview** — Print sanitized summary + planned title/body. Ask: `create / skip / modify`. Non-interactive default: create.
-4. **Create** — On confirm (or default), analyze root cause + severity, then `gh issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+3b. **Preview** — Print sanitized summary + planned title/body. Ask: `create / skip / modify`. Non-interactive default: **skip** — keep `pending.json`, append `[timestamp] preview skipped (non-interactive)` to `processing.log`, stop. A human must re-run interactively to actually create the Issue.
+4. **Create** — On interactive confirm only, analyze root cause + severity, then `gh issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
 5. **Notify** — Output `✅ 已自动报告 bug: {issue_url}`.
 5b. **Log** — Append `[timestamp] issue created: {issue_url}` to `.cache/bug-reports/processing.log`.
 6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
@@ -68,6 +69,7 @@ flowchart TD
 | Invalid JSON | Rename `.invalid`, warn, stop |
 | Auth failure | Login guide + template, keep file |
 | Dedup hit | Clean, show existing Issue |
+| Non-interactive preview | Keep file + log, stop (fail-safe default) |
 | Create failure | Keep file + `failed.log` |
 
 ## Responsibility
