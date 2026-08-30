@@ -61,6 +61,13 @@ mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked
 - `phases.3.evidence.pr_url` 非空
 - `phases.3.evidence.tests_passed` 为 `true`
 
+**本闸门不证明什么:** `tests_passed` 来自 Phase 3 Step 4 的**本地** `make test` / `cargo test`，
+它是前置自检，**不是 CI 结论**。真正的合并闸门是平台的必需检查 + Step 5 的排队合并
+（`gf pr merge --auto`）——平台会在检查不通过时拒绝合并，所以这里无需、也不应重复判定。
+
+`merge_queued` **不作为闸门条件**：GitCode 无排队合并能力，若强制为 `true` 会把 GitCode
+流程永久卡在 Phase 3。该字段只作审计记录（是否已排队 / 是否需人工合并）。
+
 **无豁免**（任何模式都必须通过）
 
 **失败处理:** 阻止进入 Phase 4，返回 Phase 3 TDD 循环

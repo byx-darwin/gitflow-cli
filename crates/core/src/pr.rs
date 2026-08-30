@@ -47,6 +47,13 @@ pub struct PrData {
     pub created_at: DateTime<Utc>,
     /// 最近更新时间（UTC）。
     pub updated_at: DateTime<Utc>,
+    /// 合并时间（UTC）；未合并时为 `None`。
+    ///
+    /// 存在的必要：[`State`] 把 `MERGED` alias 进 `Closed`，仅凭 `state`
+    /// **无法区分"已合并"与"关闭但未合并"**，而 Branch Finish 必须区分二者
+    /// 才能安全删分支。`gh` 提供 `mergedAt`；GitLab/GitCode 若不返回则为 `None`，
+    /// 调用方须把 `None` 当作"未知"而非"未合并"。
+    pub merged_at: Option<DateTime<Utc>>,
     /// PR 的 Web URL。
     pub url: String,
 }
