@@ -444,6 +444,13 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         }
 
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        // glab prints nothing for a scheduled merge; without a message the caller
+        // cannot tell "scheduled" apart from "failed", since both report false.
+        let message = if message.is_empty() && auto {
+            "已排队合并：GitLab 将在 pipeline 通过后自动合并".to_string()
+        } else {
+            message
+        };
         Ok(MergeResult {
             merged: !auto,
             sha: None,
@@ -1062,7 +1069,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_forward_auto_merge_and_report_not_merged() {
-        let runner = MockCommandRunner::success("Merge request !9 scheduled for auto-merge!");
+        let runner = MockCommandRunner::success("");
         let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
 
         let result = provider
@@ -1080,6 +1087,11 @@ mod tests {
         assert!(
             !result.merged,
             "a scheduled merge has not landed, so merged must be false"
+        );
+        let message = result.message.unwrap_or_default();
+        assert!(
+            message.contains("排队"),
+            "empty glab stdout must be replaced by a scheduled-merge message, got {message:?}"
         );
     }
 

@@ -338,6 +338,13 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
 
         // `gh pr merge` outputs a human-readable message, not JSON.
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        // gh prints nothing for a queued merge; without a message the caller cannot
+        // tell "scheduled" apart from "failed", since both report merged == false.
+        let message = if message.is_empty() && auto {
+            "已排队合并：GitHub 将在必需检查通过后自动合并".to_string()
+        } else {
+            message
+        };
         Ok(MergeResult {
             merged: !auto,
             sha: None,
@@ -975,7 +982,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_forward_auto_and_report_not_merged_for_queued_merge() {
-        let runner = MockCommandRunner::success("✓ Merge scheduled for pull request #42");
+        // Observed behaviour: `gh pr merge --auto` exits 0 with empty stdout.
+        let runner = MockCommandRunner::success("");
         let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
 
         let result = provider
@@ -991,6 +999,11 @@ mod tests {
         assert!(
             !result.merged,
             "a scheduled merge has not landed, so merged must be false"
+        );
+        let message = result.message.unwrap_or_default();
+        assert!(
+            message.contains("排队"),
+            "empty gh stdout must be replaced by a scheduled-merge message, got {message:?}"
         );
     }
 
