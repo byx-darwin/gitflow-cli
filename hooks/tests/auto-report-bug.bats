@@ -30,12 +30,15 @@ MOCK
   chmod +x "$bindir/git"
 
   # --- Mock `gh`: records every invocation; auth result from $GH_AUTH_STATUS;
-  #     label list result from $GH_LABEL_LIST_OUTPUT ---
+  #     label list result from $GH_LABEL_LIST_OUTPUT (unset -> default
+  #     "auto-report"; explicitly set to "" -> empty, simulating a missing
+  #     label — note this must use `${VAR-default}`, NOT `${VAR:-default}`,
+  #     since the colon form also substitutes on an explicitly empty value) ---
   cat > "$bindir/gh" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$GH_CALL_LOG"
 if [ "$1" = "label" ] && [ "$2" = "list" ]; then
-  printf '%s\n' "${GH_LABEL_LIST_OUTPUT:-auto-report}"
+  printf '%s\n' "${GH_LABEL_LIST_OUTPUT-auto-report}"
   exit 0
 fi
 if [ "${GH_AUTH_STATUS:-ok}" = "fail" ]; then
@@ -149,6 +152,7 @@ JSON
     echo "❌ auth status was unexpectedly called despite a valid auth cache" >&2
     return 1
   fi
+  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
   grep -q "label list" "$GH_CALL_LOG"
 }
 
@@ -179,8 +183,14 @@ JSON
   run_hook
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"auto-report"*"label"* ]] || [[ "$output" == *"标签"* ]]
-  [[ "$output" != *"MUST load the gf-autoreport-bug skill"* ]]
+  if ! { [[ "$output" == *"auto-report"*"label"* ]] || [[ "$output" == *"标签"* ]]; }; then
+    echo "❌ missing-label warning did not mention 'auto-report'+'label' or '标签'" >&2
+    return 1
+  fi
+  if [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]; then
+    echo "❌ banner was emitted despite the auto-report label being missing" >&2
+    return 1
+  fi
   [ -f "$PENDING_FILE" ]
 }
 
