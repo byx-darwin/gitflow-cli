@@ -112,17 +112,23 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 
 ### Complexity Scoring
 
+> **Token-cost tuning:** file count alone is capped at 5 — it's a weak risk signal and
+> was dominating the score under the old formula, pushing token-cost-heavy independent
+> subagents at borderline task sizes. `crosses_module_boundary` / `changes_public_api` /
+> `requires_migration` stay full-weight — those are real architectural-risk signals and
+> must still force isolation regardless of file count.
+
 ```python
 def classify_task_complexity(task):
     score = 0
-    score += len(task.files_changed) * 1
+    score += min(len(task.files_changed), 5) * 1
     score += 3 if task.crosses_module_boundary else 0
     score += 2 if task.changes_public_api else 0
     score += 1 if task.requires_migration else 0
 
-    if score <= 2:
+    if score <= 4:
         return "simple"    # batch
-    elif score <= 6:
+    elif score <= 9:
         return "medium"    # independent subagent
     else:
         return "complex"   # independent subagent + extra review
@@ -132,9 +138,9 @@ def classify_task_complexity(task):
 
 | Complexity | Method | Description |
 |-----------|--------|-------------|
-| Simple (score ≤ 2) | Batch in main agent | Implement all tasks in main agent, single review pass |
-| Medium (score 3-6) | Independent subagent | One subagent per task + TDD + review |
-| Complex (score > 6) | Independent subagent + extra review | One subagent per task + TDD + review + extra scrutiny |
+| Simple (score ≤ 4) | Batch in main agent | Implement all tasks in main agent, single review pass |
+| Medium (score 5-9) | Independent subagent | One subagent per task + TDD + review |
+| Complex (score > 9) | Independent subagent + extra review | One subagent per task + TDD + review + extra scrutiny |
 
 ### Batch Execution Flow (Simple Tasks)
 
@@ -362,12 +368,23 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 - **Standard:** Pipeline → Review → Branch Finish → Archive
 - **Fast:** Pipeline → Branch Finish → Archive
 
+### Reporting Granularity (Token-Cost Tuning)
+
+Each Phase 4 report step (`gf-pipeline-analyzer`, `gf-review`, `gf-issue-triage`,
+dogfooding checklist) defaults to a **one-line status summary** in chat
+(`✅ <step>: no findings` / `⚠️ <step>: N findings, see <path>`). The full report
+document is still **written to disk** every time (for audit trail), but only
+**echoed in full to the conversation** when the step finds an anomaly (a failed
+check, a regression, a threshold breach, a flaky/failing pipeline job, an
+unresolved review finding). A clean run must never dump the whole report into
+context — link the path instead.
+
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gf-pipeline-analyzer` — generates pipeline analysis report (all modes) | `pipeline_ok` |
-| 2 | **[AUTO]** `gf-issue-triage` — produces Issue triage report (full mode only) | — |
-| 3 | **[AUTO]** `gf-review` — creates code review report (full + standard modes) | `review_report_path` |
-| 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) (full mode only) | `dogfooding_passed` |
+| 1 | **[AUTO]** `gf-pipeline-analyzer` — generates pipeline analysis report (all modes); echo in full only if success rate/duration anomaly found | `pipeline_ok` |
+| 2 | **[AUTO]** `gf-issue-triage` — produces Issue triage report (full mode only); echo in full only if misclassified/untriaged Issues found | — |
+| 3 | **[AUTO]** `gf-review` — creates code review report (full + standard modes); echo in full only if findings exist | `review_report_path` |
+| 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) (full mode only); echo in full only if any item fails | `dogfooding_passed` |
 | 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
 | 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` | — |
 | 7 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
