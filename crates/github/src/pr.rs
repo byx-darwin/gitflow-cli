@@ -299,12 +299,19 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
     /// 调用 `gh pr merge <number> --repo <repo>` 并根据 `strategy` 参数
     /// 添加 `--squash`、`--rebase` 或 `--merge` 标志。
     /// 未指定策略时使用 `--merge`（标准合并）。
+    /// `auto` 为 `true` 时追加 `--auto`，由 GitHub 在必需检查通过后自动合并，
+    /// 调用立即返回；此时 `merged` 为 `false`（排队不等于已合并）。
     ///
     /// # Errors
     ///
     /// 当 PR 不存在、存在冲突无法合并或 `gh` CLI 调用失败时返回错误。
-    async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
-        debug!(repo = %self.repo, number, ?strategy, "spawning `gh pr merge`");
+    async fn merge(
+        &self,
+        number: u64,
+        strategy: Option<MergeStrategy>,
+        auto: bool,
+    ) -> Result<MergeResult> {
+        debug!(repo = %self.repo, number, ?strategy, auto, "spawning `gh pr merge`");
 
         let number_str = number.to_string();
         let mut cmd_args: Vec<&str> = vec!["pr", "merge", &number_str, "--repo", &self.repo];
@@ -313,6 +320,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
             Some(MergeStrategy::Squash) => cmd_args.push("--squash"),
             Some(MergeStrategy::Rebase) => cmd_args.push("--rebase"),
             Some(MergeStrategy::Merge) | None => cmd_args.push("--merge"),
+        }
+
+        if auto {
+            cmd_args.push("--auto");
         }
 
         let output = self
@@ -328,7 +339,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
         // `gh pr merge` outputs a human-readable message, not JSON.
         let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(MergeResult {
-            merged: true,
+            merged: !auto,
             sha: None,
             message: Some(message),
         })
@@ -953,7 +964,7 @@ mod tests {
         let runner = MockCommandRunner::failure(r#"{"message": "Merge conflict"}"#, 256);
         let provider = GitHubPrProvider::with_runner("owner/repo", runner);
 
-        let result = provider.merge(42, None).await;
+        let result = provider.merge(42, None, false).await;
 
         assert!(result.is_err());
         assert!(matches!(
@@ -963,13 +974,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_forward_auto_and_report_not_merged_for_queued_merge() {
+        let runner = MockCommandRunner::success("✓ Merge scheduled for pull request #42");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .merge(42, Some(MergeStrategy::Squash), true)
+            .await
+            .expect("queued merge should succeed");
+
+        let args = &runner.recorded_calls()[0].1;
+        assert!(
+            args.iter().any(|a| a == "--auto"),
+            "`--auto` must be forwarded to gh, got {args:?}"
+        );
+        assert!(
+            !result.merged,
+            "a scheduled merge has not landed, so merged must be false"
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_return_platform_error_on_invalid_json_for_merge() {
         // `gh pr merge` returns human-readable text, so any successful output is a
         // valid message. A failing exit status is the merge failure path instead.
         let runner = MockCommandRunner::failure("invalid json", 256);
         let provider = GitHubPrProvider::with_runner("owner/repo", runner);
 
-        let result = provider.merge(42, Some(MergeStrategy::Squash)).await;
+        let result = provider.merge(42, Some(MergeStrategy::Squash), false).await;
 
         assert!(result.is_err());
         assert!(matches!(

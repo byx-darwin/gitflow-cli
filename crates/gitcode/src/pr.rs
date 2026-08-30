@@ -450,10 +450,26 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
     /// 合并 PR。`strategy` 映射到 gitcode 的 `--method` 参数
     ///（`merge` / `squash` / `rebase`）；未指定时使用平台默认策略。
     ///
+    /// GitCode CLI 无排队合并语义，`auto = true` 直接报错而非静默退化成
+    /// 立即合并——否则调用方会以为合并已被 CI 把关。
+    ///
     /// # Errors
     ///
-    /// 当 PR 不存在、存在冲突无法合并或 `gitcode` CLI 调用失败时返回错误。
-    async fn merge(&self, number: u64, strategy: Option<MergeStrategy>) -> Result<MergeResult> {
+    /// 当 PR 不存在、存在冲突无法合并、请求了 `auto` 或 `gitcode` CLI 调用失败时返回错误。
+    async fn merge(
+        &self,
+        number: u64,
+        strategy: Option<MergeStrategy>,
+        auto: bool,
+    ) -> Result<MergeResult> {
+        if auto {
+            return Err(CoreError::Platform(
+                "GitCode CLI 不支持排队合并（auto）。请改用 GitHub/GitLab，或在 CI \
+                 通过后手动合并。"
+                    .into(),
+            ));
+        }
+
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
         let mut cmd_args: Vec<&str> =
@@ -999,7 +1015,7 @@ mod tests {
         let runner = MockCommandRunner::failure("merge conflict", 256);
         let provider = GitCodePrProvider::with_runner("owner/repo", runner);
 
-        let result = provider.merge(42, None).await;
+        let result = provider.merge(42, None, false).await;
 
         assert!(matches!(
             result.unwrap_err(),
@@ -1208,7 +1224,7 @@ mod tests {
         let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
 
         let result = provider
-            .merge(52, Some(MergeStrategy::Squash))
+            .merge(52, Some(MergeStrategy::Squash), false)
             .await
             .expect("merge");
 
@@ -1230,7 +1246,10 @@ mod tests {
         ] {
             let runner = RecordingMockRunner::success("done");
             let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
-            provider.merge(1, Some(strategy)).await.expect("merge");
+            provider
+                .merge(1, Some(strategy), false)
+                .await
+                .expect("merge");
             let args = &runner.calls()[0];
             let pos = args.iter().position(|a| a == "--method").expect("--method");
             assert_eq!(args[pos + 1], expected);
@@ -1242,9 +1261,29 @@ mod tests {
         let runner = RecordingMockRunner::success("done");
         let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
 
-        provider.merge(1, None).await.expect("merge");
+        provider.merge(1, None, false).await.expect("merge");
 
         assert!(!runner.calls()[0].contains(&"--method".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_reject_auto_merge_without_spawning_cli() {
+        let runner = RecordingMockRunner::success("done");
+        let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
+
+        let err = provider
+            .merge(1, None, true)
+            .await
+            .expect_err("GitCode has no queued-merge semantics, so auto must error");
+
+        assert!(
+            matches!(err, gitflow_core::CoreError::Platform(_)),
+            "expected CoreError::Platform, got {err:?}"
+        );
+        assert!(
+            runner.calls().is_empty(),
+            "must reject before spawning the CLI, not silently degrade to an immediate merge"
+        );
     }
 
     #[tokio::test]

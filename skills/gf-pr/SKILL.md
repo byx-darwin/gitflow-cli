@@ -64,18 +64,49 @@ flowchart TD
 |------|---------|
 | List/View | `gf pr list` / `pr view <n>` |
 | CRUD local | `pr close/reopen/comment <n>` |
-| Merge | `pr merge <n> --strategy <s>` (confirm first) |
+| Merge | `pr merge <n> --strategy <s> [--auto]` — 先过 Merge Gate |
 | Sync | `pr sync <n>` |
+
+## Merge Gate（合并前必走）
+
+`gf pr merge` 之前必须执行以下步骤。规则是声明式的（见下方 Do Not），
+但没有这一步就无从判定——`gf pr view` 不暴露合并就绪状态。
+
+1. **取 head 分支** — `gf pr view <n>` → `head_branch`
+2. **读 CI 状态** — `gf pipeline status --branch <head_branch>`
+   单次调用约 2.5 秒返回，**不轮询、不等待**
+3. **按状态分流**
+
+| CI 状态 | 行为 |
+|---------|------|
+| `success` | 直接 `pr merge <n> --strategy <s>` |
+| `running` / `pending` | ✋ **PAUSE 询问**（见下） |
+| `failed` | 拒绝合并，打印 pipeline URL |
+| GitCode（无 CI 语义） | 询问用户确认已由其他途径把关 |
+
+```
+CI 仍在跑（<branch>，已 N 分钟）。请选择：
+  1) 排队自动合并（推荐）—— pr merge <n> --auto，立即返回，绿了平台自动合
+  2) 立即合并 —— 绕过必需检查，代码未经完整校验即进入目标分支
+  3) 取消
+```
+
+选 1 → `gf pr merge <n> --strategy <s> --auto`；返回 `merged: false` 表示**已排期而非已合并**，
+必须把 `message` 原样回给用户，不得报"已合并"。
+选 2 → 属于策略覆盖，只能由用户明确点选，agent 不得自行选择（见 Do Not）。
+选 3 → 停止，不动分支状态。
 
 ## Responsibility
 
-**In:** route sub-commands · execute simple CRUD · delegate complex workflows.
-**Out:** skip merge confirmation · merge on CI-only basis.
+**In:** route sub-commands · execute simple CRUD · run the Merge Gate · delegate complex workflows.
+**Out:** skip merge confirmation · merge on CI-only basis · choose the CI-override option.
 
 ### 🚫 Do Not
 
 - ❌ Merge without explicit user confirm
 - ❌ Merge when CI fails
+- ❌ Poll CI until green — read status once, then ask
+- ❌ `gh pr merge --admin` / any bypass not explicitly chosen by the user
 
 ## Rationalization Excuses
 
@@ -83,12 +114,16 @@ flowchart TD
 |--------|---------|
 | "CI passed — just merge" | PR review must precede merge; CI is necessary not sufficient. |
 | "Rebase faster" | Rewriting shared history requires explicit consent. |
+| "Waiting for CI is the only safe option" | No — `--auto` queues the merge so nobody blocks. Polling to green wastes the human's turn; overriding without asking wastes their code review. |
+| "They're the admin, so merging past checks is implied" | Role is not consent. The override is an explicit Merge Gate choice, never inferred. |
 
 ## Red Flags
 
 - 🚩 "Skip strategy confirm" — refuse; merge strategy must be explicit
 - 🚩 "Merge now, review later" — refuse; review precedes approval
 - 🚩 "Force push after rebase" — refuse; confirm non-shared state
+- 🚩 "Use `--admin` to save the wait" — refuse; offer `--auto`, or surface the override as an explicit user choice
+- 🚩 "Poll CI until it goes green" — refuse; read status once, then ask
 
 ## Common Mistakes
 
