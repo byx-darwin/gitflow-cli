@@ -174,6 +174,8 @@ User can override batching strategy during plan phase.
 | About to auto-invoke a user-invoked skill (`/to-spec`, `/to-tickets`, `/implement`) | **STOP** — these are `disable-model-invocation`; ✋ PAUSE and prompt the user |
 | About to run Phase 3 same-session without an explicit user request | **STOP** — Gate 2→3 includes execution-mode choice; same-session is explicit-only |
 | About to let `/to-spec` publish to the tracker | **STOP** — local-only constraint; issue creation belongs to `gf-issue-create` |
+| About to `git worktree add` without classifying the main tree | **STOP** — run Worktree Preflight first; the worktree forks a committed state and would leave `spec_path` behind |
+| About to delete untracked files to make the tree look clean | **STOP** — untracked is not disposable. Bucket B is classified and asked about, never removed |
 
 ## Rationalization Table
 
@@ -190,6 +192,8 @@ User can override batching strategy during plan phase.
 | "to-spec can publish the issue itself" | No — to-spec is constrained local-only; issue creation is unified under `gf-issue-create`. |
 | "The background agent can run /implement" | No — /implement is user-invoked; mattpocock's mode menu is trimmed to new-window / same-session. |
 | "Both sources installed — pick the better one" | No priority — ask the user which source this workflow uses. |
+| "Phase 1/2 docs can just stay in the main tree" | No — `git worktree add` forks a committed state. The contract points at `spec_path`, and the executor cannot read a file that never entered its worktree. |
+| "Gate 2→3 already checked the tree" | No — that gate validates contract evidence. And in modes ① and ② the *executor* creates the worktree, so the preflight must travel with the handoff. |
 
 ## When to Use
 
@@ -330,11 +334,11 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. Worktree path is FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`). Branch name: `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — see `references.md` → Phase 3 Execution Modes. **After worktree creation**: symlink shared directories so workflow contracts and Claude config are accessible from the worktree: `mkdir -p <worktree-path>/.cache && ln -s ../../.cache/workflows <worktree-path>/.cache/workflows && ln -s ../../.claude <worktree-path>/.claude` | `branch`, `base_branch`, `worktree_path` |
+| 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. **Preflight is a hard precondition to `git worktree add`**: that command forks a *committed* state, so an unclassified tree leaves this workflow's own `design_doc_path` / `spec_path` behind while the contract still points at them. Classify `git status --porcelain` → bucket A (workflow artifacts: carry into the worktree, commit on the **feature branch**, never `base_branch`) / bucket B (unrelated: ✋ PAUSE, four options, never auto-commit, never delete) / bucket C (gitignored: skip). Then create the worktree: path FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`), branch `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — the handoff MUST carry the preflight steps verbatim; see `references.md` → Phase 3 Execution Modes. **After worktree creation**: symlink shared directories so workflow contracts and Claude config are accessible from the worktree: `mkdir -p <worktree-path>/.cache && ln -s ../../.cache/workflows <worktree-path>/.cache/workflows && ln -s ../../.claude <worktree-path>/.claude`. **Then assert** each contract-referenced document exists under `<worktree-path>/` — abort if missing. Remove bucket A's main-tree copies only after their commit is verified, otherwise the later merge aborts on untracked-overwrite. Full procedure: `references.md` → Worktree Preflight. | `branch`, `base_branch`, `worktree_path`, `worktree_preflight` |
 | 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window / background agent); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR | implementation |
 | 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
 | 4 | **[AUTO]** `make test` or `cargo test` | `tests_passed` |
-| 5 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, pr_url, tests_passed }` | — |
+| 5 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, pr_url, tests_passed }` | — |
 | 6 | **[AUTO]** Gate 3→4 — `pr_url` + `tests_passed = true` → **AUTO-ADVANCE to Phase 4** | — |
 
 ## Phase 4: Post-Delivery Checks
@@ -376,6 +380,8 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 2. Detect PR merge status: `gf pr view` (parse merged state)
 3. **PR merged** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
+   - **Re-run the Worktree Preflight classification** before touching branch state: `git checkout`/`git pull` are blocked by the same dirty tree that blocks `git worktree add`. Bucket A is empty by now (its commit is merged); anything left is bucket B → ✋ PAUSE, never auto-commit, never delete.
+   - If `unresolved_dirty_paths` is non-empty, list it here — those are files Phase 3 deliberately left in the main tree.
    - `git checkout $base_branch && git pull origin $base_branch`
    - `git branch -d $branch`
    - `git worktree remove $worktree_path && git worktree prune`

@@ -94,17 +94,84 @@ All worktrees are created at a fixed location within the project: `.worktree/<br
 
 **Example:**
 ```bash
-# Phase 3 Step 1: Create worktree
+# Phase 3 Step 1: preflight, then create worktree
+git status --porcelain                      # classify before forking (see below)
 git worktree add .worktree/feat-146-worktree-path -b feat/146-worktree-path main
+
+# Carry this workflow's Phase 1/2 documents INTO the worktree, then commit on the
+# feature branch (structure-preserving and portable — macOS has no `cp --parents`)
+for f in docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md; do
+  mkdir -p ".worktree/feat-146-worktree-path/$(dirname "$f")"
+  cp "$f" ".worktree/feat-146-worktree-path/$f"
+done
+
+# Backstop: assert every contract-referenced document really landed in the worktree
+for f in docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md; do
+  test -f ".worktree/feat-146-worktree-path/$f" || { echo "ABORT: $f missing in worktree"; exit 1; }
+done
 
 # Symlink shared directories (workflow contracts + Claude config)
 mkdir -p .worktree/feat-146-worktree-path/.cache
 ln -s ../../.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
 ln -s ../../.claude .worktree/feat-146-worktree-path/.claude
 
+cd .worktree/feat-146-worktree-path
+git add docs && git commit -m "docs(workflow): wf-2026-08-30-001 Phase 1-2 artifacts"
+cd -
+# Only now remove the main-tree copies, so the eventual merge cannot be blocked
+rm docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md
+
 # Phase 4 Branch Finish: Remove worktree
 git worktree remove .worktree/feat-146-worktree-path
 ```
+
+### Worktree Preflight (Phase 3 Step 1)
+
+`git worktree add` checks out a **committed** state. Anything uncommitted in the main
+working tree stays behind — including this workflow's own Phase 1/2 documents, which the
+contract references by path. The contract itself survives (it is symlinked), so without a
+preflight the executor is handed a `spec_path` that does not exist in its working directory
+and plans against a document it cannot read.
+
+Run this before `git worktree add`. `git status --porcelain` empty ⇒ record
+`worktree_preflight = "clean"` and proceed.
+
+| Bucket | Match | Action |
+|---|---|---|
+| **A — workflow artifacts** | paths equal to contract `design_doc_path`, `spec_path`, `ticket_refs[]` | Carry into the worktree and commit **on the feature branch** |
+| **B — unrelated dirty files** | everything else reported by `git status` | ✋ PAUSE and ask |
+| **C — ignored** | covered by `.gitignore` (`.cache/`, `.worktree/`, `target/`) | Nothing to do (`git status` already omits them) |
+
+Commit to the feature branch, never to `base_branch`: entering Phase 3 must not leave
+commits on a shared branch as a side effect.
+
+**Why the main-tree copies must be removed after committing.** Verified behaviour: if the
+untracked originals stay, the later merge fails with
+`untracked working tree files would be overwritten by merge … Aborting`. Removing them
+after the worktree commit is safe because the content is preserved in git and comes back on
+merge. Remove only after asserting the commit succeeded.
+
+**Bucket B is never auto-committed and never deleted** — it is somebody else's work. Offer
+exactly these four options, and record the choice in `worktree_preflight`:
+
+```
+主工作区有与本工作流无关的改动：
+  <paths from git status --porcelain>
+
+它们不会进入 worktree。请选择：
+  1) 单独提交    2) git stash    3) 留在主工作区继续    4) 中止
+```
+
+Choice 3 ⇒ `worktree_preflight = "user_left_dirty"` and list the paths in
+`unresolved_dirty_paths`, so Phase 4 and any later reader knows what was deliberately
+abandoned in the main tree. Choice 2 ⇒ `"user_stashed"`. Choice 4 ⇒ `"aborted"`, keep
+the contract in Phase 3 for resume.
+
+A non-empty bucket A that was carried and committed ⇒ `"artifacts_carried"`.
+
+**Every execution mode must run this preflight.** Modes ① and ② let the *executor* create
+the worktree, so the orchestrator cannot rely on having checked the tree itself — the
+handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` below.
 
 ## Lifecycle Management
 
@@ -264,8 +331,8 @@ same-session SDD hijacks the conversation once started).
 
 | Mode | Description | Availability |
 |---|---|---|
-| ① Background agent ⭐default | Dispatch with `isolation: worktree` + `run_in_background`; handoff = contract path + plan doc + engine instructions; `task-notification` returns to the original window; executor writes evidence back to the contract | superpowers only (`/implement` is user-invoked → unusable on mattpocock) |
-| ② Manual new window | Print opening guidance: worktree path (or creation command) + contract recovery command (`gf workflow status <id>` + plan doc path); new window creates branch/worktree itself and runs `executing-plans` (superpowers) or per-ticket `/implement` (mattpocock); user reports back, orchestrator verifies evidence | both sources |
+| ① Background agent ⭐default | Dispatch with `isolation: worktree` + `run_in_background`; handoff = contract path + plan doc + engine instructions + **Worktree Preflight steps verbatim** (this executor creates the worktree, so the orchestrator's tree state was never checked); `task-notification` returns to the original window; executor writes evidence back to the contract | superpowers only (`/implement` is user-invoked → unusable on mattpocock) |
+| ② Manual new window | Print opening guidance: worktree path (or creation command) + contract recovery command (`gf workflow status <id>` + plan doc path) + **Worktree Preflight steps verbatim**; new window creates branch/worktree itself and runs `executing-plans` (superpowers) or per-ticket `/implement` (mattpocock); user reports back, orchestrator verifies evidence | both sources |
 | ③ Same-session | Current behavior: orchestrator creates worktree and drives the engine inline | explicit request only |
 
 Quality compensation: `executing-plans` (light path) lacks per-task review → gates
