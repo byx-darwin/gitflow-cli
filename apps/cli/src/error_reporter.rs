@@ -238,6 +238,10 @@ pub(crate) fn maybe_report_error(
         return Ok(());
     }
 
+    if is_ci_environment() {
+        return Ok(());
+    }
+
     // Only report if user has joined the co-contribution plan
     if !is_co_contribution_enabled() {
         return Ok(());
@@ -305,6 +309,39 @@ pub(crate) fn read_co_contribution_flag(path: &Path) -> bool {
 fn should_skip_reporting() -> bool {
     use is_terminal::IsTerminal;
     std::io::stderr().is_terminal()
+}
+
+/// Environment variables set by common CI providers, checked to keep
+/// `gf-autoreport-bug` from ever firing inside a pipeline run.
+///
+/// `gf-regression`'s skill doc already documents "never autoreport from
+/// CI" as a hard rule; this makes that rule code-enforced rather than
+/// relying on the LLM to honor the documentation. Note this is
+/// independent of [`should_skip_reporting`] (the TTY check): CI runs are
+/// almost always non-interactive, so without this check the TTY gate
+/// alone would let CI failures straight through.
+const CI_ENV_VARS: &[&str] = &[
+    "CI",
+    "GITHUB_ACTIONS",
+    "GITLAB_CI",
+    "CI_PIPELINE_ID",
+    "CIRCLECI",
+    "BUILDKITE",
+    "JENKINS_URL",
+];
+
+/// Returns `true` when any known CI environment variable is present.
+///
+/// Extracted for testability — see [`is_ci_environment_with`].
+fn is_ci_environment() -> bool {
+    is_ci_environment_with(|name| std::env::var_os(name).is_some())
+}
+
+/// Testable core of [`is_ci_environment`]: takes a presence-check
+/// closure instead of reading the real environment directly, so tests
+/// don't need to mutate global process state.
+fn is_ci_environment_with(has_var: impl Fn(&str) -> bool) -> bool {
+    CI_ENV_VARS.iter().any(|var| has_var(var))
 }
 
 /// Returns `true` when the given error code represents a user input or
@@ -608,6 +645,31 @@ mod tests {
         assert!(!is_user_input_error("CLI_ERROR"));
         assert!(!is_user_input_error("AUTH_FAILED"));
         assert!(!is_user_input_error(""));
+    }
+
+    #[test]
+    fn test_should_detect_ci_from_known_env_vars() {
+        for var in [
+            "CI",
+            "GITHUB_ACTIONS",
+            "GITLAB_CI",
+            "CI_PIPELINE_ID",
+            "CIRCLECI",
+            "BUILDKITE",
+            "JENKINS_URL",
+        ] {
+            let present = |name: &str| name == var;
+            assert!(
+                is_ci_environment_with(present),
+                "{var} must be recognized as a CI indicator"
+            );
+        }
+    }
+
+    #[test]
+    fn test_should_not_detect_ci_when_no_known_vars_set() {
+        let present = |_: &str| false;
+        assert!(!is_ci_environment_with(present));
     }
 
     #[test]
