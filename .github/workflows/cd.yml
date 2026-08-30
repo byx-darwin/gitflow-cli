@@ -4,9 +4,15 @@ on:
   push:
     tags: ["v*"]
 
+# Ceiling for the reusable workflow called below: release.yml's `release` job
+# requests `attestations: write` for actions/attest-build-provenance. A called
+# workflow cannot exceed the caller's permissions, and GitHub rejects the whole
+# run at compile time (startup_failure, no job logs) rather than at step time —
+# so this block must stay in sync with release.yml's job-level requests.
 permissions:
   contents: write
   id-token: write
+  attestations: write
 
 concurrency:
   group: cd-${{ github.ref_name }}
