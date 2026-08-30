@@ -2,7 +2,8 @@ name: Smoke Test
 
 on:
   push:
-    branches: [main, dev]
+    # 与 ci.yml 同理：dev 无保护，PR 的 pull_request run 已覆盖同一 commit。
+    branches: [main]
   pull_request:
     branches: [main, dev]
 
