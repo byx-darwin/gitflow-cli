@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
+    # dev 不触发：三平台构建矩阵最贵，而 PR 的 pull_request run 已构建同一 commit。
     branches:
       - main
-      - dev
     tags:
       - v*
   pull_request:

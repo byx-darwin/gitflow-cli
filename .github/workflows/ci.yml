@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    # dev 不触发：dev 无分支保护，PR 的 pull_request run 已覆盖同一 commit。
+    # 两处都跑等于同一份矩阵抢两次 runner 槽位，只会拖慢合并排队。
+    branches: [main]
     tags: ["v*"]
   pull_request:
     branches: [main, dev]
