@@ -46,6 +46,10 @@ struct PrApiResponse {
     created_at: Option<String>,
     #[serde(default)]
     updated_at: Option<String>,
+    /// GitCode API 若返回则用于区分"已合并"与"关闭未合并"；
+    /// `state` 本身做不到（`merged` 与 `closed` 同样映射为 Closed）。
+    #[serde(default)]
+    merged_at: Option<String>,
     #[serde(default)]
     html_url: Option<String>,
 }
@@ -119,6 +123,11 @@ impl From<PrApiResponse> for PrData {
             s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
                 .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
         };
+        // 不能复用 parse_time：缺失会被填成「现在」，那等于谎报一次合并。
+        let parse_opt_time = |s: Option<String>| {
+            s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
+                .map(|dt| dt.with_timezone(&Utc))
+        };
         Self {
             number: api.number,
             title: api.title,
@@ -142,6 +151,7 @@ impl From<PrApiResponse> for PrData {
             head_branch: api.head.map_or_else(String::new, |h| h.branch_ref),
             created_at: parse_time(api.created_at),
             updated_at: parse_time(api.updated_at),
+            merged_at: parse_opt_time(api.merged_at),
             url: api.html_url.unwrap_or_default(),
         }
     }

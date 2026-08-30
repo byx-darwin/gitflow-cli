@@ -69,8 +69,8 @@ flowchart TD
 
 ## Merge Gate（合并前必走）
 
-`gf pr merge` 之前必须执行以下步骤。规则是声明式的（见下方 Do Not），
-但没有这一步就无从判定——`gf pr view` 不暴露合并就绪状态。
+`gf pr merge` 之前必须执行以下步骤。`gf pr view` 能报 `mergedAt`（区分已合并与关闭未合并），
+但**仍不含必需检查状态**，所以 CI 判定必须另走 `gf pipeline status`。
 
 1. **取 head 分支** — `gf pr view <n>` → `head_branch`
 2. **读 CI 状态** — `gf pipeline status --branch <head_branch>`

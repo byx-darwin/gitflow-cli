@@ -68,6 +68,24 @@ pub struct CleanupResult {
     pub error: Option<String>,
 }
 
+/// Select the PRs that `--merged` is allowed to clean up.
+///
+/// [`State`] collapses `MERGED` into `Closed`, so `state == Closed` cannot tell a
+/// merged PR from one closed **without** merging; filtering on it made `--merged`
+/// delete branches still holding unmerged work. `merged_at` is the real signal, but
+/// a `None` is ambiguous — platforms that never populate the field also report
+/// `None` for genuinely merged PRs. So the field is trusted only once at least one
+/// row carries it, otherwise this falls back to the previous looser behaviour
+/// instead of silently matching nothing.
+#[must_use]
+pub fn select_merge_candidates(prs: &[PrData]) -> Vec<&PrData> {
+    if prs.iter().any(|pr| pr.merged_at.is_some()) {
+        prs.iter().filter(|pr| pr.merged_at.is_some()).collect()
+    } else {
+        prs.iter().filter(|pr| pr.state == State::Closed).collect()
+    }
+}
+
 /// Check if a branch name matches common protected branch patterns.
 ///
 /// Protected branches include: `main`, `master`, `develop`, and `release/*`.
@@ -236,6 +254,19 @@ impl CleanupService {
         provider: &dyn crate::pr::PrProvider,
         args: &CleanupArgs,
     ) -> crate::Result<Vec<CleanupResult>> {
+        Self::cleanup_filtered(provider, args, true).await
+    }
+
+    /// List closed PRs and clean up those matching `require_merged`.
+    ///
+    /// `require_merged = false` is the `--closed` path and must keep matching PRs
+    /// that were closed **without** merging; that is precisely what it exists to
+    /// clean up.
+    async fn cleanup_filtered(
+        provider: &dyn crate::pr::PrProvider,
+        args: &CleanupArgs,
+        require_merged: bool,
+    ) -> crate::Result<Vec<CleanupResult>> {
         let prs = provider
             .list(crate::pr::ListPrArgs {
                 state: Some(State::Closed),
@@ -243,14 +274,14 @@ impl CleanupService {
             })
             .await?;
 
-        // Filter to only merged PRs (state == Closed includes merged)
-        let merged_prs: Vec<_> = prs
-            .into_iter()
-            .filter(|pr| pr.state == State::Closed)
-            .collect();
+        let targets: Vec<&PrData> = if require_merged {
+            select_merge_candidates(&prs)
+        } else {
+            prs.iter().filter(|pr| pr.state == State::Closed).collect()
+        };
 
         let mut results = Vec::new();
-        for pr in merged_prs {
+        for pr in targets {
             let mut pr_args = args.clone();
             pr_args.numbers = vec![pr.number];
 
@@ -259,8 +290,8 @@ impl CleanupService {
                 Err(e) => {
                     results.push(CleanupResult {
                         pr_number: pr.number,
-                        pr_title: pr.title,
-                        branch: pr.head_branch,
+                        pr_title: pr.title.clone(),
+                        branch: pr.head_branch.clone(),
                         remote_deleted: false,
                         local_deleted: false,
                         worktree_exited: false,
@@ -284,8 +315,7 @@ impl CleanupService {
         provider: &dyn crate::pr::PrProvider,
         args: &CleanupArgs,
     ) -> crate::Result<Vec<CleanupResult>> {
-        // Same as cleanup_merged for now (both use state == Closed)
-        Self::cleanup_merged(provider, args).await
+        Self::cleanup_filtered(provider, args, false).await
     }
 }
 
@@ -450,6 +480,7 @@ mod tests {
             head_branch: "feature/x".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
+            merged_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
         };
         let result = check_safety(&pr, "main", false);
@@ -471,6 +502,7 @@ mod tests {
             base_branch: "main".to_string(),
             head_branch: "main".to_string(),
             created_at: chrono::Utc::now(),
+            merged_at: None,
             updated_at: chrono::Utc::now(),
             url: "https://github.com/test/repo/pull/172".to_string(),
         };
@@ -494,6 +526,7 @@ mod tests {
             },
             base_branch: "main".to_string(),
             head_branch: "feature/x".to_string(),
+            merged_at: None,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             url: "https://github.com/test/repo/pull/172".to_string(),
@@ -517,6 +550,7 @@ mod tests {
                 id: "1".to_string(),
             },
             base_branch: "main".to_string(),
+            merged_at: None,
             head_branch: "feature/x".to_string(),
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -540,6 +574,7 @@ mod tests {
                 login: "alice".to_string(),
                 id: "1".to_string(),
             },
+            merged_at: None,
             base_branch: "main".to_string(),
             head_branch: "feature/x".to_string(),
             created_at: chrono::Utc::now(),
@@ -548,5 +583,64 @@ mod tests {
         };
         let result = check_safety(&pr, "main", true);
         assert!(result.is_ok());
+    }
+
+    fn pr_fixture(number: u64, state: State, merged: bool) -> PrData {
+        PrData {
+            number,
+            title: format!("PR {number}"),
+            body: None,
+            state,
+            draft: false,
+            author: crate::types::UserSummary {
+                login: "alice".to_string(),
+                id: "1".to_string(),
+            },
+            base_branch: "main".to_string(),
+            head_branch: format!("feature/{number}"),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            merged_at: if merged {
+                Some(chrono::Utc::now())
+            } else {
+                None
+            },
+            url: format!("https://github.com/test/repo/pull/{number}"),
+        }
+    }
+
+    fn picked(prs: &[&PrData]) -> Vec<u64> {
+        prs.iter().map(|pr| pr.number).collect()
+    }
+
+    #[test]
+    fn test_should_exclude_closed_but_unmerged_from_merged_cleanup() {
+        // #201 was closed without merging; once the platform reports merged_at for
+        // any row, --merged must not reach into it and delete unmerged work.
+        let prs = vec![
+            pr_fixture(200, State::Closed, true),
+            pr_fixture(201, State::Closed, false),
+        ];
+        assert_eq!(picked(&select_merge_candidates(&prs)), vec![200]);
+    }
+
+    #[test]
+    fn test_should_fall_back_to_closed_state_when_merged_at_never_reported() {
+        // A platform that omits merged_at yields None even for merged PRs, so
+        // trusting None here would silently clean nothing.
+        let prs = vec![
+            pr_fixture(300, State::Closed, false),
+            pr_fixture(301, State::Closed, false),
+        ];
+        assert_eq!(picked(&select_merge_candidates(&prs)), vec![300, 301]);
+    }
+
+    #[test]
+    fn test_should_keep_open_pr_out_of_merge_candidates() {
+        let prs = vec![
+            pr_fixture(400, State::Closed, true),
+            pr_fixture(401, State::Open, false),
+        ];
+        assert_eq!(picked(&select_merge_candidates(&prs)), vec![400]);
     }
 }

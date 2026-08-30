@@ -156,6 +156,10 @@ struct MrApiResponse {
     created_at: Option<DateTime<Utc>>,
     #[serde(default)]
     updated_at: Option<DateTime<Utc>>,
+    /// GitLab 独有：`state` 为 `merged` 时有值。`state` 本身不足以区分
+    /// "已合并"与"关闭未合并"，故一并取回。
+    #[serde(default)]
+    merged_at: Option<DateTime<Utc>>,
     #[serde(default)]
     web_url: Option<String>,
 }
@@ -187,6 +191,7 @@ impl From<MrApiResponse> for PrData {
             head_branch: api.source_branch,
             created_at: api.created_at.unwrap_or(now),
             updated_at: api.updated_at.unwrap_or(now),
+            merged_at: api.merged_at,
             url: api.web_url.unwrap_or_default(),
         }
     }

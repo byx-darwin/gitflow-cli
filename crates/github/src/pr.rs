@@ -18,8 +18,8 @@ use crate::{
 };
 
 /// `gh pr` 请求的 JSON 字段列表。
-const PR_FIELDS: &str =
-    "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,updatedAt,url";
+const PR_FIELDS: &str = "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,\
+                         updatedAt,mergedAt,url";
 
 /// GitHub Pull Request 提供者，通过 `gh` CLI 操作。
 ///
@@ -585,6 +585,45 @@ mod tests {
         assert_eq!(pr.base_branch, "main");
         assert_eq!(pr.head_branch, "feature/new-thing");
         assert_eq!(pr.url, "https://github.com/octocat/hello-world/pull/123");
+    }
+
+    #[test]
+    fn test_should_distinguish_merged_from_closed_via_merged_at() {
+        // gh reports both as state MERGED/CLOSED → State::Closed, so merged_at is the
+        // only signal that separates a merged PR from one closed without merging.
+        let merged: PrData = serde_json::from_slice(
+            br#"{
+                "number": 1, "title": "m", "state": "merged", "draft": false,
+                "author": {"login": "alice", "id": "2"},
+                "baseBranch": "main", "headBranch": "feature/m",
+                "createdAt": "2026-02-20T14:00:00Z", "updatedAt": "2026-02-21T10:30:00Z",
+                "mergedAt": "2026-02-21T10:30:00Z",
+                "url": "https://github.com/o/r/pull/1"
+            }"#,
+        )
+        .expect("merged PrData");
+
+        let closed_unmerged: PrData = serde_json::from_slice(
+            br#"{
+                "number": 2, "title": "c", "state": "closed", "draft": false,
+                "author": {"login": "alice", "id": "2"},
+                "baseBranch": "main", "headBranch": "feature/c",
+                "createdAt": "2026-02-20T14:00:00Z", "updatedAt": "2026-02-21T10:30:00Z",
+                "mergedAt": null,
+                "url": "https://github.com/o/r/pull/2"
+            }"#,
+        )
+        .expect("closed PrData");
+
+        assert_eq!(merged.state, closed_unmerged.state, "state alone is equal");
+        assert!(
+            merged.merged_at.is_some(),
+            "mergedAt must populate merged_at"
+        );
+        assert!(
+            closed_unmerged.merged_at.is_none(),
+            "null mergedAt must stay None, not become some timestamp"
+        );
     }
 
     #[test]

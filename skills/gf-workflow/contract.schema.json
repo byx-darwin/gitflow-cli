@@ -103,6 +103,10 @@
             "branch": { "type": "string" },
             "pr_url": { "type": "string" },
             "tests_passed": { "type": "boolean" },
+            "merge_queued": {
+              "type": "boolean",
+              "description": "Phase 3 Step 5 是否已用 `gf pr merge --auto` 排队合并；false 表示需人工合并（如 GitCode 无排队能力）。仅作审计，不参与闸门判定"
+            },
             "pipeline_ok": { "type": "boolean" },
             "review_report_path": { "type": "string" },
             "base_branch": {
