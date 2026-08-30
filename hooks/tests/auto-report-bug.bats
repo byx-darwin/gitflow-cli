@@ -29,10 +29,15 @@ fi
 MOCK
   chmod +x "$bindir/git"
 
-  # --- Mock `gh`: records every invocation; auth result from $GH_AUTH_STATUS ---
+  # --- Mock `gh`: records every invocation; auth result from $GH_AUTH_STATUS;
+  #     label list result from $GH_LABEL_LIST_OUTPUT ---
   cat > "$bindir/gh" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$GH_CALL_LOG"
+if [ "$1" = "label" ] && [ "$2" = "list" ]; then
+  printf '%s\n' "${GH_LABEL_LIST_OUTPUT:-auto-report}"
+  exit 0
+fi
 if [ "${GH_AUTH_STATUS:-ok}" = "fail" ]; then
   exit 1
 fi
@@ -119,8 +124,10 @@ JSON
   [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
   [[ "$output" == *"gf-autoreport-bug"* ]]
   [ -f "$AUTH_CACHE_DIR/github.ttl" ]
-  # Live auth check must have run exactly once.
-  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
+  # Live auth check must have run exactly once, plus the label pre-check.
+  [ "$(wc -l < "$GH_CALL_LOG")" -eq 2 ]
+  grep -q "auth status" "$GH_CALL_LOG"
+  grep -q "label list" "$GH_CALL_LOG"
 }
 
 @test "auth cache valid -> skips gf CLI call" {
@@ -136,7 +143,13 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"cache 命中"* ]]
   [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
-  [ ! -s "$GH_CALL_LOG" ]
+  # The cached auth check must skip the live `gh auth status` call, but the
+  # label pre-check still runs (it depends on auth succeeding, not on how).
+  if grep -q "auth status" "$GH_CALL_LOG"; then
+    echo "❌ auth status was unexpectedly called despite a valid auth cache" >&2
+    return 1
+  fi
+  grep -q "label list" "$GH_CALL_LOG"
 }
 
 @test "auth success -> banner instruction uses gf-autoreport-bug (no stale gitflow-) and MUST directive" {
@@ -155,13 +168,43 @@ JSON
   fi
 }
 
+@test "warns and does not emit banner when auto-report label is missing" {
+  mkdir -p "$(dirname "$PENDING_FILE")"
+  cat > "$PENDING_FILE" <<'JSON'
+{"id":"abc","command":"issue list","platform":"github","error_code":"500","error_message":"boom","timestamp":"2026-08-30T00:00:00Z"}
+JSON
+  export GH_AUTH_STATUS="ok"
+  export GH_LABEL_LIST_OUTPUT=""
+
+  run_hook
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"auto-report"*"label"* ]] || [[ "$output" == *"标签"* ]]
+  [[ "$output" != *"MUST load the gf-autoreport-bug skill"* ]]
+  [ -f "$PENDING_FILE" ]
+}
+
+@test "emits banner when auto-report label exists" {
+  mkdir -p "$(dirname "$PENDING_FILE")"
+  cat > "$PENDING_FILE" <<'JSON'
+{"id":"abc","command":"issue list","platform":"github","error_code":"500","error_message":"boom","timestamp":"2026-08-30T00:00:00Z"}
+JSON
+  export GH_AUTH_STATUS="ok"
+  export GH_LABEL_LIST_OUTPUT="auto-report"
+
+  run_hook
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]
+}
+
 @test "auth success -> calls gh auth status" {
   write_pending
   GH_AUTH_STATUS="ok"
   run_hook
 
   [ "$status" -eq 0 ]
-  # Live auth check must run exactly once.
-  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
+  # Live auth check must run exactly once, plus the label pre-check.
+  [ "$(wc -l < "$GH_CALL_LOG")" -eq 2 ]
   grep -q "auth status" "$GH_CALL_LOG"
 }

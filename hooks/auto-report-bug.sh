@@ -129,6 +129,32 @@ if [ "$AUTH_CHECK_FAILED" = "true" ]; then
   exit 0
 fi
 
+# Label existence pre-check (G3) — verify the `auto-report` label exists
+# on the target repo before asking the LLM to `gh issue create` with it.
+# A missing label previously surfaced as a raw 422 at Issue-creation time
+# with no actionable guidance; this fails loud, earlier, with a fix.
+LABEL_CHECK_FAILED=false
+if command -v gh >/dev/null 2>&1; then
+  LABEL_LIST_OUTPUT=$(gh label list --repo byx-darwin/gitflow-cli --search auto-report --json name -q '.[].name' 2>/dev/null || true)
+  if [ -z "$LABEL_LIST_OUTPUT" ]; then
+    LABEL_CHECK_FAILED=true
+    log_hook "label check failed (auto-report label missing on byx-darwin/gitflow-cli)"
+  fi
+fi
+
+if [ "$LABEL_CHECK_FAILED" = "true" ]; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ⚠️  仓库缺少 auto-report 标签，无法自动创建 Issue"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "  请先创建该标签，然后重新触发："
+  echo "    gh label create auto-report --repo byx-darwin/gitflow-cli \\"
+  echo "      --description \"Automatically filed by gf-autoreport-bug\" --color FBCA04"
+  echo ""
+  exit 0
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 log_hook "banner emitted (command=${COMMAND:-unknown}, platform=${PLATFORM:-unknown})"
