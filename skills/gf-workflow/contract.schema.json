@@ -113,6 +113,22 @@
               "type": "string",
               "description": "Absolute path to the git worktree created in Phase 3"
             },
+            "worktree_preflight": {
+              "type": "string",
+              "enum": [
+                "clean",
+                "artifacts_carried",
+                "user_stashed",
+                "user_left_dirty",
+                "aborted"
+              ],
+              "description": "Phase 3 worktree preflight 结局（见 references.md → Worktree Preflight）"
+            },
+            "unresolved_dirty_paths": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "用户选择留在主工作区、未带入 worktree 的 B 桶路径（Phase 3 记档，供 Phase 4 与事后追溯）"
+            },
             "branch_cleaned": {
               "type": "boolean",
               "description": "Whether Branch Finish cleanup was executed (Phase 4)"
