@@ -149,6 +149,25 @@ ci_checks_state() {
     fi
 }
 
+# Classify one tag-triggered CD run from `gh run list --json status,conclusion`
+# (single "<status>\t<conclusion>" line) → pending | passed | failed:<conclusion>.
+# A run that never started still reports status=completed, with a conclusion such
+# as startup_failure or cancelled — treating only "success" as passed is what keeps
+# a permission/compile-time CD failure from looking like a finished release.
+cd_run_state() {
+    local line="$1"
+    local status conclusion
+    status=$(printf '%s' "$line" | cut -f1)
+    conclusion=$(printf '%s' "$line" | cut -f2)
+    if [ "$status" != "completed" ]; then
+        echo "pending"
+    elif [ "$conclusion" = "success" ]; then
+        echo "passed"
+    else
+        echo "failed:${conclusion:-unknown}"
+    fi
+}
+
 run_self_test() {
     local failures=0
 
@@ -209,6 +228,17 @@ run_self_test() {
     expect_fail "ci state: failed not misread as passed" test "$(ci_checks_state $'lint\tfail\t0')" = "passed"
     expect_fail "ci state: pending not misread as passed" test "$(ci_checks_state $'build\tpending\t0')" = "passed"
 
+    # cd_run_state: gh run list status<TAB>conclusion → pending|passed|failed:<conclusion>
+    expect_pass "cd state: in_progress → pending" test "$(cd_run_state $'in_progress\t')" = "pending"
+    expect_pass "cd state: queued → pending" test "$(cd_run_state $'queued\t')" = "pending"
+    expect_pass "cd state: completed+success → passed" test "$(cd_run_state $'completed\tsuccess')" = "passed"
+    expect_pass "cd state: completed+failure → failed" test "$(cd_run_state $'completed\tfailure')" = "failed:failure"
+    # v1.6.0/v1.7.0 shipped zero assets because CD died at workflow-compile time:
+    # status is already "completed", so only a non-success conclusion reveals it.
+    expect_pass "cd state: startup_failure → failed" test "$(cd_run_state $'completed\tstartup_failure')" = "failed:startup_failure"
+    expect_fail "cd state: startup_failure not misread as passed" test "$(cd_run_state $'completed\tstartup_failure')" = "passed"
+    expect_pass "cd state: missing conclusion → failed:unknown" test "$(cd_run_state $'completed\t')" = "failed:unknown"
+
     echo ""
     if [ "$failures" -eq 0 ]; then
         log_success "Self-test passed"
@@ -222,6 +252,62 @@ if [[ "${1:-}" == "--self-test" ]]; then
     trap - EXIT
     if run_self_test; then exit 0; else exit 1; fi
 fi
+
+# Wait for the tag-triggered CD run and require a release users can install.
+# A tag push alone does not mean a shippable release: CD can die before any job
+# starts (workflow-file/permission errors), leaving the tag and an asset-less
+# GitHub Release behind. Both v1.6.0 and v1.7.0 were announced that way.
+#
+# Usage: verify_cd_release <tag> [max_wait_seconds]
+verify_cd_release() {
+    local tag="$1"
+    local max_wait="${2:-3600}"
+    local waited=0
+
+    log_info "Waiting for CD run on $tag (multi-platform builds can take ~20 min)..."
+    while true; do
+        local line state
+        line=$(gh run list --workflow CD --branch "$tag" \
+            --json status,conclusion --jq '.[0] | [.status, .conclusion] | @tsv' 2>/dev/null || true)
+        if [ -z "$line" ]; then
+            state="pending"
+        else
+            state=$(cd_run_state "$line")
+        fi
+
+        case "$state" in
+            passed)
+                echo ""
+                log_success "CD run succeeded"
+                break ;;
+            failed:*)
+                echo ""
+                log_error "CD run for $tag ${state#failed:} — the tag exists but no binaries were built."
+                log_error "Inspect: gh run list --workflow CD --branch $tag --limit 3"
+                log_warn "Once CD is fixed, re-trigger without a new version: git tag -f $tag && git push -f origin $tag"
+                return 1 ;;
+        esac
+
+        if [ "$waited" -ge "$max_wait" ]; then
+            echo ""
+            log_error "Timeout after ${max_wait}s waiting for CD on $tag. Check: gh run list --workflow CD --branch $tag"
+            return 1
+        fi
+        echo -n "."
+        sleep 30
+        waited=$((waited + 30))
+    done
+
+    # Success alone is not enough — a job can be skipped, or an older run for the
+    # same tag can be picked up. Asset count is the only proof of a usable release.
+    local assets
+    assets=$(gh release view "$tag" --json assets --jq '.assets | length' 2>/dev/null || echo 0)
+    if [ "${assets:-0}" -eq 0 ]; then
+        log_error "Release $tag has 0 assets — nothing for users to download or for \`gf update\` to install."
+        return 1
+    fi
+    log_success "Release $tag published with $assets asset(s)"
+}
 
 # Check prerequisites
 check_prerequisites() {
@@ -747,9 +833,13 @@ Ready for release! 🚀" 2>&1)
     git tag "v${RELEASE_VERSION}"
     git push origin "v${RELEASE_VERSION}"
 
-    # Wait for GitHub Actions to build binaries
-    log_info "Waiting for GitHub Actions to build binaries..."
-    sleep 30
+    # Gate the release on CD actually producing downloadable binaries. The previous
+    # `sleep 30` only waited out a race and never looked at the outcome, so an
+    # asset-less release still printed "success".
+    if ! verify_cd_release "v${RELEASE_VERSION}"; then
+        log_error "Release could not be verified — do not announce v${RELEASE_VERSION} until CD publishes assets."
+        exit 1
+    fi
 
     # Publish to crates.io
     if confirm "Publish to crates.io?"; then
