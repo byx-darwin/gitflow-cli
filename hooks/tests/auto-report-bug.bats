@@ -47,7 +47,10 @@ MOCK
   : > "$GH_CALL_LOG"
 
   # --- The hook under test (sibling of this tests/ directory) ---
-  HOOK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/auto-report-bug.sh"
+  # Use $BATS_TEST_DIRNAME, not ${BASH_SOURCE[0]}: Bats preprocesses the
+  # .bats file into a temp copy before executing it, so BASH_SOURCE[0]
+  # resolves to that temp location, not this file's real directory.
+  HOOK_SCRIPT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/auto-report-bug.sh"
 
   # --- Locations the hook reads and writes inside the sandbox ---
   PENDING_FILE="$SANDBOX/.cache/bug-reports/pending.json"
