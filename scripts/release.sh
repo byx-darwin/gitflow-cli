@@ -858,130 +858,8 @@ Ready for release! 🚀" 2>&1)
         log_warn "Skipping crates.io publish"
     fi
 
-    # Update Homebrew formula
-    if confirm "Update Homebrew formula?"; then
-        log_info "Updating Homebrew formula..."
-
-        # Wait for GitHub release to be created
-        log_info "Waiting for GitHub release to be created..."
-        local release_url="https://github.com/byx-darwin/gitflow-cli/releases/download/v${RELEASE_VERSION}"
-        local max_attempts=20
-        local attempt=0
-
-        while [ $attempt -lt $max_attempts ]; do
-            if curl -s -I "${release_url}/gf-aarch64-apple-darwin.tar.gz" | grep -q "200"; then
-                log_success "GitHub release binaries ready"
-                break
-            fi
-            echo -n "."
-            sleep 15
-            attempt=$((attempt + 1))
-        done
-
-        if [ $attempt -ge $max_attempts ]; then
-            log_warn "Timeout waiting for GitHub release binaries"
-            log_warn "Please update Homebrew formula manually later"
-        else
-            # Download and calculate SHA256 for each platform
-            local tmp_dir=$(mktemp -d)
-            cd "$tmp_dir"
-
-            local platforms=(
-                "aarch64-apple-darwin"
-                "x86_64-apple-darwin"
-                "aarch64-unknown-linux-gnu"
-                "x86_64-unknown-linux-gnu"
-            )
-
-            declare -A sha256_sums
-
-            for platform in "${platforms[@]}"; do
-                local tarball="gf-${platform}.tar.gz"
-                log_info "Downloading $tarball..."
-                curl -sL -o "$tarball" "${release_url}/${tarball}"
-                local sha256=$(shasum -a 256 "$tarball" | awk '{print $1}')
-                sha256_sums[$platform]=$sha256
-                log_success "$platform: $sha256"
-            done
-
-            cd - > /dev/null
-            rm -rf "$tmp_dir"
-
-            # Update Homebrew formula in homebrew-tap repository
-            local tap_repo="../homebrew-tap"
-            log_info "Updating Homebrew formula in homebrew-tap..."
-
-            # Clone or update homebrew-tap repository
-            if [ ! -d "$tap_repo" ]; then
-                log_info "Cloning homebrew-tap repository..."
-                git clone git@github.com:byx-darwin/homebrew-tap.git "$tap_repo"
-            else
-                log_info "Updating homebrew-tap repository..."
-                cd "$tap_repo"
-                git checkout main
-                git pull origin main
-                cd - > /dev/null
-            fi
-
-            local formula_file="$tap_repo/Formula/gf.rb"
-            log_info "Updating $formula_file..."
-
-            # Create updated formula
-            cat > "$formula_file" <<EOF
-class Gf < Formula
-  desc "Multi-platform Git forge CLI — unified interface for GitHub, GitLab, and GitCode"
-  homepage "https://github.com/byx-darwin/gitflow-cli"
-  license "MIT"
-
-  on_macos do
-    if Hardware::CPU.arm?
-      url "${release_url}/gf-aarch64-apple-darwin.tar.gz"
-      sha256 "${sha256_sums[aarch64-apple-darwin]}"
-    else
-      url "${release_url}/gf-x86_64-apple-darwin.tar.gz"
-      sha256 "${sha256_sums[x86_64-apple-darwin]}"
-    end
-  end
-
-  on_linux do
-    if Hardware::CPU.arm?
-      url "${release_url}/gf-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "${sha256_sums[aarch64-unknown-linux-gnu]}"
-    else
-      url "${release_url}/gf-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "${sha256_sums[x86_64-unknown-linux-gnu]}"
-    end
-  end
-
-  # gh CLI 是运行时依赖（GitHub 平台需要）
-  # glab 和 gc 是可选的（GitLab/GitCode 平台需要）
-  depends_on "gh"
-
-  def install
-    bin.install "gf"
-
-    # 安装 Shell 补全
-    generate_completions_from_executable(bin/"gf", "completions")
-  end
-
-  test do
-    system "#{bin}/gf", "--version"
-    system "#{bin}/gf", "--help"
-  end
-end
-EOF
-
-            # Commit and push Homebrew formula update
-            cd "$tap_repo"
-            git add "$formula_file"
-            git commit -m "feat: update gf formula to v${RELEASE_VERSION}"
-            git push origin main
-            cd - > /dev/null
-            log_success "Homebrew formula updated in homebrew-tap"
-        fi
-    else
-        log_warn "Skipping Homebrew formula update"
-    fi
+    # Homebrew formula 由 CD 的 update-homebrew job 负责更新；
+    # verify_cd_release() 已确保它成功，否则发布在此中止。
 
     # Sync main back to dev
     log_info "Syncing main back to dev..."
@@ -995,7 +873,7 @@ EOF
 
     echo ""
     log_success "Release v${RELEASE_VERSION} completed!"
-    log_info "GitHub Release will be created automatically by CI"
+    log_info "CD 已验证通过：release 产物与 Homebrew formula 均已发布"
     log_info "PR: $pr_url"
     log_info "Tag: v${RELEASE_VERSION}"
 }
@@ -1009,9 +887,8 @@ post_release() {
     echo "Release URL:    https://github.com/byx-darwin/gf/releases/tag/v${RELEASE_VERSION}"
     echo ""
     echo "Next steps:"
-    echo "  • GitHub Release should be auto-created by CI"
-    echo "  • Monitor CI: gh run list --limit 1"
-    echo "  • Update Homebrew formula if needed: make package"
+    echo "  • 验证安装: brew upgrade gf && gf --version"
+    echo "  • CD 记录: gh run list --workflow CD --branch v${RELEASE_VERSION}"
     echo ""
 }
 
