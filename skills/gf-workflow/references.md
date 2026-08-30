@@ -192,7 +192,7 @@ gitflow workflow cleanup --older-than 90   # Clean up expired archives
 
 ## Branch Finish Operations
 
-Phase 4 Step 5 commands. All operations are local-only (no push).
+Phase 4 Step 4 commands. All operations are local-only (no push).
 
 ### Detect PR Merge Status
 
@@ -314,7 +314,7 @@ semantics, all `gf-*` steps, mandatory TDD + code review, mode matrix (full/stan
   (frontier): ✋ PAUSE → user runs `/implement` (internal `/tdd` + `/code-review` + commit);
   suggest `/clear` between tickets (context recovery via contract + ticket files).
   `gf-pr-create` with `Closes #<issue>`, then `make test`.
-- **Phase 4:** identical to superpowers (pipeline → triage[full] → gf-review →
+- **Phase 4:** identical to superpowers ([pipeline ∥ triage[full] ∥ gf-review] →
   dogfooding[full] → Branch Finish → archive). `code-review` already ran inside `/implement`.
 - **Evidence mapping:** `design_doc_path` ← local spec file; `spec_path` ← same spec file
   (what `to-tickets` consumed); `ticket_refs` ← ticket paths/URLs.

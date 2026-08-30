@@ -364,9 +364,15 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 ### Execution Flow by Mode
 
-- **Full:** Pipeline → Triage → Review → Dogfooding → Branch Finish → Archive
-- **Standard:** Pipeline → Review → Branch Finish → Archive
-- **Fast:** Pipeline → Branch Finish → Archive
+Steps in the same bracket are dispatched **in parallel** (one message, multiple
+`Agent` tool calls) since they only consume Phase 3's `pr_url`/`branch` and
+don't read each other's output — the orchestrator waits for all of them before
+continuing. `Dogfooding` stays sequential: it's a cheap local checklist read,
+not worth a subagent round-trip.
+
+- **Full:** [Pipeline ∥ Triage ∥ Review] → Dogfooding → Branch Finish → Archive
+- **Standard:** [Pipeline ∥ Review] → Branch Finish → Archive
+- **Fast:** Pipeline → Branch Finish → Archive (single step, nothing to parallelize)
 
 ### Reporting Granularity (Token-Cost Tuning)
 
@@ -379,19 +385,25 @@ check, a regression, a threshold breach, a flaky/failing pipeline job, an
 unresolved review finding). A clean run must never dump the whole report into
 context — link the path instead.
 
+**This convention MUST be carried into the parallel-dispatch prompt** for each
+subagent — since they run outside the orchestrator's own turn, they don't
+inherit it automatically. Each dispatch prompt must explicitly say: run the
+skill, write the full report to disk, return only the one-line status summary.
+Parallel dispatch otherwise risks re-inflating the token cost this convention
+was written to cut (each subagent independently gathers its own repo/PR
+context).
+
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO]** `gf-pipeline-analyzer` — generates pipeline analysis report (all modes); echo in full only if success rate/duration anomaly found | `pipeline_ok` |
-| 2 | **[AUTO]** `gf-issue-triage` — produces Issue triage report (full mode only); echo in full only if misclassified/untriaged Issues found | — |
-| 3 | **[AUTO]** `gf-review` — creates code review report (full + standard modes); echo in full only if findings exist | `review_report_path` |
-| 4 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) (full mode only); echo in full only if any item fails | `dogfooding_passed` |
-| 5 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
-| 6 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` | — |
-| 7 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
+| 1 | **[AUTO] Parallel dispatch** — in one message, launch one `Agent` call per `gates.md → get_phase4_steps(mode).parallel` entry: `gf-pipeline-analyzer` (all modes), `gf-issue-triage` (full only), `gf-review` (full + standard). Each subagent prompt MUST include the Reporting Granularity instruction above. Wait for all to return before continuing. | `pipeline_ok`, `review_report_path` (+ triage findings echoed inline if any) |
+| 2 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) — sequential, local, full mode only; echo in full only if any item fails | `dogfooding_passed` |
+| 3 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` — join point; only the orchestrator writes the contract, never a dispatched subagent | — |
+| 4 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
+| 5 | **[AUTO]** Archive contract → `.cache/workflows/archive/YYYY-MM/` | — |
 
-### Phase 4 Step 5: Branch Finish
+### Phase 4 Step 4: Branch Finish
 
-**Trigger:** After dogfooding passes. **Requires user confirmation.**
+**Trigger:** After the parallel dispatch group (Step 1) and, in full mode, Dogfooding (Step 2) complete. **Requires user confirmation.**
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
    - Note: `worktree_path` follows the convention `.worktree/<branch-name>`

@@ -114,18 +114,28 @@ def check_gate(contract, target_phase):
 
 ```python
 def get_phase4_steps(mode):
-    """根据模式返回需要执行的 Phase 4 步骤列表。"""
-    steps = ["pipeline", "branch_finish"]  # 所有模式必选
-
-    if mode in ("full", "standard"):
-        steps.insert(1, "review")
-
+    """按模式返回 Phase 4 步骤分组：parallel 组内的步骤单条消息内并发派发
+    （各自 Agent 独立执行、互不读取彼此产出，因为三者只共享 Phase 3 的
+    pr_url/branch，无真实数据依赖），全部返回后再按顺序执行 sequential 组。"""
+    parallel = ["pipeline"]
     if mode == "full":
-        steps.insert(1, "triage")
-        steps.insert(3, "dogfooding")
+        parallel.append("triage")
+    if mode in ("full", "standard"):
+        parallel.append("review")
 
-    return steps
+    sequential = []
+    if mode == "full":
+        sequential.append("dogfooding")  # 本地 checklist，成本低，不必并行
+    sequential.append("branch_finish")
+
+    return {"parallel": parallel, "sequential": sequential}
 ```
+
+**并行派发约束：**
+1. 单条消息内一次性发出 `len(parallel)` 个 Agent 调用（不要逐个 await），编排器等待全部返回后才进入 sequential 组
+2. 每个子 Agent 独立读取仓库/PR 上下文（不共享编排器会话状态），并被显式告知：把完整报告写入磁盘、仅在回复里返回一行状态摘要（`✅ <step>: no findings` / `⚠️ <step>: N findings, see <path>`）——遵守 SKILL.md 「Reporting Granularity」的约定，避免并行派发把 token 成本推高抵消 Phase 4 报告瘦身的收益
+3. 子 Agent 内部**不得**写 workflow contract；`evidence` 只能由编排器在全部并行结果返回后、进入 sequential 组之前统一写入（与现有「join 后才更新 contract」的模式一致，避免并发写入同一份 JSON 合同）
+4. 任一并行步骤失败：编排器等待其余步骤完成后再统一处理失败（不要因为一个步骤失败就取消其余仍在跑的步骤），失败步骤的详情随一行摘要的 `⚠️` 提示一并给出
 
 ## 自动流转规则
 
