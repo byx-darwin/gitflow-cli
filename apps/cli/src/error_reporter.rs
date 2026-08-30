@@ -24,6 +24,13 @@ use std::{
 use regex::Regex;
 use serde::Serialize;
 
+/// Maximum number of archived `pending.*.json` reports kept on disk.
+///
+/// Older archives beyond this cap are deleted on the next write to bound
+/// unbounded growth of `.cache/bug-reports/` (a burst of CLI failures
+/// otherwise accumulates one archive per failure forever).
+const MAX_ARCHIVED_REPORTS: usize = 10;
+
 /// Error report written to `pending.json`.
 ///
 /// Contains enough context for the `gf-autoreport-bug` skill
@@ -99,6 +106,7 @@ impl ErrorReport {
                     .map_or(0, |d| d.as_millis())
             ));
             std::fs::rename(&path, &archived)?;
+            prune_archived_reports(&dir);
         }
 
         let json = serde_json::to_string_pretty(self)
@@ -156,6 +164,41 @@ fn sanitize_error_message(message: &str) -> String {
     GITHUB_TOKEN_RE
         .replace_all(&sanitized, "[REDACTED]")
         .into_owned()
+}
+
+/// Delete archived `pending.<millis>.json` reports beyond
+/// [`MAX_ARCHIVED_REPORTS`], oldest first.
+///
+/// Best-effort: any I/O error while listing or removing a file is
+/// swallowed. The current `pending.json` is never touched by this
+/// function — only files matching `pending.<digits>.json`.
+fn prune_archived_reports(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+
+    let mut archives: Vec<(u128, PathBuf)> = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            let name = name.to_str()?;
+            let millis = name
+                .strip_prefix("pending.")
+                .and_then(|rest| rest.strip_suffix(".json"))
+                .and_then(|ts| ts.parse::<u128>().ok())?;
+            Some((millis, entry.path()))
+        })
+        .collect();
+
+    if archives.len() <= MAX_ARCHIVED_REPORTS {
+        return;
+    }
+
+    archives.sort_by_key(|(millis, _)| *millis);
+    let excess = archives.len() - MAX_ARCHIVED_REPORTS;
+    for (_, path) in archives.into_iter().take(excess) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 /// Restrict `pending.json` to owner-only read/write (mode `0o600`).
@@ -602,6 +645,41 @@ mod tests {
         assert!(
             archived_content.contains("first"),
             "archived report keeps first content"
+        );
+    }
+
+    #[test]
+    fn test_should_prune_archived_reports_beyond_retention_cap() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+
+        // Write MAX_ARCHIVED_REPORTS + 3 reports in sequence; each write
+        // archives the previous pending.json, so this produces
+        // MAX_ARCHIVED_REPORTS + 2 archived files before pruning kicks in.
+        for i in 0..(MAX_ARCHIVED_REPORTS + 3) {
+            let report = ErrorReport::from_error(
+                "issue list",
+                "github",
+                &format!("failure {i}"),
+                "CLI_ERROR",
+            );
+            report.write_to_disk(tmp.path()).expect("write_to_disk");
+            // Ensure filesystem-visible millisecond timestamps differ so
+            // archived filenames sort deterministically.
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+
+        let dir = tmp.path().join(".cache/bug-reports");
+        let archived: Vec<_> = std::fs::read_dir(&dir)
+            .expect("read bug-reports dir")
+            .filter_map(Result::ok)
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.starts_with("pending.") && n != "pending.json")
+            .collect();
+
+        assert_eq!(
+            archived.len(),
+            MAX_ARCHIVED_REPORTS,
+            "archived reports must be capped at MAX_ARCHIVED_REPORTS: {archived:?}"
         );
     }
 }
