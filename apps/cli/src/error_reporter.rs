@@ -330,16 +330,24 @@ const CI_ENV_VARS: &[&str] = &[
     "JENKINS_URL",
 ];
 
-/// Returns `true` when any known CI environment variable is present.
+/// Returns `true` when any known CI environment variable is present
+/// *and* non-empty.
+///
+/// A variable that is set but empty (`CI=""`, which some shells and
+/// tools export) must not count as "CI present" — the spec requires
+/// "set and non-empty" so a stray `export CI=` in a user's shell
+/// profile does not silently disable all bug reporting.
 ///
 /// Extracted for testability — see [`is_ci_environment_with`].
 fn is_ci_environment() -> bool {
-    is_ci_environment_with(|name| std::env::var_os(name).is_some())
+    is_ci_environment_with(|name| std::env::var_os(name).is_some_and(|v| !v.is_empty()))
 }
 
 /// Testable core of [`is_ci_environment`]: takes a presence-check
 /// closure instead of reading the real environment directly, so tests
-/// don't need to mutate global process state.
+/// don't need to mutate global process state. The closure's contract is
+/// "should this var count as present" — i.e. it already encodes the
+/// set-and-non-empty rule, not merely set-ness.
 fn is_ci_environment_with(has_var: impl Fn(&str) -> bool) -> bool {
     CI_ENV_VARS.iter().any(|var| has_var(var))
 }
@@ -670,6 +678,22 @@ mod tests {
     fn test_should_not_detect_ci_when_no_known_vars_set() {
         let present = |_: &str| false;
         assert!(!is_ci_environment_with(present));
+    }
+
+    #[test]
+    fn test_should_not_detect_ci_when_var_is_set_but_empty() {
+        // Simulates `CI=""` (some shells/tools export CI as an empty
+        // string). The closure here plays the same role
+        // `is_ci_environment`'s real closure plays: it looks up a raw
+        // value per name (as `var_os` would) and only reports the var
+        // as present when that value is non-empty, per the "set and
+        // non-empty" spec contract.
+        let raw_value = |name: &str| if name == "CI" { Some("") } else { None };
+        let has_var = |name: &str| raw_value(name).is_some_and(|v| !v.is_empty());
+        assert!(
+            !is_ci_environment_with(has_var),
+            "an env var that is set but empty must not count as CI-present"
+        );
     }
 
     #[test]

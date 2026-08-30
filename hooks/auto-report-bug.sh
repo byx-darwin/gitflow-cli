@@ -133,24 +133,68 @@ fi
 # on the target repo before asking the LLM to `gh issue create` with it.
 # A missing label previously surfaced as a raw 422 at Issue-creation time
 # with no actionable guidance; this fails loud, earlier, with a fix.
+#
+# Cached with the same TTL mechanism as the auth check (Finding 2 of the
+# final review): without this, the label check was a *live* `gh` network
+# call on every single Stop event — including auth-cache hits — which
+# defeated the whole point of the auth cache. On a label-cache hit we skip
+# the live call entirely, mirroring CACHE_FILE/AUTH_CACHE_TTL above.
+#
+# The live check distinguishes two failure shapes (Finding 1 of the final
+# review): `gh label list` itself failing (network/auth/API — status
+# unknown) vs. the command succeeding but returning a list that does not
+# contain an exact `auto-report` match (label genuinely absent). A fuzzy
+# `--search auto-report` match is not sufficient on its own — a label like
+# `auto-report-triage` would pass a substring check while the exact label
+# this feature depends on is still missing — so the live check additionally
+# requires an exact match via `grep -qx`.
+LABEL_CACHE_FILE="$REPO_ROOT/.cache/auth-cache/label-auto-report.ttl"
 LABEL_CHECK_FAILED=false
-if command -v gh >/dev/null 2>&1; then
-  LABEL_LIST_OUTPUT=$(gh label list --repo byx-darwin/gitflow-cli --search auto-report --json name -q '.[].name' 2>/dev/null || true)
-  if [ -z "$LABEL_LIST_OUTPUT" ]; then
+LABEL_CHECK_UNAVAILABLE=false
+LABEL_CACHE_HIT=false
+
+if [ -f "$LABEL_CACHE_FILE" ]; then
+  LABEL_CACHED_TIME=$(cat "$LABEL_CACHE_FILE")
+  NOW=$(date +%s 2>/dev/null || python3 -c "import time; print(int(time.time()))")
+  LABEL_AGE=$(( NOW - LABEL_CACHED_TIME ))
+  if [ "$LABEL_AGE" -lt "$AUTH_CACHE_TTL" ]; then
+    LABEL_CACHE_HIT=true
+  fi
+fi
+
+if [ "$LABEL_CACHE_HIT" != "true" ] && command -v gh >/dev/null 2>&1; then
+  if LABEL_LIST_OUTPUT=$(gh label list --repo byx-darwin/gitflow-cli --search auto-report --json name -q '.[].name' 2>/dev/null); then
+    if printf '%s\n' "$LABEL_LIST_OUTPUT" | grep -qx 'auto-report'; then
+      mkdir -p "$(dirname "$LABEL_CACHE_FILE")"
+      date +%s > "$LABEL_CACHE_FILE"
+    else
+      LABEL_CHECK_FAILED=true
+      log_hook "label check failed (auto-report label missing on byx-darwin/gitflow-cli)"
+    fi
+  else
     LABEL_CHECK_FAILED=true
-    log_hook "label check failed (auto-report label missing on byx-darwin/gitflow-cli)"
+    LABEL_CHECK_UNAVAILABLE=true
+    log_hook "label check unavailable (gh label list failed — network/auth/API issue, not necessarily a missing label)"
   fi
 fi
 
 if [ "$LABEL_CHECK_FAILED" = "true" ]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  ⚠️  仓库缺少 auto-report 标签，无法自动创建 Issue"
+  if [ "$LABEL_CHECK_UNAVAILABLE" = "true" ]; then
+    echo "  ⚠️  无法确认 auto-report 标签是否存在（gh label list 调用失败，可能是网络/认证问题）"
+  else
+    echo "  ⚠️  仓库缺少 auto-report 标签，无法自动创建 Issue"
+  fi
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  echo "  请先创建该标签，然后重新触发："
-  echo "    gh label create auto-report --repo byx-darwin/gitflow-cli \\"
-  echo "      --description \"Automatically filed by gf-autoreport-bug\" --color FBCA04"
+  if [ "$LABEL_CHECK_UNAVAILABLE" = "true" ]; then
+    echo "  请检查网络连接与 gh 认证状态，然后重新触发。"
+  else
+    echo "  请先创建该标签，然后重新触发："
+    echo "    gh label create auto-report --repo byx-darwin/gitflow-cli \\"
+    echo "      --description \"Automatically filed by gf-autoreport-bug\" --color FBCA04"
+  fi
   echo ""
   exit 0
 fi
@@ -171,7 +215,8 @@ echo "  原始报告:"
 echo "$PENDING_CONTENT"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  MUST load the gf-autoreport-bug skill now to process this error report."
+echo "  ⏳ 报告待处理 — 无人值守模式下 gf-autoreport-bug skill 默认跳过创建 Issue（保留 pending.json）。"
+echo "  如需实际提交，请交互式重新触发 gf-autoreport-bug skill 处理该报告。"
 echo "  Skill 路径: $CLAUDE_DIR/skills/gf-autoreport-bug/SKILL.md"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

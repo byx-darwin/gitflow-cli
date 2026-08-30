@@ -33,11 +33,17 @@ MOCK
   #     label list result from $GH_LABEL_LIST_OUTPUT (unset -> default
   #     "auto-report"; explicitly set to "" -> empty, simulating a missing
   #     label — note this must use `${VAR-default}`, NOT `${VAR:-default}`,
-  #     since the colon form also substitutes on an explicitly empty value) ---
+  #     since the colon form also substitutes on an explicitly empty value);
+  #     $GH_LABEL_LIST_FAIL=true simulates the `gh label list` command itself
+  #     failing (network/auth/API error), as opposed to it succeeding with a
+  #     non-matching list ---
   cat > "$bindir/gh" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$GH_CALL_LOG"
 if [ "$1" = "label" ] && [ "$2" = "list" ]; then
+  if [ "${GH_LABEL_LIST_FAIL:-false}" = "true" ]; then
+    exit 1
+  fi
   printf '%s\n' "${GH_LABEL_LIST_OUTPUT-auto-report}"
   exit 0
 fi
@@ -137,8 +143,9 @@ JSON
   write_pending
   mkdir -p "$AUTH_CACHE_DIR"
   echo $(( $(date +%s) - 60 )) > "$AUTH_CACHE_DIR/github.ttl"
+  echo $(( $(date +%s) - 60 )) > "$AUTH_CACHE_DIR/label-auto-report.ttl"
 
-  # If the hook wrongly called gf, auth would fail and this test would catch it.
+  # If the hook wrongly called gh, auth would fail and this test would catch it.
   export GH_AUTH_STATUS="fail"
 
   run_hook
@@ -146,25 +153,53 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"cache 命中"* ]]
   [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
-  # The cached auth check must skip the live `gh auth status` call, but the
-  # label pre-check still runs (it depends on auth succeeding, not on how).
-  if grep -q "auth status" "$GH_CALL_LOG"; then
-    echo "❌ auth status was unexpectedly called despite a valid auth cache" >&2
+  # Both the auth cache and the label cache are warm, so no live `gh` call
+  # of any kind (neither `auth status` nor `label list`) should happen.
+  if [ -s "$GH_CALL_LOG" ]; then
+    echo "❌ gh was unexpectedly called despite valid auth + label caches:" >&2
+    cat "$GH_CALL_LOG" >&2
     return 1
   fi
-  [ "$(wc -l < "$GH_CALL_LOG")" -eq 1 ]
-  grep -q "label list" "$GH_CALL_LOG"
 }
 
-@test "auth success -> banner instruction uses gf-autoreport-bug (no stale gitflow-) and MUST directive" {
+@test "label check is cached -> second run within TTL skips live gh label list" {
+  write_pending
+
+  # First run: no label cache yet, so `gh label list` must be called once
+  # and the result cached.
+  run_hook
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
+  grep -q "label list" "$GH_CALL_LOG"
+  [ -f "$AUTH_CACHE_DIR/label-auto-report.ttl" ]
+
+  # Second run within the label-cache TTL must not call `gh label list`
+  # again, even though the auth cache from run 1 is also still warm.
+  : > "$GH_CALL_LOG"
+  run_hook
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
+  if grep -q "label list" "$GH_CALL_LOG"; then
+    echo "❌ label list was called again despite a valid label cache" >&2
+    return 1
+  fi
+}
+
+@test "auth success -> banner instruction uses gf-autoreport-bug (no stale gitflow-) and is honest about unattended skip" {
   write_pending
 
   run_hook
 
   [ "$status" -eq 0 ]
-  # The load instruction must reference the current skill name and be directive.
+  # The load instruction must reference the current skill name and be directive
+  # about what a human needs to do — but it must NOT claim the skill will
+  # itself file the Issue unattended (it defaults to skip when non-interactive).
   [[ "$output" == *"gf-autoreport-bug"* ]]
-  [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]
+  [[ "$output" == *"交互式重新触发 gf-autoreport-bug skill"* ]]
+  if [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]; then
+    echo "❌ banner still uses the misleading 'MUST load' directive (it implies unattended auto-filing)" >&2
+    return 1
+  fi
   # The stale skill name must not appear anywhere in the banner.
   if echo "$output" | grep -q "gitflow-autoreport-bug"; then
     echo "❌ banner still references stale gitflow-autoreport-bug" >&2
@@ -187,11 +222,61 @@ JSON
     echo "❌ missing-label warning did not mention 'auto-report'+'label' or '标签'" >&2
     return 1
   fi
-  if [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]; then
+  if [[ "$output" == *"检测到 gf CLI 错误报告"* ]]; then
     echo "❌ banner was emitted despite the auto-report label being missing" >&2
     return 1
   fi
   [ -f "$PENDING_FILE" ]
+}
+
+@test "gh label list command failure -> warns it is unavailable, not that the label is missing" {
+  mkdir -p "$(dirname "$PENDING_FILE")"
+  cat > "$PENDING_FILE" <<'JSON'
+{"id":"abc","command":"issue list","platform":"github","error_code":"500","error_message":"boom","timestamp":"2026-08-30T00:00:00Z"}
+JSON
+  export GH_AUTH_STATUS="ok"
+  export GH_LABEL_LIST_FAIL="true"
+
+  run_hook
+
+  [ "$status" -eq 0 ]
+  # A transient `gh label list` failure (network/auth/API) must not be
+  # presented as a confident "the label is missing, here's how to create
+  # it" — that message is reserved for an exact-match failure on a
+  # successful `gh` call.
+  [[ "$output" == *"无法确认"* ]]
+  if [[ "$output" == *"仓库缺少 auto-report 标签"* ]]; then
+    echo "❌ transient gh failure was misreported as a confirmed missing label" >&2
+    return 1
+  fi
+  if [[ "$output" == *"gh label create"* ]]; then
+    echo "❌ transient gh failure suggested 'gh label create', which would itself fail" >&2
+    return 1
+  fi
+  if [[ "$output" == *"检测到 gf CLI 错误报告"* ]]; then
+    echo "❌ banner was emitted despite the label check being unavailable" >&2
+    return 1
+  fi
+  [ -f "$PENDING_FILE" ]
+}
+
+@test "exact label match required -> fuzzy substring match alone does not pass the check" {
+  mkdir -p "$(dirname "$PENDING_FILE")"
+  cat > "$PENDING_FILE" <<'JSON'
+{"id":"abc","command":"issue list","platform":"github","error_code":"500","error_message":"boom","timestamp":"2026-08-30T00:00:00Z"}
+JSON
+  export GH_AUTH_STATUS="ok"
+  # Only a fuzzy-matching label exists, not the exact "auto-report" label.
+  export GH_LABEL_LIST_OUTPUT="auto-report-triage"
+
+  run_hook
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"仓库缺少 auto-report 标签"* ]]
+  if [[ "$output" == *"检测到 gf CLI 错误报告"* ]]; then
+    echo "❌ banner was emitted despite only a fuzzy-matching label existing" >&2
+    return 1
+  fi
 }
 
 @test "emits banner when auto-report label exists" {
@@ -205,7 +290,8 @@ JSON
   run_hook
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"MUST load the gf-autoreport-bug skill"* ]]
+  [[ "$output" == *"检测到 gf CLI 错误报告"* ]]
+  [[ "$output" == *"交互式重新触发 gf-autoreport-bug skill"* ]]
 }
 
 @test "auth success -> calls gh auth status" {

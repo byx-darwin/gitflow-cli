@@ -44,7 +44,7 @@ flowchart TD
     G -->|Yes| I[Clean, stop]
     G -->|No| P[Preview]
     P -->|interactive confirm| J[Create Issue]
-    P -->|non-interactive default| I
+    P -->|non-interactive default| SK[Keep file + log, stop]
     J -->|Fail| F[Keep + failed.log]
     J -->|Pass| M[Success + log]
     M --> K[Remove pending]
