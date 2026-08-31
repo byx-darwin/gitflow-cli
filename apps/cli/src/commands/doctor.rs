@@ -287,44 +287,68 @@ impl HealthCheck for CoContributionCheck {
     }
 
     fn run(&self) -> Vec<CheckItem> {
-        let mut items = Vec::new();
+        let global_path = dirs::home_dir().map(|h| h.join(".claude/settings.json"));
+        let project_path = crate::error_reporter::project_settings_path();
 
-        if crate::error_reporter::global_co_contribution_pending_ack() {
-            let item = CheckItem::warn(
-                self.category(),
-                "共建计划",
-                "全局已开启共建计划（~/.claude/settings.json），但本项目尚未确认",
-                "编辑 .claude/settings.json 添加 gitflow.co_contribution 字段",
-            )
-            .with_detail(
-                "在本项目 .claude/settings.json 中设置 gitflow.co_contribution 为 true 或 false \
-                 以确认或关闭；否则本项目不会自动上报（现在仅看项目级 设置，不再回退到全局）",
-            );
-            items.push(item);
-            return items;
-        }
-
-        let enabled = dirs::home_dir().is_some_and(|home| {
-            crate::error_reporter::read_co_contribution_flag(&home.join(".claude/settings.json"))
-        });
-        let item = if enabled {
-            CheckItem::pass(
-                self.category(),
-                "共建计划",
-                "bug 自动上报已开启（~/.claude/settings.json）",
-            )
-        } else {
-            CheckItem::pass(
+        match (global_path, project_path) {
+            (Some(global), Some(project)) => co_contribution_check_items_with(&global, &project),
+            _ => vec![CheckItem::pass(
                 self.category(),
                 "共建计划",
                 "未加入共建计划，bug 自动上报未开启",
-            )
-        };
-        items.push(item.with_detail(
-            "退出方式：编辑 ~/.claude/settings.json，移除 gitflow.co_contribution 字段后保存",
-        ));
-        items
+            )],
+        }
     }
+}
+
+/// Testable core of [`CoContributionCheck::run`] — takes both settings
+/// paths explicitly instead of resolving `HOME`/the repo root.
+///
+/// The fall-through (non-pending-ack) branch derives `enabled` from the
+/// PROJECT-level settings file, mirroring exactly what
+/// `error_reporter::is_co_contribution_enabled` checks — a global-only
+/// opt-in no longer determines whether reporting is active, so the doctor
+/// output must not read the global file here either.
+fn co_contribution_check_items_with(
+    global_path: &std::path::Path,
+    project_path: &std::path::Path,
+) -> Vec<CheckItem> {
+    let mut items = Vec::new();
+
+    if crate::error_reporter::global_co_contribution_pending_ack_with(global_path, project_path) {
+        let item = CheckItem::warn(
+            "co_contribution",
+            "共建计划",
+            "全局已开启共建计划（~/.claude/settings.json），但本项目尚未确认",
+            "编辑 .claude/settings.json 添加 gitflow.co_contribution 字段",
+        )
+        .with_detail(
+            "在本项目 .claude/settings.json 中设置 gitflow.co_contribution 为 true 或 false \
+             以确认或关闭；否则本项目不会自动上报（现在仅看项目级设置，不再回退到全局）",
+        );
+        items.push(item);
+        return items;
+    }
+
+    let enabled = crate::error_reporter::read_co_contribution_flag(project_path);
+    let item = if enabled {
+        CheckItem::pass(
+            "co_contribution",
+            "共建计划",
+            "bug 自动上报已开启（.claude/settings.json）",
+        )
+    } else {
+        CheckItem::pass(
+            "co_contribution",
+            "共建计划",
+            "未加入共建计划，bug 自动上报未开启",
+        )
+    };
+    items.push(item.with_detail(
+        "退出方式：编辑本项目 .claude/settings.json，将 gitflow.co_contribution 设置为 false \
+         或移除该字段后保存",
+    ));
+    items
 }
 
 /// Checks Agent runtime environment (`.claude/`, `CLAUDE.md`, hooks).
@@ -661,27 +685,76 @@ mod tests {
     }
 
     #[test]
-    fn test_co_contribution_check_warns_when_global_pending_ack() {
-        // This test cannot force crate::error_reporter::global_co_contribution_pending_ack()
-        // to return true (it reads real HOME/repo-root state), so it instead
-        // verifies the check's structure directly: whatever the real result,
-        // exactly one item is returned and — when a pending ack IS detected —
-        // the item's status is a warning, not a silent pass, and its detail
-        // names the project-level settings key to add.
-        let items = CoContributionCheck.run();
+    fn test_co_contribution_items_warn_when_global_pending_ack() {
+        // global pending-ack true (global=Some(true), project=None) -> warn branch.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r"{}").expect("write");
+
+        let items = co_contribution_check_items_with(&global, &project);
         assert_eq!(items.len(), 1);
-        let item = &items[0];
-        if crate::error_reporter::global_co_contribution_pending_ack() {
-            assert_eq!(
-                item.status,
-                CheckStatus::Warn,
-                "a pending global-only opt-in must surface as a warning, not a silent pass"
-            );
-            let detail = item.detail.clone().unwrap_or_default();
-            assert!(
-                detail.contains(".claude/settings.json"),
-                "warning must point at the project-level settings file: {detail}"
-            );
-        }
+        assert_eq!(items[0].status, CheckStatus::Warn);
+        let detail = items[0].detail.clone().unwrap_or_default();
+        assert!(
+            detail.contains(".claude/settings.json"),
+            "warning must point at the project-level settings file: {detail}"
+        );
+    }
+
+    #[test]
+    fn test_co_contribution_items_not_enabled_when_project_explicit_false() {
+        // global false/absent, project explicit false -> not-enabled pass branch.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r"{}").expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r#"{"gitflow": {"co_contribution": false}}"#).expect("write");
+
+        let items = co_contribution_check_items_with(&global, &project);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].status, CheckStatus::Pass);
+        assert!(items[0].message.contains("未加入共建计划"));
+    }
+
+    #[test]
+    fn test_co_contribution_items_enabled_when_project_explicit_true() {
+        // global false/absent, project explicit true -> enabled pass branch.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r"{}").expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+
+        let items = co_contribution_check_items_with(&global, &project);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].status, CheckStatus::Pass);
+        assert!(items[0].message.contains("已开启"));
+    }
+
+    #[test]
+    fn test_co_contribution_items_not_enabled_when_global_true_but_project_explicit_false() {
+        // This is the exact Finding-3 bug case: global true, project explicit
+        // false -> must be the not-enabled pass branch, NOT the warn branch,
+        // and must NOT report stale "already enabled" text.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r#"{"gitflow": {"co_contribution": false}}"#).expect("write");
+
+        let items = co_contribution_check_items_with(&global, &project);
+        assert_eq!(items.len(), 1);
+        assert_eq!(
+            items[0].status,
+            CheckStatus::Pass,
+            "must not warn once the project has made an explicit decision"
+        );
+        assert!(
+            items[0].message.contains("未加入共建计划"),
+            "must report not-enabled, not stale 'already enabled' text: {}",
+            items[0].message
+        );
     }
 }

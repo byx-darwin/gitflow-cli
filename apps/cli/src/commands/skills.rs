@@ -791,11 +791,26 @@ fn autoreport_repo_slug_from_url(url: &str) -> String {
     let slug = rest.strip_suffix(".git").unwrap_or(rest);
     let mut parts = slug.split('/');
     match (parts.next(), parts.next(), parts.next()) {
-        (Some(owner), Some(repo), None) if !owner.is_empty() && !repo.is_empty() => {
+        (Some(owner), Some(repo), None)
+            if !owner.is_empty()
+                && !repo.is_empty()
+                && is_safe_slug_segment(owner)
+                && is_safe_slug_segment(repo) =>
+        {
             slug.to_string()
         }
         _ => DEFAULT.to_string(),
     }
+}
+
+/// Returns `true` when `segment` consists only of ASCII alphanumerics,
+/// `-`, `_`, or `.` — the charset allowlist CLAUDE.md requires for
+/// identifiers/slugs before they are interpolated into a shell command
+/// string persisted into `settings.json`.
+fn is_safe_slug_segment(segment: &str) -> bool {
+    segment
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
 fn resolve_global_hook_paths(
@@ -1967,6 +1982,18 @@ mod tests {
         // Bare prefix — the remainder is entirely empty.
         assert_eq!(
             autoreport_repo_slug_from_url("https://github.com/"),
+            "byx-darwin/gitflow-cli"
+        );
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_falls_back_on_shell_metacharacters() {
+        // The slug is spliced into a single-quoted `bash -c '...'` string
+        // persisted into settings.json; a shell metacharacter in either
+        // segment must not be accepted verbatim, per CLAUDE.md's charset
+        // allowlist requirement for identifiers/slugs.
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/fork';rm -rf"),
             "byx-darwin/gitflow-cli"
         );
     }

@@ -141,7 +141,8 @@ static GENERIC_SK_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
         reason = "regex pattern is a compile-time literal; a compile failure is a programming \
                   error"
     )]
-    Regex::new(r"sk-[A-Za-z0-9_-]{10,}").expect("generic sk- token regex must be statically valid")
+    Regex::new(r"\bsk-[A-Za-z0-9_-]{10,}")
+        .expect("generic sk- token regex must be statically valid")
 });
 
 /// Redacts GitLab personal access tokens from error messages.
@@ -192,19 +193,22 @@ fn redact_env_values(message: &str, vars: impl IntoIterator<Item = (String, Stri
 
 /// Sanitize a raw error message before it is persisted to `pending.json`.
 ///
-/// Several categories of sensitive data are redacted:
+/// Several categories of sensitive data are redacted, in this order:
 ///
-/// 1. **Home directory paths** — the current user's home directory, as reported by
+/// 1. **Credential-named environment variable values** — any value of an environment variable whose
+///    name looks credential-shaped (see [`redact_env_values`]), regardless of the value's format.
+///    This catches vendor-specific secrets that no fixed-format regex would recognize. This step
+///    runs first so that a credential value which happens to contain the home directory path (e.g.
+///    a `*_TOKEN_FILE` var pointing under `~`) is still matched verbatim, before the home-path
+///    substitution below would otherwise rewrite it out from under the match.
+/// 2. **Home directory paths** — the current user's home directory, as reported by
 ///    [`dirs::home_dir`], is replaced with `~`. Absolute user paths therefore never leak into bug
 ///    reports.
-/// 2. **GitHub tokens** — classic personal access tokens (`ghp_…`) and fine-grained personal access
+/// 3. **GitHub tokens** — classic personal access tokens (`ghp_…`) and fine-grained personal access
 ///    tokens (`github_pat_…`) are replaced with `[REDACTED]`.
-/// 3. **Generic `sk-`-prefixed tokens** — Anthropic, `OpenAI`, and similarly-shaped vendor API
+/// 4. **Generic `sk-`-prefixed tokens** — Anthropic, `OpenAI`, and similarly-shaped vendor API
 ///    keys.
-/// 4. **GitLab tokens** — personal access tokens (`glpat-…`).
-/// 5. **Credential-named environment variable values** — any value of an environment variable whose
-///    name looks credential-shaped (see [`redact_env_values`]), regardless of the value's format.
-///    This catches vendor-specific secrets that no fixed-format regex would recognize.
+/// 5. **GitLab tokens** — personal access tokens (`glpat-…`).
 ///
 /// Safe messages that contain none of the above are returned unchanged.
 ///
@@ -217,11 +221,27 @@ fn redact_env_values(message: &str, vars: impl IntoIterator<Item = (String, Stri
 ///     → "clone failed: token [REDACTED]"
 /// ```
 fn sanitize_error_message(message: &str) -> String {
+    // Env-value redaction must run BEFORE home-path substitution: if a
+    // credential-named env var's value contains the home directory path
+    // (e.g. `SOME_TOKEN_FILE=/Users/x/.creds/tok`), rewriting the home
+    // path to `~` first would make the literal env value no longer match,
+    // so it would silently escape redaction.
+    //
+    // `vars_os()` is used instead of `std::env::vars()` because `vars()`
+    // PANICS if any environment variable's name or value is not valid
+    // Unicode (non-UTF-8 locales, some Windows setups, a mangled `PATH`
+    // entry). This function sits on the best-effort error-reporting path,
+    // so a non-UTF-8 var must be skipped, never allowed to abort the
+    // process while it is already handling an error.
+    let vars = std::env::vars_os()
+        .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)));
+    let sanitized = redact_env_values(message, vars);
+
     let sanitized = if let Some(home) = dirs::home_dir() {
         let home_str = home.to_string_lossy();
-        message.replace(home_str.as_ref(), "~")
+        sanitized.replace(home_str.as_ref(), "~")
     } else {
-        message.to_string()
+        sanitized
     };
     let sanitized = GITHUB_TOKEN_RE
         .replace_all(&sanitized, "[REDACTED]")
@@ -229,10 +249,9 @@ fn sanitize_error_message(message: &str) -> String {
     let sanitized = GENERIC_SK_TOKEN_RE
         .replace_all(&sanitized, "[REDACTED]")
         .into_owned();
-    let sanitized = GITLAB_TOKEN_RE
+    GITLAB_TOKEN_RE
         .replace_all(&sanitized, "[REDACTED]")
-        .into_owned();
-    redact_env_values(&sanitized, std::env::vars())
+        .into_owned()
 }
 
 /// Delete archived `pending.<millis>.json` reports beyond
@@ -332,7 +351,7 @@ pub(crate) fn maybe_report_error(
 ///
 /// Checks **only** `<repo_root>/.claude/settings.json` — a global-only
 /// opt-in (`~/.claude/settings.json`) no longer silently enables
-/// reporting in every project; see [`global_co_contribution_pending_ack`]
+/// reporting in every project; see [`global_co_contribution_pending_ack_with`]
 /// for the mechanism that surfaces that gap via `gf doctor` instead.
 /// Returns `false` if the repo root cannot be found or the field is
 /// missing/false.
@@ -341,6 +360,20 @@ fn is_co_contribution_enabled() -> bool {
         return false;
     };
     read_co_contribution_flag(&repo_root.join(".claude/settings.json"))
+}
+
+/// Resolve `<repo_root>/.claude/settings.json` for the current project,
+/// using the same repo-root resolution as [`is_co_contribution_enabled`].
+///
+/// Returns `None` if the repo root cannot be found (not inside a git
+/// repo). Exposed for `gf doctor`'s `CoContributionCheck`, which needs to
+/// read the same project-level file that actually determines whether
+/// reporting is active — see Finding 3 in the hardening-pass review: the
+/// check must not fall back to reading the global-only settings file.
+pub(crate) fn project_settings_path() -> Option<PathBuf> {
+    find_repo_root()
+        .ok()
+        .map(|root| root.join(".claude/settings.json"))
 }
 
 /// Read the `gitflow.co_contribution` flag from a specific settings file.
@@ -367,27 +400,19 @@ fn read_co_contribution_field(path: &Path) -> Option<bool> {
         .and_then(serde_json::Value::as_bool)
 }
 
-/// Returns `true` when the global co-contribution opt-in is active but
-/// this project has never made its own explicit decision — the gap
-/// `gf doctor`'s `CoContributionCheck` surfaces so a global-only opt-in
-/// doesn't silently cover every future project with no visibility.
-pub(crate) fn global_co_contribution_pending_ack() -> bool {
-    let Some(home) = dirs::home_dir() else {
-        return false;
-    };
-    let Ok(repo_root) = find_repo_root() else {
-        return false;
-    };
-    global_co_contribution_pending_ack_with(
-        &home.join(".claude/settings.json"),
-        &repo_root.join(".claude/settings.json"),
-    )
-}
-
-/// Testable core of [`global_co_contribution_pending_ack`] — takes both
+/// Testable core of the global co-contribution pending-ack check —
+/// returns `true` when the global co-contribution opt-in is active but
+/// this project has never made its own explicit decision. Takes both
 /// settings paths explicitly instead of resolving them from `HOME`/the
-/// git repo root.
-fn global_co_contribution_pending_ack_with(global_path: &Path, project_path: &Path) -> bool {
+/// git repo root; `gf doctor`'s `CoContributionCheck` calls this directly
+/// after resolving the real paths, so both call sites share one
+/// definition of "pending ack" — the gap `CoContributionCheck` surfaces
+/// so a global-only opt-in doesn't silently cover every future project
+/// with no visibility.
+pub(crate) fn global_co_contribution_pending_ack_with(
+    global_path: &Path,
+    project_path: &Path,
+) -> bool {
     read_co_contribution_field(global_path) == Some(true)
         && read_co_contribution_field(project_path).is_none()
 }
@@ -612,6 +637,27 @@ mod tests {
     fn test_should_not_modify_safe_error_message() {
         let message = "issue not found: pull request #42 does not exist";
         assert_eq!(sanitize_error_message(message), message);
+    }
+
+    #[test]
+    fn test_should_not_modify_message_containing_task_dash_word() {
+        // Regression for the missing left word boundary on GENERIC_SK_TOKEN_RE:
+        // "sk-" must only match as a token prefix, not inside ordinary words
+        // like "task-", "risk-", "disk-" that show up in branch/file names.
+        let message = "failed to update task-manager-config file";
+        assert_eq!(sanitize_error_message(message), message);
+    }
+
+    #[test]
+    fn test_should_not_modify_message_containing_risk_or_disk_dash_word() {
+        assert_eq!(
+            sanitize_error_message("risk-assessment-report failed"),
+            "risk-assessment-report failed"
+        );
+        assert_eq!(
+            sanitize_error_message("disk-utilization-high"),
+            "disk-utilization-high"
+        );
     }
 
     #[test]
@@ -870,16 +916,6 @@ mod tests {
         let project = tmp.path().join("project.json");
         std::fs::write(&project, r"{}").expect("write");
         assert!(!global_co_contribution_pending_ack_with(&global, &project));
-    }
-
-    #[test]
-    fn test_co_contribution_enabled_ignores_global_when_project_absent() {
-        // is_co_contribution_enabled must now only consult the project file;
-        // a global-only true must not enable reporting.
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let project = tmp.path().join("settings.json");
-        std::fs::write(&project, r"{}").expect("write");
-        assert!(!read_co_contribution_field(&project).unwrap_or(false));
     }
 
     #[test]
