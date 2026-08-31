@@ -102,6 +102,15 @@
             "user_approved": { "type": "boolean" },
             "branch": { "type": "string" },
             "pr_url": { "type": "string" },
+            "delivery_mode": {
+              "type": "string",
+              "enum": ["pr", "local_merge"],
+              "description": "Phase 3 交付方式；缺省视为 \"pr\"（向后兼容旧合同，字段本身无 default 关键字）"
+            },
+            "merge_commit": {
+              "type": "string",
+              "description": "本地合并时 (`delivery_mode == \"local_merge\"`) 产生的 merge commit SHA"
+            },
             "tests_passed": { "type": "boolean" },
             "merge_queued": {
               "type": "boolean",
