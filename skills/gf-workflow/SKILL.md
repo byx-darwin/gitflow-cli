@@ -395,7 +395,7 @@ context).
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO] Parallel dispatch** — in one message, launch one `Agent` call per `gates.md → get_phase4_steps(mode).parallel` entry: `gf-pipeline-analyzer` (all modes), `gf-issue-triage` (full only), `gf-review` (full + standard). Each subagent prompt MUST include the Reporting Granularity instruction above. Wait for all to return before continuing. | `pipeline_ok`, `review_report_path` (+ triage findings echoed inline if any) |
+| 1 | **[AUTO] Parallel dispatch** — in one message, launch one `Agent` call per `gates.md → get_phase4_steps(mode).parallel` entry: `gf-pipeline-analyzer` generates a pipeline analysis report (all modes), `gf-issue-triage` produces an Issue triage report (full only), `gf-review` creates a code review report (full + standard). Each subagent prompt MUST include the Reporting Granularity instruction above. Wait for all to return before continuing. | `pipeline_ok`, `review_report_path` (+ triage findings echoed inline if any) |
 | 2 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) — sequential, local, full mode only; echo in full only if any item fails | `dogfooding_passed` |
 | 3 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` — join point; only the orchestrator writes the contract, never a dispatched subagent | — |
 | 4 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
