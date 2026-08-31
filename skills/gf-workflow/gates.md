@@ -58,8 +58,10 @@ mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked
 
 **条件:**
 - `phases.3.status` 为 `complete`
-- `phases.3.evidence.pr_url` 非空
-- `phases.3.evidence.tests_passed` 为 `true`
+- 交付证据二选一（`delivery_mode` 缺省视为 `"pr"`）：
+  - `delivery_mode == "pr"` → `phases.3.evidence.pr_url` 非空
+  - `delivery_mode == "local_merge"` → `phases.3.evidence.merge_commit` 非空
+- `phases.3.evidence.tests_passed` 为 `true`（两种交付方式均必须）
 
 **本闸门不证明什么:** `tests_passed` 来自 Phase 3 Step 4 的**本地** `make test` / `cargo test`，
 它是前置自检，**不是 CI 结论**。真正的合并闸门是平台的必需检查 + Step 5 的排队合并
@@ -103,8 +105,13 @@ def check_gate(contract, target_phase):
 
     elif target_phase == 4:
         evidence = contract["phases"]["3"]["evidence"]
+        delivery_mode = evidence.get("delivery_mode", "pr")
+        if delivery_mode == "local_merge":
+            delivery_ok = bool(evidence.get("merge_commit"))
+        else:
+            delivery_ok = bool(evidence.get("pr_url"))
         return contract["phases"]["3"]["status"] == "complete" \
-               and evidence.get("pr_url") \
+               and delivery_ok \
                and evidence.get("tests_passed")
 
     return False
