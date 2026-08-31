@@ -139,11 +139,18 @@ pub async fn handle(
     command: ReleaseCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     let provider: Box<dyn ReleaseProvider> = match platform {
         "github" => Box::new(GitHubReleaseProvider::new(repo)),
-        "gitlab" => Box::new(GitLabReleaseProvider::new(repo)),
+        "gitlab" => {
+            if remote_url.is_empty() {
+                Box::new(GitLabReleaseProvider::new(repo))
+            } else {
+                Box::new(GitLabReleaseProvider::with_remote_url(repo, remote_url))
+            }
+        }
         "gitcode" => Box::new(GitCodeReleaseProvider::new(repo)),
         other => {
             return Err(miette::miette!(

@@ -213,16 +213,22 @@ async fn router(
         Commands::Issue(cmd) => {
             commands::issue::handle(cmd, platform, repo, remote_url, output).await
         }
-        Commands::Pr(cmd) => commands::pr::handle(cmd, platform, repo, output).await,
-        Commands::Release(cmd) => commands::release::handle(cmd, platform, repo, output).await,
+        Commands::Pr(cmd) => commands::pr::handle(cmd, platform, repo, remote_url, output).await,
+        Commands::Release(cmd) => {
+            commands::release::handle(cmd, platform, repo, remote_url, output).await
+        }
         Commands::Review(cmd) => commands::review::handle(cmd, platform, repo, output).await,
         Commands::Auth(cmd) => commands::auth::handle(cmd, platform, repo, output).await,
-        Commands::Label(cmd) => commands::label::handle_label(cmd, platform, repo, output).await,
+        Commands::Label(cmd) => {
+            commands::label::handle_label(cmd, platform, repo, remote_url, output).await
+        }
         Commands::Milestone(cmd) => {
-            commands::label::handle_milestone(cmd, platform, repo, output).await
+            commands::label::handle_milestone(cmd, platform, repo, remote_url, output).await
         }
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
-        Commands::Pipeline(cmd) => commands::pipeline::handle(cmd, platform, repo, output).await,
+        Commands::Pipeline(cmd) => {
+            commands::pipeline::handle(cmd, platform, repo, remote_url, output).await
+        }
         Commands::Workflow(cmd) => commands::workflow::handle(cmd),
         Commands::Doctor(ref args) => commands::doctor::handle(args),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd),
