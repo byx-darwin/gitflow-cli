@@ -119,7 +119,7 @@ fn main() -> std::process::ExitCode {
             | Commands::Update(_)
             | Commands::Doctor(_)
     );
-    let (platform, repo) = if platform_needed {
+    let (platform, repo, remote_url) = if platform_needed {
         match resolve_platform(cli.platform.clone()) {
             Ok(pr) => pr,
             Err(e) => {
@@ -134,11 +134,11 @@ fn main() -> std::process::ExitCode {
             }
         }
     } else {
-        ("unknown".to_string(), String::new())
+        ("unknown".to_string(), String::new(), String::new())
     };
 
     // Block on the async main, handling graceful shutdown signals
-    match rt.block_on(async_main(cli, &platform, &repo)) {
+    match rt.block_on(async_main(cli, &platform, &repo, &remote_url)) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
             if platform_needed {
@@ -175,7 +175,7 @@ fn report_error_noninteractive(
 ///
 /// The `platform` and `repo` are resolved in `main()` before this
 /// function is called so they remain available in the error handler.
-async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> {
+async fn async_main(cli: Cli, platform: &str, repo: &str, remote_url: &str) -> miette::Result<()> {
     // Skills/Completions/Workflow/Update don't need native CLI — skip prerequisite check
     if !matches!(
         cli.command,
@@ -189,7 +189,7 @@ async fn async_main(cli: Cli, platform: &str, repo: &str) -> miette::Result<()> 
     }
 
     tokio::select! {
-        result = router(cli.command, platform, repo, cli.output) => result,
+        result = router(cli.command, platform, repo, remote_url, cli.output) => result,
         () = async {
             match tokio::signal::ctrl_c().await {
                 Ok(()) => tracing::info!("Received shutdown signal, exiting gracefully"),
@@ -206,10 +206,13 @@ async fn router(
     command: Commands,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output: OutputFormat,
 ) -> miette::Result<()> {
     match command {
-        Commands::Issue(cmd) => commands::issue::handle(cmd, platform, repo, output).await,
+        Commands::Issue(cmd) => {
+            commands::issue::handle(cmd, platform, repo, remote_url, output).await
+        }
         Commands::Pr(cmd) => commands::pr::handle(cmd, platform, repo, output).await,
         Commands::Release(cmd) => commands::release::handle(cmd, platform, repo, output).await,
         Commands::Review(cmd) => commands::review::handle(cmd, platform, repo, output).await,
@@ -266,7 +269,7 @@ async fn router(
     clippy::disallowed_types,
     reason = "Invoked before the tokio runtime is constructed"
 )]
-fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String, String)> {
+fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String, String, String)> {
     // Get git remote URL (sync — see doc comment above).
     let output = std::process::Command::new("git")
         .args(["remote", "get-url", "origin"])
@@ -311,7 +314,7 @@ fn resolve_platform(cli_platform: Option<PlatformArg>) -> miette::Result<(String
     let repo = extract_repo_from_url(&remote_url)
         .ok_or_else(|| miette::miette!("Unable to parse owner/repo from URL: {remote_url}"))?;
 
-    Ok((platform, repo))
+    Ok((platform, repo, remote_url))
 }
 
 /// Extract repository path from a git remote URL.

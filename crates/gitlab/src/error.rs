@@ -10,6 +10,7 @@ use gitflow_core::{PlatformCliError, platform::Platform};
 #[must_use]
 pub fn parse_glab_error(stderr: &[u8]) -> PlatformCliError {
     let text = String::from_utf8_lossy(stderr);
+    tracing::debug!(raw_stderr = %text, "glab command failed");
 
     let is_auth_failure = |t: &str| {
         let lower = t.to_ascii_lowercase();
