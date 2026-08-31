@@ -38,8 +38,13 @@ use crate::{
 /// ```
 #[derive(Debug, Clone)]
 pub struct GitLabMrProvider<R: CommandRunner = RealCommandRunner> {
-    /// GitLab `namespace/project`。
+    /// GitLab `namespace/project`。供 REST notes API 路径编码使用，始终是裸
+    /// `owner/repo` 形式，不受 [`repo_target`](Self::repo_target) 影响。
     repo: String,
+    /// 传给 `glab mr ...` 子命令 `--repo` 参数的目标字符串。默认等于 `repo`；
+    /// 通过 [`with_remote_url`](GitLabMrProvider::with_remote_url) 构造时为完整
+    /// git remote URL，用于在自建 GitLab 实例上显式锁定 host。
+    repo_target: String,
     /// 用于执行 `glab` CLI 命令的 runner。
     runner: R,
 }
@@ -50,8 +55,10 @@ impl GitLabMrProvider<RealCommandRunner> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
+        let repo = repo.into();
         Self {
-            repo: repo.into(),
+            repo_target: repo.clone(),
+            repo,
             runner: RealCommandRunner,
         }
     }
@@ -61,8 +68,23 @@ impl GitLabMrProvider<RealCommandRunner> {
     /// This enables state reuse across multiple operations in workflow chains.
     #[must_use]
     pub fn with_session(session: &gitflow_core::Session) -> Self {
+        let repo = session.repo.clone();
         Self {
-            repo: session.repo.clone(),
+            repo_target: repo.clone(),
+            repo,
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// 使用完整 git remote URL 作为 `glab mr ...` 的 `--repo` 目标创建提供者。
+    ///
+    /// `repo` 仍为裸 `namespace/project`（供 REST notes API 路径编码使用），
+    /// `remote_url` 为完整 git remote URL，`glab` 官方文档确认 `--repo` 接受该形式。
+    #[must_use]
+    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
+        Self {
+            repo: repo.into(),
+            repo_target: remote_url.into(),
             runner: RealCommandRunner,
         }
     }
@@ -75,8 +97,26 @@ impl<R: CommandRunner> GitLabMrProvider<R> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        let repo = repo.into();
+        Self {
+            repo_target: repo.clone(),
+            repo,
+            runner,
+        }
+    }
+
+    /// 使用自定义 [`CommandRunner`] 并显式指定 `--repo` 目标创建提供者。
+    ///
+    /// 主要用于测试，验证 `repo_target`（如完整 remote URL）被正确传给 `glab`。
+    #[must_use]
+    pub fn with_runner_and_repo_target(
+        repo: impl Into<String>,
+        repo_target: impl Into<String>,
+        runner: R,
+    ) -> Self {
         Self {
             repo: repo.into(),
+            repo_target: repo_target.into(),
             runner,
         }
     }
@@ -104,7 +144,7 @@ impl<R: CommandRunner> GitLabMrProvider<R> {
                     "update",
                     &number_str,
                     "--repo",
-                    &self.repo,
+                    &self.repo_target,
                     draft_flag,
                 ],
             )
@@ -232,7 +272,7 @@ impl From<CommentApiResponse> for CommentData {
 #[async_trait]
 impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
-        let repo = args.repo.as_deref().unwrap_or(&self.repo);
+        let repo = args.repo.as_deref().unwrap_or(&self.repo_target);
         let mut cmd_args: Vec<&str> = vec![
             "mr",
             "create",
@@ -287,7 +327,14 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd_args: Vec<&str> = vec!["mr", "list", "--repo", &self.repo, "--output", "json"];
+        let mut cmd_args: Vec<&str> = vec![
+            "mr",
+            "list",
+            "--repo",
+            &self.repo_target,
+            "--output",
+            "json",
+        ];
 
         // glab uses --closed for closed MRs, --all for all MRs
         // Default (no flag) shows open MRs
@@ -336,7 +383,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
                     "view",
                     &number_str,
                     "--repo",
-                    &self.repo,
+                    &self.repo_target,
                     "--output",
                     "json",
                 ],
@@ -360,7 +407,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         let number_str = number.to_string();
         let output = self
             .runner
-            .run("glab", &["mr", "close", &number_str, "--repo", &self.repo])
+            .run(
+                "glab",
+                &["mr", "close", &number_str, "--repo", &self.repo_target],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -377,7 +427,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         let number_str = number.to_string();
         let output = self
             .runner
-            .run("glab", &["mr", "reopen", &number_str, "--repo", &self.repo])
+            .run(
+                "glab",
+                &["mr", "reopen", &number_str, "--repo", &self.repo_target],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -426,7 +479,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         debug!(repo = %self.repo, number, ?strategy, auto, "spawning `glab mr merge`");
 
         let number_str = number.to_string();
-        let mut cmd_args: Vec<&str> = vec!["mr", "merge", &number_str, "--repo", &self.repo];
+        let mut cmd_args: Vec<&str> = vec!["mr", "merge", &number_str, "--repo", &self.repo_target];
 
         match strategy {
             Some(MergeStrategy::Squash) => cmd_args.push("--squash"),
@@ -471,7 +524,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
             .runner
             .run(
                 "glab",
-                &["mr", "checkout", &number_str, "--repo", &self.repo],
+                &["mr", "checkout", &number_str, "--repo", &self.repo_target],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -501,7 +554,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         let number_str = number.to_string();
         let output = self
             .runner
-            .run("glab", &["mr", "rebase", &number_str, "--repo", &self.repo])
+            .run(
+                "glab",
+                &["mr", "rebase", &number_str, "--repo", &self.repo_target],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
@@ -844,6 +900,35 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(calls[1].1.contains(&"--output".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_close() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"closed","source_branch":"a","target_branch":"main"}"#,
+        );
+        let provider = GitLabMrProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let pr = provider.close(42).await.expect("close should succeed");
+
+        assert_eq!(pr.number, 42);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "mr",
+                "close",
+                "42",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
