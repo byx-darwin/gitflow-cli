@@ -13,23 +13,25 @@
 |--------|------|------|
 | 33366450657 | completed | ✅ success |
 | 33366450579 | completed | ✅ success |
-| 33366450484 | running | 🕒 进行中（CI workflow：Lint / Test×3 / MSRV / Check / Smoke Test） |
+| 33366450484 | completed | ✅ success |
 
-`gf pipeline jobs --pipeline-id 33366450484` 逐 job 核实（数据采集截至 2026-08-31 07:02 UTC，前后多次复查）：
+`gh pr checks 272` 复查（采集时间 2026-08-31 07:15 UTC，全部 11 项 check 均已收尾）：
 
 | Job | 状态 | 结论 |
 |-----|------|------|
 | Lint | completed | ✅ success |
 | Test (ubuntu-latest) | completed | ✅ success |
 | Test (macos-latest) | completed | ✅ success |
+| Test (windows-latest) | completed | ✅ success（最初采集时仍 `in_progress`，后续复查已收尾且无失败） |
 | MSRV | completed | ✅ success |
 | Check | completed | ✅ success |
 | Smoke Test | completed | ✅ success |
-| Test (windows-latest) | in_progress | 🕒 未完成（最后一次采集时仍在执行，无失败迹象） |
+| Smoke Test (github/gitlab/gitcode) | completed | ✅ success |
+| E2E Tests (GitHub) | completed | ✅ success |
 
 `gf pipeline jobs --pipeline-id 33366450657`（Smoke Test 跨平台 workflow：gitcode / github / gitlab）与 `gf pipeline jobs --pipeline-id 33366450579`（E2E Tests (GitHub) workflow）的所有 job 均为 `completed` / `success`。
 
-`gf pipeline report --branch feat/270-gitlab-label-fix --days 30/90` 返回 `successRate` 在 0.333～0.667 之间波动，原因与既往报告（PR #268、#269）一致：统计口径把「仍在 running、尚无 conclusion」的 run 计入非成功，且随着已完成 job 数增加，中间态的百分比也会变化。截至采集时，三个 run 中已完成的全部 job **无一失败**，唯一未完成的 `Test (windows-latest)` 在多次复查中稳定处于 `in_progress`，未见异常延迟或错误信号。
+`gf pipeline report --branch feat/270-gitlab-label-fix --days 30/90` 早前采集返回 `successRate` 在 0.333～0.667 之间波动，原因与既往报告（PR #268、#269）一致：统计口径把「仍在 running、尚无 conclusion」的 run 计入非成功。截至最终复查（`gh pr checks 272`，2026-08-31 07:15 UTC），三个 workflow run 的全部 11 项 check（含此前仍在执行的 `Test (windows-latest)`）均已收尾且**无一失败**。
 
 PR 本身状态为 `closed`（已合并入 `dev`，合并提交 `c7b71292bfd9ad8b38b7c6bf501ddf87829bb8c2`）。
 
@@ -48,12 +50,12 @@ PR 本身状态为 `closed`（已合并入 `dev`，合并提交 `c7b71292bfd9ad8
 
 ## 四、结论
 
-- PR #272 相关的三个 workflow run：2 个已成功完成，1 个（CI workflow）在采集窗口内仍在执行，**已完成的 6 个 job（Lint / Test-ubuntu / Test-macos / MSRV / Check / Smoke Test）无一失败**；唯一剩余的 `Test (windows-latest)` job 截至最后一次复查仍在 `in_progress`，无失败或异常延迟迹象。
-- `feat/270-gitlab-label-fix` 分支样本量仅 3 次 run，数据不足以支撑趋势判断；表面上的成功率波动是统计口径问题（in-progress run 被计入非成功），非真实回归。
+- PR #272 相关的三个 workflow run 全部收尾：全部 11 项 check（Lint / Test-ubuntu / Test-macos / Test-windows / MSRV / Check / Smoke Test 全平台 / E2E Tests）**无一失败**。
+- `feat/270-gitlab-label-fix` 分支样本量仅 3 次 run，数据不足以支撑趋势判断；早前采集时的成功率波动是统计口径问题（in-progress run 被计入非成功），非真实回归。
 - `dev` 分支近 7/14 天成功率 94%，处于 🟡 Watch 区间但未跌破 80% 告警线；`main` 分支近 14 天 100% 健康，均与该 PR 合并前的基线一致。
 - 未发现 flaky test（无重复间歇性失败样本），未发现耗时异常（平均耗时与历史基线相当）。
 
 ## 五、Recommendations
 
-1. 🟢 **Low** — 无需干预。PR #272 交付面截至采集时无任何失败信号；建议后续任意时刻用 `gf pipeline jobs --pipeline-id 33366450484` 二次确认 `Test (windows-latest)` 收尾结果，预期为 success。
+1. 🟢 **Low** — 无需干预。PR #272 全部 check 已收尾且无失败信号。
 2. 🟡 **Medium** — 持续关注 `dev` 分支成功率（94%），若连续多轮低于 95% 建议扩大抽样定位具体失败 job（当前 `gf pipeline report` 的 `topFailures` 信息量不足以直接归因）。
