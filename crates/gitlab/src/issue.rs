@@ -547,12 +547,12 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 为指定 Issue 添加一个或多个标签。
     ///
-    /// 调用 `glab issue edit <number> --repo <repo> --add-label <labels>` 添加标签，
+    /// 调用 `glab issue update <number> --repo <repo> --label <labels>` 添加标签，
     /// 多个标签以逗号连接后一次性提交。
     ///
     /// # 自动创建缺失标签
     ///
-    /// 当 `glab issue edit --add-label` 因标签不存在而失败时，本方法会自动调用
+    /// 当 `glab issue update --label` 因标签不存在而失败时，本方法会自动调用
     /// `glab label create` 创建缺失的标签（使用默认颜色 `ededed`），然后重试原操作。
     ///
     /// # Errors
@@ -563,18 +563,18 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             repo = %self.repo,
             number,
             label_count = labels.len(),
-            "spawning `glab issue edit --add-label`"
+            "spawning `glab issue update --label`"
         );
 
         let labels_joined = labels.join(",");
         let number_str = number.to_string();
         let cmd_args: Vec<&str> = vec![
             "issue",
-            "edit",
+            "update",
             &number_str,
             "--repo",
             &self.repo,
-            "--add-label",
+            "--label",
             &labels_joined,
         ];
         let output = self
@@ -587,7 +587,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             return Ok(());
         }
 
-        // glab issue edit --add-label may fail when a label doesn't exist.
+        // glab issue update --label may fail when a label doesn't exist.
         // Try to auto-create missing labels and retry once.
         let missing = extract_missing_labels_from_error(&output.stderr);
         if missing.is_empty() {
@@ -619,13 +619,13 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 从指定 Issue 移除一个标签。
     ///
-    /// 调用 `glab issue edit <number> --repo <repo> --remove-label <label>` 移除标签。
+    /// 调用 `glab issue update <number> --repo <repo> --unlabel <label>` 移除标签。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在、标签未附加到该 Issue 或 `glab` CLI 调用失败时返回错误。
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
-        debug!(repo = %self.repo, number, label, "spawning `glab issue edit --remove-label`");
+        debug!(repo = %self.repo, number, label, "spawning `glab issue update --unlabel`");
 
         let number_str = number.to_string();
         let output = self
@@ -634,11 +634,11 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                 "glab",
                 &[
                     "issue",
-                    "edit",
+                    "update",
                     &number_str,
                     "--repo",
                     &self.repo,
-                    "--remove-label",
+                    "--unlabel",
                     label,
                 ],
             )
@@ -653,7 +653,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     }
 }
 
-/// 从 `glab issue edit --add-label` 的 stderr 中提取缺失的标签名。
+/// 从 `glab issue update --label` 的 stderr 中提取缺失的标签名。
 ///
 /// GitLab CLI 的错误格式可能有多种变体，本函数尝试匹配常见的
 /// `'<label>' not found` / `"label not found: <label>"` 模式。
@@ -1268,6 +1268,58 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_call_issue_update_with_label_flag_for_add_labels() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .add_labels(42, &["bug".to_string(), "priority:high".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "owner/repo",
+                "--label",
+                "bug,priority:high"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_call_issue_update_with_unlabel_flag_for_remove_label() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider.remove_label(42, "bug").await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "owner/repo",
+                "--unlabel",
+                "bug"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
