@@ -128,6 +128,10 @@ pub enum MilestoneCommand {
 /// - 底层 provider 调用失败。
 /// - 编辑标签时未提供任何可编辑的字段。
 /// - JSON 序列化失败。
+#[allow(
+    clippy::too_many_lines,
+    reason = "Command dispatch: each match arm maps to one operation"
+)]
 pub async fn handle_label(
     command: LabelCommand,
     platform: &str,
