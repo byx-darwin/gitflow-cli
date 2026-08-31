@@ -758,11 +758,42 @@ fn resolve_hook_paths(
 ///
 /// 生成的命令解析 git 仓库根目录，检查脚本是否存在且可执行，然后运行。
 /// guard 保证非 git 仓库或脚本缺失时静默跳过，可安全用于全局注册。
-fn build_auto_report_hook_cmd(hooks_dir: &str) -> String {
+fn build_auto_report_hook_cmd(hooks_dir: &str, repo: &str) -> String {
     format!(
         "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \
-         \"$p/{hooks_dir}/auto-report-bug.sh\" ] && bash \"$p/{hooks_dir}/auto-report-bug.sh\"'"
+         \"$p/{hooks_dir}/auto-report-bug.sh\" ] && bash \"$p/{hooks_dir}/auto-report-bug.sh\" \
+         \"{repo}\"'"
     )
+}
+
+/// Resolve the `owner/repo` slug the auto-report hook should target.
+///
+/// Reads this crate's compile-time `CARGO_PKG_REPOSITORY` (sourced from
+/// the workspace `Cargo.toml`'s `repository` field via `repository.workspace
+/// = true` in `apps/cli/Cargo.toml`) so a template fork that updates that
+/// one field gets a correctly-targeted hook with no other file to edit.
+fn autoreport_repo_slug() -> String {
+    autoreport_repo_slug_from_url(env!("CARGO_PKG_REPOSITORY"))
+}
+
+/// Pure core of [`autoreport_repo_slug`], testable without depending on
+/// the compile-time env var.
+///
+/// Falls back to the literal default `"byx-darwin/gitflow-cli"` for any
+/// shape other than `https://github.com/{owner}/{repo}[.git]` — this is a
+/// convenience default, not a security boundary, so fail-safe rather than
+/// fail-loud.
+fn autoreport_repo_slug_from_url(url: &str) -> String {
+    const DEFAULT: &str = "byx-darwin/gitflow-cli";
+    let Some(rest) = url.strip_prefix("https://github.com/") else {
+        return DEFAULT.to_string();
+    };
+    let slug = rest.strip_suffix(".git").unwrap_or(rest);
+    if slug.split('/').count() == 2 && !slug.is_empty() {
+        slug.to_string()
+    } else {
+        DEFAULT.to_string()
+    }
 }
 
 fn resolve_global_hook_paths(
@@ -771,7 +802,7 @@ fn resolve_global_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = build_auto_report_hook_cmd(hooks_dir);
+    let cmd = build_auto_report_hook_cmd(hooks_dir, &autoreport_repo_slug());
     (home.join(hooks_dir), home.join(settings_file), cmd)
 }
 
@@ -781,7 +812,7 @@ fn resolve_project_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = build_auto_report_hook_cmd(hooks_dir);
+    let cmd = build_auto_report_hook_cmd(hooks_dir, &autoreport_repo_slug());
     (repo.join(hooks_dir), repo.join(settings_file), cmd)
 }
 
@@ -1864,7 +1895,7 @@ mod tests {
 
     #[test]
     fn test_build_auto_report_hook_cmd_uses_provided_hooks_dir() {
-        let cmd = build_auto_report_hook_cmd(".claude/hooks");
+        let cmd = build_auto_report_hook_cmd(".claude/hooks", "byx-darwin/gitflow-cli");
         assert!(
             cmd.contains(".claude/hooks/auto-report-bug.sh"),
             "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
@@ -1881,8 +1912,46 @@ mod tests {
 
     #[test]
     fn test_build_auto_report_hook_cmd_works_for_other_platforms() {
-        let cmd = build_auto_report_hook_cmd(".codex/hooks");
+        let cmd = build_auto_report_hook_cmd(".codex/hooks", "byx-darwin/gitflow-cli");
         assert!(cmd.contains(".codex/hooks/auto-report-bug.sh"));
+    }
+
+    #[test]
+    fn test_build_auto_report_hook_cmd_includes_repo_argument() {
+        let cmd = build_auto_report_hook_cmd(".claude/hooks", "acme/fork");
+        assert!(
+            cmd.contains("\"acme/fork\""),
+            "command should pass the repo slug as an argument, got: {cmd}"
+        );
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_parses_standard_github_url() {
+        // CARGO_PKG_REPOSITORY at build time is "https://github.com/byx-darwin/gitflow-cli"
+        // (from this workspace's own Cargo.toml `repository` field).
+        let slug = autoreport_repo_slug();
+        assert_eq!(slug, "byx-darwin/gitflow-cli");
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_strips_prefix_and_suffix() {
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/fork"),
+            "acme/fork"
+        );
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/fork.git"),
+            "acme/fork"
+        );
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_falls_back_on_unexpected_shape() {
+        assert_eq!(
+            autoreport_repo_slug_from_url("git@github.com:acme/fork.git"),
+            "byx-darwin/gitflow-cli"
+        );
+        assert_eq!(autoreport_repo_slug_from_url(""), "byx-darwin/gitflow-cli");
     }
 
     #[test]

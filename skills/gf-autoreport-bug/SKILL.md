@@ -54,12 +54,14 @@ flowchart TD
 
 1. **Validate** — require `id`, `command`, `platform`, `error_code`, `error_message`, `timestamp`. Invalid → rename `.invalid`, stop.
 2. **Auth** — `gh auth status`. Fail → login guide + template, keep file, stop.
-3. **Dedup** — `gh issue list --repo byx-darwin/gitflow-cli --search "[auto-report] {command} {error_code}" --state all`. Match → clean, stop.
+3. **Dedup** — `gh issue list --repo {repo} --search "[auto-report] {command} {error_code}" --state all`. Match → clean, stop.
 3b. **Preview** — Print sanitized summary + planned title/body. Ask: `create / skip / modify`. Non-interactive default: **skip** — keep `pending.json`, append `[timestamp] preview skipped (non-interactive)` to `processing.log`, stop. A human must re-run interactively to actually create the Issue.
-4. **Create** — On interactive confirm only, analyze root cause + severity, then `gh issue create --repo byx-darwin/gitflow-cli --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
+4. **Create** — On interactive confirm only, analyze root cause + severity, then `gh issue create --repo {repo} --title "[auto-report] gf {command} — {error_code}" --label "auto-report"`. Fail → keep file + `failed.log`.
 5. **Notify** — Output `✅ 已自动报告 bug: {issue_url}`.
 5b. **Log** — Append `[timestamp] issue created: {issue_url}` to `.cache/bug-reports/processing.log`.
 6. **Cleanup** — `rm -f .cache/bug-reports/pending.json`.
+
+`{repo}` is the value shown on the Stop Hook banner's `仓库` line — it defaults to this workspace's own `Cargo.toml` `repository` field, so a fork targets its own repo automatically.
 
 ## Error Handling
 
@@ -84,7 +86,7 @@ flowchart TD
 - 🔴 Reading `src/` to "understand the bug" — crosses the fix boundary.
 - 🔴 "I'll just fix this too" — report only.
 - 🔴 Skipping dedup — always search first.
-- 🔴 Missing `--repo` — always target fixed repo.
+- 🔴 Missing `--repo` — always target the repo given in the Stop Hook banner.
 
 ## Rationalization Excuses
 

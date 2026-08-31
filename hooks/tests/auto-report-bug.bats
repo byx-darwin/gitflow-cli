@@ -74,7 +74,8 @@ MOCK
 # Run the hook with stdin closed to a non-TTY and stdout+stderr captured
 # together so assertions are portable across Bats versions.
 run_hook() {
-  run bash -c '"$1" 2>&1 < /dev/null' hook_script "$HOOK_SCRIPT"
+  local repo="${1:-byx-darwin/gitflow-cli}"
+  run bash -c '"$1" "$2" 2>&1 < /dev/null' hook_script "$HOOK_SCRIPT" "$repo"
 }
 
 # Write a valid pending error report (all fields the hook extracts).
@@ -303,4 +304,15 @@ JSON
   # Live auth check must run exactly once, plus the label pre-check.
   [ "$(wc -l < "$GH_CALL_LOG")" -eq 2 ]
   grep -q "auth status" "$GH_CALL_LOG"
+}
+
+@test "custom repo argument reaches gh label list and gh issue commands" {
+  write_pending
+  export GH_LABEL_LIST_OUTPUT="auto-report"
+
+  run_hook "acme/fork"
+
+  [ "$status" -eq 0 ]
+  grep -q "acme/fork" "$GH_CALL_LOG"
+  [[ "$output" == *"acme/fork"* ]]
 }

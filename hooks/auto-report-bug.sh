@@ -14,6 +14,13 @@
 
 set -euo pipefail
 
+# Target repo for every `gh` call below — passed as $1 by the installed
+# Stop Hook command (see build_auto_report_hook_cmd in
+# apps/cli/src/commands/skills.rs), sourced at install time from this
+# workspace's Cargo.toml `repository` field. Falls back to this repo's
+# own slug for direct/manual invocation without an argument.
+REPO_SLUG="${1:-byx-darwin/gitflow-cli}"
+
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || exit 0)
 [ -z "$REPO_ROOT" ] && exit 0
 
@@ -114,7 +121,7 @@ if [ "$AUTH_CHECK_FAILED" = "true" ]; then
   echo "    gh auth login"
   echo ""
   echo "  方式 2: 手动创建 Issue"
-  echo "    URL: https://github.com/byx-darwin/gitflow-cli/issues/new"
+  echo "    URL: https://github.com/${REPO_SLUG}/issues/new"
   echo ""
   ERROR_MSG=$(echo "$PENDING_CONTENT" | grep -o '"error_message"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
   echo "  📋 报告内容（可复制）:"
@@ -163,13 +170,13 @@ if [ -f "$LABEL_CACHE_FILE" ]; then
 fi
 
 if [ "$LABEL_CACHE_HIT" != "true" ] && command -v gh >/dev/null 2>&1; then
-  if LABEL_LIST_OUTPUT=$(gh label list --repo byx-darwin/gitflow-cli --search auto-report --json name -q '.[].name' 2>/dev/null); then
+  if LABEL_LIST_OUTPUT=$(gh label list --repo "$REPO_SLUG" --search auto-report --json name -q '.[].name' 2>/dev/null); then
     if printf '%s\n' "$LABEL_LIST_OUTPUT" | grep -qx 'auto-report'; then
       mkdir -p "$(dirname "$LABEL_CACHE_FILE")"
       date +%s > "$LABEL_CACHE_FILE"
     else
       LABEL_CHECK_FAILED=true
-      log_hook "label check failed (auto-report label missing on byx-darwin/gitflow-cli)"
+      log_hook "label check failed (auto-report label missing on ${REPO_SLUG})"
     fi
   else
     LABEL_CHECK_FAILED=true
@@ -192,7 +199,7 @@ if [ "$LABEL_CHECK_FAILED" = "true" ]; then
     echo "  请检查网络连接与 gh 认证状态，然后重新触发。"
   else
     echo "  请先创建该标签，然后重新触发："
-    echo "    gh label create auto-report --repo byx-darwin/gitflow-cli \\"
+    echo "    gh label create auto-report --repo ${REPO_SLUG} \\"
     echo "      --description \"Automatically filed by gf-autoreport-bug\" --color FBCA04"
   fi
   echo ""
@@ -207,6 +214,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "  命令:   ${COMMAND:-unknown}"
 echo "  平台:   ${PLATFORM:-unknown}"
+echo "  仓库:   ${REPO_SLUG}"
 echo "  错误码: ${ERROR_CODE:-unknown}"
 echo "  时间:   ${TIMESTAMP:-unknown}"
 echo "  认证:   ${AUTH_STATUS}"
