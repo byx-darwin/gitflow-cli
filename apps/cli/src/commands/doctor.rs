@@ -287,10 +287,26 @@ impl HealthCheck for CoContributionCheck {
     }
 
     fn run(&self) -> Vec<CheckItem> {
+        let mut items = Vec::new();
+
+        if crate::error_reporter::global_co_contribution_pending_ack() {
+            let item = CheckItem::warn(
+                self.category(),
+                "共建计划",
+                "全局已开启共建计划（~/.claude/settings.json），但本项目尚未确认",
+                "编辑 .claude/settings.json 添加 gitflow.co_contribution 字段",
+            )
+            .with_detail(
+                "在本项目 .claude/settings.json 中设置 gitflow.co_contribution 为 true 或 false \
+                 以确认或关闭；否则本项目不会自动上报（现在仅看项目级 设置，不再回退到全局）",
+            );
+            items.push(item);
+            return items;
+        }
+
         let enabled = dirs::home_dir().is_some_and(|home| {
             crate::error_reporter::read_co_contribution_flag(&home.join(".claude/settings.json"))
         });
-        let mut items = Vec::new();
         let item = if enabled {
             CheckItem::pass(
                 self.category(),
@@ -642,5 +658,30 @@ mod tests {
             detail.contains("gitflow.co_contribution"),
             "opt-out guide must mention the config key: {detail}"
         );
+    }
+
+    #[test]
+    fn test_co_contribution_check_warns_when_global_pending_ack() {
+        // This test cannot force crate::error_reporter::global_co_contribution_pending_ack()
+        // to return true (it reads real HOME/repo-root state), so it instead
+        // verifies the check's structure directly: whatever the real result,
+        // exactly one item is returned and — when a pending ack IS detected —
+        // the item's status is a warning, not a silent pass, and its detail
+        // names the project-level settings key to add.
+        let items = CoContributionCheck.run();
+        assert_eq!(items.len(), 1);
+        let item = &items[0];
+        if crate::error_reporter::global_co_contribution_pending_ack() {
+            assert_eq!(
+                item.status,
+                CheckStatus::Warn,
+                "a pending global-only opt-in must surface as a warning, not a silent pass"
+            );
+            let detail = item.detail.clone().unwrap_or_default();
+            assert!(
+                detail.contains(".claude/settings.json"),
+                "warning must point at the project-level settings file: {detail}"
+            );
+        }
     }
 }

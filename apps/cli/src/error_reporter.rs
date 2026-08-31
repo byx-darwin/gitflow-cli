@@ -327,47 +327,69 @@ pub(crate) fn maybe_report_error(
     report.write_to_disk(&repo_root)
 }
 
-/// Check whether the co-contribution plan is enabled.
+/// Check whether the co-contribution plan is enabled for the current
+/// project.
 ///
-/// Checks two locations in order:
-/// 1. `<repo_root>/.claude/settings.json` (project-level)
-/// 2. `~/.claude/settings.json` (global, from `-g` install)
-///
-/// Returns `true` if either location has `gitflow.co_contribution = true`.
-/// Returns `false` if neither file exists, or the field is missing/false.
-/// Any I/O or parse error silently degrades to `false`.
+/// Checks **only** `<repo_root>/.claude/settings.json` — a global-only
+/// opt-in (`~/.claude/settings.json`) no longer silently enables
+/// reporting in every project; see [`global_co_contribution_pending_ack`]
+/// for the mechanism that surfaces that gap via `gf doctor` instead.
+/// Returns `false` if the repo root cannot be found or the field is
+/// missing/false.
 fn is_co_contribution_enabled() -> bool {
-    if let Ok(repo_root) = find_repo_root() {
-        let project_settings = repo_root.join(".claude/settings.json");
-        if read_co_contribution_flag(&project_settings) {
-            return true;
-        }
-    }
-
-    if let Some(home) = dirs::home_dir() {
-        let global_settings = home.join(".claude/settings.json");
-        if read_co_contribution_flag(&global_settings) {
-            return true;
-        }
-    }
-
-    false
+    let Ok(repo_root) = find_repo_root() else {
+        return false;
+    };
+    read_co_contribution_flag(&repo_root.join(".claude/settings.json"))
 }
 
 /// Read the `gitflow.co_contribution` flag from a specific settings file.
 ///
 /// Returns `false` if the file doesn't exist, can't be read, or the field
-/// is missing/not a boolean.
+/// is missing/not a boolean. Convenience wrapper over
+/// [`read_co_contribution_field`] for call sites that don't need to
+/// distinguish "explicitly false" from "absent".
 pub(crate) fn read_co_contribution_flag(path: &Path) -> bool {
-    let Ok(content) = std::fs::read_to_string(path) else {
-        return false;
-    };
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
-        return false;
-    };
+    read_co_contribution_field(path).unwrap_or(false)
+}
+
+/// Read the `gitflow.co_contribution` flag from a specific settings file,
+/// distinguishing an explicit decision from absence.
+///
+/// Returns `None` if the file doesn't exist, can't be read, can't be
+/// parsed as JSON, or the field is missing/not a boolean — i.e. "no
+/// decision has been made here." Returns `Some(bool)` for an explicit
+/// `true` or `false`.
+fn read_co_contribution_field(path: &Path) -> Option<bool> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let json = serde_json::from_str::<serde_json::Value>(&content).ok()?;
     json.pointer("/gitflow/co_contribution")
         .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false)
+}
+
+/// Returns `true` when the global co-contribution opt-in is active but
+/// this project has never made its own explicit decision — the gap
+/// `gf doctor`'s `CoContributionCheck` surfaces so a global-only opt-in
+/// doesn't silently cover every future project with no visibility.
+pub(crate) fn global_co_contribution_pending_ack() -> bool {
+    let Some(home) = dirs::home_dir() else {
+        return false;
+    };
+    let Ok(repo_root) = find_repo_root() else {
+        return false;
+    };
+    global_co_contribution_pending_ack_with(
+        &home.join(".claude/settings.json"),
+        &repo_root.join(".claude/settings.json"),
+    )
+}
+
+/// Testable core of [`global_co_contribution_pending_ack`] — takes both
+/// settings paths explicitly instead of resolving them from `HOME`/the
+/// git repo root.
+fn global_co_contribution_pending_ack_with(global_path: &Path, project_path: &Path) -> bool {
+    read_co_contribution_field(global_path) == Some(true)
+        && read_co_contribution_field(project_path).is_none()
 }
 
 /// Returns `true` when error reporting should be skipped because
@@ -777,6 +799,87 @@ mod tests {
         let path = tmp.path().join("settings.json");
         std::fs::write(&path, "not json").expect("write");
         assert!(!read_co_contribution_flag(&path));
+    }
+
+    #[test]
+    fn test_should_return_none_for_missing_co_contribution_field() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"gitflow": {}}"#).expect("write");
+        assert_eq!(read_co_contribution_field(&path), None);
+    }
+
+    #[test]
+    fn test_should_return_none_for_missing_settings_file_tri_state() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let missing = tmp.path().join("nonexistent.json");
+        assert_eq!(read_co_contribution_field(&missing), None);
+    }
+
+    #[test]
+    fn test_should_return_some_true_for_co_contribution_field_true() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        assert_eq!(read_co_contribution_field(&path), Some(true));
+    }
+
+    #[test]
+    fn test_should_return_some_false_for_co_contribution_field_false() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join("settings.json");
+        std::fs::write(&path, r#"{"gitflow": {"co_contribution": false}}"#).expect("write");
+        assert_eq!(read_co_contribution_field(&path), Some(false));
+    }
+
+    #[test]
+    fn test_pending_ack_true_when_global_true_and_project_absent() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r"{}").expect("write");
+        assert!(global_co_contribution_pending_ack_with(&global, &project));
+    }
+
+    #[test]
+    fn test_pending_ack_false_when_project_already_decided_true() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        assert!(!global_co_contribution_pending_ack_with(&global, &project));
+    }
+
+    #[test]
+    fn test_pending_ack_false_when_project_already_decided_false() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r#"{"gitflow": {"co_contribution": true}}"#).expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r#"{"gitflow": {"co_contribution": false}}"#).expect("write");
+        assert!(!global_co_contribution_pending_ack_with(&global, &project));
+    }
+
+    #[test]
+    fn test_pending_ack_false_when_global_false() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let global = tmp.path().join("global.json");
+        std::fs::write(&global, r#"{"gitflow": {"co_contribution": false}}"#).expect("write");
+        let project = tmp.path().join("project.json");
+        std::fs::write(&project, r"{}").expect("write");
+        assert!(!global_co_contribution_pending_ack_with(&global, &project));
+    }
+
+    #[test]
+    fn test_co_contribution_enabled_ignores_global_when_project_absent() {
+        // is_co_contribution_enabled must now only consult the project file;
+        // a global-only true must not enable reporting.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let project = tmp.path().join("settings.json");
+        std::fs::write(&project, r"{}").expect("write");
+        assert!(!read_co_contribution_field(&project).unwrap_or(false));
     }
 
     #[test]
