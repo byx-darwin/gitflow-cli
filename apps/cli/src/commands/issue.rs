@@ -356,7 +356,9 @@ fn resolve_body(body: Option<String>, body_file: Option<String>) -> miette::Resu
         ));
     }
     if let Some(path) = body_file {
-        let content = std::fs::read_to_string(&path)
+        let safe = gitflow_core::SafePath::new_allow_absolute(&path)
+            .map_err(|e| miette::miette!("无效的 --body-file 参数: {e}"))?;
+        let content = std::fs::read_to_string(safe.as_path())
             .map_err(|e| miette::miette!("Failed to read body file '{path}': {e}"))?;
         return Ok(Some(content));
     }
@@ -444,6 +446,22 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Failed to read body file"));
+    }
+
+    #[test]
+    fn test_should_reject_body_file_with_path_traversal() {
+        let result = resolve_body(None, Some("../secret.md".into()));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("无效的 --body-file 参数"));
+    }
+
+    #[test]
+    fn test_should_reject_body_file_with_nul_byte() {
+        let result = resolve_body(None, Some("foo\0bar.md".into()));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("无效的 --body-file 参数"));
     }
 
     #[test]
