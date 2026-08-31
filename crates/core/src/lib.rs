@@ -334,8 +334,14 @@ impl SafePath {
             .into());
         }
 
-        // Reject colon in path (Windows Alternate Data Streams)
-        if path.as_os_str().as_encoded_bytes().contains(&b':') {
+        // Reject colon in path (Windows Alternate Data Streams), except inside
+        // a `Prefix` component (e.g. the `C:` drive letter of a legitimate
+        // Windows absolute path) — `C:\Users\...` is fine, `file.txt:stream`
+        // is an ADS injection attempt.
+        if path.components().any(|c| {
+            !matches!(c, std::path::Component::Prefix(_))
+                && c.as_os_str().as_encoded_bytes().contains(&b':')
+        }) {
             return Err(PathError {
                 path: path.to_path_buf(),
                 kind: PathErrorKind::InvalidChar { ch: ':' },
@@ -482,6 +488,35 @@ mod tests {
     #[test]
     fn test_safe_path_rejects_colon() {
         let err = SafePath::new("foo:bar.txt");
+        assert!(matches!(
+            err,
+            Err(CoreError::Path(PathError {
+                kind: PathErrorKind::InvalidChar { ch: ':' },
+                ..
+            }))
+        ));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_safe_path_allows_windows_drive_letter_colon() {
+        // The drive-letter colon in `C:\...` is a structural part of a
+        // Windows absolute path, not an Alternate Data Streams injection —
+        // `new_allow_absolute` must accept it.
+        let sp = SafePath::new_allow_absolute(r"C:\Users\runner\Temp\body.md");
+        assert!(
+            sp.is_ok(),
+            "drive-letter colon must not be rejected: {sp:?}"
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_safe_path_rejects_ads_colon_in_absolute_windows_path() {
+        // A colon inside a filename component (not the drive prefix) is a
+        // real Alternate Data Streams injection attempt and must still be
+        // rejected even when absolute paths are otherwise allowed.
+        let err = SafePath::new_allow_absolute(r"C:\Users\runner\Temp\body.md:evil");
         assert!(matches!(
             err,
             Err(CoreError::Path(PathError {
