@@ -294,7 +294,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             "issue",
             "create",
             "--repo",
-            &self.repo,
+            &self.repo_target,
             "--title",
             &args.title,
         ];
@@ -377,7 +377,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         debug!(repo = %self.repo, number, "spawning `glab issue update`");
 
         let number_str = number.to_string();
-        let mut cmd_args: Vec<&str> = vec!["issue", "update", &number_str, "--repo", &self.repo];
+        let mut cmd_args: Vec<&str> =
+            vec!["issue", "update", &number_str, "--repo", &self.repo_target];
 
         if let Some(title) = &args.title {
             cmd_args.push("--title");
@@ -402,8 +403,14 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd_args: Vec<&str> =
-            vec!["issue", "list", "--repo", &self.repo, "--output", "json"];
+        let mut cmd_args: Vec<&str> = vec![
+            "issue",
+            "list",
+            "--repo",
+            &self.repo_target,
+            "--output",
+            "json",
+        ];
 
         // glab uses --closed for closed issues, --all for all issues
         // Default (no flag) shows open issues
@@ -457,7 +464,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                     "view",
                     &number_str,
                     "--repo",
-                    &self.repo,
+                    &self.repo_target,
                     "--output",
                     "json",
                 ],
@@ -491,7 +498,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &["issue", "close", &number_str, "--repo", &self.repo],
+                &["issue", "close", &number_str, "--repo", &self.repo_target],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -519,7 +526,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &["issue", "reopen", &number_str, "--repo", &self.repo],
+                &["issue", "reopen", &number_str, "--repo", &self.repo_target],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -1191,6 +1198,27 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(calls[1].1.contains(&"--output".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_view() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"opened","description":null,"labels":[]}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let issue = provider.view(42).await.expect("view should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert!(
+            runner.recorded_calls()[0]
+                .1
+                .contains(&"https://192.168.230.23/iproost/proxy/api-src.git".to_string())
+        );
     }
 
     #[tokio::test]
