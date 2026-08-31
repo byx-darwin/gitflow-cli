@@ -40,10 +40,19 @@
 ```bash
 command -v gh                                   # CLI 可用性检查
 gh auth status                                  # GitHub 认证状态
-gh issue list --search "[auto-report] {cmd} {err}" --state all
-gh issue create --title "[auto-report] gf {cmd} — {err}" \
+gh issue list --repo {repo} --search "[auto-report] {cmd} {err}" --state all
+gh issue create --repo {repo} --title "[auto-report] gf {cmd} — {err}" \
                          --body "..." --label "auto-report"
 ```
+
+`{repo}` 来自 `Cargo.toml` 的 `repository` 字段（编译期通过 `CARGO_PKG_REPOSITORY` 读取），不再是硬编码字面量。
+
+## 安全网关（2026-08-30 加固）
+
+- **CI 跳过**：`error_reporter` 检测到 `CI`/`GITHUB_ACTIONS`/`GITLAB_CI`/`CI_PIPELINE_ID`/`CIRCLECI`/`BUILDKITE`/`JENKINS_URL` 任一环境变量存在时，直接跳过写入 `pending.json`，不会产生上报。
+- **标签预检查**：Stop Hook 在认证成功后会先执行 `gh label list --repo {repo} --search auto-report`，标签不存在则打印修复命令并停止，不再触发 skill。
+- **非交互默认值**：Preview 阶段在非交互场景（Stop Hook 触发即是此场景）下默认 `skip`，不会自动创建 Issue；只有交互式确认才会创建。
+- **仓库参数化（2026-08-31 加固）**：目标仓库不再硬编码为 `byx-darwin/gitflow-cli`，而是在 `gf skills install` 安装 Stop Hook 时从 `Cargo.toml` 的 `repository` 字段解析并作为参数传给 `hooks/auto-report-bug.sh`，模板 fork 只需更新该字段即可自动定位到自己的仓库。
 
 ## Issue 正文模板
 

@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use gitflow_core::{
     CoreError, Result,
-    issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
+    issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
 use tracing::debug;
@@ -191,6 +191,42 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
 
         // Fetch full issue details via view
         self.view(issue_number).await
+    }
+
+    /// 编辑 Issue 的标题和/或正文。
+    ///
+    /// 调用 `gh issue edit <number> --repo <repo> [--title T] [--body B]`，
+    /// 成功后通过 [`view`](Self::view) 重新拉取最新数据并返回。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或 `gh` CLI 调用失败时返回错误。
+    async fn edit(&self, number: u64, args: EditIssueArgs) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `gh issue edit`");
+
+        let number_str = number.to_string();
+        let mut cmd_args: Vec<&str> = vec!["issue", "edit", &number_str, "--repo", &self.repo];
+
+        if let Some(title) = &args.title {
+            cmd_args.push("--title");
+            cmd_args.push(title);
+        }
+        if let Some(body) = &args.body {
+            cmd_args.push("--body");
+            cmd_args.push(body);
+        }
+
+        let output = self
+            .runner
+            .run("gh", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gh_error(&output.stderr).into());
+        }
+
+        self.view(number).await
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
@@ -1311,6 +1347,76 @@ mod tests {
         let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
 
         let result = provider.add_labels(42, &["bug".to_string()]).await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_issue_title_and_view_result() {
+        // Sequence: 1. `gh issue edit` → succeeds (empty stdout)
+        //           2. `gh issue view --json ...` → returns updated issue JSON
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (
+                true,
+                r#"{"number":42,"title":"New title","body":"orig","state":"open","labels":[],"author":{"login":"octocat","id":"1"},"assignees":[],"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z","url":"https://github.com/owner/repo/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let issue = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: Some("New title".to_string()),
+                    body: None,
+                },
+            )
+            .await
+            .expect("edit should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.title, "New title");
+    }
+
+    #[tokio::test]
+    async fn test_should_send_only_provided_fields_for_edit() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        // title-only: view() call will fail to deserialize empty stdout, that's fine —
+        // we only assert on the recorded `gh issue edit` invocation (the first call).
+        let _ = provider
+            .edit(
+                7,
+                gitflow_core::issue::EditIssueArgs {
+                    title: Some("T".to_string()),
+                    body: None,
+                },
+            )
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["issue", "edit", "7", "--repo", "owner/repo", "--title", "T"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_gh_fails_for_edit() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .edit(42, gitflow_core::issue::EditIssueArgs::default())
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(

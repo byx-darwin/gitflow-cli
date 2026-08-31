@@ -253,9 +253,12 @@ fn resolve_target_dir(
     agent: Option<AgentPlatform>,
     custom_path: Option<&str>,
 ) -> miette::Result<PathBuf> {
-    // 自定义路径优先
+    // 自定义路径优先（用户显式指定的目标目录，允许绝对路径，但仍拒绝
+    // `..`/NUL 字节/危险字符等注入形态的输入）
     if let Some(p) = custom_path {
-        return Ok(PathBuf::from(p));
+        let safe = gitflow_core::SafePath::new_allow_absolute(p)
+            .map_err(|e| miette::miette!("无效的 --path 参数: {e}"))?;
+        return Ok(safe.as_path().to_path_buf());
     }
 
     let platform = agent.unwrap_or_else(AgentPlatform::detect);
@@ -755,11 +758,59 @@ fn resolve_hook_paths(
 ///
 /// 生成的命令解析 git 仓库根目录，检查脚本是否存在且可执行，然后运行。
 /// guard 保证非 git 仓库或脚本缺失时静默跳过，可安全用于全局注册。
-fn build_auto_report_hook_cmd(hooks_dir: &str) -> String {
+fn build_auto_report_hook_cmd(hooks_dir: &str, repo: &str) -> String {
     format!(
         "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \
-         \"$p/{hooks_dir}/auto-report-bug.sh\" ] && bash \"$p/{hooks_dir}/auto-report-bug.sh\"'"
+         \"$p/{hooks_dir}/auto-report-bug.sh\" ] && bash \"$p/{hooks_dir}/auto-report-bug.sh\" \
+         \"{repo}\"'"
     )
+}
+
+/// Resolve the `owner/repo` slug the auto-report hook should target.
+///
+/// Reads this crate's compile-time `CARGO_PKG_REPOSITORY` (sourced from
+/// the workspace `Cargo.toml`'s `repository` field via `repository.workspace
+/// = true` in `apps/cli/Cargo.toml`) so a template fork that updates that
+/// one field gets a correctly-targeted hook with no other file to edit.
+fn autoreport_repo_slug() -> String {
+    autoreport_repo_slug_from_url(env!("CARGO_PKG_REPOSITORY"))
+}
+
+/// Pure core of [`autoreport_repo_slug`], testable without depending on
+/// the compile-time env var.
+///
+/// Falls back to the literal default `"byx-darwin/gitflow-cli"` for any
+/// shape other than `https://github.com/{owner}/{repo}[.git]` — this is a
+/// convenience default, not a security boundary, so fail-safe rather than
+/// fail-loud.
+fn autoreport_repo_slug_from_url(url: &str) -> String {
+    const DEFAULT: &str = "byx-darwin/gitflow-cli";
+    let Some(rest) = url.strip_prefix("https://github.com/") else {
+        return DEFAULT.to_string();
+    };
+    let slug = rest.strip_suffix(".git").unwrap_or(rest);
+    let mut parts = slug.split('/');
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(owner), Some(repo), None)
+            if !owner.is_empty()
+                && !repo.is_empty()
+                && is_safe_slug_segment(owner)
+                && is_safe_slug_segment(repo) =>
+        {
+            slug.to_string()
+        }
+        _ => DEFAULT.to_string(),
+    }
+}
+
+/// Returns `true` when `segment` consists only of ASCII alphanumerics,
+/// `-`, `_`, or `.` — the charset allowlist CLAUDE.md requires for
+/// identifiers/slugs before they are interpolated into a shell command
+/// string persisted into `settings.json`.
+fn is_safe_slug_segment(segment: &str) -> bool {
+    segment
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
 fn resolve_global_hook_paths(
@@ -768,7 +819,7 @@ fn resolve_global_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = build_auto_report_hook_cmd(hooks_dir);
+    let cmd = build_auto_report_hook_cmd(hooks_dir, &autoreport_repo_slug());
     (home.join(hooks_dir), home.join(settings_file), cmd)
 }
 
@@ -778,7 +829,7 @@ fn resolve_project_hook_paths(
 ) -> (PathBuf, PathBuf, String) {
     let hooks_dir = platform.hooks_dir_name();
     let settings_file = platform.settings_file_path();
-    let cmd = build_auto_report_hook_cmd(hooks_dir);
+    let cmd = build_auto_report_hook_cmd(hooks_dir, &autoreport_repo_slug());
     (repo.join(hooks_dir), repo.join(settings_file), cmd)
 }
 
@@ -1601,6 +1652,22 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_custom_path_rejects_parent_dir_traversal() {
+        let result = resolve_target_dir(
+            false,
+            Some(AgentPlatform::Claude),
+            Some("/tmp/my-skills/../../etc"),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_custom_path_rejects_null_byte() {
+        let result = resolve_target_dir(false, Some(AgentPlatform::Claude), Some("/tmp/x\0y"));
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_skills_source_dir_is_valid_path() {
         let dir = skills_source_dir();
         assert!(dir.ends_with("skills"));
@@ -1845,7 +1912,7 @@ mod tests {
 
     #[test]
     fn test_build_auto_report_hook_cmd_uses_provided_hooks_dir() {
-        let cmd = build_auto_report_hook_cmd(".claude/hooks");
+        let cmd = build_auto_report_hook_cmd(".claude/hooks", "byx-darwin/gitflow-cli");
         assert!(
             cmd.contains(".claude/hooks/auto-report-bug.sh"),
             "command should reference .claude/hooks/auto-report-bug.sh, got: {cmd}"
@@ -1862,8 +1929,73 @@ mod tests {
 
     #[test]
     fn test_build_auto_report_hook_cmd_works_for_other_platforms() {
-        let cmd = build_auto_report_hook_cmd(".codex/hooks");
+        let cmd = build_auto_report_hook_cmd(".codex/hooks", "byx-darwin/gitflow-cli");
         assert!(cmd.contains(".codex/hooks/auto-report-bug.sh"));
+    }
+
+    #[test]
+    fn test_build_auto_report_hook_cmd_includes_repo_argument() {
+        let cmd = build_auto_report_hook_cmd(".claude/hooks", "acme/fork");
+        assert!(
+            cmd.contains("\"acme/fork\""),
+            "command should pass the repo slug as an argument, got: {cmd}"
+        );
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_parses_standard_github_url() {
+        // CARGO_PKG_REPOSITORY at build time is "https://github.com/byx-darwin/gitflow-cli"
+        // (from this workspace's own Cargo.toml `repository` field).
+        let slug = autoreport_repo_slug();
+        assert_eq!(slug, "byx-darwin/gitflow-cli");
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_strips_prefix_and_suffix() {
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/fork"),
+            "acme/fork"
+        );
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/fork.git"),
+            "acme/fork"
+        );
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_falls_back_on_unexpected_shape() {
+        assert_eq!(
+            autoreport_repo_slug_from_url("git@github.com:acme/fork.git"),
+            "byx-darwin/gitflow-cli"
+        );
+        assert_eq!(autoreport_repo_slug_from_url(""), "byx-darwin/gitflow-cli");
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_falls_back_on_empty_segment() {
+        // Trailing slash with no repo name — two `/`-separated pieces, but the
+        // second one is empty. Must not be returned verbatim as `"acme/"`.
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/"),
+            "byx-darwin/gitflow-cli"
+        );
+        // Bare prefix — the remainder is entirely empty.
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/"),
+            "byx-darwin/gitflow-cli"
+        );
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_falls_back_on_shell_metacharacters() {
+        // The slug is spliced into a single-quoted `bash -c '...'` string
+        // persisted into settings.json; a shell metacharacter in either
+        // segment must not be accepted verbatim, per CLAUDE.md's charset
+        // allowlist requirement for identifiers/slugs.
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/fork';rm -rf"),
+            "byx-darwin/gitflow-cli"
+        );
     }
 
     #[test]

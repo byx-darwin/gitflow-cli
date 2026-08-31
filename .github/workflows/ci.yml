@@ -78,6 +78,32 @@ jobs:
       - name: cargo deny
         uses: EmbarkStudios/cargo-deny-action@v2
 
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
+      - name: cargo audit
+        run: cargo audit
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Parse MSRV from Cargo.toml
+        id: msrv
+        run: |
+          MSRV=$(grep 'rust-version' Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/"//')
+          echo "msrv=$MSRV" >> "$GITHUB_OUTPUT"
+
+      - name: Install MSRV toolchain
+        run: rustup toolchain install ${{ steps.msrv.outputs.msrv }}
+
+      - name: Check with MSRV toolchain
+        run: cargo +${{ steps.msrv.outputs.msrv }} check --workspace --all-features
+
   smoke-test:
     name: Smoke Test
     runs-on: ubuntu-latest

@@ -362,9 +362,9 @@ git branch -d fix/issue-<N>-<short-name>
 | 4 | Dogfooding 检查 | ✅ | ❌ | ❌ |
 | 5 | Branch Finish | ✅ | ✅ | ✅ |
 
-**执行流程：**
-- Full: Pipeline → Triage → Review → Dogfooding → Branch Finish → Archive
-- Standard: Pipeline → Review → Branch Finish → Archive
+**执行流程：**（同一方括号内的步骤在一条消息内并行派发，全部返回后再继续；见 `skills/gf-workflow/gates.md → get_phase4_steps`）
+- Full: [Pipeline ∥ Triage ∥ Review] → Dogfooding → Branch Finish → Archive
+- Standard: [Pipeline ∥ Review] → Branch Finish → Archive
 - Fast: Pipeline → Branch Finish → Archive
 
 ## 模式对比速查
