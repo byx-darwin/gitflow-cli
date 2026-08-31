@@ -145,6 +145,15 @@ pub enum IssueCommand {
     },
 }
 
+/// 判断 GitLab 平台是否应使用 `remote_url` 作为 `--repo` 目标。
+///
+/// 当用户通过 `IssueCommand::Create { repo: Some(_), .. }` 显式覆盖仓库时，
+/// 该仓库与当前 git remote 不对应，不应强行拼接 `remote_url`。
+#[must_use]
+fn should_use_remote_url_for_gitlab(command: &IssueCommand) -> bool {
+    !matches!(command, IssueCommand::Create { repo: Some(_), .. })
+}
+
 /// 处理 `gf issue` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Issue 提供者，然后执行具体命令并输出结果。
@@ -167,6 +176,7 @@ pub async fn handle(
     command: IssueCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     // Allow `--repo` on Create to override the auto-detected repo.
@@ -180,7 +190,16 @@ pub async fn handle(
 
     let provider: Box<dyn IssueProvider> = match platform {
         "github" => Box::new(GitHubIssueProvider::new(effective_repo)),
-        "gitlab" => Box::new(GitLabIssueProvider::new(effective_repo)),
+        "gitlab" => {
+            if should_use_remote_url_for_gitlab(&command) && !remote_url.is_empty() {
+                Box::new(GitLabIssueProvider::with_remote_url(
+                    effective_repo,
+                    remote_url,
+                ))
+            } else {
+                Box::new(GitLabIssueProvider::new(effective_repo))
+            }
+        }
         "gitcode" => Box::new(GitCodeIssueProvider::new(effective_repo)),
         other => {
             return Err(miette::miette!(
@@ -478,6 +497,38 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Nothing to edit"));
+    }
+
+    #[test]
+    fn test_should_use_remote_url_when_no_repo_override() {
+        let command = IssueCommand::View { number: 42 };
+        assert!(should_use_remote_url_for_gitlab(&command));
+    }
+
+    #[test]
+    fn test_should_not_use_remote_url_when_create_has_repo_override() {
+        let command = IssueCommand::Create {
+            title: "t".into(),
+            body: None,
+            body_file: None,
+            label: vec![],
+            assignee: vec![],
+            repo: Some("other/repo".into()),
+        };
+        assert!(!should_use_remote_url_for_gitlab(&command));
+    }
+
+    #[test]
+    fn test_should_use_remote_url_when_create_has_no_repo_override() {
+        let command = IssueCommand::Create {
+            title: "t".into(),
+            body: None,
+            body_file: None,
+            label: vec![],
+            assignee: vec![],
+            repo: None,
+        };
+        assert!(should_use_remote_url_for_gitlab(&command));
     }
 
     #[test]
