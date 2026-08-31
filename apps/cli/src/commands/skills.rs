@@ -789,10 +789,12 @@ fn autoreport_repo_slug_from_url(url: &str) -> String {
         return DEFAULT.to_string();
     };
     let slug = rest.strip_suffix(".git").unwrap_or(rest);
-    if slug.split('/').count() == 2 && !slug.is_empty() {
-        slug.to_string()
-    } else {
-        DEFAULT.to_string()
+    let mut parts = slug.split('/');
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(owner), Some(repo), None) if !owner.is_empty() && !repo.is_empty() => {
+            slug.to_string()
+        }
+        _ => DEFAULT.to_string(),
     }
 }
 
@@ -1952,6 +1954,21 @@ mod tests {
             "byx-darwin/gitflow-cli"
         );
         assert_eq!(autoreport_repo_slug_from_url(""), "byx-darwin/gitflow-cli");
+    }
+
+    #[test]
+    fn test_autoreport_repo_slug_from_url_falls_back_on_empty_segment() {
+        // Trailing slash with no repo name — two `/`-separated pieces, but the
+        // second one is empty. Must not be returned verbatim as `"acme/"`.
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/acme/"),
+            "byx-darwin/gitflow-cli"
+        );
+        // Bare prefix — the remainder is entirely empty.
+        assert_eq!(
+            autoreport_repo_slug_from_url("https://github.com/"),
+            "byx-darwin/gitflow-cli"
+        );
     }
 
     #[test]
