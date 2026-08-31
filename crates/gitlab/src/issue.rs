@@ -146,7 +146,14 @@ impl<R: CommandRunner> GitLabIssueProvider<R> {
             .run(
                 "glab",
                 &[
-                    "label", "create", "--name", name, "--color", "ededed", "--repo", &self.repo,
+                    "label",
+                    "create",
+                    "--name",
+                    name,
+                    "--color",
+                    "ededed",
+                    "--repo",
+                    &self.repo_target,
                 ],
             )
             .await
@@ -620,7 +627,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             "update",
             &number_str,
             "--repo",
-            &self.repo,
+            &self.repo_target,
             "--label",
             &labels_joined,
         ];
@@ -684,7 +691,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                     "update",
                     &number_str,
                     "--repo",
-                    &self.repo,
+                    &self.repo_target,
                     "--unlabel",
                     label,
                 ],
@@ -1393,6 +1400,35 @@ mod tests {
                 "owner/repo",
                 "--unlabel",
                 "bug"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_remove_label() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let result = provider.remove_label(42, "priority:medium").await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+                "--unlabel",
+                "priority:medium",
             ]
             .into_iter()
             .map(String::from)
