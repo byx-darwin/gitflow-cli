@@ -133,18 +133,80 @@ static GITHUB_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
         .expect("GitHub token regex must be statically valid")
 });
 
+/// Redacts generic `sk-`-prefixed API keys (Anthropic, `OpenAI`, and
+/// similarly-shaped vendor tokens) from error messages.
+static GENERIC_SK_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[allow(
+        clippy::expect_used,
+        reason = "regex pattern is a compile-time literal; a compile failure is a programming \
+                  error"
+    )]
+    Regex::new(r"sk-[A-Za-z0-9_-]{10,}").expect("generic sk- token regex must be statically valid")
+});
+
+/// Redacts GitLab personal access tokens from error messages.
+static GITLAB_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    #[allow(
+        clippy::expect_used,
+        reason = "regex pattern is a compile-time literal; a compile failure is a programming \
+                  error"
+    )]
+    Regex::new(r"glpat-[A-Za-z0-9_-]{20,}").expect("GitLab token regex must be statically valid")
+});
+
+/// Minimum byte length an environment variable's value must have before
+/// [`redact_env_values`] will treat a match against it as significant —
+/// avoids false-positive redaction against trivial short values (e.g. a
+/// credential-named var accidentally set to `"1"` or `""`).
+const MIN_REDACTABLE_ENV_VALUE_LEN: usize = 8;
+
+/// Environment variable name fragments (case-insensitive) that mark a
+/// variable as credential-shaped for [`redact_env_values`].
+const CREDENTIAL_NAME_FRAGMENTS: &[&str] = &["TOKEN", "KEY", "SECRET", "PASSWORD", "CREDENTIAL"];
+
+/// Redact any occurrence of a credential-looking environment variable's
+/// value from `message`.
+///
+/// A variable counts as credential-looking when its name
+/// case-insensitively contains any of [`CREDENTIAL_NAME_FRAGMENTS`] and
+/// its value is at least [`MIN_REDACTABLE_ENV_VALUE_LEN`] bytes. This
+/// catches secrets regardless of vendor-specific shape — e.g. a
+/// `ANTHROPIC_AUTH_TOKEN` sitting in the environment that happens to leak
+/// into an error message, which no fixed-format regex would recognize.
+fn redact_env_values(message: &str, vars: impl IntoIterator<Item = (String, String)>) -> String {
+    let mut result = message.to_string();
+    for (name, value) in vars {
+        if value.len() < MIN_REDACTABLE_ENV_VALUE_LEN {
+            continue;
+        }
+        let upper_name = name.to_uppercase();
+        let looks_like_credential = CREDENTIAL_NAME_FRAGMENTS
+            .iter()
+            .any(|frag| upper_name.contains(frag));
+        if looks_like_credential {
+            result = result.replace(&value, "[REDACTED]");
+        }
+    }
+    result
+}
+
 /// Sanitize a raw error message before it is persisted to `pending.json`.
 ///
-/// Two categories of sensitive data are redacted:
+/// Several categories of sensitive data are redacted:
 ///
 /// 1. **Home directory paths** — the current user's home directory, as reported by
 ///    [`dirs::home_dir`], is replaced with `~`. Absolute user paths therefore never leak into bug
 ///    reports.
 /// 2. **GitHub tokens** — classic personal access tokens (`ghp_…`) and fine-grained personal access
 ///    tokens (`github_pat_…`) are replaced with `[REDACTED]`.
+/// 3. **Generic `sk-`-prefixed tokens** — Anthropic, `OpenAI`, and similarly-shaped vendor API
+///    keys.
+/// 4. **GitLab tokens** — personal access tokens (`glpat-…`).
+/// 5. **Credential-named environment variable values** — any value of an environment variable whose
+///    name looks credential-shaped (see [`redact_env_values`]), regardless of the value's format.
+///    This catches vendor-specific secrets that no fixed-format regex would recognize.
 ///
-/// Safe messages that contain neither a home path nor a token are returned
-/// unchanged.
+/// Safe messages that contain none of the above are returned unchanged.
 ///
 /// # Examples
 ///
@@ -161,9 +223,16 @@ fn sanitize_error_message(message: &str) -> String {
     } else {
         message.to_string()
     };
-    GITHUB_TOKEN_RE
+    let sanitized = GITHUB_TOKEN_RE
         .replace_all(&sanitized, "[REDACTED]")
-        .into_owned()
+        .into_owned();
+    let sanitized = GENERIC_SK_TOKEN_RE
+        .replace_all(&sanitized, "[REDACTED]")
+        .into_owned();
+    let sanitized = GITLAB_TOKEN_RE
+        .replace_all(&sanitized, "[REDACTED]")
+        .into_owned();
+    redact_env_values(&sanitized, std::env::vars())
 }
 
 /// Delete archived `pending.<millis>.json` reports beyond
@@ -521,6 +590,69 @@ mod tests {
     fn test_should_not_modify_safe_error_message() {
         let message = "issue not found: pull request #42 does not exist";
         assert_eq!(sanitize_error_message(message), message);
+    }
+
+    #[test]
+    fn test_should_redact_env_var_value_when_name_looks_like_credential() {
+        let vars = vec![("MY_API_TOKEN".to_string(), "abcdef123456".to_string())];
+        let message = "request failed: token abcdef123456 rejected";
+        let redacted = redact_env_values(message, vars);
+        assert_eq!(redacted, "request failed: token [REDACTED] rejected");
+    }
+
+    #[test]
+    fn test_should_not_redact_when_env_var_name_does_not_look_like_credential() {
+        let vars = vec![(
+            "SOME_LONG_PATH_VALUE".to_string(),
+            "abcdef123456".to_string(),
+        )];
+        let message = "request failed: token abcdef123456 rejected";
+        let redacted = redact_env_values(message, vars);
+        assert_eq!(
+            redacted, message,
+            "a non-credential-named var must not trigger redaction"
+        );
+    }
+
+    #[test]
+    fn test_should_not_redact_short_env_var_values() {
+        let vars = vec![("API_TOKEN".to_string(), "1".to_string())];
+        let message = "exit code: 1";
+        let redacted = redact_env_values(message, vars);
+        assert_eq!(
+            redacted, message,
+            "values shorter than the minimum length must not be redacted"
+        );
+    }
+
+    #[test]
+    fn test_should_redact_multiple_occurrences_of_env_var_value() {
+        let vars = vec![("SECRET_KEY".to_string(), "topsecretvalue".to_string())];
+        let message = "topsecretvalue appears twice: topsecretvalue";
+        let redacted = redact_env_values(message, vars);
+        assert_eq!(redacted, "[REDACTED] appears twice: [REDACTED]");
+    }
+
+    #[test]
+    fn test_should_sanitize_generic_sk_prefixed_token() {
+        let message = "auth failed: sk-ant-api03-abcdefghijklmnopqrstuvwxyz rejected";
+        let sanitized = sanitize_error_message(message);
+        assert!(
+            !sanitized.contains("sk-ant-"),
+            "sk-prefixed token must be redacted: {sanitized}"
+        );
+        assert!(sanitized.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn test_should_sanitize_gitlab_token() {
+        let message = "clone failed: token glpat-1234567890abcdefghij rejected"; // gitleaks:allow
+        let sanitized = sanitize_error_message(message);
+        assert!(
+            !sanitized.contains("glpat-"),
+            "GitLab token must be redacted: {sanitized}"
+        );
+        assert!(sanitized.contains("[REDACTED]"));
     }
 
     #[test]
