@@ -42,7 +42,17 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct GitLabIssueProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`，如 `"gitlab-org/gitlab"`。
+    ///
+    /// 供 REST notes API 路径编码（[`encode_project_path`]）使用，始终是裸
+    /// `owner/repo` 形式，不受 [`repo_target`](Self::repo_target) 影响。
     repo: String,
+    /// 传给 `glab issue ...` 子命令 `--repo` 参数的目标字符串。
+    ///
+    /// 默认等于 `repo`；通过 [`with_remote_url`](GitLabIssueProvider::with_remote_url)
+    /// 构造时为完整 git remote URL，用于在自建 GitLab 实例上显式锁定 host，
+    /// 避免仅传裸 `OWNER/REPO` 时 `glab` 的 host 探测歧义
+    /// （参见 <https://gitlab.com/gitlab-org/cli/-/issues/1370>）。
+    repo_target: String,
     /// 用于执行 `glab` CLI 命令的 runner。
     runner: R,
 }
@@ -53,8 +63,10 @@ impl GitLabIssueProvider<RealCommandRunner> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
+        let repo = repo.into();
         Self {
-            repo: repo.into(),
+            repo_target: repo.clone(),
+            repo,
             runner: RealCommandRunner,
         }
     }
@@ -64,8 +76,24 @@ impl GitLabIssueProvider<RealCommandRunner> {
     /// This enables state reuse across multiple operations in workflow chains.
     #[must_use]
     pub fn with_session(session: &gitflow_core::Session) -> Self {
+        let repo = session.repo.clone();
         Self {
-            repo: session.repo.clone(),
+            repo_target: repo.clone(),
+            repo,
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// 使用完整 git remote URL 作为 `glab issue ...` 的 `--repo` 目标创建提供者。
+    ///
+    /// `repo` 仍为裸 `namespace/project`（供 REST notes API 路径编码使用），
+    /// `remote_url` 为完整 git remote URL。`glab` 官方文档确认 `--repo` 接受
+    /// 完整 URL/Git URL 形式，借此在自建 GitLab 实例上显式锁定 host。
+    #[must_use]
+    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
+        Self {
+            repo: repo.into(),
+            repo_target: remote_url.into(),
             runner: RealCommandRunner,
         }
     }
@@ -78,8 +106,27 @@ impl<R: CommandRunner> GitLabIssueProvider<R> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        let repo = repo.into();
+        Self {
+            repo_target: repo.clone(),
+            repo,
+            runner,
+        }
+    }
+
+    /// 使用自定义 [`CommandRunner`] 并显式指定 `--repo` 目标创建提供者。
+    ///
+    /// 主要用于测试，验证 `repo_target`（如完整 remote URL）被正确传给 `glab`，
+    /// 无需引入真实进程执行器。
+    #[must_use]
+    pub fn with_runner_and_repo_target(
+        repo: impl Into<String>,
+        repo_target: impl Into<String>,
+        runner: R,
+    ) -> Self {
         Self {
             repo: repo.into(),
+            repo_target: repo_target.into(),
             runner,
         }
     }
@@ -1290,6 +1337,37 @@ mod tests {
                 "owner/repo",
                 "--label",
                 "bug,priority:high"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_add_labels() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let result = provider
+            .add_labels(42, &["priority:medium".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+                "--label",
+                "priority:medium",
             ]
             .into_iter()
             .map(String::from)
