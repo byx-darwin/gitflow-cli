@@ -93,7 +93,7 @@ When resuming an existing contract, load context based on `current_phase`:
 | 1 | `design_doc_path` (if exists) | Next uncompleted step in Phase 1 |
 | 2 | `design_doc_path` + `spec_path` | Gate 2→3 pause (await user approval) |
 | 3 | `spec_path` (plan doc) | Next step after last evidence |
-| 4 | `pr_url` + review reports | Next check in Phase 4 |
+| 4 | `pr_url`/`merge_commit`（按 `delivery_mode`）+ review reports | Next check in Phase 4 |
 
 Full recovery procedure: see `references.md` → Cross-Session Recovery.
 `skill_source` is always loaded from the contract (never re-detected silently) and re-verified per `## Skill Source Resolution`.
@@ -286,7 +286,7 @@ Full definitions: `skills/gf-workflow/gates.md`
 |-------------|-------------------|---------------------|
 | 2 (Planning) | `issue_url` + `comment_id` + `design_doc_path` | `comment_id` optional |
 | 3 (Execution) | `spec_path` + `user_approved` | ✅ Skippable |
-| 4 (Delivery) | `pr_url` + `tests_passed` | — |
+| 4 (Delivery) | `pr_url` 或 `merge_commit`（按 `delivery_mode`）+ `tests_passed` | — |
 
 ## Phase 1: Clarification (Critical — Issue Interaction)
 
@@ -342,11 +342,11 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 |------|--------|--------|
 | 1 | **[AUTO]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. **Preflight is a hard precondition to `git worktree add`**: that command forks a *committed* state, so an unclassified tree leaves this workflow's own `design_doc_path` / `spec_path` behind while the contract still points at them. Classify `git status --porcelain` → bucket A (workflow artifacts: carry into the worktree, commit on the **feature branch**, never `base_branch`) / bucket B (unrelated: ✋ PAUSE, four options, never auto-commit, never delete) / bucket C (gitignored: skip). Then create the worktree: path FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`), branch `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — the handoff MUST carry the preflight steps verbatim; see `references.md` → Phase 3 Execution Modes. **After worktree creation**: symlink shared directories so workflow contracts and Claude config are accessible from the worktree: `mkdir -p <worktree-path>/.cache && ln -s ../../.cache/workflows <worktree-path>/.cache/workflows && ln -s ../../.claude <worktree-path>/.claude`. **Then assert** each contract-referenced document exists under `<worktree-path>/` — abort if missing. Remove bucket A's main-tree copies only after their commit is verified, otherwise the later merge aborts on untracked-overwrite. Full procedure: `references.md` → Worktree Preflight. | `branch`, `base_branch`, `worktree_path`, `worktree_preflight` |
 | 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window / background agent); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR | implementation |
-| 3 | **[AUTO]** `gf-pr-create` — PR body MUST include `Closes #<issue-number>` | `pr_url` |
+| 3 | **[AUTO]** Delivery choice — ask user: ① 推送 + 建 PR（默认）② 本地合并. **① PR**: `gf-pr-create`, PR body MUST include `Closes #<issue-number>`; `delivery_mode = "pr"`. **② Local merge**: ask which git 策略（`git merge --no-ff` / `git merge --squash`，无固定默认，每次询问）; in the **main working tree** (not the worktree — it doesn't own `base_branch`), merge `branch` into `base_branch`. Success → `merge_commit = $(git rev-parse HEAD)`, `delivery_mode = "local_merge"`. Conflict → `git merge --abort`, leave `branch`/worktree untouched, tell user to resolve manually and re-run this step (no silent fallback to PR). | `pr_url` or (`delivery_mode`, `merge_commit`) |
 | 4 | **[AUTO]** `make test` or `cargo test` — **本地前置自检**，不等于 CI 把关 | `tests_passed` |
 | 5 | **[AUTO]** 排队合并：`gf pr merge <n> --auto` —— 约 2.5 秒返回，平台在必需检查/pipeline 通过后自动完成。**不得在排队后再往该分支推 commit**：排队绑定的是已通过检查的那个 SHA，后推的 commit 不会被带上（实测踩过）。返回 `merged: false` 属正常（已排期），须原样转述 `message`，不得报"已合并"。GitCode 无此能力 → ✋ 告知用户需手动合并 | `merge_queued` |
-| 6 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, pr_url, tests_passed, merge_queued }` | — |
-| 7 | **[AUTO]** Gate 3→4 — `pr_url` + `tests_passed = true` → **AUTO-ADVANCE to Phase 4**。（真正的合并闸门是平台必需检查 + 排队合并，不由本 workflow 判定） | — |
+| 6 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, delivery_mode, pr_url, merge_commit, tests_passed, merge_queued }` (only the fields matching the chosen `delivery_mode` are populated; the other of `pr_url`/`merge_commit` stays absent) | — |
+| 7 | **[AUTO]** Gate 3→4 — 交付证据二选一（`pr_url` 或 `merge_commit`，按 `delivery_mode`）+ `tests_passed = true` → **AUTO-ADVANCE to Phase 4**。（PR 路径下，真正的合并闸门是平台必需检查 + 排队合并，不由本 workflow 判定；local_merge 路径下合并已在本 Step 完成） | — |
 
 ## Phase 4: Post-Delivery Checks
 
@@ -405,28 +405,29 @@ context).
 
 **Trigger:** After the parallel dispatch group (Step 1) and, in full mode, Dogfooding (Step 2) complete. **Requires user confirmation.**
 
-1. Read from contract: `base_branch`, `branch`, `worktree_path` (Phase 3 evidence)
+1. Read from contract: `base_branch`, `branch`, `worktree_path`, `delivery_mode` (Phase 3 evidence)
    - Note: `worktree_path` follows the convention `.worktree/<branch-name>`
-2. Detect PR merge status: `gf pr view <n>` → 读 **`mergedAt`**
+2. **`delivery_mode == "local_merge"`** → skip PR merge-status detection entirely (the merge already happened in Phase 3 Step 3); go straight to Step 4 ("PR merged" cleanup sequence) below.
+3. **`delivery_mode == "pr"` (or absent)** → detect PR merge status: `gf pr view <n>` → 读 **`mergedAt`**
    - `mergedAt` 非空 → 判定**已合并**
    - `mergedAt` 为空且 `state == Closed` → **无法判定**：`State` 把 `MERGED` alias 进
      `Closed`，"关了没合"与"已合并"在 `state` 上完全同形；而 GitLab/GitCode 可能不返回
      `mergedAt`，此时 `None` 只代表"平台未上报"。→ ✋ **必须问用户**，给出 PR URL 与 state，
      由人确认后才允许删分支。**绝不靠推断删除**（`git branch -d` 的"未合并则失败"只是最后兜底，
      不是判定手段）
-   - `state == Open` → 未合并，走下面第 4 步
-3. **PR merged** → present confirmation prompt:
+   - `state == Open` → 未合并，走下面第 5 步
+4. **PR merged, or `delivery_mode == "local_merge"`** → present confirmation prompt:
    - `cd` to main working tree (`git rev-parse --git-common-dir` parent)
-   - **Re-run the Worktree Preflight classification** before touching branch state: `git checkout`/`git pull` are blocked by the same dirty tree that blocks `git worktree add`. Bucket A is empty by now (its commit is merged); anything left is bucket B → ✋ PAUSE, never auto-commit, never delete.
+   - **Re-run the Worktree Preflight classification** before touching branch state: `git checkout`/`git pull` are blocked by the same dirty tree that blocks `git worktree add`. Bucket A is empty by now (its commit is merged), except for `local_merge` where the merge commit already carries it; anything left is bucket B → ✋ PAUSE, never auto-commit, never delete.
    - If `unresolved_dirty_paths` is non-empty, list it here — those are files Phase 3 deliberately left in the main tree.
    - `git checkout $base_branch && git pull origin $base_branch`
    - `git branch -d $branch`
    - `git worktree remove $worktree_path && git worktree prune`
    - `git fetch --prune origin`
    - Set `branch_cleaned = true`
-4. **PR not merged** → output "PR 待合并，分支和 worktree 保留", set `branch_cleaned = false`
-5. **Error tolerance:** if `git branch -d` fails (unmerged local commits), warn and preserve; do not block archive
-6. **Missing fields:** if `base_branch` or `worktree_path` empty (old contract / fast mode), skip cleanup silently
+5. **PR not merged** (PR path only) → output "PR 待合并，分支和 worktree 保留", set `branch_cleaned = false`
+6. **Error tolerance:** if `git branch -d` fails (unmerged local commits), warn and preserve; do not block archive
+7. **Missing fields:** if `base_branch` or `worktree_path` empty (old contract / fast mode), skip cleanup silently
 
 ## Enforcement Rules
 
