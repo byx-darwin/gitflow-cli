@@ -7,7 +7,7 @@
 use clap::Subcommand;
 use gitflow_core::{
     CliOutput,
-    issue::{CreateIssueArgs, IssueProvider, ListIssueArgs},
+    issue::{CreateIssueArgs, EditIssueArgs, IssueProvider, ListIssueArgs},
     types::State,
 };
 use gitflow_gitcode::GitCodeIssueProvider;
@@ -47,6 +47,24 @@ pub enum IssueCommand {
         /// 目标仓库（可选，格式：owner/repo，覆盖从 remote 自动检测的值）。
         #[arg(long)]
         repo: Option<String>,
+    },
+
+    /// 编辑 Issue 的标题和/或正文（部分更新）。
+    Edit {
+        /// Issue 编号。
+        number: u64,
+
+        /// 新标题（可选）。
+        #[arg(long)]
+        title: Option<String>,
+
+        /// 新正文（可选，与 `--body-file` 二选一）。
+        #[arg(long)]
+        body: Option<String>,
+
+        /// 从文件读取新正文（可选）。
+        #[arg(long = "body-file")]
+        body_file: Option<String>,
     },
 
     /// 列出 Issue。
@@ -194,6 +212,25 @@ pub async fn handle(
             let output = CliOutput::success(issue, platform, "issue create");
             print_output(&output, &output_format)?;
         }
+        IssueCommand::Edit {
+            number,
+            title,
+            body,
+            body_file,
+        } => {
+            let resolved_body = resolve_body(body, body_file)?;
+            ensure_edit_has_changes(title.as_ref(), resolved_body.as_ref())?;
+            let args = EditIssueArgs {
+                title,
+                body: resolved_body,
+            };
+            let issue = provider
+                .edit(number, args)
+                .await
+                .map_err(|e| miette::miette!("Failed to edit issue #{number}: {e}"))?;
+            let output = CliOutput::success(issue, platform, "issue edit");
+            print_output(&output, &output_format)?;
+        }
         IssueCommand::List {
             state,
             search,
@@ -338,6 +375,20 @@ fn resolve_comment_body(body: Option<String>, body_file: Option<String>) -> miet
     resolved.ok_or_else(|| miette::miette!("Comment body is required. Use --body or --body-file."))
 }
 
+/// 校验编辑参数：`title` 与 `body` 至少提供一个。
+///
+/// # Errors
+///
+/// 当两者都为 `None` 时返回错误。
+fn ensure_edit_has_changes(title: Option<&String>, body: Option<&String>) -> miette::Result<()> {
+    if title.is_none() && body.is_none() {
+        return Err(miette::miette!(
+            "Nothing to edit. Provide --title and/or --body/--body-file."
+        ));
+    }
+    Ok(())
+}
+
 /// 根据输出格式打印结果。
 ///
 /// Phase 1 仅支持 JSON（pretty-printed）。Text 格式暂未实现，返回错误。
@@ -401,6 +452,36 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Cannot specify both"));
+    }
+
+    #[test]
+    fn test_should_error_when_edit_has_no_changes() {
+        let result = ensure_edit_has_changes(None, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Nothing to edit"));
+    }
+
+    #[test]
+    fn test_should_allow_edit_with_title_only() {
+        let title = Some("T".to_string());
+        let result = ensure_edit_has_changes(title.as_ref(), None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_allow_edit_with_body_only() {
+        let body = Some("B".to_string());
+        let result = ensure_edit_has_changes(None, body.as_ref());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_allow_edit_with_both_title_and_body() {
+        let title = Some("T".to_string());
+        let body = Some("B".to_string());
+        let result = ensure_edit_has_changes(title.as_ref(), body.as_ref());
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -566,6 +647,63 @@ mod tests {
                 assert_eq!(number, 42);
             }
             _ => panic!("Expected IssueCommand::View"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_title() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--title", "New title"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit {
+                number,
+                title,
+                body,
+                body_file,
+            }) => {
+                assert_eq!(number, 42);
+                assert_eq!(title, Some("New title".to_string()));
+                assert!(body.is_none());
+                assert!(body_file.is_none());
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_body() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--body", "New body"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit { number, body, .. }) => {
+                assert_eq!(number, 42);
+                assert_eq!(body, Some("New body".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_body_file() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "edit",
+            "42",
+            "--body-file",
+            "/tmp/body.md",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit { body_file, .. }) => {
+                assert_eq!(body_file, Some("/tmp/body.md".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
         }
     }
 

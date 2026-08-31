@@ -59,6 +59,17 @@ pub struct CreateIssueArgs {
     pub assignees: Vec<String>,
 }
 
+/// 编辑 Issue 所需参数（部分更新）。
+///
+/// 未设置的字段（`None`）在调用 [`IssueProvider::edit`] 时保持当前值不变。
+#[derive(Debug, Clone, Default)]
+pub struct EditIssueArgs {
+    /// 新标题（不修改时为 `None`）。
+    pub title: Option<String>,
+    /// 新正文（不修改时为 `None`）。
+    pub body: Option<String>,
+}
+
 /// 列出 Issue 的过滤参数。
 ///
 /// 所有字段均可选，未设置时使用平台默认值。
@@ -94,6 +105,15 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
     ///
     /// 当平台 API 调用失败或参数非法时返回错误。
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData>;
+
+    /// 编辑 Issue 的标题和/或正文（部分更新）。
+    ///
+    /// 未在 `args` 中设置的字段保持 Issue 当前值不变。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或平台 API 调用失败时返回错误。
+    async fn edit(&self, number: u64, args: EditIssueArgs) -> Result<IssueData>;
 
     /// 根据过滤条件列出 Issue 列表。
     ///
@@ -269,5 +289,12 @@ mod tests {
         assert!(args.assignee.is_none());
         assert!(args.search.is_none());
         assert!(args.limit.is_none());
+    }
+
+    #[test]
+    fn test_edit_issue_args_default_is_empty() {
+        let args = EditIssueArgs::default();
+        assert!(args.title.is_none());
+        assert!(args.body.is_none());
     }
 }

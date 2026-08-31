@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
     CoreError, Result,
-    issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
+    issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
 use serde::Deserialize;
@@ -308,6 +308,43 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
         // Fetch full issue details via view
         self.view(issue_iid).await
+    }
+
+    /// 编辑 Issue 的标题和/或正文。
+    ///
+    /// 调用 `glab issue update <number> --repo <repo> [--title T] [--description D]`
+    /// （`glab` 没有 `issue edit` 子命令，标题/正文变更走 `issue update`），
+    /// 成功后通过 [`view`](Self::view) 重新拉取最新数据并返回。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn edit(&self, number: u64, args: EditIssueArgs) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `glab issue update`");
+
+        let number_str = number.to_string();
+        let mut cmd_args: Vec<&str> = vec!["issue", "update", &number_str, "--repo", &self.repo];
+
+        if let Some(title) = &args.title {
+            cmd_args.push("--title");
+            cmd_args.push(title);
+        }
+        if let Some(body) = &args.body {
+            cmd_args.push("--description");
+            cmd_args.push(body);
+        }
+
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        self.view(number).await
     }
 
     async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
@@ -1225,6 +1262,84 @@ mod tests {
         let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
 
         let result = provider.remove_label(42, "bug").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_issue_via_update_and_view_result() {
+        // Sequence: 1. `glab issue update` → succeeds
+        //           2. `glab issue view --output json` → returns updated issue JSON
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (
+                true,
+                r#"{"iid":42,"title":"New title","description":"orig","state":"opened","labels":[],"author":{"username":"admin","id":1},"assignees":[],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","web_url":"https://gitlab.com/owner/repo/-/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let issue = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: Some("New title".to_string()),
+                    body: None,
+                },
+            )
+            .await
+            .expect("edit should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.title, "New title");
+    }
+
+    #[tokio::test]
+    async fn test_should_send_title_and_description_flags_for_edit() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .edit(
+                7,
+                gitflow_core::issue::EditIssueArgs {
+                    title: Some("T".to_string()),
+                    body: Some("B".to_string()),
+                },
+            )
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "7",
+                "--repo",
+                "owner/repo",
+                "--title",
+                "T",
+                "--description",
+                "B"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_edit() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .edit(42, gitflow_core::issue::EditIssueArgs::default())
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(
