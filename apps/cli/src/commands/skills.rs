@@ -111,7 +111,7 @@ pub enum SkillsCommand {
     List(ListArgs),
     /// 卸载已安装的 skills
     Uninstall(UninstallArgs),
-    /// 更新已安装的 skills（等价于 install --force，刷新 hook）
+    /// 更新已安装的 skills（等价于 install --force，覆盖所有 `gf-*` skills）
     Update(SkillsUpdateArgs),
 }
 
@@ -523,9 +523,8 @@ fn copy_skills_dir(source: &Path, target: &Path, force: bool) -> miette::Result<
     Ok(result)
 }
 
-/// 更新已安装的 skills：从当前 binary 内嵌数据覆盖所有 `gf-*` skills，
-/// 并刷新 auto-report-bug hook。等价于 `gf skills install --force`，
-/// 但不做技能来源检查、不触发共建计划提示。
+/// 更新已安装的 skills：从当前 binary 内嵌数据覆盖所有 `gf-*` skills。
+/// 等价于 `gf skills install --force`，但不做技能来源检查。
 ///
 /// # Errors
 ///

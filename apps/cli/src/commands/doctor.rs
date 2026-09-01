@@ -349,7 +349,7 @@ impl HealthCheck for AgentEnvCheck {
                 self.category(),
                 "Hooks",
                 "Hooks 未配置".to_string(),
-                "运行 `gf skills install` 安装 auto-report-bug hook".to_string(),
+                "在 `.claude/hooks/` 中配置 Agent hooks".to_string(),
             ));
         }
 
