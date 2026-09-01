@@ -119,7 +119,7 @@ flowchart TD
 2. **Run** — `bash scripts/smoke-test.sh --platform <p> [--write] [--verbose]`; capture output + exit code.
 3. **Parse** — extract `PASS_COUNT`, `FAIL_COUNT`, `SKIP_COUNT`. Exit 0 → report, done. Else Step 4.
 4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no report. Real bug → assemble a Markdown summary (error type, command, log excerpt) and prompt the user whether to file it manually via `gf issue create`.
-5. **Report** — render markdown summary table + per-failure detail + reported Issue URLs.
+5. **Report** — render markdown summary table + per-failure detail + a suggested `gf issue create` command for the user.
 
 ### Error Handling
 
@@ -128,7 +128,7 @@ flowchart TD
 | script missing | `chmod +x` or stop |
 | auth/network fail | Stop. Advise `gitflow auth login` |
 | flaky | Re-run once; flag if persists |
-| >5 failures | Single collective Issue |
+| >5 failures | Single collective summary prompt |
 
 ## Responsibility
 
@@ -140,7 +140,7 @@ flowchart TD
 
 - Fixing bugs — this skill only reports, never fixes
 - Editing `scripts/smoke-test.sh`
-- Closing reported Issues
+- Filing or closing Issues — the user runs `gf issue create` manually
 
 ### 🚫 Do Not
 
