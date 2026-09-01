@@ -279,11 +279,33 @@ impl SafePath {
     /// # Ok::<(), gitflow_core::CoreError>(())
     /// ```
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        Self::validate(path.as_ref(), false)
+    }
+
+    /// Creates a new `SafePath` from a path string, permitting absolute paths.
+    ///
+    /// Use this only for arguments where an absolute path is a legitimate,
+    /// intentional input from the invoking user (e.g. a CLI `--path` flag
+    /// naming an install directory), not for path fragments that get joined
+    /// onto a trusted base directory.
+    ///
+    /// All other [`SafePath::new`] checks still apply: `..` traversal, null
+    /// bytes, reserved device names, invalid characters, dangerous Unicode
+    /// bidi control characters, and per-component length are still rejected.
+    ///
+    /// # Errors
+    ///
+    /// See [`SafePath::new`] for the full list of rejected inputs (absolute
+    /// paths excepted).
+    pub fn new_allow_absolute(path: impl AsRef<Path>) -> Result<Self> {
+        Self::validate(path.as_ref(), true)
+    }
+
+    fn validate(path: &Path, allow_absolute: bool) -> Result<Self> {
         const MAX_COMPONENT_LEN: usize = 255;
-        let path = path.as_ref();
 
         // Absolute path check
-        if path.is_absolute() {
+        if !allow_absolute && path.is_absolute() {
             return Err(PathError {
                 path: path.to_path_buf(),
                 kind: PathErrorKind::Absolute,
@@ -312,8 +334,14 @@ impl SafePath {
             .into());
         }
 
-        // Reject colon in path (Windows Alternate Data Streams)
-        if path.as_os_str().as_encoded_bytes().contains(&b':') {
+        // Reject colon in path (Windows Alternate Data Streams), except inside
+        // a `Prefix` component (e.g. the `C:` drive letter of a legitimate
+        // Windows absolute path) — `C:\Users\...` is fine, `file.txt:stream`
+        // is an ADS injection attempt.
+        if path.components().any(|c| {
+            !matches!(c, std::path::Component::Prefix(_))
+                && c.as_os_str().as_encoded_bytes().contains(&b':')
+        }) {
             return Err(PathError {
                 path: path.to_path_buf(),
                 kind: PathErrorKind::InvalidChar { ch: ':' },
@@ -470,6 +498,35 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn test_safe_path_allows_windows_drive_letter_colon() {
+        // The drive-letter colon in `C:\...` is a structural part of a
+        // Windows absolute path, not an Alternate Data Streams injection —
+        // `new_allow_absolute` must accept it.
+        let sp = SafePath::new_allow_absolute(r"C:\Users\runner\Temp\body.md");
+        assert!(
+            sp.is_ok(),
+            "drive-letter colon must not be rejected: {sp:?}"
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_safe_path_rejects_ads_colon_in_absolute_windows_path() {
+        // A colon inside a filename component (not the drive prefix) is a
+        // real Alternate Data Streams injection attempt and must still be
+        // rejected even when absolute paths are otherwise allowed.
+        let err = SafePath::new_allow_absolute(r"C:\Users\runner\Temp\body.md:evil");
+        assert!(matches!(
+            err,
+            Err(CoreError::Path(PathError {
+                kind: PathErrorKind::InvalidChar { ch: ':' },
+                ..
+            }))
+        ));
+    }
+
+    #[test]
     fn test_safe_path_rejects_bidi_control_chars() {
         // U+202A (LEFT-TO-RIGHT EMBEDDING)
         let path = format!("foo\u{202A}bar.txt");
@@ -516,6 +573,44 @@ mod tests {
         let sp = SafePath::new(&max_component)?;
         assert_eq!(sp.as_path().as_os_str().len(), 255);
         Ok(())
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_accepts_absolute() -> Result<()> {
+        #[cfg(unix)]
+        let absolute_path = "/home/user/custom-skills";
+        #[cfg(windows)]
+        let absolute_path = r"C:\Users\user\custom-skills";
+        let sp = SafePath::new_allow_absolute(absolute_path)?;
+        assert_eq!(sp.as_path(), Path::new(absolute_path));
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_accepts_relative() -> Result<()> {
+        let sp = SafePath::new_allow_absolute("foo/bar.txt")?;
+        assert_eq!(sp.as_path(), Path::new("foo/bar.txt"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_rejects_parent_dir() {
+        assert!(matches!(
+            SafePath::new_allow_absolute("../secret.txt"),
+            Err(CoreError::Path(_))
+        ));
+        assert!(matches!(
+            SafePath::new_allow_absolute("/foo/../bar"),
+            Err(CoreError::Path(_))
+        ));
+    }
+
+    #[test]
+    fn test_safe_path_allow_absolute_rejects_null_byte() {
+        assert!(matches!(
+            SafePath::new_allow_absolute("foo\0bar.txt"),
+            Err(CoreError::Path(_))
+        ));
     }
 
     #[test]

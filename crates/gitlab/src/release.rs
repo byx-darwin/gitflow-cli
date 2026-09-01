@@ -39,6 +39,10 @@ use crate::{
 pub struct GitLabReleaseProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 传给 `glab release ...` 子命令 `--repo` 参数的目标字符串。默认等于
+    /// `repo`；通过 [`with_remote_url`](GitLabReleaseProvider::with_remote_url)
+    /// 构造时为完整 git remote URL，用于在自建 GitLab 实例上显式锁定 host。
+    repo_target: String,
     /// 用于执行 `glab` CLI 命令的 runner。
     runner: R,
 }
@@ -49,8 +53,10 @@ impl GitLabReleaseProvider<RealCommandRunner> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
+        let repo = repo.into();
         Self {
-            repo: repo.into(),
+            repo_target: repo.clone(),
+            repo,
             runner: RealCommandRunner,
         }
     }
@@ -60,8 +66,20 @@ impl GitLabReleaseProvider<RealCommandRunner> {
     /// This enables state reuse across multiple operations in workflow chains.
     #[must_use]
     pub fn with_session(session: &gitflow_core::Session) -> Self {
+        let repo = session.repo.clone();
         Self {
-            repo: session.repo.clone(),
+            repo_target: repo.clone(),
+            repo,
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// 使用完整 git remote URL 作为 `glab release ...` 的 `--repo` 目标创建提供者。
+    #[must_use]
+    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
+        Self {
+            repo: repo.into(),
+            repo_target: remote_url.into(),
             runner: RealCommandRunner,
         }
     }
@@ -74,8 +92,26 @@ impl<R: CommandRunner> GitLabReleaseProvider<R> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        let repo = repo.into();
+        Self {
+            repo_target: repo.clone(),
+            repo,
+            runner,
+        }
+    }
+
+    /// 使用自定义 [`CommandRunner`] 并显式指定 `--repo` 目标创建提供者。
+    ///
+    /// 主要用于测试，验证 `repo_target`（如完整 remote URL）被正确传给 `glab`。
+    #[must_use]
+    pub fn with_runner_and_repo_target(
+        repo: impl Into<String>,
+        repo_target: impl Into<String>,
+        runner: R,
+    ) -> Self {
         Self {
             repo: repo.into(),
+            repo_target: repo_target.into(),
             runner,
         }
     }
@@ -151,8 +187,13 @@ impl From<ReleaseApiResponse> for ReleaseData {
 #[async_trait]
 impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData> {
-        let mut cmd_args: Vec<&str> =
-            vec!["release", "create", &args.tag_name, "--repo", &self.repo];
+        let mut cmd_args: Vec<&str> = vec![
+            "release",
+            "create",
+            &args.tag_name,
+            "--repo",
+            &self.repo_target,
+        ];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -199,7 +240,14 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             .runner
             .run(
                 "glab",
-                &["release", "list", "--repo", &self.repo, "--output", "json"],
+                &[
+                    "release",
+                    "list",
+                    "--repo",
+                    &self.repo_target,
+                    "--output",
+                    "json",
+                ],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -222,7 +270,13 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             .run(
                 "glab",
                 &[
-                    "release", "view", tag_name, "--repo", &self.repo, "--output", "json",
+                    "release",
+                    "view",
+                    tag_name,
+                    "--repo",
+                    &self.repo_target,
+                    "--output",
+                    "json",
                 ],
             )
             .await
@@ -242,7 +296,8 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
         // glab 1.113 has no `release edit` subcommand (it prints parent help and
         // exits 0, silently swallowing the edit). `release create <tag>` updates
         // an existing release, so the edit path reuses it.
-        let mut cmd_args: Vec<&str> = vec!["release", "create", tag_name, "--repo", &self.repo];
+        let mut cmd_args: Vec<&str> =
+            vec!["release", "create", tag_name, "--repo", &self.repo_target];
 
         if let Some(ref name) = args.name {
             cmd_args.push("--name");
@@ -295,7 +350,12 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             .run(
                 "glab",
                 &[
-                    "release", "upload", tag_name, file_path, "--repo", &self.repo,
+                    "release",
+                    "upload",
+                    tag_name,
+                    file_path,
+                    "--repo",
+                    &self.repo_target,
                 ],
             )
             .await
@@ -339,7 +399,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
                     "download",
                     tag_name,
                     "--repo",
-                    &self.repo,
+                    &self.repo_target,
                     "--pattern",
                     asset_name,
                     "--dir",
@@ -372,7 +432,14 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
             .runner
             .run(
                 "glab",
-                &["release", "delete", tag_name, "--repo", &self.repo, "--yes"],
+                &[
+                    "release",
+                    "delete",
+                    tag_name,
+                    "--repo",
+                    &self.repo_target,
+                    "--yes",
+                ],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -401,6 +468,34 @@ mod tests {
         let repo = String::from("gitlab-org/gitlab");
         let provider = GitLabReleaseProvider::new(repo);
         assert_eq!(provider.repo, "gitlab-org/gitlab");
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_delete() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabReleaseProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let result = provider.delete("v1.0.0").await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "release",
+                "delete",
+                "v1.0.0",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+                "--yes",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[test]

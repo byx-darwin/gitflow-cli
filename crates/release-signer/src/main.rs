@@ -49,7 +49,7 @@ fn main() -> miette::Result<()> {
 
 /// Generate an Ed25519 keypair, returning `(private_hex, public_hex)`.
 fn generate_keypair() -> (String, String) {
-    let mut csprng = rand::rngs::OsRng;
+    let mut csprng = rand_core::OsRng;
     let signing_key = ed25519_dalek::SigningKey::generate(&mut csprng);
     let verifying_key = signing_key.verifying_key();
 

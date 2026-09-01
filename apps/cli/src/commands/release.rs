@@ -139,11 +139,18 @@ pub async fn handle(
     command: ReleaseCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     let provider: Box<dyn ReleaseProvider> = match platform {
         "github" => Box::new(GitHubReleaseProvider::new(repo)),
-        "gitlab" => Box::new(GitLabReleaseProvider::new(repo)),
+        "gitlab" => {
+            if remote_url.is_empty() {
+                Box::new(GitLabReleaseProvider::new(repo))
+            } else {
+                Box::new(GitLabReleaseProvider::with_remote_url(repo, remote_url))
+            }
+        }
         "gitcode" => Box::new(GitCodeReleaseProvider::new(repo)),
         other => {
             return Err(miette::miette!(
@@ -217,6 +224,7 @@ pub async fn handle(
             print_output(&output, &output_format)?;
         }
         ReleaseCommand::Upload { tag, file } => {
+            let file = validate_asset_file(&file)?;
             let asset_name = std::path::Path::new(&file)
                 .file_name()
                 .map_or_else(|| file.clone(), |n| n.to_string_lossy().to_string());
@@ -233,7 +241,7 @@ pub async fn handle(
         }
         ReleaseCommand::Download { tag, pattern, dir } => {
             let asset_name = pattern.unwrap_or_else(|| "*".into());
-            let dest = dir.unwrap_or_else(|| ".".into());
+            let dest = validate_download_dir(&dir.unwrap_or_else(|| ".".into()))?;
             provider
                 .download_asset(&tag, &asset_name, &dest)
                 .await
@@ -284,11 +292,39 @@ fn resolve_body(body: Option<String>, body_file: Option<String>) -> miette::Resu
         ));
     }
     if let Some(path) = body_file {
-        let content = std::fs::read_to_string(&path)
+        let safe = gitflow_core::SafePath::new_allow_absolute(&path)
+            .map_err(|e| miette::miette!("无效的 --body-file 参数: {e}"))?;
+        let content = std::fs::read_to_string(safe.as_path())
             .map_err(|e| miette::miette!("Failed to read body file '{path}': {e}"))?;
         return Ok(Some(content));
     }
     Ok(body)
+}
+
+/// 校验 `--file`（上传资源的本地文件路径），允许绝对路径。
+///
+/// # Errors
+///
+/// 当路径包含 `..`、NUL 字节或其他 [`SafePath`] 拒绝的输入时返回错误。
+///
+/// [`SafePath`]: gitflow_core::SafePath
+fn validate_asset_file(file: &str) -> miette::Result<String> {
+    let safe = gitflow_core::SafePath::new_allow_absolute(file)
+        .map_err(|e| miette::miette!("无效的 --file 参数: {e}"))?;
+    Ok(safe.as_path().to_string_lossy().into_owned())
+}
+
+/// 校验 `--dir`（下载资源的目标目录），允许绝对路径。
+///
+/// # Errors
+///
+/// 当路径包含 `..`、NUL 字节或其他 [`SafePath`] 拒绝的输入时返回错误。
+///
+/// [`SafePath`]: gitflow_core::SafePath
+fn validate_download_dir(dir: &str) -> miette::Result<String> {
+    let safe = gitflow_core::SafePath::new_allow_absolute(dir)
+        .map_err(|e| miette::miette!("无效的 --dir 参数: {e}"))?;
+    Ok(safe.as_path().to_string_lossy().into_owned())
 }
 
 /// 根据输出格式打印结果。
@@ -352,11 +388,61 @@ mod tests {
     }
 
     #[test]
+    fn test_should_reject_body_file_with_parent_dir_traversal() {
+        let result = resolve_body(None, Some("/tmp/../etc/passwd".into()));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(!err.contains("Failed to read body file"));
+    }
+
+    #[test]
+    fn test_should_reject_body_file_with_null_byte() {
+        let result = resolve_body(None, Some("/tmp/x\0y".into()));
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_should_reject_both_body_and_body_file() {
         let result = resolve_body(Some("hello".into()), Some("/tmp/body.md".into()));
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Cannot specify both"));
+    }
+
+    #[test]
+    fn test_should_validate_asset_file_accepts_absolute() {
+        let result = validate_asset_file("/tmp/asset.tar.gz");
+        assert_eq!(result.expect("valid path"), "/tmp/asset.tar.gz");
+    }
+
+    #[test]
+    fn test_should_validate_asset_file_rejects_parent_dir_traversal() {
+        let result = validate_asset_file("/tmp/../etc/passwd");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_validate_asset_file_rejects_null_byte() {
+        let result = validate_asset_file("/tmp/x\0y");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_validate_download_dir_accepts_absolute() {
+        let result = validate_download_dir("/tmp/downloads");
+        assert_eq!(result.expect("valid path"), "/tmp/downloads");
+    }
+
+    #[test]
+    fn test_should_validate_download_dir_rejects_parent_dir_traversal() {
+        let result = validate_download_dir("/tmp/../etc");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_should_validate_download_dir_rejects_null_byte() {
+        let result = validate_download_dir("/tmp/x\0y");
+        assert!(result.is_err());
     }
 
     #[test]

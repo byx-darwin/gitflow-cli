@@ -4,6 +4,7 @@ flate = "flate"
 
 [default.extend-identifiers]
 f00ba42 = "f00ba42"
+dbe47ad = "dbe47ad"
 
 [files]
 extend-exclude = ["CHANGELOG.md", "vendors/", "specs/tui-system-monitor-design.md"]

@@ -253,3 +253,34 @@
 | 场景 3 | [待运行] | [ ] Pass / [ ] Fail | | | |
 | 场景 4 | [待运行] | [ ] Pass / [ ] Fail | | | |
 | 场景 5 | [待运行] | [ ] Pass / [ ] Fail | | | |
+
+> 五个压力测试场景（角色扮演式的越权诱导测试）截至本次更新仍未执行。以下记录的是一次
+> 独立的、非对抗性的管线端到端验证——只验证机制是否工作，不验证 Claude 在压力下是否
+> 守住边界；不能替代上表五个场景。
+
+## 首次端到端验证（机制层）
+
+**日期：** 2026-08-31
+**背景：** `docs/superpowers/plans/2026-08-30-autoreport-bug-hardening.md` Task 6（Tasks 1/3/4
+加固：归档限流、CI 环境硬拦截、`auto-report` 标签预检查、非交互 Preview 默认改为
+skip 之后的首次真实验证）。
+
+**验证方式：**
+1. 本地沙箱驱动真实 `gf` 二进制产生一次非交互失败，确认 `pending.json` 正确写入；
+   `CI=true` 时确认完全不写入（Task 3 门禁）；连续 12 次失败后确认归档精确保留最新
+   10 个（Task 1 上限）。
+2. 用真实 `hooks/auto-report-bug.sh` 处理一份沙箱 `pending.json`：认证成功
+   （`gh auth status` 已登录）+ 标签预检查通过（`auto-report` 标签已存在于
+   `byx-darwin/gitflow-cli`）后正确输出 "MUST load the gf-autoreport-bug skill" 横幅。
+3. 手动按 skill 文档的 Workflow 步骤处理该报告：`gh issue list --search` 去重未命中 →
+   `gh issue create --repo byx-darwin/gitflow-cli --label auto-report` 创建真实 Issue。
+
+**结果：** 成功创建 [Issue #263](https://github.com/byx-darwin/gitflow-cli/issues/263)
+（标题 `[auto-report] gf issue list — E2E_VERIFICATION_TEST`），标签、正文结构均与
+`docs/references/gf-autoreport-bug-params.md` 的模板一致。验证后立即 `gh issue close`
+并注明为测试用途，避免污染真实 Issue 列表。
+
+**结论：** 管线的机制层（hook 门禁 → skill 去重/创建流程 → 真实 GitHub Issue）在本次
+加固后首次得到真实验证，此前（2026-08-18 评估）为"零验证 / 零 `[auto-report]` Issue"
+状态。五个压力测试场景（Claude 在社会工程压力下是否守住"只报告不修复"边界）仍待执行，
+不在本次验证范围内。

@@ -128,15 +128,26 @@ pub enum MilestoneCommand {
 /// - 底层 provider 调用失败。
 /// - 编辑标签时未提供任何可编辑的字段。
 /// - JSON 序列化失败。
+#[allow(
+    clippy::too_many_lines,
+    reason = "Command dispatch: each match arm maps to one operation"
+)]
 pub async fn handle_label(
     command: LabelCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     let provider: Box<dyn LabelProvider> = match platform {
         "github" => Box::new(GitHubLabelProvider::new(repo)),
-        "gitlab" => Box::new(GitLabLabelProvider::new(repo)),
+        "gitlab" => {
+            if remote_url.is_empty() {
+                Box::new(GitLabLabelProvider::new(repo))
+            } else {
+                Box::new(GitLabLabelProvider::with_remote_url(repo, remote_url))
+            }
+        }
         "gitcode" => Box::new(GitCodeLabelProvider::new(repo)),
         other => {
             return Err(miette::miette!(
@@ -254,11 +265,18 @@ pub async fn handle_milestone(
     command: MilestoneCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     let provider: Box<dyn MilestoneProvider> = match platform {
         "github" => Box::new(GitHubMilestoneProvider::new(repo)),
-        "gitlab" => Box::new(GitLabMilestoneProvider::new(repo)),
+        "gitlab" => {
+            if remote_url.is_empty() {
+                Box::new(GitLabMilestoneProvider::new(repo))
+            } else {
+                Box::new(GitLabMilestoneProvider::with_remote_url(repo, remote_url))
+            }
+        }
         "gitcode" => Box::new(GitCodeMilestoneProvider::new(repo)),
         other => {
             return Err(miette::miette!(

@@ -7,7 +7,7 @@
 use clap::Subcommand;
 use gitflow_core::{
     CliOutput,
-    issue::{CreateIssueArgs, IssueProvider, ListIssueArgs},
+    issue::{CreateIssueArgs, EditIssueArgs, IssueProvider, ListIssueArgs},
     types::State,
 };
 use gitflow_gitcode::GitCodeIssueProvider;
@@ -47,6 +47,24 @@ pub enum IssueCommand {
         /// 目标仓库（可选，格式：owner/repo，覆盖从 remote 自动检测的值）。
         #[arg(long)]
         repo: Option<String>,
+    },
+
+    /// 编辑 Issue 的标题和/或正文（部分更新）。
+    Edit {
+        /// Issue 编号。
+        number: u64,
+
+        /// 新标题（可选）。
+        #[arg(long)]
+        title: Option<String>,
+
+        /// 新正文（可选，与 `--body-file` 二选一）。
+        #[arg(long)]
+        body: Option<String>,
+
+        /// 从文件读取新正文（可选）。
+        #[arg(long = "body-file")]
+        body_file: Option<String>,
     },
 
     /// 列出 Issue。
@@ -127,6 +145,15 @@ pub enum IssueCommand {
     },
 }
 
+/// 判断 GitLab 平台是否应使用 `remote_url` 作为 `--repo` 目标。
+///
+/// 当用户通过 `IssueCommand::Create { repo: Some(_), .. }` 显式覆盖仓库时，
+/// 该仓库与当前 git remote 不对应，不应强行拼接 `remote_url`。
+#[must_use]
+fn should_use_remote_url_for_gitlab(command: &IssueCommand) -> bool {
+    !matches!(command, IssueCommand::Create { repo: Some(_), .. })
+}
+
 /// 处理 `gf issue` 子命令。
 ///
 /// 根据 `platform` 选择对应的 Issue 提供者，然后执行具体命令并输出结果。
@@ -149,6 +176,7 @@ pub async fn handle(
     command: IssueCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     // Allow `--repo` on Create to override the auto-detected repo.
@@ -162,7 +190,16 @@ pub async fn handle(
 
     let provider: Box<dyn IssueProvider> = match platform {
         "github" => Box::new(GitHubIssueProvider::new(effective_repo)),
-        "gitlab" => Box::new(GitLabIssueProvider::new(effective_repo)),
+        "gitlab" => {
+            if should_use_remote_url_for_gitlab(&command) && !remote_url.is_empty() {
+                Box::new(GitLabIssueProvider::with_remote_url(
+                    effective_repo,
+                    remote_url,
+                ))
+            } else {
+                Box::new(GitLabIssueProvider::new(effective_repo))
+            }
+        }
         "gitcode" => Box::new(GitCodeIssueProvider::new(effective_repo)),
         other => {
             return Err(miette::miette!(
@@ -192,6 +229,25 @@ pub async fn handle(
                 .await
                 .map_err(|e| miette::miette!("Failed to create issue: {e}"))?;
             let output = CliOutput::success(issue, platform, "issue create");
+            print_output(&output, &output_format)?;
+        }
+        IssueCommand::Edit {
+            number,
+            title,
+            body,
+            body_file,
+        } => {
+            let resolved_body = resolve_body(body, body_file)?;
+            ensure_edit_has_changes(title.as_ref(), resolved_body.as_ref())?;
+            let args = EditIssueArgs {
+                title,
+                body: resolved_body,
+            };
+            let issue = provider
+                .edit(number, args)
+                .await
+                .map_err(|e| miette::miette!("Failed to edit issue #{number}: {e}"))?;
+            let output = CliOutput::success(issue, platform, "issue edit");
             print_output(&output, &output_format)?;
         }
         IssueCommand::List {
@@ -319,7 +375,9 @@ fn resolve_body(body: Option<String>, body_file: Option<String>) -> miette::Resu
         ));
     }
     if let Some(path) = body_file {
-        let content = std::fs::read_to_string(&path)
+        let safe = gitflow_core::SafePath::new_allow_absolute(&path)
+            .map_err(|e| miette::miette!("无效的 --body-file 参数: {e}"))?;
+        let content = std::fs::read_to_string(safe.as_path())
             .map_err(|e| miette::miette!("Failed to read body file '{path}': {e}"))?;
         return Ok(Some(content));
     }
@@ -336,6 +394,20 @@ fn resolve_body(body: Option<String>, body_file: Option<String>) -> miette::Resu
 fn resolve_comment_body(body: Option<String>, body_file: Option<String>) -> miette::Result<String> {
     let resolved = resolve_body(body, body_file)?;
     resolved.ok_or_else(|| miette::miette!("Comment body is required. Use --body or --body-file."))
+}
+
+/// 校验编辑参数：`title` 与 `body` 至少提供一个。
+///
+/// # Errors
+///
+/// 当两者都为 `None` 时返回错误。
+fn ensure_edit_has_changes(title: Option<&String>, body: Option<&String>) -> miette::Result<()> {
+    if title.is_none() && body.is_none() {
+        return Err(miette::miette!(
+            "Nothing to edit. Provide --title and/or --body/--body-file."
+        ));
+    }
+    Ok(())
 }
 
 /// 根据输出格式打印结果。
@@ -396,11 +468,89 @@ mod tests {
     }
 
     #[test]
+    fn test_should_reject_body_file_with_path_traversal() {
+        let result = resolve_body(None, Some("../secret.md".into()));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("无效的 --body-file 参数"));
+    }
+
+    #[test]
+    fn test_should_reject_body_file_with_nul_byte() {
+        let result = resolve_body(None, Some("foo\0bar.md".into()));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("无效的 --body-file 参数"));
+    }
+
+    #[test]
     fn test_should_reject_both_body_and_body_file() {
         let result = resolve_body(Some("hello".into()), Some("/tmp/body.md".into()));
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Cannot specify both"));
+    }
+
+    #[test]
+    fn test_should_error_when_edit_has_no_changes() {
+        let result = ensure_edit_has_changes(None, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Nothing to edit"));
+    }
+
+    #[test]
+    fn test_should_use_remote_url_when_no_repo_override() {
+        let command = IssueCommand::View { number: 42 };
+        assert!(should_use_remote_url_for_gitlab(&command));
+    }
+
+    #[test]
+    fn test_should_not_use_remote_url_when_create_has_repo_override() {
+        let command = IssueCommand::Create {
+            title: "t".into(),
+            body: None,
+            body_file: None,
+            label: vec![],
+            assignee: vec![],
+            repo: Some("other/repo".into()),
+        };
+        assert!(!should_use_remote_url_for_gitlab(&command));
+    }
+
+    #[test]
+    fn test_should_use_remote_url_when_create_has_no_repo_override() {
+        let command = IssueCommand::Create {
+            title: "t".into(),
+            body: None,
+            body_file: None,
+            label: vec![],
+            assignee: vec![],
+            repo: None,
+        };
+        assert!(should_use_remote_url_for_gitlab(&command));
+    }
+
+    #[test]
+    fn test_should_allow_edit_with_title_only() {
+        let title = Some("T".to_string());
+        let result = ensure_edit_has_changes(title.as_ref(), None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_allow_edit_with_body_only() {
+        let body = Some("B".to_string());
+        let result = ensure_edit_has_changes(None, body.as_ref());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_allow_edit_with_both_title_and_body() {
+        let title = Some("T".to_string());
+        let body = Some("B".to_string());
+        let result = ensure_edit_has_changes(title.as_ref(), body.as_ref());
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -566,6 +716,63 @@ mod tests {
                 assert_eq!(number, 42);
             }
             _ => panic!("Expected IssueCommand::View"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_title() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--title", "New title"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit {
+                number,
+                title,
+                body,
+                body_file,
+            }) => {
+                assert_eq!(number, 42);
+                assert_eq!(title, Some("New title".to_string()));
+                assert!(body.is_none());
+                assert!(body_file.is_none());
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_body() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--body", "New body"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit { number, body, .. }) => {
+                assert_eq!(number, 42);
+                assert_eq!(body, Some("New body".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_body_file() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "edit",
+            "42",
+            "--body-file",
+            "/tmp/body.md",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit { body_file, .. }) => {
+                assert_eq!(body_file, Some("/tmp/body.md".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
         }
     }
 

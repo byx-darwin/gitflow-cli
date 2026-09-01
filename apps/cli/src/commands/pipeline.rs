@@ -65,11 +65,18 @@ pub async fn handle(
     command: PipelineCommand,
     platform: &str,
     repo: &str,
+    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     let provider: Box<dyn PipelineProvider> = match platform {
         "github" => Box::new(GitHubPipelineProvider::new(repo)),
-        "gitlab" => Box::new(GitLabPipelineProvider::new(repo)),
+        "gitlab" => {
+            if remote_url.is_empty() {
+                Box::new(GitLabPipelineProvider::new(repo))
+            } else {
+                Box::new(GitLabPipelineProvider::with_remote_url(repo, remote_url))
+            }
+        }
         "gitcode" => Box::new(GitCodePipelineProvider::new(repo)),
         other => {
             return Err(miette::miette!(

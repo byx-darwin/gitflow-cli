@@ -7,6 +7,182 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(autoreport)** prune archived pending.json reports beyond retention cap - ([d8f6a49](https://github.com/byx-darwin/gitflow-cli/commit/d8f6a4963cd63bb54fdbbb654120297e771a3964)) - baoyuexing
+- **(autoreport)** skip error reporting when running in CI - ([ed4132d](https://github.com/byx-darwin/gitflow-cli/commit/ed4132da18106142225743e3c104e8be46a2b980)) - baoyuexing
+- **(autoreport)** fail loud when the auto-report label is missing - ([e948140](https://github.com/byx-darwin/gitflow-cli/commit/e948140a7bec3eec6e555e3aca58fafa79c7aa1f)) - baoyuexing
+- **(autoreport)** make label-missing bats assertions actually gate pass/fail - ([e4c36a3](https://github.com/byx-darwin/gitflow-cli/commit/e4c36a35e0daad38834cf2173eb00b252b23fde0)) - baoyuexing
+- **(autoreport)** parametrize target repo from Cargo.toml instead of hardcoding it - ([9ab9a49](https://github.com/byx-darwin/gitflow-cli/commit/9ab9a49d50b1fc0ed1b93ac1a10b83f2f38172ad)) - baoyuexing
+- **(autoreport)** validate each repo-slug segment is non-empty, not just the whole remainder - ([ae3177b](https://github.com/byx-darwin/gitflow-cli/commit/ae3177b7a414549467fe9e7694e50c1a2c032c2e)) - baoyuexing
+- **(autoreport)** redact credential-named env var values and sk-/glpat- tokens - ([3c17293](https://github.com/byx-darwin/gitflow-cli/commit/3c172935838cb0e67d8ed4bd0ca361b1cdee59d9)) - baoyuexing
+- **(autoreport)** require project-level confirmation for a global-only opt-in - ([7129e6b](https://github.com/byx-darwin/gitflow-cli/commit/7129e6b46bfca2337ea2752698095c270b80bb44)) - baoyuexing
+- **(autoreport-bug)** address final-review findings across sanitizer, doctor, and slug validation - ([949ee3e](https://github.com/byx-darwin/gitflow-cli/commit/949ee3ee4b46e83ad17c3ac2bfb3a0591f356ca8)) - baoyuexing
+- **(cli)** validate --body-file with SafePath in resolve_body - ([36fdd84](https://github.com/byx-darwin/gitflow-cli/commit/36fdd84d437e663736908062b15c0ef9e5a90501)) - baoyuexing
+- **(cli)** use git remote URL as GitLab --repo target for issue commands - ([a82837a](https://github.com/byx-darwin/gitflow-cli/commit/a82837ad36412309f1607f0b20589bcde914aa04)) - baoyuexing
+- **(cli)** use git remote URL as GitLab --repo/--project target for pr/release/pipeline/label/milestone commands - ([c37f831](https://github.com/byx-darwin/gitflow-cli/commit/c37f831f8ad357c17086a03119cf2d55c54618bb)) - baoyuexing
+- **(cli)** allow too_many_lines on handle_label after remote_url branching - ([dbe47ad](https://github.com/byx-darwin/gitflow-cli/commit/dbe47ad2f1ab990811afbd06bb9c43c762c4c5fd)) - baoyuexing
+- **(core)** allow Windows drive-letter colon in SafePath::new_allow_absolute - ([d24a502](https://github.com/byx-darwin/gitflow-cli/commit/d24a5020f4dd9087438839d5bddd332eb65b0e0b)) - baoyuexing
+- **(gf-autoreport-bug)** resolve 5 cross-cutting findings from final review - ([6abd60b](https://github.com/byx-darwin/gitflow-cli/commit/6abd60bf4741bc4c5f894898a8e06c3429123727)) - baoyuexing
+- **(gf-workflow)** restore Phase 4 output phrasing dropped by parallel-dispatch rewrite - ([3023c13](https://github.com/byx-darwin/gitflow-cli/commit/3023c132683679fb7fc51ec3369b4300b87ab94f)) - baoyuexing
+- **(gitlab)** use glab issue update --label/--unlabel instead of nonexistent issue edit - ([72a1662](https://github.com/byx-darwin/gitflow-cli/commit/72a1662a71fe8ff2052bc460f58092615a4da80e)) - baoyuexing
+- **(gitlab)** route add_labels/remove_label --repo through repo_target - ([c99a753](https://github.com/byx-darwin/gitflow-cli/commit/c99a7532b54c925f0320c4067e2bd0c9b7fc38ea)) - baoyuexing
+- **(gitlab)** route remaining issue verbs' --repo through repo_target - ([d8d16ba](https://github.com/byx-darwin/gitflow-cli/commit/d8d16ba352354b40862403e2af21080935f864f3)) - baoyuexing
+- **(gitlab)** log raw glab stderr on CLI failure for diagnosability - ([d9a2169](https://github.com/byx-darwin/gitflow-cli/commit/d9a216900db09b99e181785703698df0bfc6cdc8)) - baoyuexing
+- **(gitlab)** route GitLabMrProvider --repo through repo_target - ([4ca5fbb](https://github.com/byx-darwin/gitflow-cli/commit/4ca5fbb9d40b9d6c3bf54eeac0763a8df694ccc2)) - baoyuexing
+- **(gitlab)** route GitLabReleaseProvider --repo through repo_target - ([744faa4](https://github.com/byx-darwin/gitflow-cli/commit/744faa45991c360164e6b0de863387138f85441f)) - baoyuexing
+- **(gitlab)** route GitLabPipelineProvider --repo through repo_target - ([6b49182](https://github.com/byx-darwin/gitflow-cli/commit/6b4918254a52b5dbf6375f684fbb80bb917094c6)) - baoyuexing
+- **(gitlab)** route GitLabLabelProvider --repo through repo_target - ([ada8e8d](https://github.com/byx-darwin/gitflow-cli/commit/ada8e8dde57c2572624dd0b34b6c1b0cb30545b4)) - baoyuexing
+- **(gitlab)** route GitLabMilestoneProvider --project through project_target - ([cd35797](https://github.com/byx-darwin/gitflow-cli/commit/cd35797162769f2e4fc00ecb9a876ec585f22ed1)) - baoyuexing
+- **(hooks)** resolve HOOK_SCRIPT via BATS_TEST_DIRNAME, not BASH_SOURCE - ([0d5e32b](https://github.com/byx-darwin/gitflow-cli/commit/0d5e32bfd14431e13482b564e49e346a76942e63)) - baoyuexing
+- **(pr)** name the scheduled merge instead of returning an empty message - ([49b21ec](https://github.com/byx-darwin/gitflow-cli/commit/49b21eca8e2a74284d0d58ca4d3f58085de395d2)) - baoyuexing
+- **(security)** validate --path and --body-file with SafePath - ([197861f](https://github.com/byx-darwin/gitflow-cli/commit/197861f9748d48e8d3659df228bf11d962557701)) - baoyuexing
+- **(security)** validate release asset paths with SafePath - ([ec7cf2e](https://github.com/byx-darwin/gitflow-cli/commit/ec7cf2e247c350ff1f7ea4d40f154db686a283ef)) - baoyuexing
+- **(workflow)** add worktree preflight before git worktree add - ([4f93be7](https://github.com/byx-darwin/gitflow-cli/commit/4f93be7401b439a9186b97b802000b930d9700f3)) - baoyuexing
+
+### Documentation
+
+- **(autoreport)** add hardening design spec and implementation plan - ([1a2480e](https://github.com/byx-darwin/gitflow-cli/commit/1a2480e68d2301adfd543ae7c6ce4272974b1aaa)) - baoyuexing
+- **(autoreport)** default unattended preview to skip, document CI/label gates - ([5fe1d0e](https://github.com/byx-darwin/gitflow-cli/commit/5fe1d0eb7d7b482ccc07f5c9cd51525c9cc0d896)) - baoyuexing
+- **(autoreport)** add global-install hardening design spec and plan - ([f2092db](https://github.com/byx-darwin/gitflow-cli/commit/f2092db3c19ab9f244aa0c293708bb349931ee9b)) - baoyuexing
+- **(gf-workflow)** tune subagent thresholds and Phase 4 report verbosity for token cost - ([e9f7bdb](https://github.com/byx-darwin/gitflow-cli/commit/e9f7bdbe3b277438d09939a77f1cdd114900f220)) - baoyuexing
+- **(index)** index missing docs/ entries by category - ([66ae420](https://github.com/byx-darwin/gitflow-cli/commit/66ae420db76b8bbec0f710a6ee23a2960275e547)) - baoyuexing
+- **(specs)** index specs/README.md - ([8e4575f](https://github.com/byx-darwin/gitflow-cli/commit/8e4575f42e2b66decd15952c2787febe4f243641)) - baoyuexing
+- add design doc for gf-workflow local-merge delivery path (#265) - ([6f1e3f9](https://github.com/byx-darwin/gitflow-cli/commit/6f1e3f92811ee000ebfb10913efd27c5911e2cf2)) - baoyuexing
+- add implementation plan for gf-workflow local-merge delivery path (#265) - ([30d2af1](https://github.com/byx-darwin/gitflow-cli/commit/30d2af1e67a2cc15201ee6eff11083a7f4eb9396)) - baoyuexing
+- add Phase 4 pipeline analysis and code review reports for PR #268 - ([20185e0](https://github.com/byx-darwin/gitflow-cli/commit/20185e054596f70df2fcbce8b6b367030cac4e9d)) - baoyuexing
+- add design doc for gf issue edit subcommand (#266) - ([f5205da](https://github.com/byx-darwin/gitflow-cli/commit/f5205da062db1b17746bf7595358db0f37c41320)) - baoyuexing
+- add implementation plan for gf issue edit subcommand (#266) - ([6956e25](https://github.com/byx-darwin/gitflow-cli/commit/6956e2511397b0161038bc3a43570492640d038c)) - baoyuexing
+- add Phase 4 analysis reports for PR #269 (#266) - ([2701b3d](https://github.com/byx-darwin/gitflow-cli/commit/2701b3dd6ef2d6ce6fc6b29e50cd4b2ac5004f48)) - baoyuexing
+- add design doc for GitLab label mutation fix (#270) - ([ba5d589](https://github.com/byx-darwin/gitflow-cli/commit/ba5d589df030d2e18424948f120ecfa4903de7af)) - baoyuexing
+- add Phase 4 analysis reports for PR #272 (#270) - ([d95356a](https://github.com/byx-darwin/gitflow-cli/commit/d95356ada6e5afabd963f9b468715244bc759e45)) - baoyuexing
+- correct PR #272 pipeline report to final all-green CI status - ([7c21f9d](https://github.com/byx-darwin/gitflow-cli/commit/7c21f9d4bc77cb042b11bd36d6c9c99e9cff272a)) - baoyuexing
+- add design for Issue #271 resolve_body SafePath fix - ([eb50562](https://github.com/byx-darwin/gitflow-cli/commit/eb50562284b6c60ed71346760eda6a903a634bae)) - baoyuexing
+- add implementation plan for Issue #271 resolve_body SafePath fix - ([0070964](https://github.com/byx-darwin/gitflow-cli/commit/00709646939c09795147f229f1e5165b1fe4d1ac)) - baoyuexing
+- add Phase 4 analysis reports for PR #273 (#271) - ([645ac1e](https://github.com/byx-darwin/gitflow-cli/commit/645ac1e49a5ee6a5990f88d0d942bb55bdbccbed)) - baoyuexing
+- add design and implementation plan for Issue #267 - ([da90a48](https://github.com/byx-darwin/gitflow-cli/commit/da90a48dea85b7a812061f83c19000c9c266e95c)) - baoyuexing
+- add Phase 4 analysis reports for PR #274 (#267) - ([5dd6e9b](https://github.com/byx-darwin/gitflow-cli/commit/5dd6e9b40dab4d08c5022a60adda3796e6e0db6d)) - baoyuexing
+- add design and implementation plan for Issue #275 - ([8f7607a](https://github.com/byx-darwin/gitflow-cli/commit/8f7607a56c5c55bd66608903e1c7947f7e121150)) - baoyuexing
+- add Phase 4 analysis reports for PR #276 (#275) - ([b031d27](https://github.com/byx-darwin/gitflow-cli/commit/b031d27e2c0fdbaa802f8fa0d339b19ef8e57513)) - baoyuexing
+- update compatibility matrix - ([4b4fcca](https://github.com/byx-darwin/gitflow-cli/commit/4b4fccabf4eeff72ad9fe2452994903815302659)) - baoyuexing
+
+### Features
+
+- **(cli)** add gf issue edit subcommand - ([c292446](https://github.com/byx-darwin/gitflow-cli/commit/c292446bfd7972864057736b723ccc500277d0ee)) - baoyuexing
+- **(gf-workflow)** add delivery_mode/merge_commit to Phase 3 evidence schema - ([0b7fc7d](https://github.com/byx-darwin/gitflow-cli/commit/0b7fc7d787c7f223c701875768bdb0b770be6a6f)) - baoyuexing
+- **(gf-workflow)** Gate 3→4 accepts local_merge delivery evidence - ([b1d394d](https://github.com/byx-darwin/gitflow-cli/commit/b1d394dfb6c95927cc9df27a4ae0c61e5b40a448)) - baoyuexing
+- **(gf-workflow)** Phase 3 delivery choice + Phase 4 Branch Finish local_merge path - ([0d2d504](https://github.com/byx-darwin/gitflow-cli/commit/0d2d504167654dd651a08e8943251cbb9ffee66c)) - baoyuexing
+- **(gitlab)** add repo_target field and test-only constructor to GitLabIssueProvider - ([ae906a5](https://github.com/byx-darwin/gitflow-cli/commit/ae906a52422a230a0aa35cee04ebb0491691d31d)) - baoyuexing
+- **(issue)** add IssueProvider::edit and implement for GitHub/GitLab/GitCode - ([3468569](https://github.com/byx-darwin/gitflow-cli/commit/3468569a10124d1afde35c2080faf7768b49300b)) - baoyuexing
+- **(pr)** add queued merge via pr merge --auto - ([b0fb4b9](https://github.com/byx-darwin/gitflow-cli/commit/b0fb4b93f083d7314cb6d6026b0936980b59e9be)) - baoyuexing
+- **(pr)** expose merged_at and wire queued merge through gf-workflow - ([e2f8a1e](https://github.com/byx-darwin/gitflow-cli/commit/e2f8a1e2e9a2d6fdfdfe5f40f1c3fbcd81ef7790)) - baoyuexing
+
+### Miscellaneous Chores
+
+- **(deps)** drop rand for rand_core, fix e2e-* edition/version drift - ([209978f](https://github.com/byx-darwin/gitflow-cli/commit/209978f7939f229f6c3e666686f43600bf23ce11)) - baoyuexing
+- release v1.8.0 - ([3d27637](https://github.com/byx-darwin/gitflow-cli/commit/3d27637b97124c43993af9d5f8c6dcb6f6b0bb2c)) - baoyuexing
+
+### Other
+
+- Merge pull request #256 from byx-darwin/dev
+
+fix(ci): authenticate homebrew tap push so formula updates actually land - ([6643b55](https://github.com/byx-darwin/gitflow-cli/commit/6643b5505548df6051fc42cf0a3cc0da0a04a94d)) - mc-ai
+- Merge remote-tracking branch 'origin/main' into dev - ([7c1948a](https://github.com/byx-darwin/gitflow-cli/commit/7c1948ac30f51cfdce8e3f31d468ed55eef93930)) - baoyuexing
+- Merge pull request #257 from byx-darwin/dev
+
+refactor(release): make CD the single owner of the Homebrew formula - ([712ba72](https://github.com/byx-darwin/gitflow-cli/commit/712ba72bcfc6ee34e01fa22728bb6596b3d980e2)) - mc-ai
+- Merge pull request #258 from byx-darwin/dev
+
+fix(workflow): add worktree preflight before git worktree add - ([5dd4ae4](https://github.com/byx-darwin/gitflow-cli/commit/5dd4ae408a75e0a06f83858d42d43de9270874a0)) - mc-ai
+- Merge pull request #259 from byx-darwin/dev
+
+feat(pr): queue merges with pr merge --auto so CI no longer blocks the human - ([ab0ea93](https://github.com/byx-darwin/gitflow-cli/commit/ab0ea93e51fa667df11a3e8a69fcea46c8418cf3)) - mc-ai
+- Merge remote-tracking branch 'origin/main' into dev - ([bdbff96](https://github.com/byx-darwin/gitflow-cli/commit/bdbff9613e339390c7c35a148d8781d96e428c5b)) - baoyuexing
+- stop re-running the full matrix on every push to dev - ([da1f2b9](https://github.com/byx-darwin/gitflow-cli/commit/da1f2b94819fe37a782d1aed8682d0c12c8ca0e8)) - baoyuexing
+- Merge pull request #260 from byx-darwin/dev
+
+fix(pr): name the scheduled merge instead of returning an empty message - ([8e8f615](https://github.com/byx-darwin/gitflow-cli/commit/8e8f615b06676cbd8fd491bb63794ec97b2fc8da)) - mc-ai
+- Merge remote-tracking branch 'origin/main' into dev - ([cd9ccaa](https://github.com/byx-darwin/gitflow-cli/commit/cd9ccaaa077bb8dd4827c155dd02fe5bbf0b0e04)) - baoyuexing
+- Merge pull request #261 from byx-darwin/dev
+
+ci: stop re-running the full matrix on every push to dev - ([72bcac6](https://github.com/byx-darwin/gitflow-cli/commit/72bcac6c7affd5c299692f3ba1ca9351f2963442)) - mc-ai
+- Merge remote-tracking branch 'origin/main' into dev - ([ded80c5](https://github.com/byx-darwin/gitflow-cli/commit/ded80c57e939fad19728c8bcbe27d1c4fde9f4a7)) - baoyuexing
+- merge duplicate build.yml checks into ci.yml - ([2baf05c](https://github.com/byx-darwin/gitflow-cli/commit/2baf05c6aa58d3eff816ceb028d7bda4f43bde38)) - baoyuexing
+- Merge pull request #268 from byx-darwin/feat/265-gf-workflow-local-merge-delivery
+
+feat(gf-workflow): support local-merge as an alternative to PR delivery - ([c66fae0](https://github.com/byx-darwin/gitflow-cli/commit/c66fae061f8528ffc20bac3b0e6614a69490c390)) - mc-ai
+- Merge pull request #269 from byx-darwin/feat/266-gf-issue-edit
+
+feat(issue): add gf issue edit subcommand - ([209c15e](https://github.com/byx-darwin/gitflow-cli/commit/209c15e0937c725f522c0892be9674597cdd8d44)) - mc-ai
+- Merge pull request #262 from byx-darwin/dev
+
+feat(pr): expose merged_at so merged and closed-unmerged stop colliding - ([975c735](https://github.com/byx-darwin/gitflow-cli/commit/975c73538ae894af0bb8b3dfa3f80240d22c28f9)) - mc-ai
+- Merge remote-tracking branch 'origin/dev' into feat/270-gitlab-label-fix
+
+# Conflicts:
+#	crates/gitlab/src/issue.rs - ([aabb851](https://github.com/byx-darwin/gitflow-cli/commit/aabb851b0ef2a149d7f271929eef7b97bc6e044b)) - baoyuexing
+- Merge pull request #272 from byx-darwin/feat/270-gitlab-label-fix
+
+fix(gitlab): use glab issue update --label/--unlabel instead of nonexistent issue edit - ([c7b7129](https://github.com/byx-darwin/gitflow-cli/commit/c7b71292bfd9ad8b38b7c6bf501ddf87829bb8c2)) - mc-ai
+- Merge branch 'dev' of github.com:byx-darwin/gitflow-cli into dev - ([117ff8b](https://github.com/byx-darwin/gitflow-cli/commit/117ff8b72425a6d0bda67a37f16ae46c29a6e630)) - baoyuexing
+- Merge pull request #273 from byx-darwin/feat/271-resolve-body-safepath
+
+fix(cli): validate --body-file with SafePath in resolve_body - ([af78445](https://github.com/byx-darwin/gitflow-cli/commit/af7844520d073d9941af159f6bb8547a626a6b3f)) - mc-ai
+- Merge pull request #274 from byx-darwin/feat/267-gitlab-issue-repo-target
+
+fix(gitlab): use git remote URL as --repo target for issue commands - ([541cd25](https://github.com/byx-darwin/gitflow-cli/commit/541cd25999e938f66199063620086e6fb43102c4)) - mc-ai
+- Merge pull request #276 from byx-darwin/feat/275-gitlab-non-issue-repo-target
+
+fix(gitlab): route mr/release/pipeline/label/milestone --repo through repo_target - ([d4d69eb](https://github.com/byx-darwin/gitflow-cli/commit/d4d69eb3d5768fa6a151c8ae0a6b3beb5de64523)) - mc-ai
+
+### Performance
+
+- **(gf-workflow)** parallelize Phase 4 pipeline/triage/review dispatch - ([0978cc4](https://github.com/byx-darwin/gitflow-cli/commit/0978cc495bda2f783d3ed82059d6594bbd7f29e1)) - baoyuexing
+
+### Tests
+
+- **(autoreport)** record first end-to-end verification run - ([a1cb535](https://github.com/byx-darwin/gitflow-cli/commit/a1cb535e03f959c543311b70349761b5e5f7b8ca)) - baoyuexing
+
+---
+## [1.7.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.6.0..v1.7.0) - 2026-08-30
+
+### Bug Fixes
+
+- **(ci)** grant attestations:write ceiling in CD caller workflow - ([1b14579](https://github.com/byx-darwin/gitflow-cli/commit/1b145796c2d0b91ee77a424bf4922cc6e700d8f5)) - baoyuexing
+- **(ci)** authenticate homebrew tap push with host-scoped basic auth - ([401c280](https://github.com/byx-darwin/gitflow-cli/commit/401c280f6051f9a4a802bf9741ae362ed603a4b5)) - baoyuexing
+- **(release)** verify CD outcome and release assets before declaring success - ([ea60501](https://github.com/byx-darwin/gitflow-cli/commit/ea60501ee0e952b2c9ad227e3e7346a3e3b76115)) - baoyuexing
+
+### Documentation
+
+- **(website)** trigger rebuild for v1.6.0 changelog - ([9e8066d](https://github.com/byx-darwin/gitflow-cli/commit/9e8066d616ae15a6cf6f6ad557453fdfbda82369)) - baoyuexing
+
+### Miscellaneous Chores
+
+- trigger E2E workflow - ([a8b5608](https://github.com/byx-darwin/gitflow-cli/commit/a8b560877a277acba0bf8d09ae406dc2f05f7470)) - baoyuexing
+
+### Other
+
+- Merge pull request #234 from byx-darwin/dev
+
+docs(changelog): rewrite v1.6.0 entries in Chinese - ([9c2fada](https://github.com/byx-darwin/gitflow-cli/commit/9c2fadaf87f1c506fe4713a164c32f3b9b294092)) - mc-ai
+- Merge pull request #235 from byx-darwin/chore/website-trigger-rebuild
+
+docs(website): trigger rebuild for v1.6.0 changelog - ([b791cf2](https://github.com/byx-darwin/gitflow-cli/commit/b791cf25ad1c44c69dbead62c097f291d5e7f69d)) - mc-ai
+- Merge branch 'main' into release/v1.7.0 - ([8b7c721](https://github.com/byx-darwin/gitflow-cli/commit/8b7c721918263a2b0111cb5658494d607147ae40)) - baoyuexing
+- Merge pull request #254 from byx-darwin/release/v1.7.0
+
+chore: release v1.7.0 - ([c039dc6](https://github.com/byx-darwin/gitflow-cli/commit/c039dc61b897e03c4bbc89fe8010ab2d4328720d)) - mc-ai
+- Merge pull request #255 from byx-darwin/dev
+
+fix(ci): restore CD by matching permission ceiling; gate release on assets - ([b1655d6](https://github.com/byx-darwin/gitflow-cli/commit/b1655d660a9f9a5bba4cf9992478ee3ea201212a)) - mc-ai
+
+### Refactoring
+
+- **(release)** make CD the single owner of the Homebrew formula - ([41a6fb1](https://github.com/byx-darwin/gitflow-cli/commit/41a6fb1e7940fac8946b9288fd231f60b4721f7e)) - baoyuexing
+
+---
+## [1.6.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.5.0..v1.6.0) - 2026-08-26
+
+### Bug Fixes
+
 - **(cli)** document SIGPIPE investigation results — no safe reset needed - ([d23b015](https://github.com/byx-darwin/gitflow-cli/commit/d23b01557f9a0aadf668b8c37d9cfe9ecccb4d65)) - baoyuexing
 - **(release)** update compatibility matrix after version bump - ([2b93ebf](https://github.com/byx-darwin/gitflow-cli/commit/2b93ebf5804840a2e02b1a9e154408c3d7a5349e)) - baoyuexing
 - **(workflow)** add design_doc_path validation to Phase 2 gate (#238) - ([6777785](https://github.com/byx-darwin/gitflow-cli/commit/6777785ca33460b665bf6af928a334d33fc8eb64)) - mc-ai
@@ -43,6 +219,7 @@ All notable changes to this project will be documented in this file. See [conven
 - update CHANGELOG.md for v1.6.0 release - ([2198b76](https://github.com/byx-darwin/gitflow-cli/commit/2198b7662b9d8a121fc0382c84fdd15ef79c44ed)) - baoyuexing
 - release v1.6.0 - ([0f7cb08](https://github.com/byx-darwin/gitflow-cli/commit/0f7cb0868927241936253752f7a18dbc99260cb8)) - baoyuexing
 - release v1.7.0 - ([a5ec22b](https://github.com/byx-darwin/gitflow-cli/commit/a5ec22b264cfd26bbb2b2f3aa0b24be331fb3e66)) - baoyuexing
+- update CHANGELOG.md for v1.7.0 - ([a5f5e2b](https://github.com/byx-darwin/gitflow-cli/commit/a5f5e2b00fb2fb17e8ca74a1f389ba9a64c831c3)) - baoyuexing
 
 ### Other
 
@@ -54,6 +231,9 @@ feat(cli): add Standard variant to WorkflowMode - ([8eacc9a](https://github.com/
 - Merge pull request #246 from byx-darwin/feat/245-pi-agent-opencode-fix
 
 feat(skills): add Pi Code Agent platform & fix OpenCode global path - ([b69a598](https://github.com/byx-darwin/gitflow-cli/commit/b69a598bdf89688a757636b3af0dced3b8ecba77)) - mc-ai
+- Merge pull request #233 from byx-darwin/dev
+
+chore: sync dev to main for v1.6.0 release - ([79f14dc](https://github.com/byx-darwin/gitflow-cli/commit/79f14dc40da94d7d21afdbee08132873619ae787)) - mc-ai
 
 ### Refactoring
 
@@ -889,4 +1069,3 @@ docs: add Phase 4 dogfooding checklist (#73) - ([8466bbe](https://github.com/byx
 - verify uninstall_hook works with nested hook format - ([b25f4cd](https://github.com/byx-darwin/gitflow-cli/commit/b25f4cda39d53a775e7620e85f8827157b96e8e9)) - baoyx
 
 <!-- generated by git-cliff -->
-<!-- v1.6.0 entries rewritten in Chinese -->

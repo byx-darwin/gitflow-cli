@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
     CoreError, Result,
-    issue::{CreateIssueArgs, IssueData, IssueProvider, ListIssueArgs},
+    issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
 use serde::Deserialize;
@@ -42,7 +42,17 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct GitLabIssueProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`，如 `"gitlab-org/gitlab"`。
+    ///
+    /// 供 REST notes API 路径编码（[`encode_project_path`]）使用，始终是裸
+    /// `owner/repo` 形式，不受 [`repo_target`](Self::repo_target) 影响。
     repo: String,
+    /// 传给 `glab issue ...` 子命令 `--repo` 参数的目标字符串。
+    ///
+    /// 默认等于 `repo`；通过 [`with_remote_url`](GitLabIssueProvider::with_remote_url)
+    /// 构造时为完整 git remote URL，用于在自建 GitLab 实例上显式锁定 host，
+    /// 避免仅传裸 `OWNER/REPO` 时 `glab` 的 host 探测歧义
+    /// （参见 <https://gitlab.com/gitlab-org/cli/-/issues/1370>）。
+    repo_target: String,
     /// 用于执行 `glab` CLI 命令的 runner。
     runner: R,
 }
@@ -53,8 +63,10 @@ impl GitLabIssueProvider<RealCommandRunner> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
+        let repo = repo.into();
         Self {
-            repo: repo.into(),
+            repo_target: repo.clone(),
+            repo,
             runner: RealCommandRunner,
         }
     }
@@ -64,8 +76,24 @@ impl GitLabIssueProvider<RealCommandRunner> {
     /// This enables state reuse across multiple operations in workflow chains.
     #[must_use]
     pub fn with_session(session: &gitflow_core::Session) -> Self {
+        let repo = session.repo.clone();
         Self {
-            repo: session.repo.clone(),
+            repo_target: repo.clone(),
+            repo,
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// 使用完整 git remote URL 作为 `glab issue ...` 的 `--repo` 目标创建提供者。
+    ///
+    /// `repo` 仍为裸 `namespace/project`（供 REST notes API 路径编码使用），
+    /// `remote_url` 为完整 git remote URL。`glab` 官方文档确认 `--repo` 接受
+    /// 完整 URL/Git URL 形式，借此在自建 GitLab 实例上显式锁定 host。
+    #[must_use]
+    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
+        Self {
+            repo: repo.into(),
+            repo_target: remote_url.into(),
             runner: RealCommandRunner,
         }
     }
@@ -78,8 +106,27 @@ impl<R: CommandRunner> GitLabIssueProvider<R> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        let repo = repo.into();
+        Self {
+            repo_target: repo.clone(),
+            repo,
+            runner,
+        }
+    }
+
+    /// 使用自定义 [`CommandRunner`] 并显式指定 `--repo` 目标创建提供者。
+    ///
+    /// 主要用于测试，验证 `repo_target`（如完整 remote URL）被正确传给 `glab`，
+    /// 无需引入真实进程执行器。
+    #[must_use]
+    pub fn with_runner_and_repo_target(
+        repo: impl Into<String>,
+        repo_target: impl Into<String>,
+        runner: R,
+    ) -> Self {
         Self {
             repo: repo.into(),
+            repo_target: repo_target.into(),
             runner,
         }
     }
@@ -99,7 +146,14 @@ impl<R: CommandRunner> GitLabIssueProvider<R> {
             .run(
                 "glab",
                 &[
-                    "label", "create", "--name", name, "--color", "ededed", "--repo", &self.repo,
+                    "label",
+                    "create",
+                    "--name",
+                    name,
+                    "--color",
+                    "ededed",
+                    "--repo",
+                    &self.repo_target,
                 ],
             )
             .await
@@ -240,7 +294,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             "issue",
             "create",
             "--repo",
-            &self.repo,
+            &self.repo_target,
             "--title",
             &args.title,
         ];
@@ -310,9 +364,53 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         self.view(issue_iid).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
+    /// 编辑 Issue 的标题和/或正文。
+    ///
+    /// 调用 `glab issue update <number> --repo <repo> [--title T] [--description D]`
+    /// （`glab` 没有 `issue edit` 子命令，标题/正文变更走 `issue update`），
+    /// 成功后通过 [`view`](Self::view) 重新拉取最新数据并返回。
+    ///
+    /// # Errors
+    ///
+    /// 当 Issue 不存在或 `glab` CLI 调用失败时返回错误。
+    async fn edit(&self, number: u64, args: EditIssueArgs) -> Result<IssueData> {
+        debug!(repo = %self.repo, number, "spawning `glab issue update`");
+
+        let number_str = number.to_string();
         let mut cmd_args: Vec<&str> =
-            vec!["issue", "list", "--repo", &self.repo, "--output", "json"];
+            vec!["issue", "update", &number_str, "--repo", &self.repo_target];
+
+        if let Some(title) = &args.title {
+            cmd_args.push("--title");
+            cmd_args.push(title);
+        }
+        if let Some(body) = &args.body {
+            cmd_args.push("--description");
+            cmd_args.push(body);
+        }
+
+        let output = self
+            .runner
+            .run("glab", &cmd_args)
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        self.view(number).await
+    }
+
+    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
+        let mut cmd_args: Vec<&str> = vec![
+            "issue",
+            "list",
+            "--repo",
+            &self.repo_target,
+            "--output",
+            "json",
+        ];
 
         // glab uses --closed for closed issues, --all for all issues
         // Default (no flag) shows open issues
@@ -366,7 +464,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                     "view",
                     &number_str,
                     "--repo",
-                    &self.repo,
+                    &self.repo_target,
                     "--output",
                     "json",
                 ],
@@ -400,7 +498,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &["issue", "close", &number_str, "--repo", &self.repo],
+                &["issue", "close", &number_str, "--repo", &self.repo_target],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -428,7 +526,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             .runner
             .run(
                 "glab",
-                &["issue", "reopen", &number_str, "--repo", &self.repo],
+                &["issue", "reopen", &number_str, "--repo", &self.repo_target],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
@@ -510,12 +608,12 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 为指定 Issue 添加一个或多个标签。
     ///
-    /// 调用 `glab issue edit <number> --repo <repo> --add-label <labels>` 添加标签，
+    /// 调用 `glab issue update <number> --repo <repo> --label <labels>` 添加标签，
     /// 多个标签以逗号连接后一次性提交。
     ///
     /// # 自动创建缺失标签
     ///
-    /// 当 `glab issue edit --add-label` 因标签不存在而失败时，本方法会自动调用
+    /// 当 `glab issue update --label` 因标签不存在而失败时，本方法会自动调用
     /// `glab label create` 创建缺失的标签（使用默认颜色 `ededed`），然后重试原操作。
     ///
     /// # Errors
@@ -526,18 +624,18 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             repo = %self.repo,
             number,
             label_count = labels.len(),
-            "spawning `glab issue edit --add-label`"
+            "spawning `glab issue update --label`"
         );
 
         let labels_joined = labels.join(",");
         let number_str = number.to_string();
         let cmd_args: Vec<&str> = vec![
             "issue",
-            "edit",
+            "update",
             &number_str,
             "--repo",
-            &self.repo,
-            "--add-label",
+            &self.repo_target,
+            "--label",
             &labels_joined,
         ];
         let output = self
@@ -550,7 +648,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             return Ok(());
         }
 
-        // glab issue edit --add-label may fail when a label doesn't exist.
+        // glab issue update --label may fail when a label doesn't exist.
         // Try to auto-create missing labels and retry once.
         let missing = extract_missing_labels_from_error(&output.stderr);
         if missing.is_empty() {
@@ -582,13 +680,13 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
 
     /// 从指定 Issue 移除一个标签。
     ///
-    /// 调用 `glab issue edit <number> --repo <repo> --remove-label <label>` 移除标签。
+    /// 调用 `glab issue update <number> --repo <repo> --unlabel <label>` 移除标签。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在、标签未附加到该 Issue 或 `glab` CLI 调用失败时返回错误。
     async fn remove_label(&self, number: u64, label: &str) -> Result<()> {
-        debug!(repo = %self.repo, number, label, "spawning `glab issue edit --remove-label`");
+        debug!(repo = %self.repo, number, label, "spawning `glab issue update --unlabel`");
 
         let number_str = number.to_string();
         let output = self
@@ -597,11 +695,11 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
                 "glab",
                 &[
                     "issue",
-                    "edit",
+                    "update",
                     &number_str,
                     "--repo",
-                    &self.repo,
-                    "--remove-label",
+                    &self.repo_target,
+                    "--unlabel",
                     label,
                 ],
             )
@@ -616,7 +714,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     }
 }
 
-/// 从 `glab issue edit --add-label` 的 stderr 中提取缺失的标签名。
+/// 从 `glab issue update --label` 的 stderr 中提取缺失的标签名。
 ///
 /// GitLab CLI 的错误格式可能有多种变体，本函数尝试匹配常见的
 /// `'<label>' not found` / `"label not found: <label>"` 模式。
@@ -1103,6 +1201,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_view() {
+        let runner = MockCommandRunner::success(
+            r#"{"iid":42,"title":"Fix","state":"opened","description":null,"labels":[]}"#,
+        );
+        let provider = GitLabIssueProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let issue = provider.view(42).await.expect("view should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert!(
+            runner.recorded_calls()[0]
+                .1
+                .contains(&"https://192.168.230.23/iproost/proxy/api-src.git".to_string())
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_return_platform_error_when_glab_fails_for_comment() {
         let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
         let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
@@ -1225,6 +1344,196 @@ mod tests {
         let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
 
         let result = provider.remove_label(42, "bug").await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            gitflow_core::CoreError::Cli(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_should_call_issue_update_with_label_flag_for_add_labels() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .add_labels(42, &["bug".to_string(), "priority:high".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "owner/repo",
+                "--label",
+                "bug,priority:high"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_add_labels() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let result = provider
+            .add_labels(42, &["priority:medium".to_string()])
+            .await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+                "--label",
+                "priority:medium",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_call_issue_update_with_unlabel_flag_for_remove_label() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider.remove_label(42, "bug").await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "owner/repo",
+                "--unlabel",
+                "bug"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_remove_label() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let result = provider.remove_label(42, "priority:medium").await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "42",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+                "--unlabel",
+                "priority:medium",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_edit_issue_via_update_and_view_result() {
+        // Sequence: 1. `glab issue update` → succeeds
+        //           2. `glab issue view --output json` → returns updated issue JSON
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (
+                true,
+                r#"{"iid":42,"title":"New title","description":"orig","state":"opened","labels":[],"author":{"username":"admin","id":1},"assignees":[],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","web_url":"https://gitlab.com/owner/repo/-/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let issue = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: Some("New title".to_string()),
+                    body: None,
+                },
+            )
+            .await
+            .expect("edit should succeed");
+
+        assert_eq!(issue.number, 42);
+        assert_eq!(issue.title, "New title");
+    }
+
+    #[tokio::test]
+    async fn test_should_send_title_and_description_flags_for_edit() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .edit(
+                7,
+                gitflow_core::issue::EditIssueArgs {
+                    title: Some("T".to_string()),
+                    body: Some("B".to_string()),
+                },
+            )
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "update",
+                "7",
+                "--repo",
+                "owner/repo",
+                "--title",
+                "T",
+                "--description",
+                "B"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_platform_error_when_glab_fails_for_edit() {
+        let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner);
+
+        let result = provider
+            .edit(42, gitflow_core::issue::EditIssueArgs::default())
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(

@@ -34,6 +34,10 @@ use crate::{
 pub struct GitLabLabelProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 传给 `glab label ...` 子命令 `--repo` 参数的目标字符串。默认等于
+    /// `repo`；通过 [`with_remote_url`](GitLabLabelProvider::with_remote_url)
+    /// 构造时为完整 git remote URL，用于在自建 GitLab 实例上显式锁定 host。
+    repo_target: String,
     /// 用于执行 `glab` CLI 命令的 runner。
     runner: R,
 }
@@ -44,8 +48,10 @@ impl GitLabLabelProvider<RealCommandRunner> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> GitLabLabelProvider<RealCommandRunner> {
+        let repo = repo.into();
         GitLabLabelProvider {
-            repo: repo.into(),
+            repo_target: repo.clone(),
+            repo,
             runner: RealCommandRunner,
         }
     }
@@ -55,8 +61,20 @@ impl GitLabLabelProvider<RealCommandRunner> {
     /// This enables state reuse across multiple operations in workflow chains.
     #[must_use]
     pub fn with_session(session: &gitflow_core::Session) -> Self {
+        let repo = session.repo.clone();
         Self {
-            repo: session.repo.clone(),
+            repo_target: repo.clone(),
+            repo,
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// 使用完整 git remote URL 作为 `glab label ...` 的 `--repo` 目标创建提供者。
+    #[must_use]
+    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
+        Self {
+            repo: repo.into(),
+            repo_target: remote_url.into(),
             runner: RealCommandRunner,
         }
     }
@@ -69,8 +87,26 @@ impl<R: CommandRunner> GitLabLabelProvider<R> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        let repo = repo.into();
+        Self {
+            repo_target: repo.clone(),
+            repo,
+            runner,
+        }
+    }
+
+    /// 使用自定义 [`CommandRunner`] 并显式指定 `--repo` 目标创建提供者。
+    ///
+    /// 主要用于测试，验证 `repo_target`（如完整 remote URL）被正确传给 `glab`。
+    #[must_use]
+    pub fn with_runner_and_repo_target(
+        repo: impl Into<String>,
+        repo_target: impl Into<String>,
+        runner: R,
+    ) -> Self {
         Self {
             repo: repo.into(),
+            repo_target: repo_target.into(),
             runner,
         }
     }
@@ -85,7 +121,14 @@ impl<R: CommandRunner> GitLabLabelProvider<R> {
             .runner
             .run(
                 "glab",
-                &["label", "list", "--repo", &self.repo, "--output", "json"],
+                &[
+                    "label",
+                    "list",
+                    "--repo",
+                    &self.repo_target,
+                    "--output",
+                    "json",
+                ],
             )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label list: {e}")))?;
@@ -137,7 +180,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             "--color",
             &args.color,
             "--repo",
-            &self.repo,
+            &self.repo_target,
         ];
 
         if let Some(ref desc) = args.description {
@@ -191,7 +234,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             "--label-id",
             &id_str,
             "--repo",
-            &self.repo,
+            &self.repo_target,
             "--new-name",
             &args.name,
             "--color",
@@ -223,7 +266,10 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
 
         let output = self
             .runner
-            .run("glab", &["label", "delete", name, "--repo", &self.repo])
+            .run(
+                "glab",
+                &["label", "delete", name, "--repo", &self.repo_target],
+            )
             .await
             .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label delete: {e}")))?;
 
@@ -250,6 +296,10 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
 pub struct GitLabMilestoneProvider<R: CommandRunner = RealCommandRunner> {
     /// GitLab `namespace/project`。
     repo: String,
+    /// 传给 `glab milestone ...` 子命令 `--project` 参数的目标字符串
+    /// （`glab milestone` 用 `--project` 而非 `--repo`，语义与其余 provider
+    /// 的 `repo_target` 一致，仅 flag 名不同）。
+    project_target: String,
     /// 用于执行 `glab` CLI 命令的 runner。
     runner: R,
 }
@@ -260,8 +310,10 @@ impl GitLabMilestoneProvider<RealCommandRunner> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> GitLabMilestoneProvider<RealCommandRunner> {
+        let repo = repo.into();
         GitLabMilestoneProvider {
-            repo: repo.into(),
+            project_target: repo.clone(),
+            repo,
             runner: RealCommandRunner,
         }
     }
@@ -271,8 +323,20 @@ impl GitLabMilestoneProvider<RealCommandRunner> {
     /// This enables state reuse across multiple operations in workflow chains.
     #[must_use]
     pub fn with_session(session: &gitflow_core::Session) -> Self {
+        let repo = session.repo.clone();
         Self {
-            repo: session.repo.clone(),
+            project_target: repo.clone(),
+            repo,
+            runner: RealCommandRunner,
+        }
+    }
+
+    /// 使用完整 git remote URL 作为 `glab milestone ...` 的 `--project` 目标创建提供者。
+    #[must_use]
+    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
+        Self {
+            repo: repo.into(),
+            project_target: remote_url.into(),
             runner: RealCommandRunner,
         }
     }
@@ -285,8 +349,26 @@ impl<R: CommandRunner> GitLabMilestoneProvider<R> {
     /// `repo` 格式为 `namespace/project`。
     #[must_use]
     pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        let repo = repo.into();
+        Self {
+            project_target: repo.clone(),
+            repo,
+            runner,
+        }
+    }
+
+    /// 使用自定义 [`CommandRunner`] 并显式指定 `--project` 目标创建提供者。
+    ///
+    /// 主要用于测试，验证 `project_target`（如完整 remote URL）被正确传给 `glab`。
+    #[must_use]
+    pub fn with_runner_and_project_target(
+        repo: impl Into<String>,
+        project_target: impl Into<String>,
+        runner: R,
+    ) -> Self {
         Self {
             repo: repo.into(),
+            project_target: project_target.into(),
             runner,
         }
     }
@@ -366,7 +448,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             "--title",
             &args.title,
             "--project",
-            &self.repo,
+            &self.project_target,
         ];
 
         if let Some(ref desc) = args.description {
@@ -405,7 +487,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
                     "milestone",
                     "list",
                     "--project",
-                    &self.repo,
+                    &self.project_target,
                     "--output",
                     "json",
                 ],
@@ -439,7 +521,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             "edit",
             &number_str,
             "--project",
-            &self.repo,
+            &self.project_target,
             "--title",
             &args.title,
         ];
@@ -488,7 +570,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
                     "--state",
                     "close",
                     "--project",
-                    &self.repo,
+                    &self.project_target,
                 ],
             )
             .await
@@ -526,7 +608,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
                     "--state",
                     "activate",
                     "--project",
-                    &self.repo,
+                    &self.project_target,
                 ],
             )
             .await
@@ -564,6 +646,33 @@ mod tests {
         let repo = String::from("gitlab-org/gitlab");
         let provider = GitLabLabelProvider::new(repo);
         assert_eq!(provider.repo, "gitlab-org/gitlab");
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_repo_target_for_delete() {
+        let runner = MockCommandRunner::success("");
+        let provider = GitLabLabelProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let result = provider.delete("bug").await;
+
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "label",
+                "delete",
+                "bug",
+                "--repo",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -627,6 +736,41 @@ mod tests {
     fn test_should_construct_gitlab_milestone_provider() {
         let provider = GitLabMilestoneProvider::new("gitlab-org/gitlab");
         assert_eq!(provider.repo, "gitlab-org/gitlab");
+    }
+
+    #[tokio::test]
+    async fn test_should_use_explicit_project_target_for_close() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (
+                true,
+                r#"[{"id":1,"iid":3,"title":"v1.0","description":null,"state":"closed","due_date":null,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}]"#,
+            ),
+        ]);
+        let provider = GitLabMilestoneProvider::with_runner_and_project_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let ms = provider.close(3).await.expect("close should succeed");
+
+        assert_eq!(ms.number, 3);
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "milestone",
+                "edit",
+                "3",
+                "--state",
+                "close",
+                "--project",
+                "https://192.168.230.23/iproost/proxy/api-src.git",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 
     #[test]
