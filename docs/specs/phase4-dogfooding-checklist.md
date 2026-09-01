@@ -4,7 +4,7 @@
 **最后更新:** 2026-07-10
 
 > 每次发布前执行此 checklist，用真实 workflow 场景验证核心命令。
-> 发现 bug 时记录到 `.cache/bug-reports/pending.json`，所有检查项通过后才能发布。
+> 发现 bug 时通过 `gf issue create` 手动创建 Issue，所有检查项通过后才能发布。
 
 ## Prerequisites
 
@@ -74,11 +74,10 @@
 
 ## Bug 记录模板
 
-发现 bug 时，将以下 JSON 追加到 `.cache/bug-reports/pending.json`：
+发现 bug 时，使用 `gf issue create` 手动创建 Issue，正文包含以下信息：
 
 ```json
 {
-  "id": "<生成 UUID>",
   "source": "dogfooding",
   "platform": "<github|gitlab|gitcode>",
   "command": "<失败的命令，如 pr merge>",
@@ -92,7 +91,7 @@
 }
 ```
 
-**注意：** `pending.json` 当前存储单条记录。如果已有内容，将其包装为数组后追加新条目，或按现有格式覆盖（取决于 `pending.json` 的实际 schema 演进）。
+**注意：** 以上字段仅作为 Issue 正文的信息模板，供人工填写和整理，不对应任何自动化文件格式。
 
 ---
 
@@ -127,5 +126,5 @@
 - Issue #70: `pr merge` 非交互式模式失败（Dogfooding 发现）
 - Issue #73: Phase 4 Dogfooding 常态化
 - Design Spec: [`docs/superpowers/specs/2026-07-10-dogfooding-checklist-design.md`](../superpowers/specs/2026-07-10-dogfooding-checklist-design.md)
-- Bug Reports: `.cache/bug-reports/pending.json`
+- Bug Reports: 通过 `gf issue create` 手动创建
 - Phase 4 Coverage TDD: [`docs/superpowers/specs/2026-07-09-phase4-coverage-tdd-design.md`](../superpowers/specs/2026-07-09-phase4-coverage-tdd-design.md)

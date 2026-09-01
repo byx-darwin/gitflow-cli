@@ -127,7 +127,7 @@ All platform operations shell out to external CLI tools. `prerequisites.rs` chec
 
 ### AI Skills & Hooks
 
-26+ AI agent skills (`gf-*` commands) extend the CLI by invoking `gf` subcommands via shell. Git hooks (`pre-commit`) integrate with the command pipeline.
+24+ AI agent skills (`gf-*` commands) extend the CLI by invoking `gf` subcommands via shell. Git hooks (`pre-commit`) integrate with the command pipeline.
 
 ## When to Add a New Crate vs a New Module
 

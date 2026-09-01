@@ -41,7 +41,7 @@ credentials/
 .gcloud/
 .claude/gh-issue/
 
-# Local runtime caches (bug-reports, etc.)
+# Local runtime caches
 .cache/
 .claude/skills/
 .superpowers/
