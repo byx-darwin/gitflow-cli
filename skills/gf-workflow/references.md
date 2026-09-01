@@ -138,12 +138,26 @@ Run this before `git worktree add`. `git status --porcelain` empty ⇒ record
 
 | Bucket | Match | Action |
 |---|---|---|
-| **A — workflow artifacts** | paths equal to contract `design_doc_path`, `spec_path`, `ticket_refs[]` | Carry into the worktree and commit **on the feature branch** |
+| **A — workflow artifacts** | paths equal to contract `design_doc_path`, `spec_path`, `ticket_refs[]` | ✋ PAUSE and ask before committing (see below) |
 | **B — unrelated dirty files** | everything else reported by `git status` | ✋ PAUSE and ask |
 | **C — ignored** | covered by `.gitignore` (`.cache/`, `.worktree/`, `target/`) | Nothing to do (`git status` already omits them) |
 
-Commit to the feature branch, never to `base_branch`: entering Phase 3 must not leave
-commits on a shared branch as a side effect.
+**Bucket A requires explicit commit permission too** — per project policy, nothing is
+committed without the user's go-ahead, and Phase 1/2 design docs are no exception just
+because the workflow itself produced them. `git worktree add` only forks a **committed**
+state, so these docs must be committed for the executor to see them — but the commit
+itself still needs a yes. Before committing, show the paths and ask:
+
+```
+即将把以下设计文档提交到 feature 分支 <branch>，worktree 才能读取到它们：
+  <bucket A paths>
+是否提交？
+  1) 提交    2) 中止（不创建 worktree，回 Phase 2 处理）
+```
+
+Choice 2 ⇒ do not run `git worktree add`; leave the contract in Phase 3 for resume.
+Choice 1 ⇒ commit to the feature branch, never to `base_branch`: entering Phase 3 must
+not leave commits on a shared branch as a side effect.
 
 **Why the main-tree copies must be removed after committing.** Verified behaviour: if the
 untracked originals stay, the later merge fails with
@@ -167,7 +181,9 @@ Choice 3 ⇒ `worktree_preflight = "user_left_dirty"` and list the paths in
 abandoned in the main tree. Choice 2 ⇒ `"user_stashed"`. Choice 4 ⇒ `"aborted"`, keep
 the contract in Phase 3 for resume.
 
-A non-empty bucket A that was carried and committed ⇒ `"artifacts_carried"`.
+A non-empty bucket A that the user approved and that was committed ⇒ `"artifacts_carried"`.
+A non-empty bucket A that the user declined to commit ⇒ `"aborted"`, same as Bucket B
+choice 4 — the contract stays in Phase 3 for resume.
 
 **Every execution mode must run this preflight.** Modes ① and ② let the *executor* create
 the worktree, so the orchestrator cannot rely on having checked the tree itself — the

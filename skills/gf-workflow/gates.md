@@ -50,7 +50,8 @@
 mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked，后台代理无法调用）。
 模式语义详见 `references.md` → Phase 3 Execution Modes。
 
-提示文案须告知：Phase 3 Step 1 会先跑 **Worktree Preflight**，主工作区若有与本工作流无关的改动会再次中断询问。
+提示文案须告知：Phase 3 Step 1 会先跑 **Worktree Preflight**——设计文档（Bucket A）提交前也会
+暂停询问是否提交，主工作区若有与本工作流无关的改动（Bucket B）会再次中断询问。
 此处**不新增闸门条件**——Gate 2→3 只校验合同证据；且模式 ①② 下建 worktree 的是执行者，
 在闸门里查树状态保护不到它，preflight 必须随 handoff 下发。
 
