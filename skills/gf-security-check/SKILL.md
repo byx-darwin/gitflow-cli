@@ -104,7 +104,6 @@ Produce a Security Audit Report with sections per scan type. Suggest fix command
 - Auto-fixing vulnerabilities
 - Modifying `audit.toml` ignore list
 - Patching source code — `/gf-workflow`
-- Reporting vulns to Issue — `/gf-autoreport-bug`
 
 ### 🚫 Do Not
 
@@ -173,4 +172,3 @@ Produce a Security Audit Report with sections per scan type. Suggest fix command
 - `/gf-quality` — 6-gate pre-delivery check
 - `/gf-precommit` — pre-commit security hook
 - `/gf-pipeline-analyzer` — CI/CD security gates
-- `/gf-autoreport-bug` — file vuln as Issue

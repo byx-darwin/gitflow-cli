@@ -1,13 +1,13 @@
 ---
 name: gf-regression
 description: |
-  Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results for regressions, or wants automatic bug reporting for smoke-test failures.
-  当用户运行冒烟/回归测试、解析测试结果或需要自动上报失败时使用。
+  Use when the user runs smoke/regression tests against the gitflow CLI, needs to parse test results for regressions, or wants classified failures surfaced for manual bug filing.
+  当用户运行冒烟/回归测试、解析测试结果或需要将失败分类整理以便手动提交 Issue 时使用。
 ---
 
 # gf-regression
 
-Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, delegates real failures to `/gf-autoreport-bug`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
+Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, classifies real failures and surfaces them for the user to file manually via `gf issue create`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
 
 ## CLI Requirement
 
@@ -58,14 +58,14 @@ Do NOT use this skill in the following scenarios:
 | Code review | This skill runs tests, doesn't review code | `/gf-pr-review` for code review |
 | Full quality gate | This skill only runs smoke tests, not full CI | `/gf-quality` for complete quality checks |
 | Testing other projects | This skill is designed for `gf` CLI only | Use project-specific test commands |
-| CI pipeline | Smoke tests with autoreport shouldn't run in CI | Use `scripts/smoke-test.sh` directly with exit code |
+| CI pipeline | Smoke tests with manual Issue filing shouldn't run in CI | Use `scripts/smoke-test.sh` directly with exit code |
 | Performance testing | This skill checks functionality, not performance | Use benchmarking tools |
 
 ### Common Misconceptions
 
 | Misconception | Reality |
 |---------------|---------|
-| "This will fix the bug" | No — it reports bugs via `/gf-autoreport-bug` |
+| "This will fix the bug" | No — it only reports classified failures; the user files the Issue with `gf issue create` |
 | "This replaces CI" | No — it's a quick local check, not a CI replacement |
 | "This works for any project" | No — it's hardcoded to `scripts/smoke-test.sh` |
 
@@ -75,7 +75,7 @@ Do NOT use this skill in the following scenarios:
 test -f scripts/smoke-test.sh
 bash scripts/smoke-test.sh --platform github 2>&1
 # parse EXIT + PASS/FAIL/SKIP
-# FAIL>0 → classify → /gf-autoreport-bug
+# FAIL>0 → classify → surface summary → prompt manual `gf issue create`
 ```
 
 ## Quick Reference
@@ -100,7 +100,7 @@ flowchart TD
     EXEC --> RESULT{Exit code?}
     RESULT -->|0 pass| DONE[all good]
     RESULT -->|non-zero| CLASS{classify failure}
-    CLASS --> REPAIR[report to autoreport-bug]
+    CLASS --> REPAIR[surface summary, prompt manual gf issue create]
     WRITE --> EXEC
 ```
 
@@ -118,8 +118,8 @@ flowchart TD
 1. **Parameters** — platform default `github`; `--write` only on explicit user request.
 2. **Run** — `bash scripts/smoke-test.sh --platform <p> [--write] [--verbose]`; capture output + exit code.
 3. **Parse** — extract `PASS_COUNT`, `FAIL_COUNT`, `SKIP_COUNT`. Exit 0 → report, done. Else Step 4.
-4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no autoreport. Real bug → write `.cache/bug-reports/pending.json`, invoke `/gf-autoreport-bug`.
-5. **Report** — render markdown summary table + per-failure detail + reported Issue URLs.
+4. **Classify** — per `[FAIL]` line: `command not found` / `auth` (🔴 critical, skip report); `4xx`/`5xx` / `timeout` (🟠); `mismatch` (🟡). Auth/network = transient → no report. Real bug → assemble a Markdown summary (error type, command, log excerpt) and prompt the user whether to file it manually via `gf issue create`.
+5. **Report** — render markdown summary table + per-failure detail + a suggested `gf issue create` command for the user.
 
 ### Error Handling
 
@@ -128,25 +128,25 @@ flowchart TD
 | script missing | `chmod +x` or stop |
 | auth/network fail | Stop. Advise `gitflow auth login` |
 | flaky | Re-run once; flag if persists |
-| >5 failures | Single collective Issue |
+| >5 failures | Single collective summary prompt |
 
 ## Responsibility
 
 ### ✅ In Scope
 
-- Run script, parse output, classify, delegate to autoreport, render report
+- Run script, parse output, classify, surface a Markdown summary, prompt manual `gf issue create`
 
 ### ❌ Out of Scope
 
-- Fixing bugs — autoreport-bug reports only
+- Fixing bugs — this skill only reports, never fixes
 - Editing `scripts/smoke-test.sh`
-- Closing reported Issues
+- Filing or closing Issues — the user runs `gf issue create` manually
 
 ### 🚫 Do Not
 
 - ❌ Run `--write` without explicit confirmation
 - ❌ Report transient auth/network failures
-- ❌ Invoke autoreport-bug from CI pipelines
+- ❌ Auto-file Issues from CI pipelines
 - ❌ Duplicate-report known flaky failures
 
 ## 🔁 Delegation
@@ -154,7 +154,7 @@ flowchart TD
 | Intent | Delegate To |
 |--------|-------------|
 | Run smoke test | This skill |
-| File bug | `/gf-autoreport-bug` |
+| File bug | `/gf-issue-create` (manual, user-confirmed) |
 | Fix root cause | `/gf-workflow` |
 | Pre-release gate | `/gf-release` |
 
@@ -170,7 +170,7 @@ flowchart TD
 - 🚩 "Run write mode" — Confirm non-production env
 - 🚩 "Ignore auth" — Refuse. Auth-fix first
 - 🚩 "Report every failure" — Suppress transient
-- 🚩 CI + autoreport — Refuse; CI uses exit code only
+- 🚩 CI + auto-filing — Refuse; CI uses exit code only
 
 ## Trigger System
 
@@ -224,7 +224,7 @@ User says something about "test" or "check"
 
 ### 2: Negative — "fix login bug" → NOT loaded. → `/gf-workflow`.
 
-### 3: Boundary — 3 auth-related failures → classified transient, autoreport NOT called, user advised `auth login`.
+### 3: Boundary — 3 auth-related failures → classified transient, not surfaced for filing, user advised `auth login`.
 
 ### 4: Error — `--write` in production → Refuses. Confirm scope first.
 
@@ -281,8 +281,8 @@ Summary: 2 passed, 1 failed, 0 skipped
 Classifying failures...
 🟠 issue list: 4xx error (possible API change)
 
-Creating bug report...
-Issue created: https://github.com/.../issues/123
+Summary ready. File this as an Issue manually?
+  gf issue create --title "issue list: 4xx error" --label bug
 ```
 
 ---
@@ -336,7 +336,7 @@ bash scripts/smoke-test.sh --platform github
 - [ ] Read-only unless user opts into write
 - [ ] PASS/FAIL/SKIP parsed and reported
 - [ ] Transient failures filtered
-- [ ] Real bugs delegated to autoreport
+- [ ] Real bugs surfaced with a summary and a prompt for manual `gf issue create`
 - [ ] Markdown report rendered
 
 ## Common Mistakes
@@ -347,7 +347,7 @@ bash scripts/smoke-test.sh --platform github
 
 ## See Also
 
-- `gf-autoreport-bug` — bug reporting
+- `gf-issue-create` — manual bug filing
 - `gf-release` — pre-release gate
 - `gf-quality` — quality checks
 - `gf-pipeline-analyzer` — CI inspection

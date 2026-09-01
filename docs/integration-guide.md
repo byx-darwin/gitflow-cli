@@ -20,14 +20,11 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
            ▼               ▼                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    gf Skills 层                         │
-│  (平台交互能力: Issue / PR / Review / Release / 错误报告)         │
+│  (平台交互能力: Issue / PR / Review / Release)                   │
 │                                                                   │
 │  gf-issue-create ──► gf-pr-create ──► gf-release  │
 │       │                        │                     │            │
 │  gf-issue            gf-pr-review     gf-pr       │
-│       │                                                  │        │
-│  gf-autoreport-bug                                  │        │
-│  (Stop Hook 自动触发)                                      │        │
 └─────────────────────────────────────────────────────────────────┘
            │               │                   │
            ▼               ▼                   ▼
@@ -182,100 +179,7 @@ gf-workflow 同样支持 [mattpocock/skills](https://github.com/mattpocock/skill
 
 完整映射表见 `skills/gf-workflow/references.md` → Dual-Source Skill Resolution。
 
-## 错误反馈集成
-
-gf 内置了自动错误报告机制，当 CLI 命令失败时，会自动将错误信息反馈为 GitHub Issue。
-
-### 数据流
-
-```
-gitflow CLI 命令失败
-       │
-       ▼
-.error_reporter 写入 .cache/bug-reports/pending.json
-       │
-       ▼
-Claude Code Stop Hook（全局注册）触发 git 跟踪的 hooks/auto-report-bug.sh
-       │
-       ▼
-脚本检测到 pending.json → 打印错误 banner
-       │
-       ▼
-Claude 加载 gf-autoreport-bug Skill
-       │
-       ▼
-┌─ 自动 Bug 报告流程 ─────────────────────────────────────────┐
-│  1. 读取 pending.json (error_id, command, error_code 等)     │
-│  2. Claude 分析根因 + 生成 Issue 标题/正文                    │
-│  3. 去重检查: gf issue list --search                    │
-│  4. 创建 Issue: gf issue create --label bug,auto-report │
-│  5. 清理 pending.json                                        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### pending.json 格式
-
-```json
-{
-  "error_id": "550e8400-e29b-41d4-a716-446655440000",
-  "command": "issue create",
-  "platform": "github",
-  "error_code": "AUTH_TOKEN_EXPIRED",
-  "error_message": "GitHub API returned 401: Bad credentials",
-  "timestamp": "2026-07-02T10:30:00Z",
-  "stack_trace": "..."
-}
-```
-
-### 触发条件
-
-Stop Hook 仅在以下条件**全部满足**时触发:
-
-1. 当前目录是 git 仓库。
-2. `.cache/bug-reports/pending.json` 文件存在。
-3. 文件内容包含有效的 `error_code` 字段。
-4. **非交互模式** (stdout/stdin 不是 TTY)。
-
-### 错误去重
-
-创建 Issue 前，Skill 会通过 `gf issue list --search` 检查是否已有相同 `error_code` 的 Issue。如已存在，跳过创建并删除 `pending.json`，避免重复报告。
-
 ## 配置示例
-
-### Hook 配置
-
-Stop Hook 注册在**全局** `~/.claude/settings.json`，命令指向 **git 跟踪**的 `hooks/auto-report-bug.sh`（而非 gitignored 的 `.claude/hooks/`）。这样 `git worktree add` 创建的新 worktree 会自动带上脚本，hook 立即可用。
-
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "gf|gitflow",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \"$p/hooks/auto-report-bug.sh\" ] && bash \"$p/hooks/auto-report-bug.sh\"'"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-**配置说明:**
-
-| 字段 | 说明 |
-|------|------|
-| `hooks.Stop` | Claude Code 停止时触发的 Hook 数组 |
-| `matcher` | 匹配器，`"gf\|gitflow"` 表示 gf 或 gitflow 相关会话触发（兼容新旧 CLI 名） |
-| `command` | 解析 repo 根目录并执行 `hooks/auto-report-bug.sh`；非 git 仓库或脚本缺失时静默跳过 |
-
-> **为什么用全局注册 + git 跟踪脚本?** `.claude/` 目录被 `.gitignore` 忽略，
-> 因此 `git worktree add` 不会物化 `.claude/hooks/` 下的脚本与注册。
-> 将脚本放入 git 跟踪的 `hooks/`，并在全局 `~/.claude/settings.json` 注册，
-> 所有项目与 worktree 都会自动生效。
 
 ### 个人化配置建议
 
@@ -331,29 +235,9 @@ export APP_LOG_LEVEL=debug
 
 ## 常见问题
 
-### Q: Hook 没有触发怎么办?
-
-检查以下几点:
-
-1. 全局 `~/.claude/settings.json` 中 `hooks.Stop` 配置是否正确。
-2. git 跟踪的 `hooks/auto-report-bug.sh` 是否有执行权限: `chmod +x hooks/auto-report-bug.sh`。
-3. `.cache/bug-reports/pending.json` 是否存在。
-4. 确认是非交互模式 (Hook 在 TTY 环境下会跳过)。
-
-### Q: 如何禁用自动错误报告?
-
-从 `.claude/settings.json` 中移除 `hooks.Stop` 配置即可:
-
-```json
-{
-  "hooks": {}
-}
-```
-
 ### Q: Skill 之间的调用顺序是固定的吗?
 
 `gf-workflow` 定义了推荐的 4 阶段流程，但每个 Skill 也可以独立使用。例如:
 
 - 单独运行 `gf-quality` 做质量检查，不一定要在 workflow 中。
 - 单独运行 `gf-pr-create` 创建 PR，不需要从 Issue 开始。
-- 单独运行 `gf-autoreport-bug` 手动触发错误报告。

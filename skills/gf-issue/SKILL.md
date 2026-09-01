@@ -48,7 +48,6 @@ Wraps `gf issue`. 8 subcommands: `create · list · view · close · reopen · c
 | Interactive guided Issue creation | This skill wraps raw CRUD subcommands, not the full interactive workflow | `/gf-issue-create` for guided title/body/label collection |
 | Analyzing Issue requirement quality | This skill performs CRUD operations, not requirement analysis | `/gf-issue-review` for three-dimension scoring |
 | Batch classifying all open Issues | This skill operates on individual Issues, not bulk triage | `/gf-issue-triage` for batch type+priority classification |
-| Automated bug reporting | This skill requires manual command invocation | `/gf-autoreport-bug` for automated `pending.json` processing |
 | Editing Issue title or description | `gf issue` does not support editing body fields | Platform web UI |
 | Deleting Issues | `gf issue` has no delete subcommand | Platform web UI |
 
@@ -181,7 +180,6 @@ flowchart TD
 - `gf-issue-review` — requirement analysis
 - `gf-issue-triage` — classification
 - `gf-label-milestone` — labels/milestones
-- `gf-autoreport-bug` — auto-create from CLI error
 - `gf-workflow` — end-to-end workflow
 - `gf-pr` — PR linking
 

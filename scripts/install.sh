@@ -5,8 +5,7 @@
 #   1. 检查依赖（Rust、Git、平台原生 CLI）
 #   2. 编译 release 二进制并安装到 PATH
 #   3. 安装 Skills 到 ~/.claude/skills/
-#   4. 注册 Stop Hook 到项目 .claude/settings.json
-#   5. 验证安装结果
+#   4. 验证安装结果
 #
 # 用法：
 #   ./scripts/install.sh [选项]
@@ -14,7 +13,6 @@
 # 选项：
 #   --no-build    跳过编译步骤
 #   --no-skills   跳过 Skills 安装
-#   --no-hooks    跳过 Hook 注册
 #   --help        显示帮助信息
 #
 # 支持平台：macOS、Linux、Windows (Git Bash)
@@ -31,14 +29,6 @@ readonly BINARY_NAME="gf"
 readonly MIN_RUST_VERSION="1.96.0"
 readonly SKILLS_SOURCE_DIR="skills"
 readonly SKILLS_TARGET_DIR="${HOME}/.claude/skills"
-readonly HOOKS_SOURCE_DIR="hooks"
-
-# 嵌套 Stop Hook 配置（对齐 Claude Code 官方 schema）
-# matcher 在顶层，hooks 数组包含 type+command 对象
-#
-# 命令指向 git 跟踪的 hooks/auto-report-bug.sh（worktree 自动物化），而非
-# gitignored 的 .claude/hooks/。guard 保证：非 git 仓库或脚本缺失时静默跳过。
-readonly HOOK_CONFIG='{"matcher": "gitflow", "hooks": [{"type": "command", "command": "p=$(git rev-parse --show-toplevel 2>/dev/null) && [ -x \"$p/hooks/auto-report-bug.sh\" ] && bash \"$p/hooks/auto-report-bug.sh\""}]}'
 readonly REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ---------------------------------------------------------------------------
@@ -98,14 +88,12 @@ has_command() {
 
 FLAG_NO_BUILD=false
 FLAG_NO_SKILLS=false
-FLAG_NO_HOOKS=false
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --no-build)   FLAG_NO_BUILD=true ;;
             --no-skills)  FLAG_NO_SKILLS=true ;;
-            --no-hooks)   FLAG_NO_HOOKS=true ;;
             --help|-h)
                 print_usage
                 exit 0
@@ -129,13 +117,12 @@ ${BINARY_NAME} 一键安装脚本
 选项:
   --no-build    跳过编译步骤（适用于已编译或 Homebrew 安装场景）
   --no-skills   跳过 Skills 安装
-  --no-hooks    跳过 Stop Hook 注册
   --help, -h    显示此帮助信息
 
 示例:
   ${SCRIPT_NAME}                   # 完整安装
-  ${SCRIPT_NAME} --no-build        # 跳过编译，仅安装 Skills + Hooks
-  ${SCRIPT_NAME} --no-skills       # 仅编译安装二进制 + 注册 Hooks
+  ${SCRIPT_NAME} --no-build        # 跳过编译，仅安装 Skills
+  ${SCRIPT_NAME} --no-skills       # 仅编译安装二进制
 
 支持平台: macOS、Linux、Windows (Git Bash)
 EOF
@@ -169,7 +156,7 @@ version_gte() {
 # ---------------------------------------------------------------------------
 
 check_dependencies() {
-    step "Step 1/5: 检查依赖"
+    step "Step 1/4: 检查依赖"
     local missing=false
 
     # 检查 Rust
@@ -272,7 +259,7 @@ detect_native_cli() {
 # ---------------------------------------------------------------------------
 
 build_and_install() {
-    step "Step 2/5: 编译并安装二进制"
+    step "Step 2/4: 编译并安装二进制"
 
     if [[ "$FLAG_NO_BUILD" == "true" ]]; then
         info "跳过编译（--no-build）"
@@ -351,7 +338,7 @@ build_and_install() {
 # ---------------------------------------------------------------------------
 
 install_skills() {
-    step "Step 3/5: 安装 Skills"
+    step "Step 3/4: 安装 Skills"
 
     if [[ "$FLAG_NO_SKILLS" == "true" ]]; then
         info "跳过 Skills 安装（--no-skills）"
@@ -400,90 +387,11 @@ install_skills() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 4: 注册 Hooks
-# ---------------------------------------------------------------------------
-
-register_hooks() {
-    step "Step 4/5: 注册 Stop Hook"
-
-    if [[ "$FLAG_NO_HOOKS" == "true" ]]; then
-        info "跳过 Hook 注册（--no-hooks）"
-        return 0
-    fi
-
-    local settings_target="${HOME}/.claude/settings.json"
-    local settings_dir
-    settings_dir="$(dirname "$settings_target")"
-
-    # 确保 hooks 源文件存在（git 跟踪的 hooks/，worktree 自动物化）
-    local hook_script="${REPO_ROOT}/${HOOKS_SOURCE_DIR}/auto-report-bug.sh"
-    if [[ ! -f "$hook_script" ]]; then
-        warn "Hook 脚本不存在: ${hook_script}，跳过注册"
-        return 0
-    fi
-
-    # 确保 hook 脚本可执行（脚本本身被 git 跟踪，无需复制到 .claude/hooks/）
-    chmod +x "$hook_script"
-
-    # 确保全局 settings 目录存在
-    mkdir -p "$settings_dir"
-
-    # 检查 settings.json 中是否已有 Stop hook 配置
-    if [[ -f "$settings_target" ]]; then
-        # 检查是否已包含 auto-report-bug hook
-        if grep -q "auto-report-bug" "$settings_target" 2>/dev/null; then
-            info "Stop Hook 已配置（auto-report-bug），跳过注册"
-            return 0
-        fi
-
-        # settings.json 存在但没有 hook — 需要合并
-        # 使用简单方式：检查是否有 hooks 键，然后追加
-        if grep -q '"hooks"' "$settings_target" 2>/dev/null; then
-            # 已有 hooks 字段但没匹配 — 需要手动合并
-            warn "settings.json 已有 hooks 配置，但缺少 auto-report-bug"
-            warn "请手动合并以下配置到: ${settings_target}"
-            echo "  ${HOOK_CONFIG}"
-            return 0
-        fi
-    fi
-
-    # 仅当目标文件不存在或为空时写入，否则提示手动合并
-    if [[ -f "$settings_target" ]] && [[ -s "$settings_target" ]]; then
-        warn "settings.json 已存在且包含其他配置，不会自动覆盖"
-        warn "请手动将以下 Hook 配置合并到: ${settings_target}"
-        echo ""
-        echo '  在现有 JSON 对象中添加以下 "hooks" 键：'
-        echo ""
-        cat <<MERGE_EOF
-    "hooks": {
-      "Stop": [
-        ${HOOK_CONFIG}
-      ]
-    }
-MERGE_EOF
-        echo ""
-        return 0
-    fi
-
-    cat > "$settings_target" <<SETTINGS_EOF
-{
-  "hooks": {
-    "Stop": [
-      ${HOOK_CONFIG}
-    ]
-  }
-}
-SETTINGS_EOF
-
-    info "Stop Hook 已注册到: ${settings_target}"
-}
-
-# ---------------------------------------------------------------------------
-# Step 5: 验证
+# Step 4: 验证
 # ---------------------------------------------------------------------------
 
 verify_installation() {
-    step "Step 5/5: 验证安装"
+    step "Step 4/4: 验证安装"
 
     local ok=true
 
@@ -514,15 +422,6 @@ verify_installation() {
         warn "Skills 目录不存在: ${SKILLS_TARGET_DIR}"
     fi
 
-    # 验证 hook：全局 settings 已注册 + 跟踪的 hook 脚本存在
-    local settings_target="${HOME}/.claude/settings.json"
-    local hook_script="${REPO_ROOT}/${HOOKS_SOURCE_DIR}/auto-report-bug.sh"
-    if [[ -f "$hook_script" ]] && [[ -f "$settings_target" ]] && grep -q "auto-report-bug" "$settings_target" 2>/dev/null; then
-        info "Stop Hook: 已配置（全局 → hooks/auto-report-bug.sh）"
-    else
-        warn "Stop Hook: 未配置（运行 ${SCRIPT_NAME} 不带 --no-hooks 可注册）"
-    fi
-
     if [[ "$ok" == "true" ]]; then
         echo ""
         info "🎉 gf 安装完成！"
@@ -550,12 +449,10 @@ main() {
 
     if [[ "$FLAG_NO_BUILD" == "true" ]]; then info "标志: 跳过编译"; fi
     if [[ "$FLAG_NO_SKILLS" == "true" ]]; then info "标志: 跳过 Skills 安装"; fi
-    if [[ "$FLAG_NO_HOOKS" == "true" ]]; then info "标志: 跳过 Hook 注册"; fi
 
     check_dependencies
     build_and_install
     install_skills
-    register_hooks
     verify_installation
 }
 
