@@ -1,0 +1,77 @@
+---
+layout: ../layouts/Base.astro
+title: 用 gf 开发 gf — dogfooding 案例 | gf
+---
+
+<main class="narrow page">
+  <div class="prose">
+
+# 用 gf 开发 gf：一次真实的 dogfooding 案例
+
+gf 从第一行代码开始，就是用它自己驱动开发的——需求进 Issue、评估进四阶段编排、代码进 PR、发布用它自己的 `gf release`。到本文写作时，仓库里已经归档了 **30 个** `gf-workflow` 执行合同（`.cache/workflows/archive/`），横跨 fast / standard / full 三种模式。这篇文章不讲营销话术，只讲这套流程在真实迭代里长什么样、踩过什么坑、又是怎么补上的。
+
+## 四阶段编排：一次真实的走查
+
+`/gf-workflow` 把一次改动切成四个强制闸门的阶段：**需求澄清 → 计划制定 → 执行 → 交付后检查**。中间只有一个人工确认点（计划批准），其余全部自动流转。以 v1.0.0 发布前的一次真实 dogfooding 会话为例（`docs/dogfooding-report-v1.0.0.md`）：
+
+```
+$ /gf-workflow release-dogfooding
+
+# Phase 1: 需求澄清
+→ 读取发布检查清单，确定本轮 GitHub 可执行项范围
+
+# Phase 3: 执行（逐项验收）
+✅ gf release create --tag-name <tag>       PASS
+✅ Release 在 GitHub 网页可见               PASS
+✅ 非交互模式 --yes 传递                    PASS
+❌ 删除操作幂等，重复删除不报错             FAIL
+❌ 删除后 git tag 清理（--cleanup-tag）      FAIL
+```
+
+流程在这里没有"发现问题就算了"，而是直接把两个 FAIL 项转成了 Issue #130：`release delete` 没有清理残留的 git tag，重复删除同一个 release 还会报错而不是幂等返回。根因很具体——`crates/github/src/release.rs` 里的 `delete` 调用 `gh release delete` 时没传 `--cleanup-tag`，也没有对"release not found"做幂等判断。
+
+修复走的是同一套 TDD 闭环：PR #131 补了 3 个测试（JSON 幂等、纯文本幂等、`--cleanup-tag` 参数断言），跑通 `gitflow-github` crate 全部 202 个测试，`clippy --all-targets --all-features -- -D warnings -W clippy::pedantic` 干净。复验环节重新走一遍"创建 → 删除 → tag 清理确认 → 重复删除幂等"，全部转绿后才在报告里写下 **APPROVED**。
+
+这不是唯一一次。仓库里现存的 `docs/dogfooding-report-*.md`、`docs/pipeline-analysis-report-*.md`、`docs/code-review-report-*.md` 加起来几十份，每一份都是某次真实执行留下的证据链，而不是补写的总结。
+
+## 30 个合同背后的分布
+
+`gf-workflow` 的模式不是"一刀切"，而是按改动复杂度自动分诊：`docs:`/`chore:`/`hotfix` 前缀走 fast（跳过计划闸门，TDD 与代码审查仍强制），单文件 `fix:`/`refactor:` 走 standard，跨模块 `feat:` 或破坏性变更走 full。截至本文写作，30 个已归档合同里：
+
+| 模式 | 数量 | 特征 |
+|------|------|------|
+| standard | 19 | 单模块修复/重构，占主流 |
+| full | 6 | 跨模块新功能，走完整四阶段（含 Issue triage、review、dogfooding checklist） |
+| fast | 5 | 文档/杂项，跳过计划但不跳过测试与审查 |
+
+这个分布本身就是证据：大部分真实改动落在中等复杂度，而流程没有为了图省事把 TDD 或代码审查也降级——即使是 fast 模式，Phase 3 的 RED → GREEN → REFACTOR 与代码审查依然是硬性要求，这一点在 `skills/gf-workflow/SKILL.md` 的 Enforcement Rules 里写死：*"Fast mode: skip TDD or Code Review"* 明确列在禁止项里。
+
+## 契约测试与兼容性矩阵：把"平台差异"焊死
+
+gf 同时封装 GitHub（`gh`）、GitLab（`glab`）、GitCode（`gitcode`）三套底层 CLI，最容易踩的坑是三个平台的 JSON 输出格式、错误语义各不相同，且会随版本漂移。`docs/superpowers/plans/2026-07-31-contract-test-compatibility-matrix.md` 记录了这套防线的落地过程：
+
+- **Fixture 契约测试**：`crates/github/tests/fixtures`、`crates/gitlab/tests/fixtures`、`crates/gitcode/tests/fixtures` 下固化了真实 CLI 输出样本，反序列化逻辑对着这些 fixture 跑，CLI 输出字段一旦漂移，测试立刻红。
+- **统一错误类型**：`PlatformCliError`（`crates/core/src/cli_error.rs`）把三份平台各自的错误类型收敛成一个，`user_message` / `raw_stderr` / `hint` / `doc_link` 分离，原始 stderr 只进 `tracing::debug!`，绝不直接回显给用户。
+- **单一数据源的兼容性矩阵**：`crates/core/resources/compatibility-matrix.json` 编译期通过 `include_str!` 嵌入 `gitflow-core`，同时驱动 `prerequisites.rs` 的版本前置检查和 `docs/compatibility-matrix.md` / 官网[兼容性页](/gitflow-cli/compatibility/)的生成——三处只维护一份数据，不会出现"文档写的版本和代码校验的版本不一致"。
+
+这套机制不是纸面设计。当前矩阵里 GitLab 一栏记了 4 个已测试版本（1.111.0 ~ 1.114.0），GitHub 记的是 2.97.0——每一个版本号背后都是一次真实的 CI 契约测试跑通，而不是手工拍的数字。
+
+## dogfooding 反过来教会了流程什么
+
+几点是从真实执行里长出来的经验，不是设计阶段就想到的：
+
+1. **交付证据要分场景，不能一刀切。** Gate 3→4 最初只认 PR URL，后来发现本地合并（`local_merge`）场景下没有 PR，于是拆成 `pr_url` / `merge_commit` 二选一，闸门校验代码同步更新（`gates.md`）。
+2. **测试通过不等于能合并。** Phase 3 的 `tests_passed` 明确标注为"本地前置自检，不是 CI 结论"——真正的合并闸门是平台的必需检查加 `gf pr merge --auto` 排队合并。这条注记本身就是踩过坑之后补的：本地绿不代表 CI 绿。
+3. **worktree 也会脏。** Phase 3 Step 1 的 Worktree Preflight（提交前先分类 A/B/C 三桶、绝不自动提交或删除）是在真实执行里撞见过"设计文档被落在主工作区、worktree 里找不到"之后加上的强制前置检查。
+
+## 参考
+
+- 四阶段编排规则：[`skills/gf-workflow/SKILL.md`](https://github.com/byx-darwin/gitflow-cli/blob/main/skills/gf-workflow/SKILL.md)
+- 门控定义：[`skills/gf-workflow/gates.md`](https://github.com/byx-darwin/gitflow-cli/blob/main/skills/gf-workflow/gates.md)
+- 契约测试与兼容性矩阵设计：[`docs/superpowers/specs/2026-07-31-contract-test-compatibility-matrix-design.md`](https://github.com/byx-darwin/gitflow-cli/blob/main/docs/superpowers/specs/2026-07-31-contract-test-compatibility-matrix-design.md)
+- 全部 dogfooding 报告：[`docs/dogfooding-report-*.md`](https://github.com/byx-darwin/gitflow-cli/tree/main/docs)
+
+> 本文原发布于 gf 官网（[byx-darwin.github.io/gitflow-cli/dogfooding](https://byx-darwin.github.io/gitflow-cli/dogfooding/)），如在掘金 / 知乎等平台转载，请在文首注明来源并保留指回此地址的 canonical link。
+
+  </div>
+</main>
