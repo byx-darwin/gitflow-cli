@@ -89,12 +89,23 @@ flowchart TD
 - "Auto-fix the pipeline" → analysis only; fixes require user decision
 - "Retry all failures" → refuse; each retry requires user confirmation
 
+## Escalation Rule
+
+Track the success-rate tier (🟢/🟡/🔴, per Quality Grades) across the report history for the branch. If the tier has stayed the same for **≥3 consecutive reports** with no remediation action taken since the streak started (no fix landed, no follow-up Issue opened), the report output MUST escalate instead of silently re-stating the same finding:
+
+- Explicitly call out the repeat streak in the report (e.g. "Watch tier for N consecutive reports, no remediation since <date/PR>").
+- Prompt the user to either open a concrete fix Issue (`/gf-issue-create`, human-triggered) or take direct action — do not open the Issue yourself; creating Issues remains prohibited for this skill (see `When NOT to Use`).
+- This is a stronger callout in the report output only, not a new write capability — the skill stays read-only.
+
+CN 连续多次同水位未处理 → 升级提示，而非静默复述。
+
 ## Common Mistakes
 
 | Mistake | Correction |
 |------|------|
 | Only looking at average success rate | P90/P95 carries more signal |
 | Treating intermittent failures as persistent | ≥3 consecutive is persistent; otherwise flaky |
+| Re-reporting the same tier without escalating | ≥3 consecutive same-tier reports with no remediation → escalate per Escalation Rule |
 
 ## Rationalization
 
