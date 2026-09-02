@@ -7,6 +7,57 @@ All notable changes to this project will be documented in this file. See [conven
 
 ### Bug Fixes
 
+- **(gf-workflow-batch)** trim SKILL.md to meet 500-word budget - ([40918bf](https://github.com/byx-darwin/gitflow-cli/commit/40918bf2a54d456e3cea732771ec344cdfdca76d)) - baoyuexing
+- **(gf-workflow-batch)** correct stale Rationalization Excuses citation in test scenario 5 - ([ab7ac66](https://github.com/byx-darwin/gitflow-cli/commit/ab7ac66350986a72abf71e9a2e18d57b934d1232)) - baoyuexing
+- **(gf-workflow-batch)** correct mislabeled Rationalization citation in test scenario 2 - ([d6eca90](https://github.com/byx-darwin/gitflow-cli/commit/d6eca90e13f035fb2f209c6e3c813f9f95cc908d)) - baoyuexing
+- **(gf-workflow-batch)** address skill validation findings - ([500fc49](https://github.com/byx-darwin/gitflow-cli/commit/500fc4981c43085e0f364d68c1a108828dbf9309)) - baoyuexing
+- **(gf-workflow-batch)** address final review findings (--limit, failure memory, stale citations, index format) - ([a47094c](https://github.com/byx-darwin/gitflow-cli/commit/a47094cef6c967c12548162756501e5637b070f9)) - baoyuexing
+- remove remaining dead bug-report producer and stale design-spec references - ([8a14404](https://github.com/byx-darwin/gitflow-cli/commit/8a14404ec64a586db300d1bf1c5f3939fc36bdbb)) - baoyuexing
+
+### Documentation
+
+- **(gf-workflow-batch)** add pending-derivation and discussion-mode reference - ([2b16a30](https://github.com/byx-darwin/gitflow-cli/commit/2b16a30a6888dfd22a8986d4295d0ca2fc29cfe4)) - baoyuexing
+- **(workflow)** add design doc and implementation plan for autoreport-bug removal (#278) - ([94068cd](https://github.com/byx-darwin/gitflow-cli/commit/94068cd0f19eccc2f9faec2f539a2daa99146f3f)) - baoyuexing
+- remove stale auto-report-bug and co-contribution references - ([d3dfcf3](https://github.com/byx-darwin/gitflow-cli/commit/d3dfcf369370bfb862f72d1bb3384a205a57f7a1)) - baoyuexing
+- fix residual auto-filing implications in gf-regression skill - ([48dd784](https://github.com/byx-darwin/gitflow-cli/commit/48dd784d63471cf1601f7d236c48370176df90b8)) - baoyuexing
+- add Phase 4 pipeline analysis and code review reports for PR #279 - ([9a785a3](https://github.com/byx-darwin/gitflow-cli/commit/9a785a3c5a96ede855ebc02a44c8326a8e7b2bda)) - baoyuexing
+- add gf-workflow-batch design spec (#280) - ([052b69e](https://github.com/byx-darwin/gitflow-cli/commit/052b69ed6266a23482b534cf07723079a07a745f)) - baoyuexing
+- add gf-workflow-batch implementation plan (#280) - ([20b87da](https://github.com/byx-darwin/gitflow-cli/commit/20b87da606ed2de9c81e4f6b181d39aecc5a88f2)) - baoyuexing
+- index gf-workflow-batch skill - ([600fb88](https://github.com/byx-darwin/gitflow-cli/commit/600fb885229787fe121e6f4ad2bef85ce764c437)) - baoyuexing
+- add Phase 4 reports for PR #281 (pipeline, triage, review) - ([108e56d](https://github.com/byx-darwin/gitflow-cli/commit/108e56dc5d44fb32b146dab3baba18860c3ab73c)) - baoyuexing
+- update compatibility matrix - ([585b95e](https://github.com/byx-darwin/gitflow-cli/commit/585b95e1ebe9575a94fda645e8f7b92d2c0b327f)) - baoyuexing
+
+### Features
+
+- **(gf-workflow-batch)** add skill scaffold with core pattern and gates - ([4ca3577](https://github.com/byx-darwin/gitflow-cli/commit/4ca35775f09a5082d1b45c3e050c059516050b01)) - baoyuexing
+
+### Miscellaneous Chores
+
+- **(install)** remove dead Stop Hook registration for deleted auto-report-bug script - ([d71c4a2](https://github.com/byx-darwin/gitflow-cli/commit/d71c4a2ab528d26cdad2f3dafd8d006ef830497c)) - baoyuexing
+- sync main back to dev after release v1.8.0 - ([d7c05cc](https://github.com/byx-darwin/gitflow-cli/commit/d7c05ccf32e41ca1e97297357eb693a2fe558946)) - baoyuexing
+- remove auto-report-bug hook script and gf-autoreport-bug skill - ([c587ec9](https://github.com/byx-darwin/gitflow-cli/commit/c587ec972ab4a346e8b924b377b5513d8e65aecf)) - baoyuexing
+- remove stale pending.json comment in json_output_test - ([26dbec4](https://github.com/byx-darwin/gitflow-cli/commit/26dbec469c7cb28f97d167cb57bc888f88e22370)) - baoyuexing
+- release v1.9.0 - ([cde5252](https://github.com/byx-darwin/gitflow-cli/commit/cde5252e18b1b3d5c473ed7ab994e8b98c04fbac)) - baoyuexing
+
+### Other
+
+- Merge pull request #281 from byx-darwin/feat/280-gf-workflow-batch
+
+feat(gf-workflow-batch): add serial batch driver for multiple open Issues - ([c07550b](https://github.com/byx-darwin/gitflow-cli/commit/c07550bf12832053efc6fafea525574f37fc816a)) - mc-ai
+
+### Refactoring
+
+- **(cli)** remove error_reporter, co-contribution and autoreport-bug hook install logic - ([a18ce11](https://github.com/byx-darwin/gitflow-cli/commit/a18ce117c799a05519b257027e98618946014179)) - baoyuexing
+
+### Tests
+
+- **(gf-workflow-batch)** add stress test scenarios - ([89e2d84](https://github.com/byx-darwin/gitflow-cli/commit/89e2d8479e69a5233fd168070a9c2c59b1615303)) - baoyuexing
+
+---
+## [1.8.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.7.0..v1.8.0) - 2026-09-01
+
+### Bug Fixes
+
 - **(autoreport)** prune archived pending.json reports beyond retention cap - ([d8f6a49](https://github.com/byx-darwin/gitflow-cli/commit/d8f6a4963cd63bb54fdbbb654120297e771a3964)) - baoyuexing
 - **(autoreport)** skip error reporting when running in CI - ([ed4132d](https://github.com/byx-darwin/gitflow-cli/commit/ed4132da18106142225743e3c104e8be46a2b980)) - baoyuexing
 - **(autoreport)** fail loud when the auto-report label is missing - ([e948140](https://github.com/byx-darwin/gitflow-cli/commit/e948140a7bec3eec6e555e3aca58fafa79c7aa1f)) - baoyuexing
@@ -62,7 +113,6 @@ All notable changes to this project will be documented in this file. See [conven
 - add Phase 4 analysis reports for PR #274 (#267) - ([5dd6e9b](https://github.com/byx-darwin/gitflow-cli/commit/5dd6e9b40dab4d08c5022a60adda3796e6e0db6d)) - baoyuexing
 - add design and implementation plan for Issue #275 - ([8f7607a](https://github.com/byx-darwin/gitflow-cli/commit/8f7607a56c5c55bd66608903e1c7947f7e121150)) - baoyuexing
 - add Phase 4 analysis reports for PR #276 (#275) - ([b031d27](https://github.com/byx-darwin/gitflow-cli/commit/b031d27e2c0fdbaa802f8fa0d339b19ef8e57513)) - baoyuexing
-- update compatibility matrix - ([4b4fcca](https://github.com/byx-darwin/gitflow-cli/commit/4b4fccabf4eeff72ad9fe2452994903815302659)) - baoyuexing
 
 ### Features
 
@@ -78,7 +128,6 @@ All notable changes to this project will be documented in this file. See [conven
 ### Miscellaneous Chores
 
 - **(deps)** drop rand for rand_core, fix e2e-* edition/version drift - ([209978f](https://github.com/byx-darwin/gitflow-cli/commit/209978f7939f229f6c3e666686f43600bf23ce11)) - baoyuexing
-- release v1.8.0 - ([3d27637](https://github.com/byx-darwin/gitflow-cli/commit/3d27637b97124c43993af9d5f8c6dcb6f6b0bb2c)) - baoyuexing
 
 ### Other
 
