@@ -361,7 +361,11 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             })
             .collect();
 
-        let total_runs = runs.len() as u64;
+        // Only runs that have reached a terminal state carry a `conclusion`
+        // (GitHub sets it once `status == "completed"`). An in-progress run
+        // serializes with `conclusion: null` and must not inflate the
+        // denominator used for `success_rate`.
+        let total_runs = runs.iter().filter(|r| r.conclusion.is_some()).count() as u64;
 
         let (success_count, total_duration_secs, failure_counts, has_duration) =
             aggregate_report_metrics(&runs);
@@ -783,6 +787,46 @@ mod tests {
         assert!(top_failures.contains(&"startup_failure".to_string()));
         assert!(top_failures.contains(&"timed_out".to_string()));
         assert_eq!(top_failures.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_should_exclude_in_progress_runs_from_report_total_runs() {
+        // 4 runs in the report window: 2 success, 1 failure, 1 still in-progress
+        // (GitHub only sets `conclusion` once a run is `completed`, so an
+        // in-progress run serializes with `"conclusion": null`).
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"conclusion": null, "createdAt": "{}", "updatedAt": "{}"}}
+            ]"#,
+            ts(600),
+            ts(300),
+            ts(500),
+            ts(200),
+            ts(400),
+            ts(100),
+            ts(60),
+            ts(30),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        // Only 3 of the 4 runs have reached a terminal state (conclusion is
+        // Some); the in-progress run (conclusion: null) must be excluded
+        // from total_runs, not just from success/failure counts.
+        assert_eq!(report.total_runs, 3);
+        assert!((report.success_rate - (2.0 / 3.0)).abs() < f64::EPSILON);
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---
