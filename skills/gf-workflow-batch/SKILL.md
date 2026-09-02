@@ -41,6 +41,13 @@ for this project (GitHub + GitLab + GitCode); `gh` is GitHub-only.
 | process all issues | 处理所有 issue |
 | serial driver | 串行驱动器 |
 
+## When NOT to Use
+
+| Scenario | Why Not | Use Instead |
+|----------|---------|-------------|
+| Analyzing a single Issue's requirement quality | This skill dispatches `/gf-workflow`, it does not analyze requirements | `/gf-issue-review` for requirement completeness analysis |
+| Bulk classifying/labeling open Issues | This skill runs the full four-phase gate per Issue, not classification | `/gf-issue-triage` for bulk type/priority classification |
+
 ## Core Pattern
 
 ```bash
