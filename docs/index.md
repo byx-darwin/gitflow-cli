@@ -35,6 +35,7 @@
 ## 官网与 GEO
 
 - 官方网站：<https://byx-darwin.github.io/gitflow-cli>（源码见 `website/`）
+- [用 gf 开发 gf：dogfooding 案例](https://byx-darwin.github.io/gitflow-cli/dogfooding/)（`website/src/pages/dogfooding.mdx`）— 四阶段编排的真实执行走查、契约测试与兼容性矩阵如何反哺质量。Issue #288。
 - GEO 地基：`website/public/llms.txt`、`website/public/llms-full.txt`、`website/public/robots.txt`、`website/src/layouts/Base.astro`（JSON-LD）
 - 演示资产：`docs/assets/demo.svg`（生成脚本 `scripts/gen-demo-svg.sh`）
 - 设计文档：`docs/superpowers/specs/2026-07-31-v1.0-metadata-website-geo-design.md`

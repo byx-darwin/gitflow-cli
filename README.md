@@ -126,6 +126,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 - [5 分钟快速上手](https://byx-darwin.github.io/gitflow-cli/quickstart/)
 - [兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/)
 - [更新日志](https://byx-darwin.github.io/gitflow-cli/changelog/)
+- [用 gf 开发 gf：dogfooding 案例](https://byx-darwin.github.io/gitflow-cli/dogfooding/)
 - 仓库内文档：[`docs/`](docs/index.md)
 
 ## 设计原则
