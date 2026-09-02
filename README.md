@@ -21,7 +21,15 @@ cargo install gitflow-cli
 
 ## 前置条件
 
-`gf` 本体只依赖对应平台的 Git CLI（见[平台支持](#平台支持)）。但要跑 `/gf-workflow` 四阶段工作流，还需先准备好 Agent 运行环境与技能来源：
+`gf` 支持两种使用方式，前置依赖不同：只想直接跑 `gf issue/pr/release` 等 CLI 命令，装完 `gf` 本体即可用；想用 `/gf-workflow` 四阶段编排，则还需额外准备 Agent 运行环境与技能来源。
+
+### 纯 CLI 使用
+
+`gf` 本体只依赖对应平台的 Git CLI，无需 Claude Code、Skills 或 Node.js。安装 `gf` 后，按 `--platform`（或自动检测）装好对应的 `gh` / `glab` / `gitcode` 即可直接使用，版本要求见[平台支持](#平台支持)。
+
+### Agent 编排使用
+
+要跑 `/gf-workflow` 四阶段工作流，还需先准备好 Agent 运行环境与技能来源：
 
 | 依赖 | 要求 | 说明 |
 |------|------|------|
@@ -40,8 +48,10 @@ npx skills@latest add mattpocock/skills   # 需 Node.js ≥ 22.20.0
 
 ## 30 秒上手
 
+### Agent 编排路径
+
 ```bash
-# 0. 先装好前置条件：Claude Code + 技能来源（见上「前置条件」）
+# 0. 先装好前置条件：Claude Code + 技能来源（见上「前置条件 > Agent 编排使用」）
 
 # 1. 安装 Skills（项目级，跟随仓库）
 gf skills install
@@ -52,6 +62,22 @@ gf --version
 
 # 3. 在 Agent 平台中进入四阶段工作流
 /gf-workflow 我要做 X
+```
+
+### 仅用 CLI 路径
+
+不需要 Claude Code / Skills，装好 `gf` 和对应平台 CLI 即可直接操作：
+
+```bash
+# 1. 安装 gf
+brew tap byx-darwin/tap && brew install gf   # 或 cargo install gitflow-cli
+
+# 2. 登录对应平台（自动检测或用 --platform 指定）
+gf auth login
+
+# 3. 直接使用底层命令
+gf issue list
+gf pr create --title "fix: xxx" --body "..."
 ```
 
 ## 平台支持
