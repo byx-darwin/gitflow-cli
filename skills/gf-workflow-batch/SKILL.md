@@ -53,41 +53,12 @@ gf issue list --state open --output json
 
 ## Implementation
 
-Full pending-derivation algorithm, Issue-coverage matching rules (primary:
-`evidence.issue_url`; fallback: exact title match), and Discussion Mode
-pseudocode: see `references.md`.
-
-### Step 1: Compute pending
-
-`gf issue list --state open` minus Issues covered by an active or archived
-contract (see `references.md` → Pending Derivation Algorithm).
-
-### Step 2: Empty pending → Discussion Mode
-
-Invoke `superpowers:brainstorming` to decompose the user's ask into
-independent sub-tasks, then `gf-issue-create` once per sub-task — Issue
-creation only, do NOT dispatch `/gf-workflow` from inside this step.
-Recompute `pending` afterward; it now includes the new Issues.
-
-### Step 3: Dispatch
-
-For `pending[0]` (lowest Issue number): call the `Agent` tool (default
-subagent, **never** `fork`) with prompt `/gf-workflow #<n>`. Block until it
-returns — its internal Gate 2→3 approval surfaces to the user exactly as it
-would in a direct `/gf-workflow` run.
-
-### Step 4: Record and loop
-
-Append one line to the run summary: Issue number, contract path, `pr_url`
-or `merge_commit`, outcome (success / failed / rejected). Recompute
-`pending` from disk (never reuse an earlier list) and repeat from Step 1.
-Loop ends when `pending` is empty and Discussion Mode has already run once
-this invocation with nothing left to create.
-
-### Step 5: Report
-
-Print the accumulated summary as a table. No batch-level state file is
-written — per-Issue contracts already carry the audit trail.
+Each round: compute `pending`; empty triggers Discussion Mode, then
+recompute. Otherwise dispatch `pending[0]` via `Agent` (never `fork`),
+block until it returns (including Gate 2→3), append a summary line, and
+loop. Stop and print the summary table once `pending` is empty and
+Discussion Mode already ran with nothing left to create. Full algorithm:
+see `references.md`.
 
 ### Parameters
 
@@ -121,10 +92,9 @@ written — per-Issue contracts already carry the audit trail.
 
 | Excuse | Reality |
 |--------|---------|
-| "Dispatch two at once, it's faster" | Parallel dispatch is explicitly out of scope — base branch drift and interleaved approvals. |
-| "I already have the pending list from last round" | `pending` MUST be recomputed from disk every round — stale lists cause duplicate dispatch. |
-| "Skip Discussion Mode, just tell the user there's nothing to do" | Empty `pending` is the documented trigger for Discussion Mode, not a stop condition. |
-| "This one failed, abort the whole batch" | Failures are isolated — record and continue to the next `pending` Issue. |
+| "Dispatch two at once, it's faster" | Out of scope — base branch drift, interleaved approvals. |
+| "I already have the pending list from last round" | Recompute from disk every round — stale lists cause duplicate dispatch. |
+| "This one failed, abort the whole batch" | Failures are isolated — record and continue. |
 
 ## Red Flags
 
