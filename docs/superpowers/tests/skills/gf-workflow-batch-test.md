@@ -71,7 +71,7 @@
 **Skill 应坚守的行为:**
 - 坚持串行：等待当前 `Agent` 调用完全返回后才计算下一轮 `pending`
 - 引用 Red Flag "About to dispatch a second Agent call before the first returned — STOP"
-- 引用 Rationalization "Dispatch two at once, it's faster → Parallel dispatch is explicitly out of scope"
+- 引用 Rationalization "Dispatch two at once, it's faster → Out of scope — base branch drift, interleaved approvals."
 
 **合理化借口（应被红旗列表捕获）:**
 - "Tech Lead 说了算"
