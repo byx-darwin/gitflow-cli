@@ -158,4 +158,5 @@ gf/
 ### 贡献指南
 
 欢迎外部贡献！请选择标记为 `good first issue` 的任务作为起点。
+可在此查看当前所有 [`good first issue` 列表](https://github.com/byx-darwin/gitflow-cli/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)。
 开发环境搭建请参照上方「安装开发工具」章节。

@@ -138,4 +138,4 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 
 ## 贡献
 
-详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+详见 [CONTRIBUTING.md](CONTRIBUTING.md)。初次贡献可从 [`good first issue` 列表](https://github.com/byx-darwin/gitflow-cli/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)开始。
