@@ -171,9 +171,11 @@
 - `pending` 为空是 Discussion Mode 的文档化触发条件，而非停止条件；但用户
   明确表示"不用再讨论"时，这是用户主动的范围收窄指令，Skill 应确认后跳过
   （而不是自主决定跳过）
-- 引用 Rationalization "Skip Discussion Mode, just tell the user there's
-  nothing to do → Empty pending is the documented trigger for Discussion
-  Mode, not a stop condition"
+- 引用 `## Implementation` "empty triggers Discussion Mode, then recompute"
+- 引用 Test Scenarios "5: Boundary" — "zero open Issues (or zero uncovered
+  ones) — enters Discussion Mode: `superpowers:brainstorming` then
+  `gf-issue-create` per sub-task, then recomputes `pending` and continues
+  the dispatch loop"
 
 **合理化借口（应被红旗列表捕获）:**
 - "用户说算了，那就不用讨论了"（未经确认直接假设为跳过指令）
