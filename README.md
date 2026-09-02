@@ -94,7 +94,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 | Issue | `gf-issue-create` / `gf-issue-review` / `gf-issue-triage` | 创建 / 需求审查 / 分类分流 |
 | PR | `gf-pr-create` / `gf-pr-review` / `gf-pr-inline-review` / `gf-pr-apply-feedback` | 创建 / 6 维审查 / 逐行评论 / 应用反馈 |
 | 交付 | `gf-release-helper` / `gf-label-stats` / `gf-pipeline-analyzer` | Release Note / 标签统计 / 流水线健康 |
-| 辅助 | `gf-security-check` / `gf-precommit` / `gf-regression` / `gf-repo-onboarding` / `gf-autoreport-bug` | 安全审计 / 预提交 / 回归 / 入门 / 自动报障 |
+| 辅助 | `gf-security-check` / `gf-precommit` / `gf-regression` / `gf-repo-onboarding` | 安全审计 / 预提交 / 回归 / 入门 |
 
 ## CLI 命令一览
 

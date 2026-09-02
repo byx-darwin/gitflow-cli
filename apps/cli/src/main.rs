@@ -43,7 +43,6 @@ pub mod built_info {
 }
 
 mod commands;
-mod error_reporter;
 mod errors;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
@@ -83,9 +82,6 @@ fn main() -> std::process::ExitCode {
         Err(e) => e.exit(),
     };
 
-    // Capture the command name before `cli` is consumed by `async_main`.
-    let command_name = cli.command_name();
-
     // Completions are purely synchronous -- generate and exit
     if let Commands::Completions(ref args) = cli.command {
         return commands::completions::generate::<Cli>(args);
@@ -96,12 +92,6 @@ fn main() -> std::process::ExitCode {
         Ok(rt) => rt,
         Err(e) => {
             let report = miette::miette!("Failed to create async runtime: {e}");
-            report_error_noninteractive(
-                &command_name,
-                "unknown",
-                &report.to_string(),
-                "RUNTIME_ERROR",
-            );
             eprintln!("{report:?}");
             return std::process::ExitCode::from(1);
         }
@@ -123,12 +113,6 @@ fn main() -> std::process::ExitCode {
         match resolve_platform(cli.platform.clone()) {
             Ok(pr) => pr,
             Err(e) => {
-                report_error_noninteractive(
-                    &command_name,
-                    "unknown",
-                    &e.to_string(),
-                    "PLATFORM_ERROR",
-                );
                 eprintln!("{e:?}");
                 return std::process::ExitCode::from(1);
             }
@@ -141,32 +125,10 @@ fn main() -> std::process::ExitCode {
     match rt.block_on(async_main(cli, &platform, &repo, &remote_url)) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
-            if platform_needed {
-                let error_code = if e.code().is_some_and(|c| c.to_string() == "gf::user_input") {
-                    "USER_INPUT_ERROR"
-                } else {
-                    "CLI_ERROR"
-                };
-                report_error_noninteractive(&command_name, &platform, &e.to_string(), error_code);
-            }
             eprintln!("{e:?}");
             std::process::ExitCode::from(1)
         }
     }
-}
-
-/// Best-effort error reporting for non-interactive mode.
-///
-/// Delegates to [`error_reporter::maybe_report_error`], silently
-/// discarding any I/O errors. The error report is a diagnostic aid;
-/// a failure to write it must never block or alter the exit code.
-fn report_error_noninteractive(
-    command: &str,
-    platform: &str,
-    error_message: &str,
-    error_code: &str,
-) {
-    let _ = error_reporter::maybe_report_error(command, platform, error_message, error_code);
 }
 
 /// Async entry point that wires graceful shutdown into the main flow.
@@ -494,30 +456,6 @@ struct Cli {
 
     #[command(subcommand)]
     command: Commands,
-}
-
-impl Cli {
-    /// Return the top-level subcommand name for error reporting.
-    fn command_name(&self) -> String {
-        match self.command {
-            Commands::Issue(_) => "issue",
-            Commands::Pr(_) => "pr",
-            Commands::Release(_) => "release",
-            Commands::Review(_) => "review",
-            Commands::Auth(_) => "auth",
-            Commands::Skills(_) => "skills",
-            Commands::Update(_) => "update",
-            Commands::Run(_) => "run",
-            Commands::Completions(_) => "completions",
-            Commands::Label(_) => "label",
-            Commands::Milestone(_) => "milestone",
-            Commands::Commit(_) => "commit",
-            Commands::Pipeline(_) => "pipeline",
-            Commands::Workflow(_) => "workflow",
-            Commands::Doctor(_) => "doctor",
-        }
-        .into()
-    }
 }
 
 /// Available subcommands.

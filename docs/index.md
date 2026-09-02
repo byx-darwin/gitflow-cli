@@ -11,6 +11,7 @@
 
 - [Superpowers Integration Guide](./integration-guide.md) — how gf skills integrate with Superpowers SDD workflow.
 - [Gitflow Workflow Guide](./gf-workflow-guide.md) — complete four-phase gated workflow (clarify → plan → execute → deliver) with examples.
+- [gf-workflow-batch Skill](../skills/gf-workflow-batch/SKILL.md) — serial outer driver batch-processing multiple open Issues through gf-workflow (Issue #280).
 - [TDD Guide](./tdd.md) — test-driven development workflow with `make test-watch`.
 - [Pre-commit Usage](./pre-commit-usage.md) — how to install and run repository pre-commit hooks.
 - [Release](./release.md) — release checklist, changelog, and distribution packaging.
@@ -39,7 +40,7 @@
 
 ## Skill References
 
-- [Skill Parameter References](./references/) — CLI parameter docs and reusable checklists consumed by skills: `gf-pr-params.md`, `gf-label-milestone-params.md`, `gf-label-stats-taxonomy.md`, `gf-pipeline-analyzer-params.md`, `gf-precommit-params.md`, `gf-precommit-hook-template.md`, `gf-quality-params.md`, `gf-release-helper-params.md`, `gf-autoreport-bug-params.md`, `pr-review-checklist.md`.
+- [Skill Parameter References](./references/) — CLI parameter docs and reusable checklists consumed by skills: `gf-pr-params.md`, `gf-label-milestone-params.md`, `gf-label-stats-taxonomy.md`, `gf-pipeline-analyzer-params.md`, `gf-precommit-params.md`, `gf-precommit-hook-template.md`, `gf-quality-params.md`, `gf-release-helper-params.md`, `pr-review-checklist.md`.
 
 ## Templates
 

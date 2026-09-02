@@ -36,7 +36,7 @@ digraph gitflow_architecture_review {
         style=dashed;
         color=gray;
         skills [label="26+ AI Skills\n(gf-*)", shape=component];
-        hooks [label="Hooks\nauto-report-bug\npre-commit", shape=component];
+        hooks [label="Hooks\npre-commit", shape=component];
         self_update [label="self_update\nEd25519 verify", shape=component];
     }
 

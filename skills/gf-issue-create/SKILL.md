@@ -39,7 +39,6 @@ Interactive workflow that collects title, description, optional labels/assignee,
 | Analyzing Issue requirement quality | This skill creates Issues, not analyzes their quality | `/gf-issue-review` for requirement completeness analysis |
 | Batch classifying open Issues | This skill creates one Issue at a time | `/gf-issue-triage` for bulk classification |
 | Editing existing Issue fields | This skill only creates new Issues | `/gf-issue` for edit/close/reopen/comment operations |
-| Automated bug reporting from CLI errors | This skill requires manual input, not automated detection | `/gf-autoreport-bug` for automated `pending.json` processing |
 | Viewing or listing Issues | This skill only creates, never reads existing Issues | `/gf-issue` for list/view/comment operations |
 
 ## Core Pattern
