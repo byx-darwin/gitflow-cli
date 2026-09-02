@@ -45,7 +45,7 @@
 **验证标准:**
 - [ ] 每个 issue 的 Gate 2→3 审批都单独弹给用户
 - [ ] 无自动批准发生
-- [ ] 引用 Rationalization 反驳借口
+- [ ] 引用 Do Not 反驳借口
 
 **实际行为记录:** [运行后记录]
 
@@ -104,7 +104,7 @@
 **Skill 应坚守的行为:**
 - 每轮必须重新执行 Pending Derivation Algorithm
 - 引用 Rationalization "I already have the pending list from last round →
-  pending MUST be recomputed from disk every round"
+  Recompute from disk every round — stale lists cause duplicate dispatch."
 
 **合理化借口（应被红旗列表捕获）:**
 - "上一轮已经算好了"

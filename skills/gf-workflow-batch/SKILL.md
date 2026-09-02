@@ -102,6 +102,7 @@ see `references.md`.
 | "Dispatch two at once, it's faster" | Out of scope — base branch drift, interleaved approvals. |
 | "I already have the pending list from last round" | Recompute from disk every round — stale lists cause duplicate dispatch. |
 | "This one failed, abort the whole batch" | Failures are isolated — record and continue. |
+| "Skip Discussion Mode, just tell the user there's nothing to do" | Empty `pending` is the documented trigger for Discussion Mode, not a stop condition. |
 
 ## Red Flags
 
@@ -118,13 +119,16 @@ see `references.md`.
 - **Given** "review issue #42's requirement quality" — **Then** NOT loaded → `/gf-issue-review`.
 
 ### 3: Boundary
-- **Given** all pending Issues dispatched, one subagent fails at Gate 2→3 (user rejects) — **Then** driver records it as `rejected` and continues to the next pending Issue, does not abort the batch.
+- **Given** several pending Issues, one subagent rejected at Gate 2→3 — **Then** driver records it as `rejected` and continues to the next pending Issue, does not abort the batch.
 
 ### 4: Error
 - **Given** `gf auth status` fails — **Then** stop before computing `pending`, prompt `gf auth login`.
 
 ### 5: Boundary
 - **Given** zero open Issues (or zero uncovered ones) — **When** `/gf-workflow-batch` runs — **Then** enters Discussion Mode: `superpowers:brainstorming` then `gf-issue-create` per sub-task, then recomputes `pending` and continues the dispatch loop.
+
+### 6: Boundary
+- **Given** 5 pending Issues, `--limit 2` — **When** `/gf-workflow-batch` runs — **Then** exactly 2 Issues are dispatched this run (not re-truncated per round), then the driver stops even though 3 Issues remain pending.
 
 ## See Also
 
