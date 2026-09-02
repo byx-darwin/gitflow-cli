@@ -129,11 +129,11 @@ Issue 描述的 "连续 5+ 份报告反复标注同一 Watch 水位却未见根�
 - `dev` 分支 30 天成功率 95.0%，`main` 分支 100.0%，均 🟢 Healthy；issue 描述的 Watch streak（PR #272–#281，93%–94%）已在 PR #297 后自然结束，当前连续 4 份报告稳定 Healthy，Escalation Rule 暂不触发。
 - `topFailures` 已从通用 `"failure"` 标签升级为具体 job 名称（`Lint`、`Test (windows-latest)`），job 级归因功能（本 issue 新增）验证通过。
 - 深入排查两次失败：`Lint` 失败为历史遗留、已修复的 doc-markdown 违规；`Test (windows-latest)` 失败为单次样本，代码未变更、其余运行均通过，归因收窄至该测试对共享临时文件路径的潜在隔离弱点，但**未能确认确定性根因**，如实标注为待观察项而非已解决问题。
-- 已开具跟进 Issue（见下）记录 `test_should_resolve_comment_body_from_file` 的具体失败证据与观察建议，避免归因结果无落地。
+- 已开具跟进 Issue [#301](https://github.com/byx-darwin/gitflow-cli/issues/301) 记录 `test_should_resolve_comment_body_from_file` 的具体失败证据与观察建议，避免归因结果无落地。
 
 ## 八、Recommendations
 
 1. 🟢 **Low** — `dev`/`main` 均处于 Healthy 区间，无阻塞式发现，不影响当前交付。
-2. 🟡 **Medium** — 跟进 Issue：观察 `Test (windows-latest)` 上 `commands::commit::tests::test_should_resolve_comment_body_from_file` 是否再次失败；若再现，考虑为该测试使用 `tempfile` crate 生成的临时文件路径替代 `std::env::temp_dir().join(<固定文件名>)`，避免固定文件名带来的路径复用风险，并按需为该测试添加短重试或诊断日志。
+2. 🟡 **Medium** — 跟进 Issue [#301](https://github.com/byx-darwin/gitflow-cli/issues/301)：观察 `Test (windows-latest)` 上 `commands::commit::tests::test_should_resolve_comment_body_from_file` 是否再次失败；已提议为该测试及 `issue.rs`/`pr.rs`/`release.rs` 中同模式的临时文件测试使用唯一路径替代固定文件名，避免共享路径风险，并按需为该测试添加短重试或诊断日志。
 3. 🟢 **Low** — Escalation Rule（本 issue 新增）已落地至 `skills/gf-pipeline-analyzer/SKILL.md`，后续报告应基于本报告记录的 streak 历史（见「四」）延续计数，而非从零开始。
 4. 🟢 **Low** — job 级 `topFailures` 归因（本 issue 新增，`crates/github/src/pipeline.rs`）目前仅覆盖 GitHub；GitLab/GitCode provider 的 `top_failures` 仍为占位/空实现，明确列为本次改动范围外（out of scope），如需覆盖需单独立项。
