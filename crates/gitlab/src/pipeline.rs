@@ -349,7 +349,19 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
             .filter(|p| p.created_at >= cutoff)
             .collect();
 
-        let total_runs = recent.len() as u64;
+        // Only pipelines that have reached a terminal state (Success/Failed/
+        // Cancelled) count toward the denominator used for `success_rate`.
+        // Running/Pending pipelines are still in flight and must not
+        // silently deflate the reported rate.
+        let total_runs = recent
+            .iter()
+            .filter(|p| {
+                !matches!(
+                    p.status,
+                    PipelineStatusEnum::Running | PipelineStatusEnum::Pending
+                )
+            })
+            .count() as u64;
         if total_runs == 0 {
             return Ok(PipelineReport {
                 total_runs: 0,
@@ -748,5 +760,70 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_exclude_non_terminal_pipelines_from_report_total_runs() {
+        // 4 pipelines in the report window: 2 success, 1 failed, 1 still running.
+        let now = Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"id": 1, "ref_name": "main", "status": "success", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 2, "ref_name": "main", "status": "success", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 3, "ref_name": "main", "status": "failed", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 4, "ref_name": "main", "status": "running", "created_at": "{}", "updated_at": "{}"}}
+            ]"#,
+            ts(600),
+            ts(300),
+            ts(500),
+            ts(200),
+            ts(400),
+            ts(100),
+            ts(60),
+            ts(30),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        // Only 3 of the 4 pipelines have reached a terminal state
+        // (Success/Failed/Cancelled); the running one must be excluded
+        // from total_runs, not just from success/failure counts.
+        assert_eq!(report.total_runs, 3);
+        assert!((report.success_rate - (2.0 / 3.0)).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn test_should_zero_report_when_all_pipelines_are_running() {
+        // No terminal pipelines at all in the window -> total_runs must be
+        // 0 (not the raw count of running pipelines), success_rate 0.0, and
+        // no division-by-zero NaN leaking into the report.
+        let now = Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[{{"id": 1, "ref_name": "main", "status": "running", "created_at": "{}", "updated_at": "{}"}}]"#,
+            ts(60),
+            ts(30),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        assert_eq!(report.total_runs, 0);
+        assert!((report.success_rate - 0.0).abs() < f64::EPSILON);
+        assert!(!report.success_rate.is_nan());
     }
 }
