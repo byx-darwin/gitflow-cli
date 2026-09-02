@@ -3,6 +3,7 @@
 - [README](./README.md) — one-line note on what specs in this directory are for.
 - [GitFlow CLI 设计规格](./gitflow-cli-design.md) — 跨平台 Git 工程化工作流编排框架完整设计。
 - [TUI System Monitor Design](./tui-system-monitor-design.md) — Full design for the TUI demo app: layout, state, data flow, dependencies, "wow factor".
+- [gf-workflow-batch 设计规格](./gf-workflow-batch-design.md) — 串行批量处理多个 open Issue 的外层驱动器设计（Issue #280）。
 
 ## 实现计划
 
