@@ -120,6 +120,8 @@ mod tests {
             github_token: None,
             gitcode_token: None,
             gitlab_token: None,
+            gitlab_test_repo: None,
+            gitcode_test_repo: None,
         }
     }
 
