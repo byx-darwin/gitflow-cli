@@ -248,7 +248,10 @@ pub async fn handle(
         } => {
             let resolved_body = resolve_body(body, body_file)?;
             let resolved_head = resolve_head(head)?;
-            let resolved_base = base.unwrap_or_else(|| "main".to_string());
+            let resolved_base = match base {
+                Some(b) => b,
+                None => resolve_default_branch(provider.default_branch().await),
+            };
 
             let args = CreatePrArgs {
                 title,
@@ -536,6 +539,16 @@ fn resolve_head(head: Option<String>) -> miette::Result<String> {
     Ok(branch)
 }
 
+/// 将 provider 查询到的默认分支结果落地为最终使用的 base 分支名。
+///
+/// 查询失败（含平台不支持，如 GitCode）时回退 `"main"`，不中断 `pr create` 流程。
+fn resolve_default_branch(detected: gitflow_core::Result<String>) -> String {
+    detected.unwrap_or_else(|e| {
+        tracing::debug!(error = %e, "default_branch query failed, falling back to \"main\"");
+        "main".to_string()
+    })
+}
+
 /// 根据输出格式打印结果。
 ///
 /// Phase 1 仅支持 JSON（pretty-printed）。Text 格式暂未实现，返回错误。
@@ -621,6 +634,20 @@ mod tests {
         let result = resolve_head(Some("feature/my-branch".into()));
         assert!(result.is_ok());
         assert_eq!(result.expect("already checked"), "feature/my-branch");
+    }
+
+    #[test]
+    fn test_should_use_detected_branch_on_success() {
+        let result = resolve_default_branch(Ok("dev".to_string()));
+        assert_eq!(result, "dev");
+    }
+
+    #[test]
+    fn test_should_fallback_to_main_on_detection_failure() {
+        let result = resolve_default_branch(Err(gitflow_core::CoreError::Platform(
+            "unsupported".to_string(),
+        )));
+        assert_eq!(result, "main");
     }
 
     #[test]

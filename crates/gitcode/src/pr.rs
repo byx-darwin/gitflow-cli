@@ -683,6 +683,20 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
+
+    /// 查询仓库配置的默认分支。
+    ///
+    /// GitCode CLI 无对应查询能力（先例：`merge --auto`），直接返回
+    /// [`CoreError::Platform`]，不发起任何 CLI 调用。
+    ///
+    /// # Errors
+    ///
+    /// 恒定返回错误：GitCode 平台不支持此查询。
+    async fn default_branch(&self) -> Result<String> {
+        Err(CoreError::Platform(
+            "GitCode CLI 不支持查询仓库默认分支。请显式传入 --base，或改用 GitHub/GitLab。".into(),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -1324,6 +1338,21 @@ mod tests {
         let comment: CommentData = api.into();
         assert_eq!(comment.author.login, "alice");
         assert_eq!(comment.created_at.to_rfc3339(), "2026-07-07T10:40:20+00:00");
+    }
+
+    // --- default_branch() tests ---
+
+    #[tokio::test]
+    async fn test_should_error_without_cli_call_for_default_branch() {
+        use crate::runner::RecordingMockRunner;
+
+        let runner = RecordingMockRunner::success("should not be called");
+        let provider = GitCodePrProvider::with_runner("group/project", runner.clone());
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_err());
+        assert!(runner.calls().is_empty());
     }
 }
 

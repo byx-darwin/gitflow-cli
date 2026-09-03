@@ -10,6 +10,7 @@ use gitflow_core::{
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State},
 };
+use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
@@ -20,6 +21,19 @@ use crate::{
 /// `gh pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str = "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,\
                          updatedAt,mergedAt,url";
+
+/// `gh repo view --json defaultBranchRef` 的响应类型。
+#[derive(Debug, Deserialize)]
+struct RepoViewResponse {
+    #[serde(rename = "defaultBranchRef")]
+    default_branch_ref: DefaultBranchRef,
+}
+
+/// `defaultBranchRef` 对象，仅取 `name` 字段。
+#[derive(Debug, Deserialize)]
+struct DefaultBranchRef {
+    name: String,
+}
 
 /// GitHub Pull Request 提供者，通过 `gh` CLI 操作。
 ///
@@ -522,6 +536,42 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// 查询仓库配置的默认分支（如 `main`、`dev`）。
+    ///
+    /// 调用 `gh repo view --json defaultBranchRef` 并解析 `name` 字段。
+    ///
+    /// # Errors
+    ///
+    /// 当 `gh` CLI 调用失败或响应无法解析时返回错误。
+    async fn default_branch(&self) -> Result<String> {
+        debug!(repo = %self.repo, "spawning `gh repo view`");
+
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "repo",
+                    "view",
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    "defaultBranchRef",
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gh_error(&output.stderr).into());
+        }
+
+        let resp: RepoViewResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(resp.default_branch_ref.name)
     }
 }
 
@@ -1182,5 +1232,50 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    // --- default_branch() tests ---
+
+    #[tokio::test]
+    async fn test_should_return_default_branch_on_success() {
+        let runner = MockCommandRunner::success(r#"{"defaultBranchRef":{"name":"dev"}}"#);
+        let provider = GitHubPrProvider::with_runner("octocat/hello-world", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.expect("already checked"), "dev");
+    }
+
+    #[tokio::test]
+    async fn test_should_send_expected_argv_for_default_branch() {
+        let runner = MockCommandRunner::success(r#"{"defaultBranchRef":{"name":"dev"}}"#);
+        let provider = GitHubPrProvider::with_runner("octocat/hello-world", runner.clone());
+
+        let _ = provider.default_branch().await;
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "gh");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "repo",
+                "view",
+                "--repo",
+                "octocat/hello-world",
+                "--json",
+                "defaultBranchRef",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_repo_view_fails() {
+        let runner = MockCommandRunner::failure("gh: Not Found (HTTP 404)", 1);
+        let provider = GitHubPrProvider::with_runner("octocat/nonexistent", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_err());
     }
 }
