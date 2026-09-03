@@ -13,6 +13,15 @@ Three-dimensional analysis: success-rate trends / failure patterns / duration di
 Read-only: never triggers/reruns/cancels pipelines.
 Full params & report template: docs/references/gf-pipeline-analyzer-params.md
 
+## Report Output & Archiving
+
+When persisted for audit trail (e.g. by `gf-workflow` Phase 4), save the report
+to `docs/pipeline-analysis-report-<YYYY-MM-DD>-<context>.md`. Once
+`pipeline-analysis-report-*.md` files under `docs/` exceed 5, move all but the
+5 most recent (ordered by the Issue/PR number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
+
 ## CLI Requirement
 
 **MUST use `gf` CLI, NOT `gh` CLI.**
