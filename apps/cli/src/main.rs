@@ -202,9 +202,6 @@ async fn router(
                 .await
                 .map_err(|e| miette::miette!("update task panicked: {e}"))?
         }
-        Commands::Run(_args) => Err(miette::miette!(
-            "run command is deprecated; use specific subcommands"
-        )),
         Commands::Completions(_) => Ok(()),
     }
 }
@@ -510,9 +507,6 @@ enum Commands {
 
     /// Update the gf binary to the latest GitHub release.
     Update(commands::update::UpdateArgs),
-
-    /// Run the main application workflow (deprecated).
-    Run(commands::run::RunArgs),
 
     /// Generate shell completion scripts.
     #[command(hide = true)]
