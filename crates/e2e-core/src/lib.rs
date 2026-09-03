@@ -7,8 +7,10 @@
 
 pub mod config;
 pub mod fixture;
+pub mod scratch;
 pub mod tty;
 
 pub use config::{TestConfig, TestMode};
 pub use fixture::{TestFixture, TestResource};
+pub use scratch::scratch_repo_dir;
 pub use tty::{CommandOutput, TtyError, TtyMode, TtyRunner};
