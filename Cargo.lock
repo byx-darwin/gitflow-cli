@@ -833,6 +833,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "e2e-gitcode"
+version = "1.9.0"
+dependencies = [
+ "e2e-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "e2e-github"
 version = "1.9.0"
 dependencies = [
