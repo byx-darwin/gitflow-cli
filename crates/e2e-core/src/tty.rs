@@ -75,6 +75,16 @@ impl TtyRunner {
         self
     }
 
+    /// 覆盖执行时的工作目录(默认取进程自身 cwd)。
+    ///
+    /// 用于让测试在指定目录(例如 [`crate::scratch_repo_dir`] 创建的临时仓库)中
+    /// 执行 `gf`,绕过 `gf` 仅从 `git remote get-url origin` 解析仓库路径、
+    /// 部分子命令无 `--repo` 覆盖的限制。
+    pub fn dir(&mut self, path: impl Into<PathBuf>) -> &mut Self {
+        self.working_dir = path.into();
+        self
+    }
+
     /// 执行命令并返回输出
     ///
     /// # Errors
@@ -135,5 +145,13 @@ mod tests {
             vec!["GH_TOKEN".to_string(), "GITHUB_TOKEN".to_string()]
         );
         assert_eq!(runner.env_vars.get("E2E_PROBE"), Some(&"1".to_string()));
+    }
+
+    #[test]
+    fn test_should_override_working_dir_when_dir_is_set() {
+        let mut runner = TtyRunner::new(TtyMode::NonInteractive);
+        let custom = PathBuf::from("/tmp/e2e-core-dir-test");
+        runner.dir(custom.clone());
+        assert_eq!(runner.working_dir, custom);
     }
 }

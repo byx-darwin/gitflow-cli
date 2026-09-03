@@ -79,3 +79,107 @@ jobs:
           name: e2e-results-github
           path: target/nextest/
           retention-days: 7
+
+  e2e-gitlab:
+    name: E2E Tests (GitLab)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
+      - name: Install glab CLI
+        run: |
+          go install gitlab.com/gitlab-org/cli/cmd/glab@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Add to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+
+      # 模式判定由测试层承担:无凭据/无测试仓库时实测自动 skip,
+      # 无凭据错误路径(noauth)不受影响,正常运行(依赖上一步安装的 glab)。
+      - name: Run E2E tests
+        env:
+          E2E_GITLAB_TOKEN: ${{ secrets.E2E_GITLAB_TOKEN }}
+          E2E_TEST_REPO_GITLAB: ${{ secrets.E2E_TEST_REPO_GITLAB }}
+          RUST_LOG: info
+        run: |
+          cargo nextest run -p e2e-core -p e2e-gitlab --all-features
+
+      - name: Report run mode
+        if: always()
+        env:
+          E2E_GITLAB_TOKEN: ${{ secrets.E2E_GITLAB_TOKEN }}
+        run: |
+          if [ -n "$E2E_GITLAB_TOKEN" ]; then
+            echo "E2E mode: authenticated (real-credential scenarios executed)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "E2E mode: unauthenticated (error paths + harness self-tests only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-gitlab
+          path: target/nextest/
+          retention-days: 7
+
+  e2e-gitcode:
+    name: E2E Tests (GitCode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
+      - name: Install gitcode CLI
+        run: pip install gitcode-cli
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Add to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+
+      - name: Run E2E tests
+        env:
+          E2E_GITCODE_TOKEN: ${{ secrets.E2E_GITCODE_TOKEN }}
+          E2E_TEST_REPO_GITCODE: ${{ secrets.E2E_TEST_REPO_GITCODE }}
+          RUST_LOG: info
+        run: |
+          cargo nextest run -p e2e-core -p e2e-gitcode --all-features
+
+      - name: Report run mode
+        if: always()
+        env:
+          E2E_GITCODE_TOKEN: ${{ secrets.E2E_GITCODE_TOKEN }}
+        run: |
+          if [ -n "$E2E_GITCODE_TOKEN" ]; then
+            echo "E2E mode: authenticated (real-credential scenarios executed)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "E2E mode: unauthenticated (error paths + harness self-tests only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-gitcode
+          path: target/nextest/
+          retention-days: 7

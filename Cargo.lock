@@ -826,13 +826,32 @@ dependencies = [
  "assert_cmd",
  "predicates",
  "serde_json",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",
 ]
 
 [[package]]
+name = "e2e-gitcode"
+version = "1.9.0"
+dependencies = [
+ "e2e-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "e2e-github"
+version = "1.9.0"
+dependencies = [
+ "e2e-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "e2e-gitlab"
 version = "1.9.0"
 dependencies = [
  "e2e-core",

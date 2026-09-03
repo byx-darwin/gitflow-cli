@@ -18,6 +18,12 @@ pub enum FixtureError {
     /// Config error
     #[error("Config error: {0}")]
     Config(#[from] crate::config::ConfigError),
+    /// IO error(如临时目录创建失败)
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    /// git 命令执行失败(非零退出码)
+    #[error("git command failed: {0}")]
+    Git(String),
 }
 
 /// 测试资源类型
@@ -120,6 +126,8 @@ mod tests {
             github_token: None,
             gitcode_token: None,
             gitlab_token: None,
+            gitlab_test_repo: None,
+            gitcode_test_repo: None,
         }
     }
 
@@ -140,5 +148,21 @@ mod tests {
     fn test_should_not_panic_when_dropping_empty_fixture() {
         let fixture = TestFixture::with_config(&offline_config());
         drop(fixture);
+    }
+
+    #[test]
+    fn test_should_wrap_io_error_as_fixture_error() {
+        let io_err = std::io::Error::other("boom");
+        let err: FixtureError = io_err.into();
+        assert!(matches!(err, FixtureError::Io(_)));
+    }
+
+    #[test]
+    fn test_should_format_git_error_message() {
+        let err = FixtureError::Git("git init failed: fatal error".to_string());
+        assert_eq!(
+            err.to_string(),
+            "git command failed: git init failed: fatal error"
+        );
     }
 }
