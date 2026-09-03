@@ -176,6 +176,12 @@ impl From<&ApiUser> for UserSummary {
     }
 }
 
+/// `glab repo view --output json` 的响应类型（仅取需要的字段）。
+#[derive(Debug, Deserialize)]
+struct RepoViewResponse {
+    default_branch: String,
+}
+
 /// `glab mr --output json` 返回的 JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
 struct MrApiResponse {
@@ -617,6 +623,42 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// 查询仓库配置的默认分支（如 `main`、`dev`）。
+    ///
+    /// 调用 `glab repo view --output json` 并解析 `default_branch` 字段。
+    ///
+    /// # Errors
+    ///
+    /// 当 `glab` CLI 调用失败或响应无法解析时返回错误。
+    async fn default_branch(&self) -> Result<String> {
+        debug!(repo = %self.repo, "spawning `glab repo view`");
+
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "repo",
+                    "view",
+                    "--repo",
+                    &self.repo_target,
+                    "--output",
+                    "json",
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        let resp: RepoViewResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(resp.default_branch)
     }
 }
 
@@ -1354,5 +1396,54 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    // --- default_branch() tests ---
+
+    #[tokio::test]
+    async fn test_should_return_default_branch_on_success() {
+        let runner = MockCommandRunner::success(r#"{"default_branch":"dev"}"#);
+        let provider = GitLabMrProvider::with_runner("group/project", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.expect("already checked"), "dev");
+    }
+
+    #[tokio::test]
+    async fn test_should_use_repo_target_for_default_branch() {
+        let runner = MockCommandRunner::success(r#"{"default_branch":"dev"}"#);
+        let provider = GitLabMrProvider::with_runner_and_repo_target(
+            "group/project",
+            "https://gitlab.example.com/group/project.git",
+            runner.clone(),
+        );
+
+        let _ = provider.default_branch().await;
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "glab");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "repo",
+                "view",
+                "--repo",
+                "https://gitlab.example.com/group/project.git",
+                "--output",
+                "json",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_repo_view_fails() {
+        let runner = MockCommandRunner::failure("glab: 404 Not Found", 1);
+        let provider = GitLabMrProvider::with_runner("group/nonexistent", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_err());
     }
 }

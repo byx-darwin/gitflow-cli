@@ -210,6 +210,16 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
     ///
     /// [`CoreError`]: crate::CoreError
     async fn patch(&self, number: u64) -> Result<String>;
+
+    /// 查询仓库配置的默认分支（如 `main`、`dev`）。
+    ///
+    /// 用于 `pr create` 在未显式指定 `--base` 时探测目标分支，避免硬编码
+    /// `"main"` 导致默认分支非 `main` 的仓库创建出目标错误的 PR/MR。
+    ///
+    /// # Errors
+    ///
+    /// 当平台 API 调用失败或平台不支持该查询（如 GitCode）时返回错误。
+    async fn default_branch(&self) -> Result<String>;
 }
 
 /// Format closing keywords and append to body.
@@ -414,6 +424,9 @@ mod tests {
                 unimplemented!()
             }
             async fn patch(&self, _number: u64) -> Result<String> {
+                unimplemented!()
+            }
+            async fn default_branch(&self) -> Result<String> {
                 unimplemented!()
             }
         }
