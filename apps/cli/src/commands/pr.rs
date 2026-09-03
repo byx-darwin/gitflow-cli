@@ -32,7 +32,7 @@ pub enum PrCommand {
         #[arg(long)]
         head: Option<String>,
 
-        /// 目标分支（可选，默认为 `main`）。
+        /// 目标分支（可选，默认探测仓库配置的默认分支，探测失败时回退 `main`）。
         #[arg(long)]
         base: Option<String>,
 
