@@ -198,3 +198,48 @@ jobs:
           name: e2e-results-gitcode
           path: target/nextest/
           retention-days: 7
+
+  notify-on-schedule-failure:
+    name: Notify on Scheduled Regression Failure
+    needs: [e2e-github, e2e-gitlab, e2e-gitcode]
+    # 只在 `schedule` 触发的定时回归里告警——PR/push 触发的失败是开发期反馈，
+    # 走 PR 检查/日常 CI 通知即可，不属于"回归"，不应重复开 Issue。
+    if: always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Create or update regression issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULT_GITHUB: ${{ needs.e2e-github.result }}
+          RESULT_GITLAB: ${{ needs.e2e-gitlab.result }}
+          RESULT_GITCODE: ${{ needs.e2e-gitcode.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # 沿用 upstream-patrol.yml 的去重范式：标题固定（不含日期），
+          # 已存在同标题的 open issue 就追加评论，否则新建。
+          LABEL="e2e-regression"
+          TITLE="定时 E2E 回归失败"
+
+          EXISTING=$(gh issue list --label "$LABEL" --state open \
+            --search "in:title ${TITLE}" --json number --jq '.[0].number // empty')
+
+          BODY_FILE=$(mktemp)
+          {
+            printf '定时 E2E 回归（cron: schedule）检测到失败，防不住的是 CLI 行为/退出码变化，而不是输出格式漂移（那部分由契约测试兜底）。\n\n'
+            printf -- '- **平台结果**: github=%s, gitlab=%s, gitcode=%s\n' "$RESULT_GITHUB" "$RESULT_GITLAB" "$RESULT_GITCODE"
+            printf -- '- **Run**: %s\n\n' "$RUN_URL"
+            printf '请查看上方 Run 链接定位失败用例，确认是三平台 CLI（gh/glab/gitcode-cli）行为变化，还是测试环境/凭据问题。\n'
+          } > "$BODY_FILE"
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "定时回归复核仍失败: $(date -u +%F) — ${RUN_URL}"
+          else
+            gh issue create --title "$TITLE" --label "$LABEL" --body-file "$BODY_FILE"
+          fi
+          rm -f "$BODY_FILE"
