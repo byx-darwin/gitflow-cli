@@ -102,6 +102,15 @@ gf issue add-label <n> --label "type:<t>" --label "priority:<p>" --label "triage
 
 ### Step 5: Output report — priority-ranked (🔴 urgent → 🟢 low) with count + percentage tables.
 
+### Report Output & Archiving
+
+When persisted for audit trail (e.g. by `gf-workflow` Phase 4), save the report
+to `docs/issue-triage-report-<YYYY-MM-DD>[-<context>].md`. Once
+`issue-triage-report-*.md` files under `docs/` exceed 5, move all but the 5
+most recent (ordered by the Issue/PR number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
+
 ### Error Handling
 
 | Error | Recovery |

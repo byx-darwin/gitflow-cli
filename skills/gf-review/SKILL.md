@@ -65,6 +65,16 @@ gf review approve <n> --body "<c>"    # or: request-changes / comment
 
 **Decision rule:** single verdict → `approve/request-changes`; after inline comments → `submit`; neutral only → `comment`.
 
+## Report Output & Archiving
+
+When invoked as the `gf-review` step of `gf-workflow` Phase 4 (full/standard
+mode), the accompanying code review findings persisted for audit trail go to
+`docs/code-review-report-pr<N>-<YYYY-MM-DD>.md`. Once
+`code-review-report-*.md` files under `docs/` exceed 5, move all but the 5
+most recent (ordered by the PR number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
+
 ## Flowchart
 
 ```mermaid
