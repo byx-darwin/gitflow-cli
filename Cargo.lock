@@ -842,6 +842,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "e2e-gitlab"
+version = "1.9.0"
+dependencies = [
+ "e2e-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "ed25519"
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
