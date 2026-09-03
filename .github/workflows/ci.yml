@@ -51,8 +51,14 @@ jobs:
         run: cargo build --release
       - name: Add to PATH
         run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+      # e2e-gitlab/e2e-gitcode need the real `glab`/`gc` CLI binaries installed to
+      # exercise their noauth.rs error-path assertions correctly (see
+      # .github/workflows/e2e-tests.yml's dedicated jobs, which install them).
+      # This generic 3-OS matrix job doesn't install them, so exclude those two
+      # crates here — e2e-github stays included since `gh` ships preinstalled on
+      # all three GitHub-hosted runner images.
       - name: cargo test
-        run: cargo nextest run --all-features
+        run: cargo nextest run --all-features --workspace --exclude e2e-gitlab --exclude e2e-gitcode
 
   lint:
     name: Lint

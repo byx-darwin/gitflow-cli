@@ -96,8 +96,23 @@ jobs:
 
       - name: Install glab CLI
         run: |
-          go install gitlab.com/gitlab-org/cli/cmd/glab@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          # `go install .../glab@latest` builds without gitlab-org/cli's own
+          # release ldflags, so `glab --version` prints "glab DEV ()" — no
+          # semver substring, which breaks gf's version parser
+          # (`apps/cli/src/commands/prerequisites.rs::extract_semver`) and makes
+          # every `gf ... --platform gitlab` call fail with "glab 版本信息解析
+          # 失败" instead of running/skipping normally. Install the official
+          # release tarball instead, which embeds a real version string.
+          GLAB_VERSION=$(curl -fsSL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases" \
+            | jq -r '.[0].tag_name' | sed 's/^v//')
+          curl -fsSL \
+            "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/${GLAB_VERSION}/glab_${GLAB_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/glab.tar.gz
+          mkdir -p /tmp/glab-extract
+          tar -xzf /tmp/glab.tar.gz -C /tmp/glab-extract
+          sudo install -m 0755 /tmp/glab-extract/bin/glab /usr/local/bin/glab
+          glab --version
 
       - name: Build release binary
         run: cargo build --release

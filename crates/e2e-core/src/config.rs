@@ -38,6 +38,17 @@ pub struct TestConfig {
     pub gitcode_test_repo: Option<String>,
 }
 
+/// 把空字符串规整为 `None`。
+///
+/// GitHub Actions 对未配置的 `${{ secrets.X }}` 求值为空字符串,而不是"不设置该
+/// 环境变量"——所以 `std::env::var(key).ok()` 对未配置的 Secret 也会返回
+/// `Some("")`。必须在读取环境变量的边界显式过滤,否则 `has_*_auth()`/
+/// `gitlab_test_repo`/`gitcode_test_repo` 之类的"是否已配置"判断会被空字符串
+/// 误判为"已配置",导致本该 skip 的实测反而带着空凭据/空仓库真的发起调用。
+fn non_empty(value: Option<String>) -> Option<String> {
+    value.filter(|s| !s.is_empty())
+}
+
 impl TestConfig {
     /// 从环境变量加载配置
     ///
@@ -50,11 +61,11 @@ impl TestConfig {
 
         Ok(Self {
             test_repo,
-            github_token: std::env::var("E2E_GITHUB_TOKEN").ok(),
-            gitcode_token: std::env::var("E2E_GITCODE_TOKEN").ok(),
-            gitlab_token: std::env::var("E2E_GITLAB_TOKEN").ok(),
-            gitlab_test_repo: std::env::var("E2E_TEST_REPO_GITLAB").ok(),
-            gitcode_test_repo: std::env::var("E2E_TEST_REPO_GITCODE").ok(),
+            github_token: non_empty(std::env::var("E2E_GITHUB_TOKEN").ok()),
+            gitcode_token: non_empty(std::env::var("E2E_GITCODE_TOKEN").ok()),
+            gitlab_token: non_empty(std::env::var("E2E_GITLAB_TOKEN").ok()),
+            gitlab_test_repo: non_empty(std::env::var("E2E_TEST_REPO_GITLAB").ok()),
+            gitcode_test_repo: non_empty(std::env::var("E2E_TEST_REPO_GITCODE").ok()),
         })
     }
 
@@ -66,11 +77,11 @@ impl TestConfig {
     pub fn from_env_lenient() -> Self {
         Self {
             test_repo: std::env::var("E2E_TEST_REPO").unwrap_or_default(),
-            github_token: std::env::var("E2E_GITHUB_TOKEN").ok(),
-            gitcode_token: std::env::var("E2E_GITCODE_TOKEN").ok(),
-            gitlab_token: std::env::var("E2E_GITLAB_TOKEN").ok(),
-            gitlab_test_repo: std::env::var("E2E_TEST_REPO_GITLAB").ok(),
-            gitcode_test_repo: std::env::var("E2E_TEST_REPO_GITCODE").ok(),
+            github_token: non_empty(std::env::var("E2E_GITHUB_TOKEN").ok()),
+            gitcode_token: non_empty(std::env::var("E2E_GITCODE_TOKEN").ok()),
+            gitlab_token: non_empty(std::env::var("E2E_GITLAB_TOKEN").ok()),
+            gitlab_test_repo: non_empty(std::env::var("E2E_TEST_REPO_GITLAB").ok()),
+            gitcode_test_repo: non_empty(std::env::var("E2E_TEST_REPO_GITCODE").ok()),
         }
     }
 
@@ -107,19 +118,19 @@ impl TestConfig {
     /// 是否具备 GitHub 凭据
     #[must_use]
     pub fn has_github_auth(&self) -> bool {
-        self.github_token.is_some()
+        self.github_token.as_deref().is_some_and(|t| !t.is_empty())
     }
 
     /// 是否具备 GitLab 凭据
     #[must_use]
     pub fn has_gitlab_auth(&self) -> bool {
-        self.gitlab_token.is_some()
+        self.gitlab_token.as_deref().is_some_and(|t| !t.is_empty())
     }
 
     /// 是否具备 `GitCode` 凭据
     #[must_use]
     pub fn has_gitcode_auth(&self) -> bool {
-        self.gitcode_token.is_some()
+        self.gitcode_token.as_deref().is_some_and(|t| !t.is_empty())
     }
 
     /// 需要注入 `gh` 子进程的环境变量;未认证时为空
@@ -300,5 +311,43 @@ mod tests {
     #[test]
     fn test_should_emit_empty_gitcode_env_when_unauthenticated() {
         assert!(config_without_token().gitcode_env().is_empty());
+    }
+
+    #[test]
+    fn test_should_normalize_empty_string_secret_to_none() {
+        // Regression test: GitHub Actions evaluates an unconfigured
+        // `${{ secrets.X }}` to an empty string, not an unset variable. Without
+        // this normalization, `Some("")` was treated as "configured", causing
+        // `has_gitlab_auth()`/`has_gitcode_auth()` to report `true` and the real
+        // e2e-gitlab/e2e-gitcode CI jobs to skip their skip-check and attempt real
+        // calls with an empty token/repo (observed in PR #304's CI run).
+        assert_eq!(non_empty(Some(String::new())), None);
+    }
+
+    #[test]
+    fn test_should_keep_non_empty_secret_as_is() {
+        assert_eq!(
+            non_empty(Some("token".to_string())),
+            Some("token".to_string())
+        );
+    }
+
+    #[test]
+    fn test_should_keep_absent_secret_as_none() {
+        assert_eq!(non_empty(None), None);
+    }
+
+    #[test]
+    fn test_should_report_no_gitlab_auth_when_token_is_empty_string() {
+        let config = TestConfig {
+            test_repo: "owner/repo".to_string(),
+            github_token: None,
+            gitcode_token: None,
+            gitlab_token: Some(String::new()),
+            gitlab_test_repo: Some(String::new()),
+            gitcode_test_repo: None,
+        };
+        assert!(!config.has_gitlab_auth());
+        assert_eq!(config.gitlab_mode(), TestMode::Unauthenticated);
     }
 }
