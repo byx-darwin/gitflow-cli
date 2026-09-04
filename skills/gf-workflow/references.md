@@ -115,6 +115,14 @@ mkdir -p .worktree/feat-146-worktree-path/.cache
 ln -s ../../.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
 ln -s ../../.claude .worktree/feat-146-worktree-path/.claude
 
+# Exclude them from git tracking — writes to the COMMON git dir's info/exclude
+# (verified: worktrees do NOT have a per-worktree info/exclude; this file is shared
+# by the main tree + all worktrees of this local clone), so it protects every
+# worktree, not just this one, without touching the project's own .gitignore.
+EXCLUDE_FILE="$(cd .worktree/feat-146-worktree-path && git rev-parse --git-common-dir)/info/exclude"
+grep -qxF '.cache/workflows' "$EXCLUDE_FILE" || echo '.cache/workflows' >> "$EXCLUDE_FILE"
+grep -qxF '.claude' "$EXCLUDE_FILE" || echo '.claude' >> "$EXCLUDE_FILE"
+
 cd .worktree/feat-146-worktree-path
 git add docs && git commit -m "docs(workflow): wf-2026-08-30-001 Phase 1-2 artifacts"
 cd -
