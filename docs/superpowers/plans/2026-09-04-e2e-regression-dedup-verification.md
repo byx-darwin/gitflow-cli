@@ -32,7 +32,7 @@
 
 Append this exact content at the end of the file (after line 146, the last line of "## Process Note"):
 
-```markdown
+````markdown
 
 ## Follow-up: Dedup Verification (Issue #310)
 
@@ -64,7 +64,7 @@ Correction to this report's own framing: this section's parent finding (and Issu
 `upstream-patrol.yml`'s reused search pattern as "ASCII + space-tokenized." On closer inspection,
 `upstream-patrol.yml` also contains CJK-heavy search terms (e.g. `in:title upstream CLI 破坏 gh`),
 so that comparison wasn't fully accurate. Doesn't change the verification outcome above.
-```
+````
 
 - [ ] **Step 2: Verify the file renders correctly**
 
