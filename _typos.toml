@@ -7,4 +7,4 @@ f00ba42 = "f00ba42"
 dbe47ad = "dbe47ad"
 
 [files]
-extend-exclude = ["CHANGELOG.md", "vendors/", "specs/tui-system-monitor-design.md"]
+extend-exclude = ["CHANGELOG.md", "vendors/", "specs/tui-system-monitor-design.md", "supply-chain/"]

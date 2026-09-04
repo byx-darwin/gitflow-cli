@@ -90,6 +90,12 @@ jobs:
       - name: cargo audit
         run: cargo audit
 
+      - name: Install cargo-vet
+        uses: taiki-e/install-action@cargo-vet
+
+      - name: cargo vet
+        run: cargo vet check
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest

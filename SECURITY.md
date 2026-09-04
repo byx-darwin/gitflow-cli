@@ -17,6 +17,8 @@ Only the latest release is actively supported with security patches.
 This repository is a Rust workspace template. Users are responsible for following the security guidelines in `CLAUDE.md`, including:
 
 - Never committing `.env` files or secrets.
-- Running `cargo audit` and `cargo deny check` on dependency changes.
+- Running `cargo audit`, `cargo deny check`, and `cargo vet check` on dependency changes (see `docs/release-workflow.md#supply-chain-trust`).
 - Applying the principle of least privilege in CI permissions.
 - Validating all external input at trust boundaries.
+
+Every GitHub Release includes a CycloneDX SBOM (`gf-sbom.cdx.json`) generated from the dependency graph at release time.
