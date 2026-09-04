@@ -143,3 +143,34 @@ this review to avoid unrequested repo-state changes). Consistent with the preced
 `docs/code-review-report-pr281-2026-09-02.md`, no `gf review` call (`approve`/`request-changes`/`comment`)
 was submitted against GitHub for PR #309 — this report is the formal review record. Review was conducted
 entirely via `gf pr view 309` and `gf pr diff 309` per the task's instruction to use `gf`, not `gh`.
+
+## Follow-up: Dedup Verification (Issue #310)
+
+Finding #1 above (CJK title search reliability) was verified on 2026-09-04 per Issue #310's
+acceptance criteria. Method: created a throwaway test Issue (#319) in this repo with the exact
+production title `定时 E2E 回归失败` and label `e2e-regression`, then ran the exact query
+`.github/workflows/e2e-tests.yml`'s `notify-on-schedule-failure` job uses:
+
+```bash
+gh issue list --label "e2e-regression" --state open \
+  --search "in:title 定时 E2E 回归失败" --json number --jq '.[0].number // empty'
+```
+
+Ran 3 times (including with short delays to rule out search-index propagation lag) — all 3
+attempts correctly returned the test issue's number. **No false negative observed.**
+
+**Conclusion:** the dedup logic works as designed; GitHub's full-text search reliably matches
+this specific CJK title. Per Issue #310's acceptance criteria (the "search hits" branch), **no
+change to `.github/workflows/e2e-tests.yml` is needed.** The client-side exact-match fallback
+described in this report's Verdict section and in Issue #310's acceptance criteria remains
+documented here as the fix to reach for *if* a future title change or GitHub search behavior
+change causes this to regress — but is not applied now, since there is nothing to fix.
+
+Test Issue #319 was closed immediately after verification; see #310 for the full spike record
+and `docs/superpowers/specs/2026-09-04-e2e-regression-dedup-verification-design.md` for the design
+note.
+
+Correction to this report's own framing: this section's parent finding (and Issue #310) described
+`upstream-patrol.yml`'s reused search pattern as "ASCII + space-tokenized." On closer inspection,
+`upstream-patrol.yml` also contains CJK-heavy search terms (e.g. `in:title upstream CLI 破坏 gh`),
+so that comparison wasn't fully accurate. Doesn't change the verification outcome above.
