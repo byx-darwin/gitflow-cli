@@ -197,6 +197,46 @@ choice 4 — the contract stays in Phase 3 for resume.
 the worktree, so the orchestrator cannot rely on having checked the tree itself — the
 handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` below.
 
+### Why These Symlinks Must Never Reach the Main Branch
+
+`.cache/workflows` and `.claude` inside a worktree are relative symlinks
+(`../../.cache/workflows`, `../../.claude`). If either is ever committed, `git ls-files -s`
+shows a `120000` (symlink) mode entry for that path. A clone made from a commit carrying
+that entry re-creates the symlink pointing at `../../<name>` **relative to that clone's own
+location** — which, outside the original working tree that produced it, resolves to a
+directory that does not exist or belongs to something else entirely.
+
+**Verified real-world impact (Issue #318):** in the downstream project
+`iproost/proxy/api-src`, `.cache/workflows` and `.claude/.claude` had been committed as
+symlinks (commit `e7f4254`, swept in by an unrelated broad `git add`). Resolved from that
+repo's root, `.cache/workflows -> ../../.cache/workflows` landed **outside the repository**,
+in a directory shared by other checkouts. Every subsequent gf-workflow contract read/write in
+that project actually happened against that external shared path — including a case where a
+background research fork and the main session concurrently touched the same contract file and
+cross-wrote each other's Phase 3/4 progress.
+
+**Why `info/exclude` fixes this at the source, not just in this repo.** A linked worktree has
+no `info/exclude` of its own: `git rev-parse --git-common-dir` from inside any worktree
+resolves to the *main* repository's `.git`, and `info/exclude` always lives there — confirmed
+by writing to it from a worktree and observing `git status` change in a sibling worktree and
+the main tree alike. So the one write performed right after `ln -s` (see the example above)
+protects the main tree and every worktree this clone will ever create, permanently, without
+depending on that project's own `.gitignore` ever mentioning `.cache/` or `.claude/` — which is
+exactly the gap that let `e7f4254` happen upstream.
+
+**Belt and suspenders.** `info/exclude` only stops *new* accidental adds; it does nothing for
+a symlink that is already staged in a commit about to leave `branch` (rebase, cherry-pick,
+`git commit -a` racing the exclude write, etc.). That is why Phase 3 Step 3 in `SKILL.md` also
+scans the diff immediately before delivery:
+
+```bash
+git diff --summary "$BASE_BRANCH"...HEAD | grep 'create mode 120000'
+```
+
+A hit means some commit on `branch` added a symlink that `base_branch` doesn't have. Treat it
+as a hard stop: show the path(s), and let the user choose to drop the offending commit/entry
+or explicitly confirm it is an intentional, unrelated symlink before delivery proceeds.
+
 ## Lifecycle Management
 
 | Status | Location | Retention | Cleanup |
