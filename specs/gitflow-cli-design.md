@@ -91,7 +91,7 @@ gf/
 │   ├── core/                   # 核心库（已存在，扩展 domain types）
 │   │   └── src/
 │   │       ├── lib.rs          # （已存在）
-│   │       ├── platform.rs     # 新增：Platform trait + 检测逻辑
+│   │       ├── platform.rs     # 新增：URL 平台探测逻辑（非统一 trait，见下方"实现现状"）
 │   │       ├── auth.rs         # 新增：Auth trait
 │   │       ├── issue.rs        # 新增：Issue trait
 │   │       ├── pr.rs           # 新增：PR trait
@@ -212,7 +212,7 @@ gf/
 ## 依赖流
 
 ```
-apps/cli ──依赖──> crates/core ──定义──> Platform traits
+apps/cli ──依赖──> crates/core ──定义──> Provider traits
                        ↑
        crates/github ──┤
        crates/gitlab ──┤
@@ -316,7 +316,15 @@ fn detect_platform() -> Result<Platform> {
 
 ## Core Trait 设计
 
-### Platform trait
+> **实现现状（2026-09 更新）**：本节标题沿用了设计初期"Platform trait"的表述，
+> 但实际实现中 `Platform` 只是一个枚举 + URL 探测逻辑（`crates/core/src/platform.rs`），
+> 并不是一个 trait。真正的能力抽象是本节下方逐个列出的 11 个细粒度 provider trait
+> （`IssueProvider`/`PrProvider`/`LabelProvider`/`ReleaseProvider`/`PipelineProvider`/
+> `CommitProvider`/`ReviewProvider`/`AuthProvider`/`AuthChecker`/`HealthCheck`/
+> `MilestoneProvider`）。阅读本节时请以 `crates/core` 源码和 `docs/architecture.md`
+> 为准。
+
+### Platform 枚举与探测逻辑
 
 ```rust
 /// 平台标识

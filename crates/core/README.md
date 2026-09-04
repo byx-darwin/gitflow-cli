@@ -92,34 +92,35 @@ eprintln!("{}", error);
 Issue tracking types and operations:
 - `Issue` - Issue data structure
 - `IssueState` - Open/Closed state
-- `IssueProvider` - Platform trait for issue operations
+- `IssueProvider` - Provider trait for issue operations
 
 ### `pr`
 Pull request types and operations:
 - `PullRequest` - PR data structure
 - `PrState` - Open/Closed/Merged state
-- `PrProvider` - Platform trait for PR operations
+- `PrProvider` - Provider trait for PR operations
 
 ### `release`
 Release management types:
 - `Release` - Release data structure
-- `ReleaseProvider` - Platform trait for release operations
+- `ReleaseProvider` - Provider trait for release operations
 
 ### `review`
 Code review types:
 - `Review` - Review data structure
-- `ReviewProvider` - Platform trait for review operations
+- `ReviewProvider` - Provider trait for review operations
 
 ### `pipeline`
 CI/CD pipeline types:
 - `Pipeline` - Pipeline data structure
 - `PipelineStatus` - Success/Failure/Running status
-- `PipelineProvider` - Platform trait for pipeline operations
+- `PipelineProvider` - Provider trait for pipeline operations
 
 ### `platform`
-Platform detection and abstraction:
+URL-based platform detection (not a capability trait — see the provider
+traits above for the actual per-platform abstraction):
 - `Platform` - Platform enum (GitHub/GitLab/GitCode)
-- Platform detection utilities
+- `PlatformDetection` - detection result, with `Platform::detect_from_remote_url()`
 
 ### `auth`
 Authentication types and checking:
