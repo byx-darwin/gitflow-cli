@@ -1,6 +1,6 @@
 [package]
 name = "gitflow-core"
-description = "gf 核心库：Platform trait 抽象、跨平台适配器与 toon 输出。Core library: platform abstraction, adapters & toon output."
+description = "gf 核心库：细粒度 provider trait 集合、URL 平台探测、跨平台适配器契约与 toon 输出。Core library: provider traits, URL-based platform detection, cross-platform adapter contracts & toon output."
 categories = ["development-tools"]
 keywords = ["gitflow", "git", "cli", "core", "workflow"]
 version.workspace = true

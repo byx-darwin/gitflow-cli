@@ -46,7 +46,15 @@ The central library crate. Exposes:
 - **Error types**: `CoreError`, `PlatformCliError` (thiserror-based).
 - **SafePath**: path traversal validation (null bytes, bidi characters, component length).
 - **TOON output**: Token-Oriented Object Notation for LLM consumption.
-- **Platform detection**: `Platform::detect_from_remote_url()` (GitHub / GitLab / GitCode).
+- **Platform detection**: `Platform::detect_from_remote_url()` (GitHub / GitLab / GitCode) — see the note below distinguishing this from the provider traits.
+
+> **Naming note:** `crates/core/src/platform.rs` and its docs use "platform"
+> to mean URL-based hosting detection (GitHub vs. GitLab vs. GitCode), not a
+> unified capability abstraction. There is no single "Platform trait" —
+> the actual per-platform capability abstraction is the set of fine-grained
+> provider traits listed above (plus `AuthChecker`, `HealthCheck`). Each
+> adapter crate (`github`, `gitlab`, `gitcode`) implements those provider
+> traits; `platform.rs` only decides *which* adapter to dispatch to.
 
 ### `crates/github` (gitflow-github) — GitHub Adapter
 
