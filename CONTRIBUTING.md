@@ -23,6 +23,7 @@ make install-tools
 - `cargo-audit` — 安全漏洞扫描
 - `cargo-nextest` — 更快的测试运行器
 - `cargo-vet` — 供应链审查
+- `cargo-cyclonedx` — SBOM 生成
 - `pre-commit` — Git pre-commit 钩子
 
 ### IDE 配置

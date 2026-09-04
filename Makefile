@@ -52,7 +52,14 @@ lint: fmt clippy ## Run fmt and clippy
 audit: ## Run security audit (deps + supply chain)
 	@cargo deny check
 	@cargo audit
-	@cargo vet check 2>/dev/null || echo "cargo-vet not configured; run 'cargo vet init' to set up"
+	@cargo vet check
+
+sbom: ## Generate CycloneDX SBOM for the gf binary (target/sbom/gf.cdx.json)
+	@mkdir -p target/sbom
+	@cargo cyclonedx --format json --describe binaries --spec-version 1.5
+	@mv apps/cli/gf_bin.cdx.json target/sbom/gf.cdx.json
+	@rm -f crates/release-signer/release-signer_bin.cdx.json
+	@echo "SBOM written to target/sbom/gf.cdx.json"
 
 install-tools: ## Install development toolchain
 	@pip install pre-commit 2>/dev/null || echo "Install pre-commit manually"
@@ -60,6 +67,7 @@ install-tools: ## Install development toolchain
 	@cargo install cargo-audit --locked 2>/dev/null || true
 	@cargo install cargo-nextest --locked 2>/dev/null || true
 	@cargo install cargo-vet --locked 2>/dev/null || true
+	@cargo install cargo-cyclonedx --locked 2>/dev/null || true
 	@cargo install typos-cli 2>/dev/null || true
 	@cargo install cargo-release --locked 2>/dev/null || true
 	@which gitleaks >/dev/null 2>&1 || echo "Install gitleaks: https://github.com/gitleaks/gitleaks#installing"
@@ -190,7 +198,7 @@ package: ## Build and package current platform binary into dist/
 	fi
 	@echo "Packaged to dist/"
 
-.PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit install-tools install-skills install-hooks install \
+.PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync release release-quick release-rehearse \

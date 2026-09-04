@@ -185,6 +185,26 @@ make install-tools
 - `release.toml` — cargo-release configuration (publish to crates.io enabled)
 - `cliff.toml` — git-cliff configuration
 
+## Supply-Chain Trust
+
+Three checks run in `make audit` and in the `lint` CI job: `cargo deny check` (license/ban policy), `cargo audit` (RUSTSEC advisories), and `cargo vet check` (dependency provenance). All three block on failure — none of them fall back to a warning.
+
+### cargo-vet
+
+`supply-chain/` holds the audit baseline: `config.toml` (policy + exemptions), `audits.toml` (recorded audits), `imports.lock` (imported audit sets). The baseline was bootstrapped with `cargo vet init`, which exempts every dependency in use at that time under `safe-to-deploy` — an exemption is a recorded risk acceptance, not a real audit.
+
+Going forward:
+
+- Adding a new dependency **fails** `cargo vet check` until it's either exempted (`cargo vet certify --exemption <pkg>`, for low-risk cases) or actually audited (`cargo vet certify <pkg>`).
+- Run `cargo vet regenerate exemptions` after a dependency bump if `cargo vet check` starts failing solely on version bumps of already-exempted crates.
+- Prefer importing a trusted upstream audit set (`cargo vet import <name> <url>`, e.g. Mozilla's or Google's) over blanket exemptions when one covers the crate.
+
+### SBOM (CycloneDX)
+
+`make sbom` generates a CycloneDX 1.5 JSON SBOM for the `gf` binary at `target/sbom/gf.cdx.json` via `cargo-cyclonedx` (`cargo install cargo-cyclonedx --locked`, or `make install-tools`).
+
+The release CI workflow (`.github/workflows/release.yml`) generates this SBOM automatically and uploads it as a release asset (`gf-sbom.cdx.json`) alongside the platform archives, so every GitHub Release carries a machine-readable bill of materials.
+
 ## CI/CD Integration
 
 For automated releases in CI:
