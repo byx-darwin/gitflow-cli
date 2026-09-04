@@ -367,11 +367,9 @@ mod tests {
 
     #[test]
     fn test_should_resolve_body_from_file() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("gitflow_release_body.md");
-        std::fs::write(&path, "release body content").expect("write temp file");
-        let result = resolve_body(None, Some(path.to_string_lossy().into_owned()));
-        let _ = std::fs::remove_file(&path);
+        let file = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(file.path(), "release body content").expect("write temp file");
+        let result = resolve_body(None, Some(file.path().to_string_lossy().into_owned()));
         assert!(result.is_ok());
         assert_eq!(
             result.expect("already checked"),
