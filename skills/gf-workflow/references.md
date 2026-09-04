@@ -115,6 +115,14 @@ mkdir -p .worktree/feat-146-worktree-path/.cache
 ln -s ../../.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
 ln -s ../../.claude .worktree/feat-146-worktree-path/.claude
 
+# Exclude them from git tracking — writes to the COMMON git dir's info/exclude
+# (verified: worktrees do NOT have a per-worktree info/exclude; this file is shared
+# by the main tree + all worktrees of this local clone), so it protects every
+# worktree, not just this one, without touching the project's own .gitignore.
+EXCLUDE_FILE="$(cd .worktree/feat-146-worktree-path && git rev-parse --git-common-dir)/info/exclude"
+grep -qxF '.cache/workflows' "$EXCLUDE_FILE" || echo '.cache/workflows' >> "$EXCLUDE_FILE"
+grep -qxF '.claude' "$EXCLUDE_FILE" || echo '.claude' >> "$EXCLUDE_FILE"
+
 cd .worktree/feat-146-worktree-path
 git add docs && git commit -m "docs(workflow): wf-2026-08-30-001 Phase 1-2 artifacts"
 cd -
@@ -188,6 +196,46 @@ choice 4 — the contract stays in Phase 3 for resume.
 **Every execution mode must run this preflight.** Modes ① and ② let the *executor* create
 the worktree, so the orchestrator cannot rely on having checked the tree itself — the
 handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` below.
+
+### Why These Symlinks Must Never Reach the Main Branch
+
+`.cache/workflows` and `.claude` inside a worktree are relative symlinks
+(`../../.cache/workflows`, `../../.claude`). If either is ever committed, `git ls-files -s`
+shows a `120000` (symlink) mode entry for that path. A clone made from a commit carrying
+that entry re-creates the symlink pointing at `../../<name>` **relative to that clone's own
+location** — which, outside the original working tree that produced it, resolves to a
+directory that does not exist or belongs to something else entirely.
+
+**Verified real-world impact (Issue #318):** in the downstream project
+`iproost/proxy/api-src`, `.cache/workflows` and `.claude/.claude` had been committed as
+symlinks (commit `e7f4254`, swept in by an unrelated broad `git add`). Resolved from that
+repo's root, `.cache/workflows -> ../../.cache/workflows` landed **outside the repository**,
+in a directory shared by other checkouts. Every subsequent gf-workflow contract read/write in
+that project actually happened against that external shared path — including a case where a
+background research fork and the main session concurrently touched the same contract file and
+cross-wrote each other's Phase 3/4 progress.
+
+**Why `info/exclude` fixes this at the source, not just in this repo.** A linked worktree has
+no `info/exclude` of its own: `git rev-parse --git-common-dir` from inside any worktree
+resolves to the *main* repository's `.git`, and `info/exclude` always lives there — confirmed
+by writing to it from a worktree and observing `git status` change in a sibling worktree and
+the main tree alike. So the one write performed right after `ln -s` (see the example above)
+protects the main tree and every worktree this clone will ever create, permanently, without
+depending on that project's own `.gitignore` ever mentioning `.cache/` or `.claude/` — which is
+exactly the gap that let `e7f4254` happen upstream.
+
+**Belt and suspenders.** `info/exclude` only stops *new* accidental adds; it does nothing for
+a symlink that is already staged in a commit about to leave `branch` (rebase, cherry-pick,
+`git commit -a` racing the exclude write, etc.). That is why Phase 3 Step 3 in `SKILL.md` also
+scans the diff immediately before delivery:
+
+```bash
+git diff --summary "$BASE_BRANCH"...HEAD | grep 'create mode 120000'
+```
+
+A hit means some commit on `branch` added a symlink that `base_branch` doesn't have. Treat it
+as a hard stop: show the path(s), and let the user choose to drop the offending commit/entry
+or explicitly confirm it is an intentional, unrelated symlink before delivery proceeds.
 
 ## Lifecycle Management
 
