@@ -28,6 +28,21 @@ pub enum PipelineStatusEnum {
     Pending,
 }
 
+impl PipelineStatusEnum {
+    /// 是否表示已收尾（终态）：`Success`/`Failed`/`Cancelled`。
+    ///
+    /// `Running`/`Pending` 表示流水线仍在执行或排队中，尚无最终结论；
+    /// 调用方在统计成功率、进行失败归因等场景中应先用此方法过滤掉
+    /// 未收尾项，避免把"进行中"误判为"已收尾"甚至"失败"。
+    #[must_use]
+    pub fn is_terminal(&self) -> bool {
+        !matches!(
+            self,
+            PipelineStatusEnum::Running | PipelineStatusEnum::Pending
+        )
+    }
+}
+
 /// 流水线状态数据。
 ///
 /// 由平台实现填充并返回给上层命令。字段命名与平台 API 输出
@@ -186,6 +201,19 @@ mod tests {
             serde_json::from_str::<PipelineStatusEnum>("\"pending\"").expect("deserialize"),
             PipelineStatusEnum::Pending
         );
+    }
+
+    #[test]
+    fn test_should_report_terminal_states_as_terminal() {
+        assert!(PipelineStatusEnum::Success.is_terminal());
+        assert!(PipelineStatusEnum::Failed.is_terminal());
+        assert!(PipelineStatusEnum::Cancelled.is_terminal());
+    }
+
+    #[test]
+    fn test_should_report_in_flight_states_as_not_terminal() {
+        assert!(!PipelineStatusEnum::Running.is_terminal());
+        assert!(!PipelineStatusEnum::Pending.is_terminal());
     }
 
     fn sample_pipeline_status_json() -> &'static str {

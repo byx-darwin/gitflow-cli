@@ -353,15 +353,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
         // Cancelled) count toward the denominator used for `success_rate`.
         // Running/Pending pipelines are still in flight and must not
         // silently deflate the reported rate.
-        let total_runs = recent
-            .iter()
-            .filter(|p| {
-                !matches!(
-                    p.status,
-                    PipelineStatusEnum::Running | PipelineStatusEnum::Pending
-                )
-            })
-            .count() as u64;
+        let total_runs = recent.iter().filter(|p| p.status.is_terminal()).count() as u64;
         if total_runs == 0 {
             return Ok(PipelineReport {
                 total_runs: 0,
