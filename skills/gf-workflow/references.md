@@ -96,41 +96,59 @@ All worktrees are created at a fixed location within the project: `.worktree/<br
 ```bash
 # Phase 3 Step 1: preflight, then create worktree
 git status --porcelain                      # classify before forking (see below)
-git worktree add .worktree/feat-146-worktree-path -b feat/146-worktree-path main
+git worktree add .worktree/feat/146-worktree-path -b feat/146-worktree-path main
 
 # Carry this workflow's Phase 1/2 documents INTO the worktree, then commit on the
 # feature branch (structure-preserving and portable — macOS has no `cp --parents`)
+WORKTREE_PATH=".worktree/feat/146-worktree-path"
 for f in docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md; do
-  mkdir -p ".worktree/feat-146-worktree-path/$(dirname "$f")"
-  cp "$f" ".worktree/feat-146-worktree-path/$f"
+  mkdir -p "$WORKTREE_PATH/$(dirname "$f")"
+  cp "$f" "$WORKTREE_PATH/$f"
 done
 
 # Backstop: assert every contract-referenced document really landed in the worktree
 for f in docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md; do
-  test -f ".worktree/feat-146-worktree-path/$f" || { echo "ABORT: $f missing in worktree"; exit 1; }
+  test -f "$WORKTREE_PATH/$f" || { echo "ABORT: $f missing in worktree"; exit 1; }
 done
 
-# Symlink shared directories (workflow contracts + Claude config)
-mkdir -p .worktree/feat-146-worktree-path/.cache
-ln -s ../../.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
-ln -s ../../.claude .worktree/feat-146-worktree-path/.claude
+# Symlink shared directories (workflow contracts + Claude config).
+# Depth is computed, not hardcoded: worktree_path can be multi-segment
+# (branch names follow feat/<issue-number>-<short-description>, so
+# .worktree/<branch-name> is routinely 2+ segments deep). See "Why the
+# Symlink Depth Is Computed, Not Hardcoded" below for the formula and
+# the empirical proof.
+segs=$(awk -F/ '{print NF}' <<< "$WORKTREE_PATH")
+ups=$((segs + 1))
+rel=$(printf '../%.0s' $(seq 1 "$ups"))
+mkdir -p "$WORKTREE_PATH/.cache"
+ln -s "${rel}.cache/workflows" "$WORKTREE_PATH/.cache/workflows"
+ln -s "${rel}.claude" "$WORKTREE_PATH/.claude"
+
+# Existence self-check — a dangling symlink still passes `test -e`, so verify
+# the *resolved target* is a real directory. A failure here means the depth
+# formula or worktree_path itself is wrong, not that the contract is missing.
+test -d "$WORKTREE_PATH/.cache/workflows" || {
+  echo "ABORT: symlink depth miscalculated — worktree_path=$WORKTREE_PATH segs=$segs ups=$ups"
+  echo "Expected to resolve to repo-root .cache/workflows but did not."
+  exit 1
+}
 
 # Exclude them from git tracking — writes to the COMMON git dir's info/exclude
 # (verified: worktrees do NOT have a per-worktree info/exclude; this file is shared
 # by the main tree + all worktrees of this local clone), so it protects every
 # worktree, not just this one, without touching the project's own .gitignore.
-EXCLUDE_FILE="$(cd .worktree/feat-146-worktree-path && git rev-parse --git-common-dir)/info/exclude"
+EXCLUDE_FILE="$(cd "$WORKTREE_PATH" && git rev-parse --git-common-dir)/info/exclude"
 grep -qxF '.cache/workflows' "$EXCLUDE_FILE" || echo '.cache/workflows' >> "$EXCLUDE_FILE"
 grep -qxF '.claude' "$EXCLUDE_FILE" || echo '.claude' >> "$EXCLUDE_FILE"
 
-cd .worktree/feat-146-worktree-path
+cd "$WORKTREE_PATH"
 git add docs && git commit -m "docs(workflow): wf-2026-08-30-001 Phase 1-2 artifacts"
 cd -
 # Only now remove the main-tree copies, so the eventual merge cannot be blocked
 rm docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md
 
 # Phase 4 Branch Finish: Remove worktree
-git worktree remove .worktree/feat-146-worktree-path
+git worktree remove "$WORKTREE_PATH"
 ```
 
 ### Worktree Preflight (Phase 3 Step 1)
@@ -196,6 +214,38 @@ choice 4 — the contract stays in Phase 3 for resume.
 **Every execution mode must run this preflight.** Modes ① and ② let the *executor* create
 the worktree, so the orchestrator cannot rely on having checked the tree itself — the
 handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` below.
+
+### Why the Symlink Depth Is Computed, Not Hardcoded
+
+A relative symlink resolves starting from the directory that *contains* the
+symlink file, not from `worktree_path` itself. The symlinks above live at
+`$WORKTREE_PATH/.cache/workflows` and `$WORKTREE_PATH/.claude`, so their
+containing directory (`$WORKTREE_PATH/.cache/`) is **one segment deeper**
+than `$WORKTREE_PATH`. The number of `../` needed to reach the repo root is
+therefore:
+
+```
+ups = (number of "/"-separated segments in worktree_path) + 1
+```
+
+**Verified empirically** (not inferred from documentation) with real
+`mkdir` + `ln -s`:
+
+| `worktree_path` | segments | `ups` | Hardcoded `../../` resolves to |
+|---|---|---|---|
+| `.worktree/foo` (single-segment — the case the old hardcoded value was written for) | 2 | 3 | `.worktree/` — **not the repo root** |
+| `.worktree/feat/89-desc` (branch name contains `/`, per the `feat/<issue-number>-<short-description>` convention) | 3 | 4 | `.worktree/feat/` — **not the repo root** |
+
+The old hardcoded `../../` (2 levels) was wrong even for the single-segment
+case it was presumably written for — it only reaches `.worktree/`, one level
+short of the repo root, in every case. A branch name containing `/` (the
+routine case, not an edge case — see the naming convention above) simply
+made the shortfall larger and easier to hit. The `segs + 1` formula is
+correct for both, and the post-creation `test -d "$WORKTREE_PATH/.cache/workflows"`
+check catches any future regression of this formula by refusing to proceed
+silently — a dangling symlink otherwise looks identical to a missing
+contract to every downstream reader (see Issue #322's real-world report:
+this exact ambiguity cost significant debugging time downstream).
 
 ### Why These Symlinks Must Never Reach the Main Branch
 
