@@ -45,14 +45,14 @@
 - 等待用户输入: "approved" / "changes requested" / "rejected"
 - 用户批准后，**自动进入 Phase 3**
 
-**GO 闸门——执行模式选择（Issue #141）:** 用户批准后、进入 Phase 3 前，编排器必须提供执行模式选择：
-① 后台代理（默认推荐，仅 superpowers 来源可用）② 手动新窗口 ③ 同会话执行（仅显式要求）。
-mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked，后台代理无法调用）。
+**GO 闸门——执行模式选择（Issue #141，Issue #325 移除后台代理选项）:** 用户批准后、进入 Phase 3 前，编排器必须提供执行模式选择：
+① 手动新窗口（默认）② 同会话执行（仅显式要求）。两个来源（superpowers / mattpocock）菜单一致，
+无需按来源裁剪。
 模式语义详见 `references.md` → Phase 3 Execution Modes。
 
 提示文案须告知：Phase 3 Step 1 会先跑 **Worktree Preflight**——设计文档（Bucket A）提交前也会
 暂停询问是否提交，主工作区若有与本工作流无关的改动（Bucket B）会再次中断询问。
-此处**不新增闸门条件**——Gate 2→3 只校验合同证据；且模式 ①② 下建 worktree 的是执行者，
+此处**不新增闸门条件**——Gate 2→3 只校验合同证据；且模式 ① 下建 worktree 的是执行者，
 在闸门里查树状态保护不到它，preflight 必须随 handoff 下发。
 
 ### Gate 3→4: 执行 → 交付
