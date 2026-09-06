@@ -394,7 +394,7 @@ jq --arg src "<superpowers|mattpocock|inline>" \
 | Issue review | `gf-issue-review` | `gf-issue-review` (unchanged) | gf CLI |
 | Planning | `writing-plans` | ✋ `/to-tickets` | model-invoked / user-invoked |
 | Quality gate | `gf-quality` | `gf-quality` (unchanged) | gf CLI |
-| Execution engine | `subagent-driven-development` (same-session) / `executing-plans` (new window) / background agent — per GO gate | ✋ `/implement` per ticket (internal `/tdd` mandatory) | per mode / user-invoked |
+| Execution engine | `subagent-driven-development` (same-session) / `executing-plans` (new window) — per GO gate | ✋ `/implement` per ticket (internal `/tdd` mandatory) | per mode / user-invoked |
 | Execution review | SDD built-in two-stage review | `code-review` (driven inside `/implement`) | — |
 | Delivery review | `gf-review` | `gf-review` (unchanged; no extra code-review pass) | gf skill |
 | Triage (full mode) | `gf-issue-triage` | `gf-issue-triage` (unchanged; mattpocock `triage` NOT adopted) | gf skill |
@@ -445,9 +445,17 @@ same-session SDD hijacks the conversation once started).
 
 | Mode | Description | Availability |
 |---|---|---|
-| ① Background agent ⭐default | Dispatch with `isolation: worktree` + `run_in_background`; handoff = contract path + plan doc + engine instructions + **Worktree Preflight steps verbatim** (this executor creates the worktree, so the orchestrator's tree state was never checked); `task-notification` returns to the original window; executor writes evidence back to the contract | superpowers only (`/implement` is user-invoked → unusable on mattpocock) |
-| ② Manual new window | Print opening guidance: worktree path (or creation command) + contract recovery command (`gf workflow status <id>` + plan doc path) + **Worktree Preflight steps verbatim**; new window creates branch/worktree itself and runs `executing-plans` (superpowers) or per-ticket `/implement` (mattpocock); user reports back, orchestrator verifies evidence | both sources |
-| ③ Same-session | Current behavior: orchestrator creates worktree and drives the engine inline | explicit request only |
+| ① Manual new window ⭐default | Print opening guidance: worktree path (or creation command) + contract recovery command (`gf workflow status <id>` + plan doc path) + **Worktree Preflight steps verbatim**; new window creates branch/worktree itself and runs `executing-plans` (superpowers) or per-ticket `/implement` (mattpocock); user reports back, orchestrator verifies evidence | both sources |
+| ② Same-session | Current behavior: orchestrator creates worktree and drives the engine inline | explicit request only |
+
+**Why no background-executor mode:** an earlier mode dispatching a harness-isolated,
+non-interactive executor (`isolation: worktree` + `run_in_background`) was removed after
+Issue #325 confirmed two structural defects that cannot be fixed by documentation alone:
+(1) such an isolated executor's git operations are hard-restricted to its own
+harness-managed worktree — it cannot target `.worktree/<branch-name>`; (2) that
+harness-managed worktree forks from `origin/<default-branch>`, not from the orchestrator's
+`base_branch`, so any resulting branch would silently miss `base_branch`-only commits.
+See `specs/gf-workflow-mode1-removal-design.md` for the investigation.
 
 Quality compensation: `executing-plans` (light path) lacks per-task review → gates
 compensate (`make test` before PR + Phase 4 `gf-review`). SDD carries per-task review built in.
@@ -460,4 +468,4 @@ All gf-workflow worktrees are created at a **fixed path**: `.worktree/<branch-na
 - Full path example: `.worktree/feat/141-dual-skill-sources`
 - `.worktree/` is in `.gitignore` → worktrees are automatically excluded from version control
 - Phase 4 Branch Finish cleanup uses this predictable path for `git worktree remove`
-- Background agents and new-window executors create worktrees at this same location
+- New-window executors create worktrees at this same location
