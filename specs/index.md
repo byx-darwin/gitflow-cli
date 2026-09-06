@@ -4,6 +4,7 @@
 - [GitFlow CLI 设计规格](./gitflow-cli-design.md) — 跨平台 Git 工程化工作流编排框架完整设计。
 - [TUI System Monitor Design](./tui-system-monitor-design.md) — Full design for the TUI demo app: layout, state, data flow, dependencies, "wow factor".
 - [gf-workflow-batch 设计规格](./gf-workflow-batch-design.md) — 串行批量处理多个 open Issue 的外层驱动器设计（Issue #280）。
+- [gf-workflow Phase 3 Mode ① 移除设计](./gf-workflow-mode1-removal-design.md) — 移除后台 agent 执行模式，改为二选一菜单（Issue #325）。
 
 ## 实现计划
 
@@ -12,6 +13,7 @@
 - [Phase 3: GitLab + GitCode](../docs/superpowers/plans/2026-07-01-phase3-gitlab-gitcode.md) — 多平台支持 + Pipeline 通用接口
 - [Phase 4: 编排层](../docs/superpowers/plans/2026-07-01-phase4-orchestration.md) ✅ 已完成 (Issue #5) — 全流程编排 + 质量关卡 + 一键安装
 - [Phase 5: 完成度提升](../docs/superpowers/plans/2026-07-01-phase5-polish.md) — 剩余 Skills + Shell 补全 + Homebrew + 社区文档
+- [gf-workflow Mode ① 移除实施计划](../docs/superpowers/plans/2026-09-06-gf-workflow-mode1-removal.md) — Issue #325，纯文档改动，3 个文件
 
 ## 集成指南
 
