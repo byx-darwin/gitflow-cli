@@ -398,7 +398,7 @@ jq --arg src "<superpowers|mattpocock|inline>" \
 | Execution review | SDD built-in two-stage review | `code-review` (driven inside `/implement`) | — |
 | Delivery review | `gf-review` | `gf-review` (unchanged; no extra code-review pass) | gf skill |
 | Triage (full mode) | `gf-issue-triage` | `gf-issue-triage` (unchanged; mattpocock `triage` NOT adopted) | gf skill |
-| Pipeline analysis | `gf-pipeline-analyzer` | (unchanged) | gf skill |
+| Pipeline analysis | `gf-pipeline-analyzer` — optional, asked at Phase 4 entry, default yes (all modes) | (unchanged) | gf skill |
 
 ### Source Branch Semantics
 

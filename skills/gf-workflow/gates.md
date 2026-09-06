@@ -121,11 +121,16 @@ def check_gate(contract, target_phase):
 ### Phase 4 步骤选择
 
 ```python
-def get_phase4_steps(mode):
+def get_phase4_steps(mode, run_pipeline_analysis=True):
     """按模式返回 Phase 4 步骤分组：parallel 组内的步骤单条消息内并发派发
     （各自 Agent 独立执行、互不读取彼此产出，因为三者只共享 Phase 3 的
-    pr_url/branch，无真实数据依赖），全部返回后再按顺序执行 sequential 组。"""
-    parallel = ["pipeline"]
+    pr_url/branch，无真实数据依赖），全部返回后再按顺序执行 sequential 组。
+
+    run_pipeline_analysis: Phase 4 入口处用户的实时选择（三种模式下均默认 True，
+    每次询问，见 SKILL.md → Phase 4 Step 0）；不是按 mode 派生的常量。"""
+    parallel = []
+    if run_pipeline_analysis:
+        parallel.append("pipeline")
     if mode == "full":
         parallel.append("triage")
     if mode in ("full", "standard"):
@@ -144,6 +149,7 @@ def get_phase4_steps(mode):
 2. 每个子 Agent 独立读取仓库/PR 上下文（不共享编排器会话状态），并被显式告知：把完整报告写入磁盘、仅在回复里返回一行状态摘要（`✅ <step>: no findings` / `⚠️ <step>: N findings, see <path>`）——遵守 SKILL.md 「Reporting Granularity」的约定，避免并行派发把 token 成本推高抵消 Phase 4 报告瘦身的收益
 3. 子 Agent 内部**不得**写 workflow contract；`evidence` 只能由编排器在全部并行结果返回后、进入 sequential 组之前统一写入（与现有「join 后才更新 contract」的模式一致，避免并发写入同一份 JSON 合同）
 4. 任一并行步骤失败：编排器等待其余步骤完成后再统一处理失败（不要因为一个步骤失败就取消其余仍在跑的步骤），失败步骤的详情随一行摘要的 `⚠️` 提示一并给出
+5. `fast` 模式下用户若也跳过 pipeline 分析，`parallel` 为空列表——直接进入 `sequential` 组（`branch_finish`），无需派发任何 Agent；这不等于跳过 Phase 4
 
 ## 自动流转规则
 
