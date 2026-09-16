@@ -5,6 +5,7 @@
 - [TUI System Monitor Design](./tui-system-monitor-design.md) — Full design for the TUI demo app: layout, state, data flow, dependencies, "wow factor".
 - [gf-workflow-batch 设计规格](./gf-workflow-batch-design.md) — 串行批量处理多个 open Issue 的外层驱动器设计（Issue #280）。
 - [gf-workflow Phase 3 Mode ① 移除设计](./gf-workflow-mode1-removal-design.md) — 移除后台 agent 执行模式，改为二选一菜单（Issue #325）。
+- [gf-smell 设计规格](./gf-smell-design.md) — 代码坏味道与复杂度热点检测 skill：语言无关三阶段判定协议 + 语言专属检测层（Issue #327）。
 
 ## 实现计划
 
