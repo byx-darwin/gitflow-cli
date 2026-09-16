@@ -236,9 +236,20 @@ cargo clippy --workspace --all-targets -- \
 |---|---|
 | `too_many_lines` | 5（`issue.rs:175` 172/100 · `label.rs:135` 101/100 · `label.rs:264` 113/100 · `pr.rs:214` 239/100 · `release.rs:138` 129/100） |
 | `cognitive_complexity` | 0 |
-| `excessive_nesting` | 0 |
+| `excessive_nesting` | 0 —— **该 0 无效，见下** |
 | `too_many_arguments` | 0 |
 | `type_complexity` | 0 |
+
+**更正（Task 3 审查发现，已独立复验）**：`excessive_nesting` 的 0 命中**不是**代码干净的
+证据。`excessive-nesting-threshold` 的工具默认值是 **0，含义为禁用**，未在 `clippy.toml`
+显式配置时该 lint 在任何嵌套深度都不触发，`--force-warn` 也无法激活——它是惰性而非被抑制。
+复验：8 层嵌套的样本在无配置时 0 命中，加 `excessive-nesting-threshold = 3` 后立即 2 命中。
+本仓库不得修改 `clippy.toml`，故该 lint 在此恒不触发，`Deep Nesting` 类目改由结构缩进扫描
+承载，证据强度上限 `Observed`。
+
+同一怀疑已对 `cognitive_complexity` 复验并排除：用复杂度 61 的样本测试，无配置时即以
+`61/25` 触发，其默认阈值 25 确实生效，故它的 0 命中**仍是有效证据**。两个 lint 行为不同，
+不可一并推翻。
 
 **这组数字本身就是判定模型的自证样本**：5 个函数长（Measured 越界）但认知复杂度为零，说明它们是扁平的 `match` 子命令分发——证据强度 Measured 高、置信度 Low。且 5 处同属一个设计模式，按 §5.4 规则 2 合并后应为 1 条、标注 5 个独立实例。
 
