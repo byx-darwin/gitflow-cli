@@ -228,6 +228,63 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "ALL CHECKS PASSED"
 
+check-walkthrough-skill: ## Verify gf-walkthrough skill meets Issue #329 acceptance criteria
+	@S=skills/gf-walkthrough/SKILL.md; \
+	T=docs/superpowers/templates/walkthrough-report-template.md; FAIL=0; \
+	if [ ! -f "$$S" ]; then echo "✗ missing $$S"; exit 1; fi; \
+	if grep -nEi 'cargo|go\.mod|package\.json|pyproject\.toml|pom\.xml|pytest|eslint|mvn|clippy' "$$S"; then \
+		echo "✗ #1 SKILL.md 正文含单一语言的工具名或文件名"; FAIL=1; \
+	else echo "✓ #1 正文无语言专属标识"; fi; \
+	TIER=0; \
+	for K in Measured Inferred Unverified; do \
+		grep -qF "$$K" "$$S" || { echo "✗ #2 缺少证据档位 $$K"; TIER=1; FAIL=1; }; \
+	done; \
+	[ $$TIER -eq 0 ] && echo "✓ #2 三档标记齐备"; \
+	for H in '失败用例' '最后修改 commit' '是否 base 祖先'; do \
+		grep -qF "$$H" "$$S" || { echo "✗ #4 失败测试表缺少列「$$H」"; FAIL=1; }; \
+	done; \
+	grep -qF 'unrelated' "$$S" \
+		&& echo "✓ #5 禁用词规则已声明" \
+		|| { echo "✗ #5 未声明禁止写 unrelated"; FAIL=1; }; \
+	A=`grep -m1 '^allowed-tools:' "$$S"`; \
+	if [ -z "$$A" ]; then echo "✗ #9 缺少 allowed-tools"; FAIL=1; \
+	elif echo "$$A" | grep -qE 'Edit'; then echo "✗ #9 allowed-tools 含 Edit"; FAIL=1; \
+	elif ! echo "$$A" | grep -qE 'Write'; then echo "✗ #9 allowed-tools 缺 Write（落盘所需）"; FAIL=1; \
+	else echo "✓ #9 工具集含 Write 不含 Edit"; fi; \
+	grep -qF 'gf-quality/references/detector.md' "$$S" \
+		&& echo "✓ #10 复用既有语言探测" \
+		|| { echo "✗ #10 未引用 detector.md"; FAIL=1; }; \
+	W=`perl -0 -ne 's/^---\n.*?^---\n//ms; s/\x60\x60\x60.*?\x60\x60\x60//gs; s/\x60[^\x60]+\x60//g; print scalar(()=/\p{L}+/g)' "$$S"`; \
+	if [ "$$W" -le 500 ]; then echo "✓ #11 词数 $$W ≤ 500"; \
+	else echo "✗ #11 词数 $$W 超出 500 硬限"; FAIL=1; fi; \
+	if [ -f "$$T" ]; then echo "✓ #12 报告模板存在"; \
+	else echo "✗ #12 缺少 $$T"; FAIL=1; fi; \
+	REP=`ls docs/walkthrough-*.md 2>/dev/null | head -1`; \
+	if [ -n "$$REP" ] && [ -s "$$REP" ]; then echo "✓ #8 走查包已落盘: $$REP"; \
+	else echo "✗ #8 未找到非空的 docs/walkthrough-*.md"; FAIL=1; REP=""; fi; \
+	STRAY=`find . -name 'walkthrough-*.md' -not -path './docs/*' -not -path './target/*' \
+		-not -path './.worktree/*' -not -path './.git/*' 2>/dev/null | head -5`; \
+	if [ -n "$$STRAY" ]; then echo "✗ #8 报告散落在 docs/ 之外: $$STRAY"; FAIL=1; fi; \
+	if [ -z "$$REP" ]; then \
+		echo "— #3 跳过（无报告）"; echo "— #6 跳过（无报告）"; echo "— #7 跳过（无报告）"; \
+	else \
+		MCNT=`grep -c '^- \[Measured\]' "$$REP"`; \
+		FCNT=`awk '/^- \[Measured\]/{n=NR; f=0; for(i=1;i<=3;i++){if((getline line)>0){buf[i]=line; if(line ~ /^ *\x60\x60\x60/) f=1}}; if(!f) c++} END{print c+0}' "$$REP"`; \
+		if [ "$$MCNT" -eq 0 ]; then echo "✗ #3 报告中无 [Measured] 条目"; FAIL=1; \
+		elif [ "$$FCNT" -eq 0 ]; then echo "✓ #3 全部 $$MCNT 条 [Measured] 均附输出块"; \
+		else echo "✗ #3 有 $$FCNT 条 [Measured] 未附输出块"; FAIL=1; fi; \
+		OPEN=`awk '/^## /{if(seen){exit}; seen=1; next} seen && NF {print; exit}' "$$REP"`; \
+		case "$$OPEN" in \
+			'`'*|/*|\#*) echo "✗ #6 开场首句以标识符或路径开头: $$OPEN"; FAIL=1;; \
+			*) echo "✓ #6 开场首句未以标识符或路径开头";; \
+		esac; \
+		grep -qiF 'blast radius' "$$REP" \
+			&& echo "✓ #7 含 blast radius 说明" \
+			|| { echo "✗ #7 报告缺少 blast radius 章节"; FAIL=1; }; \
+	fi; \
+	[ $$FAIL -eq 0 ] && echo "全部硬约束通过" || echo "存在未通过项"; \
+	exit $$FAIL
+
 smoke-test: ## Run multi-platform smoke test (auto-detect platform)
 	@bash scripts/smoke-test.sh --read-only
 
@@ -290,7 +347,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-walkthrough-skill release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
