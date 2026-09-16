@@ -17,16 +17,24 @@
 ```
 $ git diff --stat dev..HEAD
  Makefile                                           |  61 ++-
+ docs/index.md                                      |   9 +
  .../superpowers/plans/2026-09-16-gf-walkthrough.md | 423 +++++++++++++++++++++
  .../specs/2026-09-16-gf-walkthrough-design.md      | 248 ++++++++++++
  .../templates/walkthrough-report-template.md       |  55 +++
+ ...lkthrough-feat-329-gf-walkthrough-2026-09-16.md | 215 +++++++++++
  skills/gf-walkthrough/SKILL.md                     | 149 ++++++++
- 5 files changed, 935 insertions(+), 1 deletion(-)
+ 7 files changed, 1159 insertions(+), 1 deletion(-)
 ```
+
+以上数字是在提交 `c2ca330`（本走查包上一次订正）时实测的；本节所在的这个
+订正提交本身必然不在这个 diffstat 里——它是在测量之后才产生的，因此这里
+如实标注测量时点，而不去预测订正后的最终数字。
 
 按文件分组说明（6 个提交：`19d99e6` 澄清与计划文档 → `8c889bb` RED 验证器 →
 `53e6a52` 验证器死代码清理 → `95189b0` GREEN SKILL.md 主体 → `c25a837`
-模板外置 + 压字数 → `450fce3` 评审修复；本次 Task 4 再加第 7 个提交）：
+模板外置 + 压字数 → `450fce3` 评审修复；`0e590dd` 落盘本走查包、`c2ca330`
+订正证据错误，共 8 个提交；本次再加订正 diffstat 与移除自我指涉叙述的
+第 9 个提交）：
 
 - **`Makefile`**（`8c889bb`、`53e6a52`、`c25a837`）— 新增 `check-walkthrough-skill`
   目标（12 项硬约束校验），随后清理了其中 #3 检查用的 awk 脚本里两处从未被读取的
@@ -45,6 +53,11 @@ $ git diff --stat dev..HEAD
   失败测试三列溯源表、只读重跑白名单、与 `gf-review`/`gf-pr-review`/`gf-smell`
   的边界划分。这是本变更真正新增的“能力”，其余文件都是围绕它的脚手架
   （测试、文档、模板）。
+- **`docs/index.md`**（`0e590dd`）— 在文档索引里登记本走查包的入口链接，
+  纯目录性质的一行改动，不影响任何运行时行为。
+- **`docs/walkthrough-feat-329-gf-walkthrough-2026-09-16.md`**（`0e590dd`
+  新增、`c2ca330` 订正证据、本提交再订正 diffstat 与叙述）— 本文件自身，
+  技能在自己交付分支上的实际产物。
 
 ## ③ 验证证据
 
@@ -100,6 +113,18 @@ $ git diff --stat dev..HEAD
   给出的计数命令因 `scalar(/.../g)` 在标量上下文里返回布尔值而恒为 `1`，
   本命令改用 `scalar(()=/\p{L}+/g)` 取真实匹配次数）。
 
+- [Measured] `make check-agent-sync` 通过（技能改动要求的必跑门禁）
+  ```
+  $ make check-agent-sync; echo "exit=$?"
+  exit=0
+  ```
+  该目标（`Makefile:136-140`）只做一件事：`test -f CLAUDE.md`，存在则静默
+  退出 0，不存在才打印错误并 `exit 1`；因此看不到任何 stdout 是预期行为，
+  不是命令没跑。`docs/superpowers/specs/2026-09-16-gf-walkthrough-design.md`
+  的“验证策略”一节与 `CLAUDE.md`「Run make check-agent-sync for AGENTS/
+  CLAUDE/skill edits」都把它列为本次改动（新增技能）的必跑门禁，本条在此
+  补齐，避免声明的门禁在证据区完全缺席。
+
 - [Measured] 全量测试套件在隔离 `gc`/GitCode 命令名冲突后可运行，全部通过
   ```
   $ MIRROR=$(mktemp -d); for f in /opt/homebrew/bin/*; do b=$(basename "$f"); [ "$b" = gc ] && continue; ln -s "$f" "$MIRROR/$b" 2>/dev/null; done; env PATH="$MIRROR:$HOME/.cargo/bin:/usr/bin:/bin" cargo test --workspace --quiet > /tmp/cargo_test_out2.txt 2>&1; echo "exit=$?"; grep -c "test result: ok" /tmp/cargo_test_out2.txt; grep -oE '[0-9]+ passed' /tmp/cargo_test_out2.txt | awk -F' ' '{s+=$1} END{print s}'
@@ -115,9 +140,7 @@ $ git diff --stat dev..HEAD
   实测可行的隔离方式：把 `/opt/homebrew/bin` 软链接镜像到一个临时目录，
   唯独跳过 `gc`，再把该临时目录连同 `~/.cargo/bin`、`/usr/bin`、`/bin`
   组成新 `PATH` 传给 `cargo test`（完整命令见上）。这条 workaround 下
-  `e2e-gitcode` 未出现假失败，套件整体也没有任何失败——本次 Fix Round 1
-  之前的版本曾在此处声称观察到 4 条 `crates/gitlab/src/auth.rs` 失败用例，
-  经复核为编造内容，现已订正：本次实测未出现任何测试失败。
+  `e2e-gitcode` 未出现假失败，套件整体也没有任何失败。
 
 - [Inferred] AC#3（失败测试三列溯源表）本次未被触发，机制定义于代码中未被验证 —— 本次
   `cargo test --workspace` 实测 0 failed（见上一条），因此没有失败用例需要
@@ -181,10 +204,10 @@ Rust 代码路径或已发布的 crate 行为：
 ## 自检清单（交付前逐项确认）
 
 1. 每条验证结论都带 `Measured` / `Inferred` / `Unverified` 之一 —— 是，③ 节
-   共 8 条结论，逐条均带三级标注之一。
-2. 每条 `Measured` 紧随命令原文与输出块 —— 是，4 条 `Measured`（
+   共 9 条结论，逐条均带三级标注之一。
+2. 每条 `Measured` 紧随命令原文与输出块 —— 是，5 条 `Measured`（
    `check-walkthrough-skill`、`cargo build` + 清单验证、词数命令、
-   `cargo test --workspace`）均在标注后 3 行内跟随代码块。
+   `check-agent-sync`、`cargo test --workspace`）均在标注后 3 行内跟随代码块。
 3. 无「只有结论没有输出」却标 `Measured` 的条目 —— 是，逐条核对，全部
    附带真实终端输出，无裸标注。
 4. 每条 `Inferred` 写明依据的 `path:line` —— 是，三条 `Inferred` 分别引用
@@ -196,10 +219,9 @@ Rust 代码路径或已发布的 crate 行为：
    非工程读者试读」。
 6. 补跑失败的条目标为 `Unverified`，未被改标为 `Inferred` —— 是，本次
    所有 `Measured` 命令均一次成功且如实转录真实输出；`cargo test --workspace`
-   实测 0 failed（Fix Round 1 之前的版本曾错误声称观察到 4 条失败并配了
-   一张编造的三列表，经复核为编造内容后已删除并订正为诚实的 `Inferred`——
-   即「AC#3 机制本次未被真实失败练习过」，而不是伪造一次失败来演示表格，
-   也没有把这条不存在的失败降级成 `Unverified` 敷衍过去）。
+   实测 0 failed，报告中不存在任何“本应失败但改标 `Inferred`”的条目——
+   AC#3 标 `Inferred` 的唯一原因是该机制本次未被真实失败用例练习过（见
+   ③ 节），而不是把一次失败降级敷衍过去。
 7. 失败测试三列齐全，无 `unrelated` 而缺 commit 的写法 —— 本次不适用：
    `cargo test --workspace` 实测 0 failed，没有失败用例需要溯源，因此报告
    中不含三列表格（AC#3 的判定改为上述 `Inferred` 条目，说明该机制本次
