@@ -240,9 +240,11 @@ check-walkthrough-skill: ## Verify gf-walkthrough skill meets Issue #329 accepta
 		grep -qF "$$K" "$$S" || { echo "✗ #2 缺少证据档位 $$K"; TIER=1; FAIL=1; }; \
 	done; \
 	[ $$TIER -eq 0 ] && echo "✓ #2 三档标记齐备"; \
+	HEADER=0; \
 	for H in '失败用例' '最后修改 commit' '是否 base 祖先'; do \
-		grep -qF "$$H" "$$S" || { echo "✗ #4 失败测试表缺少列「$$H」"; FAIL=1; }; \
+		grep -qF "$$H" "$$S" || { echo "✗ #4 失败测试表缺少列「$$H」"; HEADER=1; FAIL=1; }; \
 	done; \
+	[ $$HEADER -eq 0 ] && echo "✓ #4 失败测试表三列齐备"; \
 	grep -qF 'unrelated' "$$S" \
 		&& echo "✓ #5 禁用词规则已声明" \
 		|| { echo "✗ #5 未声明禁止写 unrelated"; FAIL=1; }; \
