@@ -193,6 +193,22 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 			&& echo "✓ Rust 层声明结构扫描证据强度上限" \
 			|| { echo "✗ Rust 层缺少结构扫描证据强度约束"; FAIL=1; }; \
 	fi; \
+	SUPP=0; \
+	grep -qF 'Three outcomes:' "$$S" || SUPP=1; \
+	grep -qF 'but the code contradicts it' "$$S" || SUPP=1; \
+	grep -qF 'a finding in its own right' "$$S" || SUPP=1; \
+	if grep -qF 'Bare suppression, no reason' "$$S"; then SUPP=1; fi; \
+	if [ $$SUPP -eq 0 ]; then echo "✓ AC#10 抑制判定为三分支（含理由被代码证伪）"; \
+	else echo "✗ AC#10 抑制判定未采用三分支形式"; FAIL=1; fi; \
+	if [ -f "$$R/rust.md" ]; then \
+		DEAD=0; \
+		grep -qF 'OUT_DEAD' "$$R/rust.md" || DEAD=1; \
+		grep -qF '不能用 `--all-targets`' "$$R/rust.md" || DEAD=1; \
+		if grep -A1 -F -- '--force-warn clippy::type_complexity' "$$R/rust.md" \
+			| grep -qF -- '--force-warn dead_code'; then DEAD=1; fi; \
+		if [ $$DEAD -eq 0 ]; then echo "✓ AC#11 Rust 层 dead_code 与结构类 lint 分离捕获"; \
+		else echo "✗ AC#11 Rust 层 dead_code 未与结构类 lint 分离"; FAIL=1; fi; \
+	fi; \
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "ALL CHECKS PASSED"
 
