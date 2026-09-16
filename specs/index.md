@@ -15,6 +15,7 @@
 - [Phase 4: 编排层](../docs/superpowers/plans/2026-07-01-phase4-orchestration.md) ✅ 已完成 (Issue #5) — 全流程编排 + 质量关卡 + 一键安装
 - [Phase 5: 完成度提升](../docs/superpowers/plans/2026-07-01-phase5-polish.md) — 剩余 Skills + Shell 补全 + Homebrew + 社区文档
 - [gf-workflow Mode ① 移除实施计划](../docs/superpowers/plans/2026-09-06-gf-workflow-mode1-removal.md) — Issue #325，纯文档改动，3 个文件
+- [gf-smell 实施计划](../docs/superpowers/plans/2026-09-16-gf-smell.md) — Issue #327，5 个 Task：验收断言（RED）→ SKILL.md → rust.md → 其余四语言层 → dogfooding 实跑
 
 ## 集成指南
 
