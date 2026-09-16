@@ -7,7 +7,11 @@
 **单次运行，捕获输出后复用。** 重复调用会命中 cargo 缓存并返回空输出，把「缓存」
 误报成「干净」——本仓库实测踩中过。
 
+**结构类 lint 用 `--all-targets`，`dead_code` 必须单独用默认 target。** 两条命令
+各自**单次运行**、各自捕获，互不复用。
+
 ```bash
+# (1) 结构类 lint：--all-targets（测试代码也是代码，超长/高复杂度的测试函数值得看见）
 OUT=$(mktemp -t gf-smell-rust)
 cargo clippy --workspace --all-targets 2>&1 -- \
   --force-warn clippy::too_many_lines \
@@ -15,9 +19,38 @@ cargo clippy --workspace --all-targets 2>&1 -- \
   --force-warn clippy::excessive_nesting \
   --force-warn clippy::too_many_arguments \
   --force-warn clippy::type_complexity \
-  --force-warn dead_code \
   > "$OUT" 2>&1
+
+# (2) dead_code：默认 target，不加 --all-targets
+OUT_DEAD=$(mktemp -t gf-smell-rust-dead)
+cargo clippy --workspace 2>&1 -- \
+  --force-warn dead_code \
+  > "$OUT_DEAD" 2>&1
 ```
+
+`dead_code` 的候选**只**从 `$OUT_DEAD` 取。`$OUT` 里若出现 `dead_code` 诊断，
+一律忽略，不进候选表。
+
+### 为什么 `dead_code` 不能用 `--all-targets`
+
+`--all-targets` 会把二进制 crate 再编译一次作为 test harness。在该 target 下
+`main` 及其整条调用链都没有调用者，于是**所有只从 `main` 可达的函数都被报成
+`never used`**——这不是死代码，是编译口径造成的产物。
+
+本仓库实测（两条命令各自单跑，命中数按 `never used` / `never read` /
+`never constructed` 计）：
+
+| 命令 | 命中 |
+|---|---|
+| `cargo clippy --workspace --all-targets -- --force-warn dead_code` | **79** |
+| `cargo clippy --workspace -- --force-warn dead_code` | **22** |
+| 仅存在于 `--all-targets` 的位置 | **54**（抽样全部位于 `apps/cli/src/commands/*`，即被重编为 test harness 的二进制 crate） |
+
+即 `--all-targets` 把 `dead_code` 放大约 3.6 倍，放大部分全是 harness 假阳性。
+
+**若因故只有一次 `--all-targets` 的捕获可用**，不得直接采信其中的 `dead_code`：
+必须补跑一次默认 target 的 (2)，用 `comm -13` 比对两份位置清单，只保留同时出现在
+默认 target 捕获里的位置；无法补跑时，`dead_code` 类目在报告中记为「未执行」。
 
 **必须用 `--force-warn`，不能用 `-W`。** `-W` 无法穿透源码里的 `#[allow(...)]`，
 而被 allow 掉的复杂度诊断恰恰是最需要看见的——「已被 allow」不等于问题消失，
@@ -79,7 +112,7 @@ echo "$FILES" | xargs -I{} awk '
 | Long Function | `clippy::too_many_lines` | **Measured** |
 | Deep Nesting | 结构扫描：缩进/花括号嵌套深度（本仓库使用）；`clippy::excessive_nesting`（**仅当**项目在 `clippy.toml` 显式配置 `excessive-nesting-threshold` 时才是 Measured 来源，本仓库未配置） | **Observed**（本仓库）／条件性 **Measured**（已配置阈值的项目） |
 | Excessive Parameters | `clippy::too_many_arguments` | **Measured** |
-| Dead Code | `dead_code` | **Measured** |
+| Dead Code | `dead_code`，**且必须取自默认 target 的捕获** | **Measured**（仅当来自默认 target）；`--all-targets` 捕获里的同名诊断证据强度为**零**，是编译口径产物，不得进候选表 |
 | Primitive Obsession | `clippy::type_complexity` | **Measured** |
 | God Structure | 结构扫描：文件行数 · 单文件函数数 | **Observed** |
 | Shotgun Surgery | 结构扫描：模块扇出 + 同形改动分布 | **Observed** |

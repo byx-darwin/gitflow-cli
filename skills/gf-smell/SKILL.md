@@ -169,10 +169,23 @@ Names and definitions only. Thresholds belong to the language layer.
 ### Suppressed Diagnostics Are Not Absent Problems
 
 When the language layer can see a diagnostic that the source has explicitly
-suppressed, judge the suppression:
+suppressed, a stated reason is a **claim about the code, not a verdict**.
+Before acting on it you MUST read the suppressed unit and check whether the
+claim still describes what is there. Skipping that check turns every
+suppression into an automatic exclusion, which is how a real problem leaves
+the report.
 
-- **Suppression carries a stated reason** → 有意权衡, move to the excluded table
-- **Bare suppression, no reason** → keep as a candidate
+Three outcomes:
+
+- **No reason stated** → keep as a candidate; nobody recorded a trade-off
+- **Reason stated, and verified against the code** → 有意权衡, move to the
+  excluded table and record what you checked
+- **Reason stated, but the code contradicts it** → a finding in its own right.
+  A drifted suppression is worse than a bare one: the justification stops any
+  reviewer from looking again, while the thing it justified has changed.
+  Report the discrepancy between claim and code, not only the underlying
+  diagnostic. A reason that covers part of the unit but not all of it is a
+  partial contradiction — say which part it fails to cover.
 
 ## Language Layer Contract
 
@@ -257,7 +270,7 @@ been flagged was excluded) and over-exclusion.
 | "I'll just fix this one quickly" | Detection only. Fixing is a separate workflow. |
 | "It's probably on a hot path" | "Probably" means `Candidate requiring measurement`. |
 | "Five similar hits, I'll report five findings" | Apply the dedup rules and state which one you used. |
-| "It's suppressed in the source, so it's fine" | A bare suppression is a candidate; only a stated reason is a trade-off. |
+| "It's suppressed in the source, so it's fine" | A bare suppression is a candidate; a stated reason is a claim you must verify against the code. |
 | "Re-running the command returns nothing, so it's clean" | Empty output can be a cache artifact. Run once, capture, reuse. |
 
 ## Red Flags
