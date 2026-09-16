@@ -222,8 +222,8 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 		[ `grep -c '^cargo clippy ' "$$R/rust.md"` -eq 2 ] || DEAD=1; \
 		[ `grep -c '^  --force-warn dead_code' "$$R/rust.md"` -eq 1 ] || DEAD=1; \
 		if grep '^cargo clippy ' "$$R/rust.md" | grep -qF 'dead_code'; then DEAD=1; fi; \
-		if [ $$DEAD -eq 0 ]; then echo "✓ EXTRA#2 Rust 层 dead_code 与结构类 lint 分离捕获"; \
-		else echo "✗ EXTRA#2 Rust 层 dead_code 未与结构类 lint 分离"; FAIL=1; fi; \
+		if [ $$DEAD -eq 0 ]; then echo "✓ EXTRA#2 rust.md 记录了 dead_code 与结构类 lint 的分离捕获流程（仅核查文档措辞，不保证实际未被合并）"; \
+		else echo "✗ EXTRA#2 rust.md 未记录 dead_code 与结构类 lint 分离捕获流程的预期措辞"; FAIL=1; fi; \
 	fi; \
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "ALL CHECKS PASSED"
