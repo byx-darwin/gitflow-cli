@@ -9,7 +9,7 @@ allowed-tools: Read, Grep, Glob, Bash, Write
 
 # gf-walkthrough — Delivery Walkthrough & Evidence Grading
 
-Offline delivery package: narrative, summary, graded evidence, review gate.
+Offline package: narrative, summary, graded evidence, review gate.
 Anchored on a `<base>...<head>` diff; PR data enriches when present.
 **Never issues a verdict** — `gf-review` does.
 
@@ -29,9 +29,9 @@ Anchored on a `<base>...<head>` diff; PR data enriches when present.
 
 | Scenario | Why Not | Use Instead |
 |---|---|---|
-| Approve / request-changes verdict | Never issues verdicts | `/gf-review` |
-| Six-dimension PR assessment | Narrates, does not assess | `/gf-pr-review` |
-| Detecting code smells | Different problem class | `/gf-smell` |
+| Approve / request-changes verdict | No verdicts | `/gf-review` |
+| Six-dimension PR assessment | Narrates only | `/gf-pr-review` |
+| Detecting code smells | Different problem | `/gf-smell` |
 
 ## Evidence Grading
 
@@ -41,15 +41,16 @@ Anchored on a `<base>...<head>` diff; PR data enriches when present.
 | `Inferred` | Read from code/config/diff | Must cite `path:line`. |
 | `Unverified` | Not verified this run | Must state why; never omitted. |
 
-Vocabulary reused from `gf-smell`. Failed re-run → `Unverified`, never `Inferred`.
+Reused from `gf-smell`. Failed re-run → `Unverified`, never `Inferred`.
 
 ## Failing Tests
 
 | 失败用例 | 最后修改 commit | 是否 base 祖先 |
 |---|---|---|
 
-Missing commit hash + `unrelated` → forbidden; wording fixed: "先于本次交付存在"
-(ancestry-based). Algorithm: `docs/superpowers/templates/walkthrough-report-template.md`.
+Missing commit hash together with `unrelated` → forbidden. Wording fixed:
+"先于本次交付存在" (ancestry ⇒ file predates base, not ⇒ failure unrelated).
+Algorithm: `docs/superpowers/templates/walkthrough-report-template.md`.
 
 ## Language Detection
 
@@ -57,7 +58,7 @@ Reuse `gf-quality/references/detector.md`; no language layer here.
 
 ## Re-run Allowlist
 
-One read-only re-run may fill a gap, else `Unverified`:
+One read-only re-run fills gaps, else `Unverified`:
 
 | Allowed | Forbidden |
 |---|---|
@@ -65,7 +66,7 @@ One read-only re-run may fill a gap, else `Unverified`:
 | `gf pr view` / `gf pr checks` | pushing or changing branch state |
 | read-only Gate Commands | installing dependencies |
 
-Failed re-run → `Unverified` with reason; record any workaround.
+Failed re-run → `Unverified` with reason and workaround.
 
 ## Responsibility
 
@@ -82,7 +83,7 @@ Failed re-run → `Unverified` with reason; record any workaround.
 - Review verdict — `/gf-review`
 - Six-dimension assessment — `/gf-pr-review`
 - Smell detection — `/gf-smell`
-- Orchestrator dispatch wiring
+- Orchestrator wiring
 
 ### 🚫 Do Not
 
@@ -129,7 +130,7 @@ Allowlist command fails → `Unverified` with reason, no retry.
 - [ ] Failing-test table never uses `unrelated` without a commit hash
 - [ ] No verdict is issued
 - [ ] Language detection delegates to `gf-quality/references/detector.md`
-- [ ] Report written from template
+- [ ] Report from template
 
 ## Trigger Keywords
 
@@ -140,9 +141,9 @@ Allowlist command fails → `Unverified` with reason, no retry.
 
 ## See Also
 
-`docs/superpowers/templates/walkthrough-report-template.md` — report skeleton & self-check.
-Orchestrator wiring is out of scope.
+Runs at `gf-workflow` Phase 4, alongside `/gf-review`; wiring out of scope.
 
+- `docs/superpowers/templates/walkthrough-report-template.md` — report skeleton & self-check
 - `/gf-review` — approve / request-changes verdict
 - `/gf-pr-review` — six-dimension PR assessment
 - `/gf-smell` — code smell and complexity detection
