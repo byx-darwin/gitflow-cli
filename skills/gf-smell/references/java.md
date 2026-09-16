@@ -37,21 +37,31 @@ echo "$FILES" | xargs grep -c '^import ' | sort -t: -k2 -rn | head -20
 | 信号 | 阈值 | 来源 |
 |---|---|---|
 | `CyclomaticComplexity` | 10 | 工具默认（PMD design 规则集） |
-| `NcssMethodCount` | 60 | 工具默认 |
+| `NcssCount`（`methodReportLevel`） | 60 | 工具默认 |
+| `NcssCount`（`classReportLevel`） | 1500 | 工具默认 |
 | `ExcessiveParameterList` | 10 | 工具默认 |
-| `ExcessiveClassLength` | 1000 | 工具默认 |
 | `CouplingBetweenObjects` | 20 | 工具默认 |
 | 文件行数 | 800 行 | 本文件定义 |
 | import 扇出 | 30 | 本文件定义 |
+
+`NcssCount` 衡量的是 NCSS（non-commenting source statements，非注释源语句数），
+不是原始行数；与本文件及其余语言层中"文件行数"一类的基于行的阈值不是同一单位，
+两者不可直接比较。
+
+`NcssMethodCount`、`ExcessiveClassLength` 均已在 `category/java/design.xml` 中
+不再可用——前者在 PMD 6.0.0 被 `NcssCount` 取代（旧规则属于 PMD 5 时代的
+`rulesets/java/codesize.xml`），后者在 PMD 6.55 起被标记为 Deprecated、并在
+PMD 7 中移除，其类级别度量已并入 `NcssCount` 的 `classReportLevel`。本文件的
+检测命令只加载 `category/java/design.xml`，因此不使用这两个已消失的规则名。
 
 ## 类目映射
 
 | 类目 | 检测来源 | 证据强度上限 |
 |---|---|---|
-| Long Function | `NcssMethodCount` | **Measured** |
+| Long Function | `NcssCount`（`methodReportLevel`） | **Measured** |
 | Deep Nesting | `CyclomaticComplexity` | **Measured** |
 | Excessive Parameters | `ExcessiveParameterList` | **Measured** |
-| God Structure | `ExcessiveClassLength` + `CouplingBetweenObjects` | **Measured** |
+| God Structure | `NcssCount`（`classReportLevel`） + `CouplingBetweenObjects` | **Measured** |
 | Feature Envy | `CouplingBetweenObjects` + 阅读代码 | **Observed** |
 | Shotgun Surgery | 结构扫描 import 扇出 | **Observed** |
 | Duplicated Logic | 结构扫描 + 阅读比对 | **Observed** |
