@@ -159,19 +159,22 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	grep -qF 'gf-quality/references/detector.md' "$$S" \
 		&& echo "✓ AC#3 复用既有语言探测" \
 		|| { echo "✗ AC#3 未引用 detector.md"; FAIL=1; }; \
+	EVID=0; \
 	for K in Measured Observed Inferred; do \
-		grep -qF "$$K" "$$S" || { echo "✗ AC#5 缺少证据强度档位 $$K"; FAIL=1; }; \
+		grep -qF "$$K" "$$S" || { echo "✗ AC#5 缺少证据强度档位 $$K"; EVID=1; FAIL=1; }; \
 	done; \
-	grep -qF '证据强度' "$$S" && echo "✓ AC#5 证据强度三档齐备" || { echo "✗ AC#5"; FAIL=1; }; \
+	grep -qF '证据强度' "$$S" || { echo "✗ AC#5"; EVID=1; FAIL=1; }; \
+	[ $$EVID -eq 0 ] && echo "✓ AC#5 证据强度三档齐备"; \
 	grep -qF 'Candidate requiring measurement' "$$S" \
 		&& grep -qF '不计入严重度统计' "$$S" \
 		&& echo "✓ AC#6 待测量候选独立成档" \
 		|| { echo "✗ AC#6 待测量候选未独立或未声明不计入统计"; FAIL=1; }; \
-	grep -qF 'What NOT to Flag' "$$S" || { echo "✗ AC#7 缺少 What NOT to Flag 章节"; FAIL=1; }; \
+	NOTFLAG=0; \
+	grep -qF 'What NOT to Flag' "$$S" || { echo "✗ AC#7 缺少 What NOT to Flag 章节"; NOTFLAG=1; FAIL=1; }; \
 	for E in 冷路径 有意权衡 已优化代码; do \
-		grep -qF "$$E" "$$S" || { echo "✗ AC#7 排除项缺少 $$E"; FAIL=1; }; \
+		grep -qF "$$E" "$$S" || { echo "✗ AC#7 排除项缺少 $$E"; NOTFLAG=1; FAIL=1; }; \
 	done; \
-	grep -qF 'What NOT to Flag' "$$S" && echo "✓ AC#7 排除章节齐备"; \
+	[ $$NOTFLAG -eq 0 ] && echo "✓ AC#7 排除章节齐备"; \
 	grep -qF '根因合并' "$$S" && grep -qF '模式合并' "$$S" \
 		&& echo "✓ AC#8 去重两条规则齐备" \
 		|| { echo "✗ AC#8 缺少根因合并/模式合并规则"; FAIL=1; }; \
