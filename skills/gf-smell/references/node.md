@@ -16,7 +16,7 @@ TEST_GLOBS=(
 )
 
 # (1) 生产代码：候选表只从这一份取
-OUT=$(mktemp -t gf-smell-node)
+OUT=$(mktemp "${TMPDIR:-/tmp}/gf-smell-node.XXXXXX")
 npx eslint . "${TEST_GLOBS[@]}" \
   --no-config-lookup \
   --ext .js,.jsx,.ts,.tsx \
@@ -32,7 +32,7 @@ npx eslint . "${TEST_GLOBS[@]}" \
   > "$OUT" 2>&1
 
 # (2) 测试代码：同样规则、只看测试文件，另存备查，不进候选表
-OUT_TEST=$(mktemp -t gf-smell-node-test)
+OUT_TEST=$(mktemp "${TMPDIR:-/tmp}/gf-smell-node-test.XXXXXX")
 npx eslint . \
   --no-config-lookup \
   --ext .js,.jsx,.ts,.tsx \

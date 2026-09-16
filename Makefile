@@ -182,6 +182,21 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	if [ -z "$$A" ]; then echo "✗ AC#9 缺少 allowed-tools"; FAIL=1; \
 	elif echo "$$A" | grep -qE '(Write|Edit)'; then echo "✗ AC#9 allowed-tools 含 Write/Edit"; FAIL=1; \
 	else echo "✓ AC#9 工具集不含 Write/Edit"; fi; \
+	RPT=0; \
+	REP=`ls docs/smell-report-*.md 2>/dev/null | head -1`; \
+	if [ -z "$$REP" ]; then RPT=1; fi; \
+	if [ -n "$$REP" ] && [ ! -s "$$REP" ]; then RPT=1; fi; \
+	if [ $$RPT -eq 0 ]; then echo "✓ AC#4 smell 报告已落盘且非空: $${REP}"; \
+	else echo "✗ AC#4 未找到非空的 smell-report-*.md"; FAIL=1; fi; \
+	LOC=0; \
+	STRAY=`find . -name 'smell-report-*.md' -not -path './docs/*' \
+		-not -path './target/*' -not -path './.worktree/*' \
+		-not -path './.claude/worktrees/*' 2>/dev/null | head -5`; \
+	if [ -z "$$REP" ]; then LOC=1; fi; \
+	case "$$REP" in docs/*) ;; *) LOC=1;; esac; \
+	if [ -n "$$STRAY" ]; then echo "  散落在 docs/ 之外: $${STRAY}"; LOC=1; fi; \
+	if [ $$LOC -eq 0 ]; then echo "✓ AC#10 报告落盘到 docs/"; \
+	else echo "✗ AC#10 报告未落盘到 docs/"; FAIL=1; fi; \
 	if [ -f "$$R/rust.md" ]; then \
 		grep -qF -- '--force-warn' "$$R/rust.md" \
 			&& echo "✓ Rust 层使用 --force-warn 穿透 allow" \
@@ -198,16 +213,17 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	grep -qF 'but the code contradicts it' "$$S" || SUPP=1; \
 	grep -qF 'a finding in its own right' "$$S" || SUPP=1; \
 	if grep -qF 'Bare suppression, no reason' "$$S"; then SUPP=1; fi; \
-	if [ $$SUPP -eq 0 ]; then echo "✓ AC#10 抑制判定为三分支（含理由被代码证伪）"; \
-	else echo "✗ AC#10 抑制判定未采用三分支形式"; FAIL=1; fi; \
+	if [ $$SUPP -eq 0 ]; then echo "✓ EXTRA#1 抑制判定为三分支（含理由被代码证伪）"; \
+	else echo "✗ EXTRA#1 抑制判定未采用三分支形式"; FAIL=1; fi; \
 	if [ -f "$$R/rust.md" ]; then \
 		DEAD=0; \
 		grep -qF 'OUT_DEAD' "$$R/rust.md" || DEAD=1; \
 		grep -qF '不能用 `--all-targets`' "$$R/rust.md" || DEAD=1; \
-		if grep -A1 -F -- '--force-warn clippy::type_complexity' "$$R/rust.md" \
-			| grep -qF -- '--force-warn dead_code'; then DEAD=1; fi; \
-		if [ $$DEAD -eq 0 ]; then echo "✓ AC#11 Rust 层 dead_code 与结构类 lint 分离捕获"; \
-		else echo "✗ AC#11 Rust 层 dead_code 未与结构类 lint 分离"; FAIL=1; fi; \
+		[ `grep -c '^cargo clippy ' "$$R/rust.md"` -eq 2 ] || DEAD=1; \
+		[ `grep -c '^  --force-warn dead_code' "$$R/rust.md"` -eq 1 ] || DEAD=1; \
+		if grep '^cargo clippy ' "$$R/rust.md" | grep -qF 'dead_code'; then DEAD=1; fi; \
+		if [ $$DEAD -eq 0 ]; then echo "✓ EXTRA#2 Rust 层 dead_code 与结构类 lint 分离捕获"; \
+		else echo "✗ EXTRA#2 Rust 层 dead_code 未与结构类 lint 分离"; FAIL=1; fi; \
 	fi; \
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "ALL CHECKS PASSED"

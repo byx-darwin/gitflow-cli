@@ -5,6 +5,7 @@
 - **扫描范围**：整个工作区 108 个 `.rs` 文件 / 43,361 行。按 Stage 0 排除 `target/`、`.worktree/`、`.claude/worktrees/`、`vendor/`
 - **检测工具与版本**：`clippy 0.1.96 (ac68faa20c 2026-05-25)` · `rustc 1.96.0` · `cargo 1.96.0` · GNU 风格 `find` / `grep` / `awk` 结构扫描
 - **修订**：2026-09-16 按 `skills/gf-smell` 修订版重跑 `dead_code` 并复核抑制判定，见文末「报告修订记录」
+- **位置引用约定**：所有 `path:line` 一律指向**声明行**，即 `fn` / `struct` / `impl` 关键字所在那一行，与 clippy 诊断 `-->` 给出的行号一致；其上的 `#[allow(...)]`、`#[must_use]`、`///` 文档注释**不计入**起点。`path:a-b` 形式表示代码区间（函数体或文件区段）的起止行。全文已按此约定逐条复核：`pr.rs:214`、`issue.rs:175`、`release.rs:138`、`label.rs:135` / `:264` 均为 `pub async fn` 行（其 `#[allow]` 分别在 `:211`、`:172`、`:135`、`:132` / `:261`）；`toon.rs:65` 为 `pub fn analyze` 行（`#[must_use]` 在 `:64`）
 
 ## 摘要
 
@@ -36,8 +37,8 @@ Stage 1 按 `references/rust.md` 分两次捕获，每条命令**只运行一次
 | `clippy::too_many_arguments` | 0 | 7 个 | —— |
 | `clippy::type_complexity` | 0 | 250 | —— |
 | `dead_code` | **22**（默认 target 捕获） | —— | 另有 54 个位置只出现在 `--all-targets` 捕获中，是二进制 crate 被重编为 test harness 的产物，按修订后的检测程序**不进候选表**；22 条真实候选 Stage 2 后全部落入已排除，见下 |
-| 结构扫描：文件行数 | 18 个文件 > 800 行 | 800 行 | Stage 2 后仅 1 个存活 |
-| 结构扫描：单文件函数数 | 13 个文件 > 40 个 | 40 个 | Stage 2 后 0 个存活 |
+| 结构扫描：文件行数 | **15** 个文件 > 800 行 | 800 行 | Stage 2 后仅 1 个存活 |
+| 结构扫描：单文件函数数 | **16** 个文件 > 40 个 | 40 个 | Stage 2 后 0 个存活 |
 | 结构扫描：模块扇出 | 0 | 15 个内部模块 | 全仓库最大扇出为 1，无信号 |
 | 结构扫描：花括号嵌套深度 | 最大 7（`crates/core/src/toon.rs`） | —— | 逐条人工复核，见 SM-002 |
 
@@ -51,8 +52,8 @@ Stage 1 按 `references/rust.md` 分两次捕获，每条命令**只运行一次
 | Long Function | `apps/cli/src/commands/pr.rs:214` | 239 行 | 100 | `clippy::too_many_lines` |
 | Long Function | `apps/cli/src/commands/release.rs:138` | 129 行 | 100 | `clippy::too_many_lines` |
 | Dead Code | 22 处（`core` 2 · `gitcode` 7 · `gitlab` 8 · `github` 3 · `e2e-core` 1 · `apps/cli` 1） | —— | —— | `dead_code`（默认 target） |
-| God Structure | 18 个文件 | 1786 ~ 803 行 | 800 行 | 结构扫描（文件行数） |
-| God Structure | 13 个文件 | 82 ~ 41 个函数 | 40 个 | 结构扫描（函数数） |
+| God Structure | 15 个文件 | 1786 ~ 821 行 | 800 行 | 结构扫描（文件行数） |
+| God Structure | 16 个文件 | 82 ~ 41 个函数 | 40 个 | 结构扫描（函数数） |
 | Deep Nesting | `crates/core/src/toon.rs` 等 10 个文件 | 花括号深度 7 ~ 6 | —— | 结构扫描（嵌套深度） |
 | Duplicated Logic | `crates/github` / `gitlab` / `gitcode` 三套适配器 | —— | —— | 结构扫描 + 阅读比对 |
 
@@ -96,7 +97,7 @@ Stage 1 按 `references/rust.md` 分两次捕获，每条命令**只运行一次
 - **根因**：单个文件同时承担 6 类职责——CLI 参数 schema（`SkillsCommand` / `InstallArgs` / `ListArgs` / `UninstallArgs` / `SkillsUpdateArgs`）、Agent 平台探测（`AgentPlatform::detect`）、skill 来源探测（`detect_skill_sources` / `plugin_source_present` / `bare_sentinels_present`）、install/uninstall/list/update 编排、通用递归文件复制工具（`copy_dir_all`）、以及被其他命令模块共用的 TTY 确认提示（`pub(crate) fn confirm`）
 - **影响**：`copy_dir_all` 与 `confirm` 与 skill 管理语义无关，却只能从本文件引入；`pub(crate) fn confirm` 已构成跨模块依赖，使该文件成为 `apps/cli/src/commands` 中的隐式工具模块
 - **为什么置信度不是 High**：越界幅度为 16%（928/800），且阈值「文件 800 行」来自 `references/rust.md` 自定义而非工具默认；职责划分的判断含主观成分
-- **本条是 18 个文件行数候选中唯一存活的一条**：其余 17 个在 Stage 2 全部因「测试代码占多数」被排除，详见已排除表
+- **本条是 15 个文件行数候选中唯一存活的一条**：其余 14 个在 Stage 2 全部因「测试代码占多数」被排除，详见已排除表（逐个列出，可核）
 - **建议（仅建议，不执行）**：把 `copy_dir_all` 与 `confirm` 迁到独立的工具模块，可同时消除跨模块的隐式依赖
 
 ## 待测量候选（不计入严重度统计）
@@ -121,14 +122,59 @@ Stage 1 按 `references/rust.md` 分两次捕获，每条命令**只运行一次
 
 | 类 | 位置 | 命中排除项 | 理由 |
 |---|---|---|---|
-| A | `crates/github/src/issue.rs`(1786行) · `crates/gitlab/src/issue.rs`(1628) · `crates/gitlab/src/mr.rs`(1449) · `crates/gitcode/src/pr.rs`(1397) · `apps/cli/src/commands/workflow.rs`(1319) · `crates/github/src/pr.rs`(1281) · `crates/github/src/pipeline.rs`(1224) 等 17 个文件 | Test fixtures | 逐个定位 `#[cfg(test)]` 起始行后，生产代码部分分别为 737 / 771 / 683 / 701 / 653 / 593 / 465 行，**全部低于 800 行阈值**；文件行数越界完全由测试模块贡献 |
-| A | 同上 13 个函数数越界文件（如 `crates/github/src/issue.rs` 82 个 fn） | Test fixtures | 拆分后生产函数数为 17~25 个，**全部低于 40 个阈值**；`github/src/issue.rs` 的 82 个中有 61 个是 `fn test_should_*` |
+| A | 文件行数越界 15 个中的 **14 个**（全列，见下方「已排除文件清单 A-1」） | Test fixtures | 逐个定位 `#[cfg(test)]` 起始行后，生产代码部分**全部低于 800 行阈值**；文件行数越界完全由测试模块贡献。唯一例外 `apps/cli/src/commands/skills.rs`（生产 928 行）未排除，见 SM-003 |
+| A | 单文件函数数越界的 **全部 16 个**（全列，见下方「已排除文件清单 A-2」） | Test fixtures | 拆分后生产函数数为 6~25 个，**全部低于 40 个阈值**；例如 `github/src/issue.rs` 的 82 个中有 61 个是 `fn test_should_*` |
 | A | `crates/github` / `crates/gitlab` / `crates/gitcode` 三套适配器（`github/src/commit.rs` 484 行 vs `gitcode/src/commit.rs` 482 行，`diff` 仅 138 行，约 86% 相同） | 有意权衡 | `docs/architecture.md:73` 明确记载「Structurally identical to the GitHub adapter but handles GitCode-specific JSON field formats」；`docs/architecture-review-2026-08-28.md` 的 R3「Adapter Code Duplication」已把它列为 MEDIUM / HIGH 风险并给出整改建议 P3。重复本身是「Provider Trait + CLI Adapter」模式的已知代价，已有文档记录 |
 | A | 全部 22 处默认 target 的 `dead_code`（`github`/`gitlab`/`gitcode` 的 `commit.rs`、`pipeline.rs`、`label.rs`，`core/src/compatibility.rs`、`session.rs`、`types.rs`，`e2e-core/src/tty.rs`，`apps/cli/src/commands/prerequisites.rs`、`skills.rs:887`、`main.rs:35`） | 有意权衡 | 逐条核对全部 38 处涉及本次 6 个 lint 的 `#[allow(...)]`：**每一处都带 `reason = "..."`**，本仓库零裸抑制。理由集中为两类——serde 反序列化结构体的字段（「Fields deserialized by serde but not all read directly」）与显式声明的预留项（「Kept for future GitCode pipeline support」等）。按 SKILL.md 三分支规则逐条**打开代码核验主张**：结构体确由 `#[derive(Deserialize)]` 消费、预留项确未被调用，主张与代码一致，命中第 2 支（有理由且已核验）→ 有意权衡 |
 | A | `apps/cli/tests/workflow_modes_test.rs:98/117/135/152` · `crates/e2e-core/src/scratch.rs:73` · `crates/github/src/pipeline.rs:764` | Test fixtures | 测试专用抑制（`clippy::panic` / `clippy::expect_used` / 测试内联 fixture 结构体），均带 reason |
 | A | `apps/cli/src/main.rs:38-40` 的 3 处无 `reason=` 的 `#[allow(clippy::...)]` | 有意权衡 | 虽无 `reason=` 属性，但紧邻的文档注释（`main.rs:28-33`）逐条说明了原因（`built` crate 生成代码的 raw string / 无理由 allow / doc_markdown）。SKILL.md 的判据是「有陈述的理由」，注释与属性等效 |
 | B | 54 个只出现在 `--all-targets` 捕获中的 `dead_code` 位置（`apps/cli/src/commands/*` 的 10 处 `handle`、`main`、`async_main`、`router` 等，以及 `crates/release-signer/src/main.rs` 4 处） | 检测产物 | `--all-targets` 把二进制 crate 再编译为 test harness，此时 `main` 及其整条调用链不可达。**实测**：`--all-targets` 捕获 79 条 / 76 个位置，默认 target 捕获 22 条 / 22 个位置，差集 54 个位置全部来自被重编的二进制 crate。已另行阅读源码交叉验证，例如 `apps/cli/src/main.rs:178` 调用 `commands::pr::handle(...)`。按修订后的 `references/rust.md`，这 54 个位置已**不再进入候选表** |
 | B | `clippy::excessive_nesting` 零命中 | 检测产物 | 该 lint 阈值默认为 0（关闭），本仓库 `clippy.toml` 未配置 `excessive-nesting-threshold`，`--force-warn` 对其无效。零命中**不是** Deep Nesting 干净的证据，故不得据此下任何结论；本报告改以结构扫描替代，见 SM-002 |
+
+### 已排除文件清单 A-1：文件行数越界但生产代码未越界（14 个，全列）
+
+| 文件 | 总行数 | 生产行数 | 是否越界（>800） |
+|---|---|---|---|
+| `crates/github/src/issue.rs` | 1786 | 737 | 否 |
+| `crates/gitlab/src/issue.rs` | 1628 | 771 | 否 |
+| `crates/gitlab/src/mr.rs` | 1449 | 683 | 否 |
+| `crates/gitcode/src/pr.rs` | 1397 | 701 | 否 |
+| `apps/cli/src/commands/workflow.rs` | 1319 | 653 | 否 |
+| `crates/gitcode/src/issue.rs` | 1282 | 720 | 否 |
+| `crates/github/src/pr.rs` | 1281 | 593 | 否 |
+| `crates/github/src/pipeline.rs` | 1224 | 465 | 否 |
+| `apps/cli/src/commands/pr.rs` | 1077 | 564 | 否 |
+| `crates/gitlab/src/release.rs` | 1056 | 454 | 否 |
+| `crates/gitlab/src/label.rs` | 1045 | 630 | 否 |
+| `crates/github/src/release.rs` | 917 | 396 | 否 |
+| `apps/cli/src/commands/issue.rs` | 865 | 425 | 否 |
+| `crates/gitlab/src/pipeline.rs` | 821 | 421 | 否 |
+
+第 15 个越界文件 `apps/cli/src/commands/skills.rs`（1476 / 生产 928）**未被排除**，
+是 SM-003。
+
+### 已排除文件清单 A-2：函数数越界但生产函数数未越界（16 个，全列）
+
+| 文件 | 生产函数 | 测试函数 | 是否越界（>40） |
+|---|---|---|---|
+| `crates/github/src/issue.rs` | 21 | 61 | 否 |
+| `crates/gitlab/src/issue.rs` | 21 | 52 | 否 |
+| `apps/cli/src/commands/skills.rs` | 25 | 48 | 否 |
+| `crates/gitlab/src/mr.rs` | 24 | 47 | 否 |
+| `crates/github/src/pr.rs` | 18 | 45 | 否 |
+| `crates/gitcode/src/pr.rs` | 19 | 44 | 否 |
+| `crates/github/src/release.rs` | 11 | 44 | 否 |
+| `apps/cli/src/commands/pr.rs` | 6 | 40 | 否 |
+| `crates/gitcode/src/issue.rs` | 20 | 37 | 否 |
+| `crates/github/src/pipeline.rs` | 13 | 37 | 否 |
+| `apps/cli/src/commands/workflow.rs` | 17 | 36 | 否 |
+| `crates/gitlab/src/release.rs` | 14 | 36 | 否 |
+| `crates/github/src/auth.rs` | 12 | 32 | 否 |
+| `crates/gitlab/src/auth.rs` | 11 | 31 | 否 |
+| `crates/core/src/pr.rs` | 15 | 30 | 否 |
+| `crates/gitlab/src/label.rs` | 22 | 24 | 否 |
+
+`skills.rs` 在本表中生产函数数 25 未越界；它成为 SM-003 是因为**行数**而非函数数。
 
 ### 一条超出本 skill lint 集的裸抑制
 
@@ -139,7 +185,7 @@ Stage 1 按 `references/rust.md` 分两次捕获，每条命令**只运行一次
 
 ## 本次运行对 skill 自身的验证
 
-- 阈值越界 ≠ finding：11 类候选进入 Stage 1，最终只有 3 条成为 finding。18 个文件行数候选存活 1 条，22 条 `dead_code` 存活 0 条
+- 阈值越界 ≠ finding：11 类候选进入 Stage 1，最终只有 3 条成为 finding。15 个文件行数候选存活 1 条，16 个函数数候选存活 0 条，22 条 `dead_code` 存活 0 条
 - 证据强度与置信度确实需要解耦：SM-001 是 Measured + Low，SM-002 是 Observed + High，两条方向相反，合并成单一分数会同时误导
 - `excessive_nesting` 的零命中如果被当成结论，会直接漏掉 SM-002，这是 `references/rust.md` 单独为该 lint 写一段的原因
 

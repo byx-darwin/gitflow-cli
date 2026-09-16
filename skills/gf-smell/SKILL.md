@@ -86,6 +86,12 @@ For each candidate, read the surrounding code, then:
 3. **If the conclusion depends on a quantity you did not measure** (runtime
    hotness, real call frequency, actual input size), move it to
    `Candidate requiring measurement` instead of guessing.
+4. **If the candidate describes the detection run rather than the code** —
+   the analysis covered units the reader would not count as the code under
+   review, so the number is an artifact of what was included — record it in
+   the excluded table as a **detection artifact**, naming the scope that
+   produced it. It is neither a finding nor a measurement candidate. The
+   language layer states where its sources can produce these.
 
 ### Evidence Strength
 
@@ -255,6 +261,10 @@ been flagged was excluded) and over-exclusion.
 - Quality gate pass/fail — `/gf-quality`
 
 ### 🚫 Do Not
+
+Read-only here is a rule you keep, not a sandbox that holds you to it: this
+skill's tool set includes shell access, so a write is always one command away.
+Nothing mechanically blocks it.
 
 - ❌ Edit any source file
 - ❌ Edit lint or policy configuration to make a finding disappear

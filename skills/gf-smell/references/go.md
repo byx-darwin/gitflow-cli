@@ -8,7 +8,7 @@
 
 ```bash
 # (1) 结构类信号：gocyclo 必须显式排除 _test.go
-OUT=$(mktemp -t gf-smell-go)
+OUT=$(mktemp "${TMPDIR:-/tmp}/gf-smell-go.XXXXXX")
 {
   gocyclo -over 15 -ignore '_test|vendor/|/\.worktree/|/\.claude/worktrees/' . 2>&1
   staticcheck ./... 2>&1
@@ -16,7 +16,7 @@ OUT=$(mktemp -t gf-smell-go)
 } > "$OUT" 2>&1
 
 # (2) Dead Code：必须再跑一次，关闭测试文件
-OUT_DEAD=$(mktemp -t gf-smell-go-dead)
+OUT_DEAD=$(mktemp "${TMPDIR:-/tmp}/gf-smell-go-dead.XXXXXX")
 staticcheck -tests=false ./... 2>&1 | grep 'U1000' > "$OUT_DEAD" 2>&1
 ```
 

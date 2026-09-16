@@ -12,8 +12,8 @@
 
 ```bash
 # (1) 结构类 lint：--all-targets（测试代码也是代码，超长/高复杂度的测试函数值得看见）
-OUT=$(mktemp -t gf-smell-rust)
-cargo clippy --workspace --all-targets 2>&1 -- \
+OUT=$(mktemp "${TMPDIR:-/tmp}/gf-smell-rust.XXXXXX")
+cargo clippy --workspace --all-targets -- \
   --force-warn clippy::too_many_lines \
   --force-warn clippy::cognitive_complexity \
   --force-warn clippy::excessive_nesting \
@@ -22,8 +22,8 @@ cargo clippy --workspace --all-targets 2>&1 -- \
   > "$OUT" 2>&1
 
 # (2) dead_code：默认 target，不加 --all-targets
-OUT_DEAD=$(mktemp -t gf-smell-rust-dead)
-cargo clippy --workspace 2>&1 -- \
+OUT_DEAD=$(mktemp "${TMPDIR:-/tmp}/gf-smell-rust-dead.XXXXXX")
+cargo clippy --workspace -- \
   --force-warn dead_code \
   > "$OUT_DEAD" 2>&1
 ```

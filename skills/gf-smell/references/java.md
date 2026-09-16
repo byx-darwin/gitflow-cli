@@ -23,7 +23,7 @@ find . -name '*.java' \
   > /tmp/gf-smell-java-test.txt
 
 # (1) 生产代码：候选表只从这一份取
-OUT=$(mktemp -t gf-smell-java)
+OUT=$(mktemp "${TMPDIR:-/tmp}/gf-smell-java.XXXXXX")
 {
   pmd check --file-list /tmp/gf-smell-java-prod.txt \
     -R category/java/design.xml -f text --no-cache 2>&1
@@ -31,7 +31,7 @@ OUT=$(mktemp -t gf-smell-java)
 } > "$OUT" 2>&1
 
 # (2) 测试代码：另存备查
-OUT_TEST=$(mktemp -t gf-smell-java-test)
+OUT_TEST=$(mktemp "${TMPDIR:-/tmp}/gf-smell-java-test.XXXXXX")
 {
   pmd check --file-list /tmp/gf-smell-java-test.txt \
     -R category/java/design.xml -f text --no-cache 2>&1
