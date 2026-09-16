@@ -10,7 +10,7 @@ resolved by lock file per that same reference.
 ```bash
 OUT=$(mktemp -t gf-smell-node)
 npx eslint . \
-  --no-eslintrc \
+  --no-config-lookup \
   --ext .js,.jsx,.ts,.tsx \
   --ignore-pattern 'node_modules/**' \
   --ignore-pattern 'dist/**' \
@@ -20,13 +20,20 @@ npx eslint . \
   --rule '{"max-lines-per-function":["warn",100]}' \
   --rule '{"max-params":["warn",5]}' \
   --rule '{"max-lines":["warn",800]}' \
-  --format unix \
+  --format json \
   > "$OUT" 2>&1
 ```
 
-`--no-eslintrc` 是刻意的：项目自身的 eslint 配置可能已把这些规则关掉，那属于
-「有人决定不看」，与 Rust 层用 `--force-warn` 穿透 `#[allow]` 是同一件事。项目
-配置本身不被修改。
+`--no-config-lookup` 是刻意的：项目自身的 eslint 配置（`eslint.config.*`）可能已
+把这些规则关掉，那属于「有人决定不看」，与 Rust 层用 `--force-warn` 穿透
+`#[allow]` 是同一件事。项目配置本身不被修改。`--no-config-lookup` 是当前
+（flat config，ESLint ≥ v9）下唯一能达到这个效果的开关：旧版 `--no-eslintrc`
+在 v9.0.0 起已被移除，传入会直接报错并提示改用 `--no-config-lookup`。`--ext`
+在 flat config 下仍然有效，官方文档明确说明它主要就是配合 `--no-config-lookup`
+使用的（没有配置文件声明扩展名时，靠 `--ext` 显式指定）。`--format` 从内置
+`unix` 改为内置 `json`：`unix` 在 v9.0.0 起从核心移除，只以 `eslint-formatter-unix`
+独立包形式存在，需要额外安装；`json` 是仍打包在核心里的内置格式，且更利于脚本
+解析捕获结果。
 
 结构扫描：
 
@@ -75,7 +82,7 @@ echo "$FILES" | xargs grep -c "^import " | sort -t: -k2 -rn | head -20
 | 缺失 | 降级 |
 |---|---|
 | `eslint` 不可用（无网络 / 未安装） | 跳过全部 Measured 类目，报告标注「Measured 层未执行」；结构扫描照常 |
-| 项目使用 flat config 且 `--no-eslintrc` 报错 | 改用 `ESLINT_USE_FLAT_CONFIG=false`；仍失败则按上一行降级 |
+| `eslint` 版本早于 v8.21（不支持 `--no-config-lookup`，只认 eslintrc 体系） | 不发明替代开关：ESLint v9 移除了 `--no-eslintrc`、v10 又移除了整套 eslintrc 体系及 `ESLINT_USE_FLAT_CONFIG` 环境变量，v9 之前的旧版本也没有 `--no-config-lookup`；两端互不兼容意味着不存在同时对新旧版本都有效的单一穿透开关。记录探测到的 `eslint --version` 与 `--no-config-lookup` 的报错原文，跳过全部 Measured 类目，报告标注「该项目的 ESLint 版本无法被本探测穿透」 |
 | TypeScript 解析失败 | 记录受影响文件，其余继续 |
 
 不得自行安装依赖，不得修改项目的 eslint 配置。
