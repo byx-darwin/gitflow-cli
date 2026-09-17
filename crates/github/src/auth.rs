@@ -4,6 +4,8 @@
 //! 登出、状态查询及 Token 管理。
 //! 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
 //! [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+//! 环境变量读取通过 [`EnvSource`] 参数抽象，生产环境默认使用 [`RealEnv`]，
+//! 测试可通过 `with_runner_and_env` 注入自定义实现。
 
 use async_trait::async_trait;
 use gitflow_cli_adapter_utils::{EnvSource, RealEnv};
@@ -22,6 +24,8 @@ use crate::{
 ///
 /// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
 /// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+/// 环境变量读取通过 [`EnvSource`] 参数抽象，生产环境默认使用 [`RealEnv`]，
+/// 测试可通过 `with_runner_and_env` 注入自定义实现。
 ///
 /// # Examples
 ///
@@ -481,8 +485,10 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_checker_is_authenticated_with_env_var() {
+    fn test_should_report_authenticated_when_token_env_var_present() {
         use gitflow_core::AuthChecker;
+        // AuthChecker 同步分支直接调用 std::process::Command，不读取注入的 runner；
+        // env 短路才是本测试确定性的来源。
         let provider = GitHubAuthProvider::with_runner_and_env(
             MockCommandRunner::success(""),
             MockEnv::with("GH_TOKEN", "test_token"),
@@ -491,8 +497,10 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_checker_check_status_with_env_var() {
+    fn test_should_report_authenticated_status_without_reason_when_token_env_var_present() {
         use gitflow_core::AuthChecker;
+        // AuthChecker 同步分支直接调用 std::process::Command，不读取注入的 runner；
+        // env 短路才是本测试确定性的来源。
         let provider = GitHubAuthProvider::with_runner_and_env(
             MockCommandRunner::success(""),
             MockEnv::with("GH_TOKEN", "test_token"),

@@ -3,7 +3,7 @@
 - **Issue**: [#359](https://github.com/byx-darwin/gitflow-cli/issues/359)
 - **Workflow**: `wf-2026-09-17-002`（standard 模式）
 - **日期**: 2026-09-17
-- **状态**: 待实施
+- **状态**: 已实施（branch `fix/359-envsource-injection`）
 
 ## 背景
 
@@ -95,7 +95,7 @@ pub trait EnvSource: std::fmt::Debug + Send + Sync {
 }
 
 /// Default implementation reading the real process environment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RealEnv;
 
 impl EnvSource for RealEnv {
@@ -224,7 +224,7 @@ gitlab 那 8 处注入空 env 一并修掉上文的次生缺陷，使其对宿�
 尚不存在，它以**编译失败**形式 RED —— 这正是待引入 API 的第一个消费者。
 
 **GREEN**：按上文顺序落地 `EnvSource` / `RealEnv` / `MockEnv` → 三个 provider 的
-字段与泛型 → 生产代码 7 处 env 读取改写 → 测试改造。
+字段与泛型 → 生产代码 8 处 env 读取改写 → 测试改造。
 
 **REFACTOR**：移除 `temp-env` 依赖，`make lint`。
 

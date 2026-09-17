@@ -1,13 +1,16 @@
 //! Command execution abstraction for GitHub CLI (`gh`).
 //!
-//! Re-exports the shared [`CommandRunner`] trait, [`CommandOutput`], and
-//! [`RealCommandRunner`] from `gitflow-cli-adapter-utils`.
+//! Re-exports the shared [`CommandRunner`] trait, [`CommandOutput`],
+//! [`RealCommandRunner`], [`EnvSource`] trait, and [`RealEnv`] from
+//! `gitflow-cli-adapter-utils`.
 //! Platform-specific mock implementations live in this module for testing.
 
 #[cfg(test)]
 use std::process::ExitStatus;
 
-pub use gitflow_cli_adapter_utils::{CommandOutput, CommandRunner, RealCommandRunner};
+pub use gitflow_cli_adapter_utils::{
+    CommandOutput, CommandRunner, EnvSource, RealCommandRunner, RealEnv,
+};
 
 /// Mock implementation for testing failure scenarios.
 ///

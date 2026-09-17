@@ -3,7 +3,8 @@
 //! 通过 `glab auth` CLI 命令实现 [`AuthProvider`] trait，支持登录、
 //! 登出、状态查询及 Token 管理。
 //! 异步方法通过 [`CommandRunner`] 抽象调用 `glab`，测试可注入自定义 runner
-//! 以模拟成功或失败场景。
+//! 以模拟成功或失败场景。环境变量读取通过 [`EnvSource`] 参数抽象，生产环境
+//! 默认使用 [`RealEnv`]，测试可通过 `with_runner_and_env` 注入自定义实现。
 
 use async_trait::async_trait;
 use gitflow_cli_adapter_utils::{EnvSource, RealEnv};
@@ -22,6 +23,8 @@ use crate::{
 ///
 /// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
 /// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+/// 环境变量读取通过 [`EnvSource`] 参数抽象，生产环境默认使用 [`RealEnv`]，
+/// 测试可通过 `with_runner_and_env` 注入自定义实现。
 ///
 /// # Examples
 ///
@@ -309,7 +312,7 @@ mod tests {
 
     /// Build a provider whose environment is empty, so tests never depend on
     /// what the host shell exported.
-    fn provider(runner: MockCommandRunner) -> GitLabAuthProvider<MockCommandRunner, MockEnv> {
+    fn mock_provider(runner: MockCommandRunner) -> GitLabAuthProvider<MockCommandRunner, MockEnv> {
         GitLabAuthProvider::with_runner_and_env(runner, MockEnv::empty())
     }
 
@@ -414,8 +417,10 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_checker_is_authenticated_with_env_var() {
+    fn test_should_report_authenticated_when_token_env_var_present() {
         use gitflow_core::AuthChecker;
+        // AuthChecker 同步分支直接调用 std::process::Command，不读取注入的 runner；
+        // env 短路才是本测试确定性的来源。
         let provider = GitLabAuthProvider::with_runner_and_env(
             MockCommandRunner::success(""),
             MockEnv::with("GL_TOKEN", "test_token"),
@@ -424,8 +429,10 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_checker_check_status_with_env_var() {
+    fn test_should_report_authenticated_status_without_reason_when_token_env_var_present() {
         use gitflow_core::AuthChecker;
+        // AuthChecker 同步分支直接调用 std::process::Command，不读取注入的 runner；
+        // env 短路才是本测试确定性的来源。
         let provider = GitLabAuthProvider::with_runner_and_env(
             MockCommandRunner::success(""),
             MockEnv::with("GL_TOKEN", "test_token"),
@@ -433,6 +440,7 @@ mod tests {
         let result = provider.check_status();
         assert!(result.authenticated);
         assert!(result.reason.is_none());
+        assert!(result.hint.is_none());
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---
@@ -490,7 +498,7 @@ mod tests {
     #[tokio::test]
     async fn test_should_return_platform_error_when_glab_fails_for_token() {
         let runner = MockCommandRunner::failure("no token found", 256);
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let result = provider.token().await;
 
@@ -503,7 +511,7 @@ mod tests {
     #[tokio::test]
     async fn test_should_error_when_stdout_has_no_token_line() {
         let runner = MockCommandRunner::success("");
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let result = provider.token().await;
 
@@ -572,7 +580,7 @@ mod tests {
     async fn test_should_return_token_successfully() {
         let stdout = "  ✓ Token found in operating system keyring: glpat-test12345\n";
         let runner = MockCommandRunner::success(stdout);
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let result = provider.token().await;
 
@@ -584,7 +592,7 @@ mod tests {
     async fn test_should_trim_whitespace_from_token() {
         let stdout = "  ✓ Token found in keyring: glpat-test12345  \n\n";
         let runner = MockCommandRunner::success(stdout);
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let result = provider.token().await;
 
@@ -597,7 +605,7 @@ mod tests {
         let stdout = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  \
                       ✓ Token found in operating system keyring: glpat-abcdef\n";
         let runner = MockCommandRunner::success(stdout);
-        let provider = provider(runner.clone());
+        let provider = mock_provider(runner.clone());
 
         let token = provider.token().await.expect("should get token");
 
@@ -619,7 +627,7 @@ mod tests {
         let stderr = "192.168.230.23\n  ✓ Logged in to 192.168.230.23 as baoyuexing (keyring)\n  \
                       ✓ Token found in operating system keyring: glpat-abcdef\n";
         let runner = MockCommandRunner::success_with_stderr("", stderr);
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let token = provider
             .token()
@@ -634,7 +642,7 @@ mod tests {
         let stdout =
             "  ! No token found (checked config file, keyring, and environment variables).\n";
         let runner = MockCommandRunner::success(stdout);
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let result = provider.token().await;
 
@@ -698,7 +706,7 @@ mod tests {
     #[tokio::test]
     async fn test_should_return_platform_error_when_token_spawn_fails() {
         let runner = MockCommandRunner::spawn_error();
-        let provider = provider(runner);
+        let provider = mock_provider(runner);
 
         let result = provider.token().await;
 
