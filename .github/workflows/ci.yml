@@ -59,6 +59,11 @@ jobs:
       # all three GitHub-hosted runner images.
       - name: cargo test
         run: cargo nextest run --all-features --workspace --exclude e2e-gitlab --exclude e2e-gitcode
+      # nextest does not run doctests at all, so without this step the `# Examples`
+      # blocks in public API docs are compiled and executed by nothing in CI.
+      # Same crate exclusions as above, for the same reason.
+      - name: cargo test --doc
+        run: cargo test --doc --all-features --workspace --exclude e2e-gitlab --exclude e2e-gitcode
 
   lint:
     name: Lint
