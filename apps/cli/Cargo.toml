@@ -61,7 +61,6 @@ assert_cmd = { workspace = true }
 trycmd = { workspace = true }
 predicates = { workspace = true }
 tempfile = { workspace = true }
-temp-env = { workspace = true }
 
 [lints]
 workspace = true

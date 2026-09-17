@@ -26,7 +26,6 @@ thiserror.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
-temp-env.workspace = true
 gitflow-cli-adapter-utils = { workspace = true, features = ["test-util"] }
 
 [lints]
