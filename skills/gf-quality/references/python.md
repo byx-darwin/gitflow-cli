@@ -8,7 +8,7 @@
 |---|------|---------|---------------|
 | 1 | build | `python -m compileall src/ -q` | exit 0 |
 | 2 | test | `python -m pytest --tb=short` | all pass |
-| 3 | coverage | `python -m pytest --cov=src/ --cov-report=term-missing` | incremental ≥ 80% |
+| 3 | coverage | `python -m pytest --cov=src/ --cov-report=term-missing --cov-fail-under=${COV_THRESHOLD:-80}` | exit 0 (total line coverage ≥ threshold); N/A if no `.py` in change set |
 | 4 | format | `ruff format --check .` or `black --check .` | exit 0 |
 | 5 | static | `ruff check .` or `pylint src/` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
@@ -27,13 +27,13 @@ Prefer `ruff` (fast, covers format + lint). Fall back to `black` + `pylint` if r
 ## Notes
 
 - Gate 1: for compiled Python checks; skip for pure script projects (mark N/A)
-- Gate 4: auto-fix with `ruff format .` or `black .` only after user confirmation
+- Gate 4: report the `ruff format --check .` diff — never run `ruff format .` or `black .`
 - Gate 5: check for TODO/FIXME/HACK residuals with `grep -rn "TODO\|FIXME\|HACK" --include="*.py" .`
 - Respect project's existing tool config (`.ruff.toml`, `pyproject.toml [tool.ruff]`)
 
 ## Forbidden Actions
 
-- ❌ Never auto-fix without showing diff first
+- ❌ Never auto-fix with `ruff format .` or `black .` — report only
 - ❌ Never install packages into system Python — use venv or pipx
 
 ## Configuration
@@ -93,7 +93,7 @@ ignore = ["E501"]
 
 - Prefer `ruff` (fast, covers format + lint). Fall back to `black` + `pylint` if ruff not configured
 - Gate 1: for compiled Python checks; skip for pure script projects (mark N/A)
-- Gate 4: auto-fix with `ruff format .` or `black .` only after user confirmation
+- Gate 4: report the `ruff format --check .` diff — never run `ruff format .` or `black .`
 - Gate 5: check for TODO/FIXME/HACK residuals with `grep -rn "TODO\|FIXME\|HACK" --include="*.py" .`
 - Always use virtual environments — never install into system Python
 

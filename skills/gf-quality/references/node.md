@@ -23,7 +23,7 @@ First match wins. If no lock file, default to `npm`.
 |---|------|---------|---------------|
 | 1 | build | `bun run build` or `bunx tsc --noEmit` (TS) | exit 0 |
 | 2 | test | `bun test` | all pass |
-| 3 | coverage | `bun test --coverage` | incremental ≥ 80% |
+| 3 | coverage | `bun test --coverage --coverage-threshold=${COV_THRESHOLD:-80}` | exit 0 (total line coverage ≥ threshold); N/A if no `.js`/`.jsx`/`.ts`/`.tsx` in change set |
 | 4 | format | `bunx prettier --check .` | exit 0 |
 | 5 | static | `bunx eslint .` or `bun run lint` | exit 0, no errors |
 | 6 | pre-commit | `pre-commit run --all-files` or `bunx lint-staged` | all hooks pass (or N/A) |
@@ -34,7 +34,7 @@ First match wins. If no lock file, default to `npm`.
 |---|------|---------|---------------|
 | 1 | build | `npm run build` or `npx tsc --noEmit` (TS) | exit 0 |
 | 2 | test | `npm test` | all pass |
-| 3 | coverage | `npm run test:coverage` or `npx jest --coverage` | incremental ≥ 80% |
+| 3 | coverage | `npm run test:coverage` or `npx jest --coverage --coverageThreshold='{"global":{"lines":80}}'` | exit 0 (total line coverage ≥ threshold); N/A if no `.js`/`.jsx`/`.ts`/`.tsx` in change set |
 | 4 | format | `npx prettier --check .` or `npm run format:check` | exit 0 |
 | 5 | static | `npx eslint .` or `npm run lint` | exit 0, no errors |
 | 6 | pre-commit | `pre-commit run --all-files` or `npx lint-staged` | all hooks pass (or N/A) |
@@ -63,7 +63,7 @@ done
 
 - ❌ Never run install without user confirmation
 - ❌ Never modify `package.json` or lock files during quality check
-- ❌ Never auto-fix lint issues without showing diff first
+- ❌ Never auto-fix lint issues with `eslint --fix` — report only
 - ❌ Never mix runtimes (e.g., run `npm install` in a bun project)
 
 ## Configuration

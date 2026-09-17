@@ -10,7 +10,7 @@
 |---|------|---------|---------------|
 | 1 | build | `mvn compile -q` | exit 0 |
 | 2 | test | `mvn test` | all pass |
-| 3 | coverage | `mvn verify -Pcoverage` (requires JaCoCo) | incremental ≥ 80% |
+| 3 | coverage | `mvn verify -Pcoverage` (requires a JaCoCo `check` rule with LINE COVEREDRATIO ≥ 0.80) | exit 0 (total line coverage ≥ threshold); N/A if no `.java` in change set |
 | 4 | format | `mvn spotless:check` or `mvn formatter:validate` | exit 0 |
 | 5 | static | `mvn pmd:check` or `mvn spotbugs:check` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
@@ -21,7 +21,7 @@
 |---|------|---------|---------------|
 | 1 | build | `./gradlew compileJava` | exit 0 |
 | 2 | test | `./gradlew test` | all pass |
-| 3 | coverage | `./gradlew jacocoTestReport` | incremental ≥ 80% |
+| 3 | coverage | `./gradlew jacocoTestReport jacocoTestCoverageVerification` (violationRules: LINE COVEREDRATIO ≥ 0.80) | exit 0 (total line coverage ≥ threshold); N/A if no `.java` in change set |
 | 4 | format | `./gradlew spotlessCheck` | exit 0 |
 | 5 | static | `./gradlew checkstyleMain` or `./gradlew pmdMain` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
