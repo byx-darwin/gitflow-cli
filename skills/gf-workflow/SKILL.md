@@ -59,11 +59,18 @@ Phase steps below use **role aliases** only; actual skill names resolve via
 
 ### Detection (at Bootstrap, BEFORE contract creation)
 
-1. Introspect the session's available-skills list (primary signal — "invocable as detected").
-   Filesystem probing is diagnostics-only for error messages, never a decision source.
-2. Sentinels (each matches namespaced or bare form; bare form requires double hits):
-   - superpowers: `superpowers:brainstorming` (or bare `brainstorming` + `writing-plans`)
-   - mattpocock: `to-spec` + `grilling` double hit (namespaced `mattpocock-skills:*` or bare)
+1. Classify required skills by invocation policy:
+   - **Model-invoked skills** MUST appear in the session's available-skills list.
+   - **User-invoked skills** marked `disable-model-invocation: true` are intentionally absent
+     from that list. Discover them only beneath the skill roots declared by the environment,
+     and verify the `SKILL.md` frontmatter name and invocation flag. Do not probe arbitrary
+     filesystem locations.
+2. Sentinels:
+   - superpowers: `superpowers:brainstorming` (or bare `brainstorming` + `writing-plans`),
+     all from the session list because they are model-invoked.
+   - mattpocock: `grilling` from the session list, plus installed user-invoked skill
+     `to-spec` from declared skill roots. A user-invoked skill also counts when the
+     session explicitly exposes it.
 3. Result matrix:
 
 | Detection | Action | `skill_source` |
@@ -176,7 +183,7 @@ User can override batching strategy during plan phase.
 | About to advance without updating contract evidence | **STOP** — update contract first |
 | User says "just write the code" | **CHECK** — Scenario C? If no contract, refuse and start Phase 1 |
 | About to let a sub-skill chain to another | **STOP** — sub-skills return to orchestrator |
-| About to invoke a source sub-skill without reading `references.md` mapping table | **STOP** — read the mapping table first; resolve names from the session skills list |
+| About to invoke a source sub-skill without reading `references.md` mapping table | **STOP** — read the mapping table first; resolve model-invoked names from the session list and user-invoked names from declared skill roots |
 | About to auto-invoke a user-invoked skill (`/to-spec`, `/to-tickets`, `/implement`) | **STOP** — these are `disable-model-invocation`; ✋ PAUSE and prompt the user |
 | About to run Phase 3 same-session without an explicit user request | **STOP** — Gate 2→3 includes execution-mode choice; same-session is explicit-only |
 | About to let `/to-spec` publish to the tracker | **STOP** — local-only constraint; issue creation belongs to `gf-issue-create` |

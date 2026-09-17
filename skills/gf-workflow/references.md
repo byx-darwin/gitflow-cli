@@ -359,18 +359,25 @@ Mirrored by the Rust constants in `apps/cli/src/commands/skills.rs`
 `SUPERPOWERS_BARE_SENTINELS` / `MATTPOCOCK_BARE_SENTINELS`) used by install-time
 Step 0. Change both sides together.
 
-| Source | Namespaced form | Bare form (double hit required) |
+| Source | Model-invoked sentinel | User-invoked sentinel |
 |---|---|---|
-| superpowers | `superpowers:brainstorming` | `brainstorming` + `writing-plans` |
-| mattpocock | `mattpocock-skills:to-spec` + `mattpocock-skills:grilling` | `to-spec` + `grilling` |
+| superpowers | `superpowers:brainstorming`, or bare `brainstorming` + `writing-plans` | — |
+| mattpocock | `mattpocock-skills:grilling`, or bare `grilling` | `to-spec` |
 
-Bare forms cover skills.sh / symlink installs. A partial hit (e.g. only `to-spec`)
-counts as absent; report which sentinel is missing.
+Model-invoked sentinels must appear in the session available-skills list. User-invoked
+sentinels normally do not appear there because their frontmatter sets
+`disable-model-invocation: true`; locate them only under skill roots declared by the
+environment and verify both the frontmatter `name` and that flag. They also count if the
+session explicitly exposes them. A partial hit counts as absent; report each missing
+sentinel.
 
 ### Detection & Recording
 
-- Mechanism: introspect the session available-skills list at Bootstrap, BEFORE the
-  contract exists. Filesystem probing is diagnostics-only.
+- Mechanism: at Bootstrap, BEFORE the contract exists, introspect the session
+  available-skills list for model-invoked sentinels. For explicit user-invoked sentinels,
+  inspect only the environment-declared skill roots; this scoped lookup is authoritative
+  because those skills are intentionally hidden from model invocation. All other
+  filesystem probing remains diagnostics-only.
 - Both present → ask the user which source this workflow uses (no default priority).
 - Neither present → ask: continue inline (`skill_source: "inline"`) or abort (no contract).
 - Record after contract creation:
