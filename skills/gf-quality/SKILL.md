@@ -98,7 +98,7 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 |---|------|---------------|
 | 1 | **build** | Code compiles (exit 0) |
 | 2 | **test** | All tests pass |
-| 3 | **coverage** | Incremental coverage ≥ 80% (`COV_THRESHOLD` overrides) |
+| 3 | **coverage** | Total line coverage ≥ 80% (`COV_THRESHOLD` overrides); N/A when the change touches no source file of that language |
 | 4 | **format** | No formatting diff |
 | 5 | **static** | No lint/analysis warnings |
 | 6 | **pre-commit** | All hooks pass (N/A if no `.pre-commit-config.yaml`) |
@@ -107,6 +107,9 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 - `git rev-parse --show-toplevel` succeeds (in a git repo)
 - Workspace clean for Gate 2 (`git status --porcelain` empty)
 - If a tool is missing → mark gate `SKIPPED`, warn user, do NOT auto-install
+- Gate 3 is `N/A` when the change set contains no source file of the detected language. Determine the change set with
+  `git diff --name-only "$(git merge-base HEAD "${BASE_REF:-origin/main}")"` and match the language's source extension.
+  Report `N/A` distinctly from a tool-missing `SKIPPED` — they have different causes and different follow-ups.
 
 ## Step 3: Quality Report
 
