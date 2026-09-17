@@ -248,6 +248,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_probe_one_past_cap_when_cap_is_a_multiple_of_per_page() {
+        // Discriminates a correct N+1 probe from an N probe. With `want = cap`
+        // (the off-by-one bug), the loop would stop after page 2 holding exactly
+        // 20 items and report truncated = false, even though 30 exist.
+        let (paged, calls) = run_paged(30, 20, 10).await;
+        assert_eq!(
+            calls,
+            vec![(1, 10), (2, 10), (3, 10)],
+            "必须探到第 3 页才能发现还有更多"
+        );
+        assert_eq!(paged.items.len(), 20);
+        assert!(paged.truncated, "30 > cap=20，必须报告截断");
+    }
+
+    #[tokio::test]
     async fn test_should_stop_paging_when_exhausted_exactly_at_page_boundary() {
         // total=20，per_page=10：第 1、2 页各满 10 条，第 3 页返回 0 条 ⇒ 取尽
         let (paged, calls) = run_paged(20, 100, 10).await;
