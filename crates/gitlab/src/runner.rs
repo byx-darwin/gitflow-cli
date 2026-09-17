@@ -1,7 +1,8 @@
 //! Command execution abstraction for GitLab CLI (`glab`).
 //!
-//! Re-exports the shared [`CommandRunner`] trait, [`CommandOutput`], and
-//! [`RealCommandRunner`] from `gitflow-cli-adapter-utils`.
+//! Re-exports the shared [`CommandRunner`] trait, [`CommandOutput`],
+//! [`RealCommandRunner`], [`EnvSource`] trait, and [`RealEnv`] from
+//! `gitflow-cli-adapter-utils`.
 //! Platform-specific mock implementations live in this module for testing.
 
 #[cfg(test)]
@@ -9,7 +10,9 @@ use std::process::ExitStatus;
 #[cfg(test)]
 use std::sync::Arc;
 
-pub use gitflow_cli_adapter_utils::{CommandOutput, CommandRunner, RealCommandRunner};
+pub use gitflow_cli_adapter_utils::{
+    CommandOutput, CommandRunner, EnvSource, RealCommandRunner, RealEnv,
+};
 
 /// A single recorded command invocation: `(program, args)`.
 #[cfg(test)]

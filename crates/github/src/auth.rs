@@ -4,8 +4,11 @@
 //! 登出、状态查询及 Token 管理。
 //! 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
 //! [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+//! 环境变量读取通过 [`EnvSource`] 参数抽象，生产环境默认使用 [`RealEnv`]，
+//! 测试可通过 `with_runner_and_env` 注入自定义实现。
 
 use async_trait::async_trait;
+use gitflow_cli_adapter_utils::{EnvSource, RealEnv};
 use gitflow_core::{
     CoreError, Result,
     auth::{AuthProvider, AuthStatus},
@@ -21,6 +24,8 @@ use crate::{
 ///
 /// 命令执行通过 [`CommandRunner`] 抽象，生产环境默认使用
 /// [`RealCommandRunner`]，测试可注入自定义 runner 以模拟成功或失败场景。
+/// 环境变量读取通过 [`EnvSource`] 参数抽象，生产环境默认使用 [`RealEnv`]，
+/// 测试可通过 `with_runner_and_env` 注入自定义实现。
 ///
 /// # Examples
 ///
@@ -30,17 +35,20 @@ use crate::{
 /// let provider = GitHubAuthProvider::new();
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubAuthProvider<R: CommandRunner = RealCommandRunner> {
+pub struct GitHubAuthProvider<R: CommandRunner = RealCommandRunner, E: EnvSource = RealEnv> {
     /// 用于执行 `gh` CLI 命令的 runner。
     runner: R,
+    /// 环境变量来源，生产环境为进程环境，测试可注入。
+    env: E,
 }
 
-impl GitHubAuthProvider<RealCommandRunner> {
+impl GitHubAuthProvider<RealCommandRunner, RealEnv> {
     /// 创建新的 GitHub 认证提供者，使用真实的进程执行器。
     #[must_use]
     pub fn new() -> Self {
         Self {
             runner: RealCommandRunner,
+            env: RealEnv,
         }
     }
 
@@ -52,28 +60,42 @@ impl GitHubAuthProvider<RealCommandRunner> {
     pub fn with_session(_session: &gitflow_core::Session) -> Self {
         Self {
             runner: RealCommandRunner,
+            env: RealEnv,
         }
     }
 }
 
-impl<R: CommandRunner> GitHubAuthProvider<R> {
-    /// 使用自定义 [`CommandRunner`] 创建提供者。
+impl<R: CommandRunner> GitHubAuthProvider<R, RealEnv> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者，环境变量仍取自进程环境。
     ///
     /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
     #[must_use]
     pub fn with_runner(runner: R) -> Self {
-        Self { runner }
+        Self {
+            runner,
+            env: RealEnv,
+        }
     }
 }
 
-impl Default for GitHubAuthProvider {
+impl<R: CommandRunner, E: EnvSource> GitHubAuthProvider<R, E> {
+    /// 同时注入自定义 [`CommandRunner`] 与 [`EnvSource`]。
+    ///
+    /// 测试应优先使用本构造函数：注入的环境变量来源使测试不依赖进程环境。
+    #[must_use]
+    pub fn with_runner_and_env(runner: R, env: E) -> Self {
+        Self { runner, env }
+    }
+}
+
+impl Default for GitHubAuthProvider<RealCommandRunner, RealEnv> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
+impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitHubAuthProvider<R, E> {
     /// 执行交互式登录。
     ///
     /// 调用 `gh auth login`，将子进程的 stdout/stderr 透传给终端。
@@ -220,9 +242,9 @@ impl<R: CommandRunner + 'static> AuthProvider for GitHubAuthProvider<R> {
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl<R: CommandRunner> gitflow_core::AuthChecker for GitHubAuthProvider<R> {
+impl<R: CommandRunner, E: EnvSource> gitflow_core::AuthChecker for GitHubAuthProvider<R, E> {
     fn is_authenticated(&self) -> bool {
-        if std::env::var("GH_TOKEN").is_ok() {
+        if self.env.var("GH_TOKEN").is_some() {
             return true;
         }
 
@@ -235,7 +257,7 @@ impl<R: CommandRunner> gitflow_core::AuthChecker for GitHubAuthProvider<R> {
 
     fn check_status(&self) -> gitflow_core::AuthCheckResult {
         // 1. 检查环境变量
-        if std::env::var("GH_TOKEN").is_ok() {
+        if self.env.var("GH_TOKEN").is_some() {
             return gitflow_core::AuthCheckResult {
                 authenticated: true,
                 user: None,
@@ -344,6 +366,8 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use gitflow_cli_adapter_utils::MockEnv;
+
     use super::*;
     use crate::runner::MockCommandRunner;
 
@@ -461,23 +485,30 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_checker_is_authenticated_with_env_var() {
+    fn test_should_report_authenticated_when_token_env_var_present() {
         use gitflow_core::AuthChecker;
-        temp_env::with_var("GH_TOKEN", Some("test_token"), || {
-            let provider = GitHubAuthProvider::new();
-            assert!(provider.is_authenticated());
-        });
+        // AuthChecker 同步分支直接调用 std::process::Command，不读取注入的 runner；
+        // env 短路才是本测试确定性的来源。
+        let provider = GitHubAuthProvider::with_runner_and_env(
+            MockCommandRunner::success(""),
+            MockEnv::with("GH_TOKEN", "test_token"),
+        );
+        assert!(provider.is_authenticated());
     }
 
     #[test]
-    fn test_auth_checker_check_status_with_env_var() {
+    fn test_should_report_authenticated_status_without_reason_when_token_env_var_present() {
         use gitflow_core::AuthChecker;
-        temp_env::with_var("GH_TOKEN", Some("test_token"), || {
-            let provider = GitHubAuthProvider::new();
-            let result = provider.check_status();
-            assert!(result.authenticated);
-            assert!(result.reason.is_none());
-        });
+        // AuthChecker 同步分支直接调用 std::process::Command，不读取注入的 runner；
+        // env 短路才是本测试确定性的来源。
+        let provider = GitHubAuthProvider::with_runner_and_env(
+            MockCommandRunner::success(""),
+            MockEnv::with("GH_TOKEN", "test_token"),
+        );
+        let result = provider.check_status();
+        assert!(result.authenticated);
+        assert!(result.reason.is_none());
+        assert!(result.hint.is_none());
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---

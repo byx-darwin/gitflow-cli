@@ -16,6 +16,7 @@
 - [Phase 5: 完成度提升](../docs/superpowers/plans/2026-07-01-phase5-polish.md) — 剩余 Skills + Shell 补全 + Homebrew + 社区文档
 - [gf-workflow Mode ① 移除实施计划](../docs/superpowers/plans/2026-09-06-gf-workflow-mode1-removal.md) — Issue #325，纯文档改动，3 个文件
 - [gf-smell 实施计划](../docs/superpowers/plans/2026-09-16-gf-smell.md) — Issue #327，5 个 Task：验收断言（RED）→ SKILL.md → rust.md → 其余四语言层 → dogfooding 实跑
+- [EnvSource 注入实施计划](../docs/superpowers/plans/2026-09-17-envsource-injection.md) — Issue #359，5 个 Task：EnvSource 抽象（adapter-utils）→ gitlab/github/gitcode 三个 provider 注入 env → 移除 temp-env 死依赖 + 全量验收。
 
 ## 集成指南
 
