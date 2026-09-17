@@ -8,7 +8,7 @@
 |---|------|---------|---------------|
 | 1 | build | `cargo build --workspace --quiet` | exit 0 |
 | 2 | test | `cargo test --workspace --quiet` | all pass |
-| 3 | coverage | `cargo tarpaulin --workspace 2>&1 \| tail -3` | > `COV_THRESHOLD` (default 80%) |
+| 3 | coverage | `cargo llvm-cov --workspace --fail-under-lines ${COV_THRESHOLD:-80}` | exit 0 (total line coverage ≥ threshold); N/A if no `.rs` in change set |
 | 4 | format | `cargo +nightly fmt -- --check` | exit 0, no diff |
 | 5 | static | `cargo clippy --workspace --all-targets --all-features -- -D warnings -W clippy::pedantic` | exit 0, no warnings |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A if no `.pre-commit-config.yaml`) |
@@ -17,7 +17,7 @@
 
 | Tool | Install Command | Required By |
 |------|----------------|-------------|
-| cargo-tarpaulin | `cargo install cargo-tarpaulin` | Gate 3 (coverage) |
+| cargo-llvm-cov | `cargo install cargo-llvm-cov` | Gate 3 (coverage) |
 | nightly toolchain | `rustup toolchain install nightly` | Gate 4 (format) |
 
 If a tool is missing, **warn the user and recommend install** — do NOT auto-install.
@@ -53,7 +53,7 @@ Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
 
 | Tool | Install | Config File | Required |
 |------|---------|-------------|----------|
-| cargo-tarpaulin | `cargo install cargo-tarpaulin` | — | Gate 3 (coverage) |
+| cargo-llvm-cov | `cargo install cargo-llvm-cov` | — | Gate 3 (coverage) |
 | nightly toolchain | `rustup toolchain install nightly` | — | Gate 4 (format) |
 | rustfmt | Included with rustup | `rustfmt.toml` | Gate 4 |
 | clippy | Included with rustup | `clippy.toml` | Gate 5 |
@@ -97,7 +97,8 @@ pedantic = { level = "warn", priority = -1 }
 ### Language-Specific Notes
 
 - For Rust workspaces, run gates at workspace root (covers all members)
-- Gate 3 requires `cargo-tarpaulin` — if missing, mark SKIPPED
+- Gate 3 requires `cargo-llvm-cov` — if missing, mark SKIPPED
+- Gate 3 is N/A when the change set contains no `.rs` file — report N/A, not SKIPPED
 - Gate 4 requires nightly toolchain — if missing, mark SKIPPED
 - Gate 5 uses `-D warnings` — any warning fails the gate
 
@@ -107,7 +108,7 @@ pedantic = { level = "warn", priority = -1 }
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `cargo-tarpaulin: command not found` | Tool not installed | `cargo install cargo-tarpaulin` |
+| `cargo-llvm-cov: command not found` | Tool not installed | `cargo install cargo-llvm-cov` |
 | `error: toolchain 'nightly' is not installed` | Nightly missing | `rustup toolchain install nightly` |
 | `error: could not compile` | Compilation error | Read error message, fix code |
 | `test failed, doctests failed` | Test failure | Run `cargo test --workspace -- --nocapture` |
@@ -124,7 +125,7 @@ pedantic = { level = "warn", priority = -1 }
 ### FAQ
 
 **Q: Why does coverage show 0%?**
-A: Ensure `cargo-tarpaulin` is installed and project builds successfully. Check for `#[cfg(test)]` modules.
+A: Ensure `cargo-llvm-cov` is installed and project builds successfully. Check for `#[cfg(test)]` modules.
 
 **Q: How to skip doc tests?**
 A: Run `cargo test --lib --bins` instead of `cargo test --workspace`.
