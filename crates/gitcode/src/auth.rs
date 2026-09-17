@@ -5,6 +5,7 @@
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`。
 
 use async_trait::async_trait;
+use gitflow_cli_adapter_utils::{EnvSource, RealEnv};
 use gitflow_core::{
     CoreError, Result, Session,
     auth::{AuthProvider, AuthStatus},
@@ -29,17 +30,20 @@ use crate::{
 /// let provider = GitCodeAuthProvider::new();
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeAuthProvider<R: CommandRunner = RealCommandRunner> {
+pub struct GitCodeAuthProvider<R: CommandRunner = RealCommandRunner, E: EnvSource = RealEnv> {
     /// 用于执行 `gitcode` CLI 命令的 runner。
     runner: R,
+    /// 环境变量来源，生产环境为进程环境，测试可注入。
+    env: E,
 }
 
-impl GitCodeAuthProvider<RealCommandRunner> {
+impl GitCodeAuthProvider<RealCommandRunner, RealEnv> {
     /// 创建新的 GitCode 认证提供者。
     #[must_use]
     pub fn new() -> Self {
         Self {
             runner: RealCommandRunner,
+            env: RealEnv,
         }
     }
 
@@ -50,28 +54,44 @@ impl GitCodeAuthProvider<RealCommandRunner> {
     pub fn with_session(_session: &Session) -> Self {
         Self {
             runner: RealCommandRunner,
+            env: RealEnv,
         }
     }
 }
 
-impl<R: CommandRunner> GitCodeAuthProvider<R> {
-    /// 使用自定义 [`CommandRunner`] 创建提供者。
+impl<R: CommandRunner> GitCodeAuthProvider<R, RealEnv> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者，环境变量仍取自进程环境。
     ///
     /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
     #[must_use]
     pub fn with_runner(runner: R) -> Self {
-        Self { runner }
+        Self {
+            runner,
+            env: RealEnv,
+        }
     }
 }
 
-impl Default for GitCodeAuthProvider<RealCommandRunner> {
+impl<R: CommandRunner, E: EnvSource> GitCodeAuthProvider<R, E> {
+    /// 同时注入自定义 [`CommandRunner`] 与 [`EnvSource`]。
+    ///
+    /// 测试应优先使用本构造函数：注入的环境变量来源使测试不依赖进程环境。
+    #[must_use]
+    pub fn with_runner_and_env(runner: R, env: E) -> Self {
+        Self { runner, env }
+    }
+}
+
+impl Default for GitCodeAuthProvider<RealCommandRunner, RealEnv> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
+impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider
+    for GitCodeAuthProvider<R, E>
+{
     /// 执行登录。
     ///
     /// 调用 `gc auth login`。如果提供了 token，则通过 `--with-token` 参数并将
@@ -211,10 +231,10 @@ impl<R: CommandRunner + 'static> AuthProvider for GitCodeAuthProvider<R> {
 
 // AuthChecker 是同步 trait，必须使用 std::process::Command
 #[allow(clippy::disallowed_types, reason = "AuthChecker is synchronous")]
-impl<R: CommandRunner> gitflow_core::AuthChecker for GitCodeAuthProvider<R> {
+impl<R: CommandRunner, E: EnvSource> gitflow_core::AuthChecker for GitCodeAuthProvider<R, E> {
     fn is_authenticated(&self) -> bool {
         // 1. 优先检查环境变量
-        if std::env::var("GITCODE_TOKEN").is_ok() {
+        if self.env.var("GITCODE_TOKEN").is_some() {
             return true;
         }
 
@@ -245,7 +265,7 @@ impl<R: CommandRunner> gitflow_core::AuthChecker for GitCodeAuthProvider<R> {
 
     fn check_status(&self) -> gitflow_core::AuthCheckResult {
         // 1. 检查环境变量
-        if std::env::var("GITCODE_TOKEN").is_ok() {
+        if self.env.var("GITCODE_TOKEN").is_some() {
             return gitflow_core::AuthCheckResult {
                 authenticated: true,
                 user: None,
@@ -321,6 +341,8 @@ fn parse_user_from_status(output: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use gitflow_cli_adapter_utils::MockEnv;
+
     use super::*;
     use crate::runner::MockCommandRunner;
 
@@ -394,21 +416,24 @@ mod tests {
     #[test]
     fn test_auth_checker_is_authenticated_with_env_var() {
         use gitflow_core::AuthChecker;
-        temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
-            let provider = GitCodeAuthProvider::new();
-            assert!(provider.is_authenticated());
-        });
+        let provider = GitCodeAuthProvider::with_runner_and_env(
+            MockCommandRunner::success(""),
+            MockEnv::with("GITCODE_TOKEN", "test_token"),
+        );
+        assert!(provider.is_authenticated());
     }
 
     #[test]
     fn test_auth_checker_check_status_with_env_var() {
         use gitflow_core::AuthChecker;
-        temp_env::with_var("GITCODE_TOKEN", Some("test_token"), || {
-            let provider = GitCodeAuthProvider::new();
-            let result = provider.check_status();
-            assert!(result.authenticated);
-            assert!(result.reason.is_none());
-        });
+        let provider = GitCodeAuthProvider::with_runner_and_env(
+            MockCommandRunner::success(""),
+            MockEnv::with("GITCODE_TOKEN", "test_token"),
+        );
+        let result = provider.check_status();
+        assert!(result.authenticated);
+        assert!(result.reason.is_none());
+        assert!(result.hint.is_none());
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---
