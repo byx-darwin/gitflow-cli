@@ -1,5 +1,17 @@
 .DEFAULT_GOAL := help
 
+# 已安装 skill 的目标目录。可覆盖以便测试：make check-skills-drift SKILLS_DIR=/tmp/x
+SKILLS_DIR ?= $(HOME)/.claude/skills
+
+# 注入到需要判定 skill 归属的 recipe 中的 shell 辅助函数。
+#
+# is_project_skill <name>：当 skills/<name> 现存、或曾存在于 git 历史中时为真。
+# 归属以 git 历史为准而非名称前缀 —— ~/.claude/skills 是混装目录，其中既有
+# 以 gf- 开头却不属于本仓库的第三方 skill，也可能有不以 gf- 开头的本项目 skill。
+# 浅克隆下历史可能不完整，此时判定为「非本项目」而跳过，失败方向是漏删而非误删。
+SKILL_FNS = is_project_skill() { [ -d "skills/$$1" ] || [ -n "$$(git log --all --oneline -- "skills/$$1/*" 2>/dev/null | head -1)" ]; }; \
+            is_retired_skill() { [ ! -d "skills/$$1" ] && is_project_skill "$$1"; };
+
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-22s\033[0m %s\n", $$1, $$2}'
@@ -74,11 +86,23 @@ install-tools: ## Install development toolchain
 	@pre-commit install
 	@echo "Run 'pre-commit run --all-files' to verify."
 
-install-skills: ## Install skills to ~/.claude/skills/
-	@echo "Installing skills to ~/.claude/skills/..."
-	@mkdir -p ~/.claude/skills/
-	@cp -r skills/* ~/.claude/skills/
-	@echo "Skills installed."
+install-skills: ## Install skills to ~/.claude/skills, pruning ones this project retired (override SKILLS_DIR)
+	@$(SKILL_FNS) \
+	D="$(SKILLS_DIR)"; \
+	echo "Installing skills to $$D..."; \
+	mkdir -p "$$D"; \
+	for p in "$$D"/*; do \
+		[ -e "$$p" ] || continue; \
+		[ -L "$$p" ] && continue; \
+		[ -d "$$p" ] || continue; \
+		n=`basename "$$p"`; \
+		if is_retired_skill "$$n"; then \
+			echo "  - 移除已下线的 skill: $$n"; \
+			rm -rf "$$p"; \
+		fi; \
+	done; \
+	cp -r skills/* "$$D"/; \
+	echo "Skills installed."
 
 install-hooks: ## Register hook config in .claude/settings.json
 	@bash scripts/install.sh --no-build --no-skills
@@ -86,13 +110,31 @@ install-hooks: ## Register hook config in .claude/settings.json
 install: completions-install ## Full install: build binary + skills + hooks + completions (delegates to install.sh)
 	@bash scripts/install.sh --no-build
 
-list-skills: ## List installed gf skills
-	@ls ~/.claude/skills/ 2>/dev/null | grep gf || echo "No gf skills installed."
+list-skills: ## List installed skills belonging to this project
+	@$(SKILL_FNS) \
+	D="$(SKILLS_DIR)"; FOUND=0; \
+	for p in "$$D"/*; do \
+		[ -e "$$p" ] || continue; \
+		[ -L "$$p" ] && continue; \
+		[ -d "$$p" ] || continue; \
+		n=`basename "$$p"`; \
+		if [ -d "skills/$$n" ]; then echo "  $$n"; FOUND=1; \
+		elif is_project_skill "$$n"; then echo "  $$n  (已下线，make install-skills 会移除)"; FOUND=1; fi; \
+	done; \
+	[ $$FOUND -eq 1 ] || echo "No skills from this project installed."
 
-uninstall-skills: ## Remove gf skills from ~/.claude/skills/
-	@echo "Removing gf skills from ~/.claude/skills/..."
-	@rm -rf ~/.claude/skills/gf-*
-	@echo "gf skills removed."
+uninstall-skills: ## Remove this project's skills from ~/.claude/skills (override SKILLS_DIR)
+	@$(SKILL_FNS) \
+	D="$(SKILLS_DIR)"; \
+	echo "Removing this project's skills from $$D..."; \
+	for p in "$$D"/*; do \
+		[ -e "$$p" ] || continue; \
+		[ -L "$$p" ] && continue; \
+		[ -d "$$p" ] || continue; \
+		n=`basename "$$p"`; \
+		if is_project_skill "$$n"; then echo "  - $$n"; rm -rf "$$p"; fi; \
+	done; \
+	echo "Done."
 
 completions: build ## Generate shell completions (bash, zsh, fish) into ./completions/
 	@bash scripts/generate-completions.sh
@@ -138,6 +180,27 @@ check-agent-sync: ## Verify CLAUDE.md exists
 		echo "CLAUDE.md is required for project-level agent instructions."; \
 		exit 1; \
 	}
+
+check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-only (override SKILLS_DIR)
+	@$(SKILL_FNS) \
+	D="$(SKILLS_DIR)"; DRIFT=0; \
+	if [ ! -d "$$D" ]; then echo "✗ 安装目录不存在: $$D"; exit 1; fi; \
+	for p in "$$D"/*; do \
+		[ -e "$$p" ] || continue; \
+		[ -L "$$p" ] && continue; \
+		[ -d "$$p" ] || continue; \
+		n=`basename "$$p"`; \
+		if is_retired_skill "$$n"; then \
+			echo "✗ 残留  $$n —— 本项目已下线，仍安装在 $$D"; DRIFT=1; \
+		fi; \
+	done; \
+	for p in skills/*/; do \
+		n=`basename "$$p"`; \
+		if [ ! -d "$$D/$$n" ]; then echo "✗ 缺失  $$n —— 仓库中存在，尚未安装"; DRIFT=1; fi; \
+	done; \
+	if [ $$DRIFT -eq 0 ]; then echo "✓ 无漂移：$$D 与 skills/ 一致"; \
+	else echo "运行 'make install-skills' 同步"; fi; \
+	exit $$DRIFT
 
 check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	@S=skills/gf-smell/SKILL.md; R=skills/gf-smell/references; FAIL=0; \
@@ -349,7 +412,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-walkthrough-skill release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-walkthrough-skill check-skills-drift release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
