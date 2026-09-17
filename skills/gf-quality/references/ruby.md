@@ -53,9 +53,18 @@ Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
 
 ## Configuration
 
+### Tool Setup
+
+| Tool | Install | Config File | Required |
+|------|---------|-------------|----------|
+| bundler | `gem install bundler` | `Gemfile` | Gates 1–5 |
+| rspec | `bundle add rspec --group development,test` | `spec/spec_helper.rb` | Gates 2, 3 |
+| simplecov | `bundle add simplecov --group test` | `spec/spec_helper.rb` | Gate 3 (coverage) |
+| rubocop | `bundle add rubocop --group development` | `.rubocop.yml` | Gates 4, 5 |
+
 ### Config File Examples
 
-#### `.rubocop.yml`
+#### .rubocop.yml
 
 ```yaml
 AllCops:
@@ -67,7 +76,7 @@ Metrics/MethodLength:
   Max: 20
 ```
 
-#### `spec/spec_helper.rb` (SimpleCov)
+#### spec/spec_helper.rb (SimpleCov)
 
 ```ruby
 require "simplecov"
@@ -77,6 +86,14 @@ SimpleCov.start do
   minimum_coverage Integer(ENV.fetch("COV_THRESHOLD", "80"))
 end
 ```
+
+### Environment Variables
+
+| Variable | Effect | Default |
+|----------|--------|---------|
+| `COV_THRESHOLD` / `COVERAGE_THRESHOLD` | Override coverage threshold | 80% |
+| `BUNDLE_GEMFILE` | Alternate Gemfile location | `./Gemfile` |
+| `RAILS_ENV` / `RACK_ENV` | Environment for test runs | `test` |
 
 ### Language-Specific Notes
 
@@ -111,3 +128,11 @@ A: `require "simplecov"` and `SimpleCov.start` must run **before** application c
 
 **Q: RuboCop and the formatter disagree?**
 A: Gate 4 runs only `--only Layout`; Gate 5 runs the full rule set. Report both, fix neither.
+
+### Performance Tips
+
+- Run specs in parallel with `parallel_tests` (`bundle add parallel_tests --group test`, then `bundle exec parallel_rspec spec/`) on multi-core machines
+- Use `bundle exec rspec --fail-fast` while iterating locally to stop at the first failure instead of running the full suite
+- Avoid repeated `bundle install` on unchanged `Gemfile.lock` — check `bundle check` first; it exits 0 when dependencies are already satisfied
+- Narrow SimpleCov's tracked files with `add_filter` (e.g. exclude `/spec/`, `/vendor/`) so coverage instrumentation only touches application code, reducing both runtime and noise
+- Use `--only-failures` (RSpec's persistence feature, `config.example_status_persistence_file_path` in `spec_helper.rb`) to re-run just the specs that failed last time
