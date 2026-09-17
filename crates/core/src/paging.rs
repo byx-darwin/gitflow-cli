@@ -69,9 +69,20 @@ pub enum FetchStrategy {
 /// - [`FetchStrategy::Paged`] 的 `per_page` 为 0 时返回
 ///   [`CoreError::Platform`]：该取值会导致翻页永不前进。
 /// - 页号溢出 `u32` 时返回 [`CoreError::Platform`]。
-pub async fn fetch_capped<T, F>(strategy: FetchStrategy, cap: u32, fetch: F) -> Result<Paged<T>>
+///
+/// `fetch` 是返回 `Future` 的普通闭包（`Fn(u32, u32) -> Fut`），而非原生
+/// `AsyncFn`：在 `#[async_trait]` 装箱的方法体内调用一个捕获引用的
+/// `async move |..| {..}` 闭包会触发 rustc 的 HRTB `Send` 检查缺陷
+/// （`implementation of Send is not general enough`）。返回具名 `Future` 的
+/// 普通闭包不受此限制影响。
+pub async fn fetch_capped<T, F, Fut>(
+    strategy: FetchStrategy,
+    cap: u32,
+    fetch: F,
+) -> Result<Paged<T>>
 where
-    F: AsyncFn(u32, u32) -> Result<Vec<T>>,
+    F: Fn(u32, u32) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<T>>>,
 {
     // Lossless on all supported 32/64-bit platforms: u32::MAX always fits in usize there.
     let want = usize::try_from(cap.saturating_add(1)).unwrap_or(usize::MAX);
@@ -182,8 +193,9 @@ mod tests {
 
     async fn run_single_shot(total: usize, cap: u32) -> (Paged<usize>, Vec<(u32, u32)>) {
         let src = Source::new(total);
-        let paged = fetch_capped(FetchStrategy::SingleShot, cap, async |page, limit| {
-            Ok(src.page(page, limit))
+        let paged = fetch_capped(FetchStrategy::SingleShot, cap, |page, limit| {
+            let src = &src;
+            async move { Ok(src.page(page, limit)) }
         })
         .await
         .expect("fetch_capped should succeed");
@@ -193,11 +205,10 @@ mod tests {
 
     async fn run_paged(total: usize, cap: u32, per_page: u32) -> (Paged<usize>, Vec<(u32, u32)>) {
         let src = Source::new(total);
-        let paged = fetch_capped(
-            FetchStrategy::Paged { per_page },
-            cap,
-            async |page, limit| Ok(src.page(page, limit)),
-        )
+        let paged = fetch_capped(FetchStrategy::Paged { per_page }, cap, |page, limit| {
+            let src = &src;
+            async move { Ok(src.page(page, limit)) }
+        })
         .await
         .expect("fetch_capped should succeed");
         let calls = src.recorded();
@@ -297,11 +308,10 @@ mod tests {
     #[tokio::test]
     async fn test_should_reject_zero_per_page() {
         let src = Source::new(10);
-        let result = fetch_capped(
-            FetchStrategy::Paged { per_page: 0 },
-            10,
-            async |page, limit| Ok(src.page(page, limit)),
-        )
+        let result = fetch_capped(FetchStrategy::Paged { per_page: 0 }, 10, |page, limit| {
+            let src = &src;
+            async move { Ok(src.page(page, limit)) }
+        })
         .await;
         assert!(
             matches!(result, Err(CoreError::Platform(_))),

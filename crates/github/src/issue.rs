@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
@@ -113,8 +113,73 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
     }
 }
 
+impl<R: CommandRunner + Clone + 'static> GitHubIssueProvider<R> {
+    /// [`IssueProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let state = args.state.map(|state| match state {
+            State::Open => "open",
+            State::Closed => "closed",
+            State::All => "all",
+        });
+        let repo = self.repo.clone();
+        let runner = self.runner.clone();
+        let search = args.search.clone();
+        let labels = args.labels.clone();
+
+        debug!(repo = %self.repo, cap, "spawning `gh issue list`");
+
+        fetch_capped(FetchStrategy::SingleShot, cap, move |_page, limit| {
+            let repo = repo.clone();
+            let runner = runner.clone();
+            let search = search.clone();
+            let labels = labels.clone();
+            async move {
+                let limit_str = limit.to_string();
+                let mut cmd_args: Vec<&str> =
+                    vec!["issue", "list", "--repo", &repo, "--json", ISSUE_FIELDS];
+
+                if let Some(state) = state {
+                    cmd_args.push("--state");
+                    cmd_args.push(state);
+                }
+
+                if let Some(ref search) = search {
+                    cmd_args.push("--search");
+                    cmd_args.push(search);
+                }
+
+                for label in &labels {
+                    cmd_args.push("--label");
+                    cmd_args.push(label);
+                }
+
+                cmd_args.push("--limit");
+                cmd_args.push(&limit_str);
+
+                let output = runner
+                    .run("gh", &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+                if !output.status.success() {
+                    return Err(parse_gh_error(&output.stderr).into());
+                }
+
+                let issues: Vec<IssueData> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(issues)
+            }
+        })
+        .await
+    }
+}
+
 #[async_trait]
-impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> IssueProvider for GitHubIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");
@@ -229,52 +294,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         self.view(number).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd_args: Vec<&str> = vec![
-            "issue",
-            "list",
-            "--repo",
-            &self.repo,
-            "--json",
-            ISSUE_FIELDS,
-        ];
-
-        if let Some(state) = &args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-
-        if let Some(ref search) = args.search {
-            cmd_args.push("--search");
-            cmd_args.push(search);
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `gh issue list`");
-
-        let output = self
-            .runner
-            .run("gh", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
-
-        let issues: Vec<IssueData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issues)
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
@@ -1702,6 +1723,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("gh v2.94 bot-author fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 2);
         assert_eq!(issues[0].number, 107);
@@ -1723,6 +1745,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("contract fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];
@@ -1750,6 +1773,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("gh v2.97 mixed-author fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 2);
         // bot-authored issue: id omitted by gh → defaults to empty string
@@ -1782,5 +1806,84 @@ mod contract_tests {
         assert_eq!(issue.author.login, "app/github-actions");
         assert_eq!(issue.author.id, "");
         assert_eq!(issue.state, gitflow_core::types::State::Open);
+    }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_when_limit_absent() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+        let paged = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("list should succeed");
+        assert!(paged.items.is_empty());
+        assert!(!paged.truncated);
+        let args = &runner.recorded_calls()[0].1;
+        assert!(
+            args.windows(2).any(|w| w[0] == "--limit" && w[1] == "1001"),
+            "无 --limit 时必须向 gh 要 DEFAULT_LIST_LIMIT + 1 = 1001 条，实际 argv: {args:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_user_limit_plus_one_to_gh() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            limit: Some(10),
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "11"),
+            "用户指定 --limit 10 时也要跑 N+1 探测，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_report_truncation_when_gh_returns_more_than_cap() {
+        // cap = 2 ⇒ 请求 3 条；返回 3 条 ⇒ 截到 2 条并置 truncated
+        let stdout = r#"[
+            {"number":1,"title":"a","state":"OPEN","body":"","labels":[],"assignees":[],"author":{"login":"u","id":"1"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://example.com/1"},
+            {"number":2,"title":"b","state":"OPEN","body":"","labels":[],"assignees":[],"author":{"login":"u","id":"1"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://example.com/2"},
+            {"number":3,"title":"c","state":"OPEN","body":"","labels":[],"assignees":[],"author":{"login":"u","id":"1"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://example.com/3"}
+        ]"#;
+        let runner = MockCommandRunner::success(stdout);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+        let args = ListIssueArgs {
+            limit: Some(2),
+            ..ListIssueArgs::default()
+        };
+        let paged = provider.list(args).await.expect("list should succeed");
+        assert_eq!(paged.items.len(), 2);
+        assert!(paged.truncated);
+        assert_eq!(paged.limit, 2);
+    }
+
+    #[tokio::test]
+    async fn test_should_forward_label_filter_to_gh() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            labels: vec!["bug".to_string(), "help wanted".to_string()],
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "bug"),
+            "--label 过滤此前被静默丢弃，必须真正传给 gh，实际 argv: {recorded:?}"
+        );
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "help wanted"),
+            "多个标签必须各自重复 --label，实际 argv: {recorded:?}"
+        );
     }
 }

@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
@@ -283,8 +283,73 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
     }
 }
 
+impl<R: CommandRunner + Clone + 'static> GitCodeIssueProvider<R> {
+    /// [`IssueProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
+    /// `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        let binary = crate::gitcode_binary();
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = self.repo.clone();
+        let runner = self.runner.clone();
+        let state = args.state;
+        let search = args.search.clone();
+        let labels = args.labels.clone();
+
+        debug!(repo = %self.repo, cap, "spawning gitcode issue list");
+
+        // gitcode CLI 在开发环境不可获得，其 `--limit` 语义未经实测验证，
+        // 此处按与 gh 相同的「总条数上限」处理。若实际为页大小，N+1 探测会
+        // 过度上报 truncated 而非静默丢数据——失效方向是安全的。
+        fetch_capped(FetchStrategy::SingleShot, cap, move |_page, limit| {
+            let binary = binary.clone();
+            let repo = repo.clone();
+            let runner = runner.clone();
+            let state = state;
+            let search = search.clone();
+            let labels = labels.clone();
+            async move {
+                let limit_str = limit.to_string();
+                let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", &repo, "--json"];
+
+                if let Some(ref state) = state {
+                    cmd_args.push("--state");
+                    cmd_args.push(match state {
+                        State::Open => "open",
+                        State::Closed => "closed",
+                        State::All => "all",
+                    });
+                }
+                if let Some(ref search) = search {
+                    cmd_args.push("--search");
+                    cmd_args.push(search);
+                }
+                for label in &labels {
+                    cmd_args.push("--label");
+                    cmd_args.push(label);
+                }
+                cmd_args.push("--limit");
+                cmd_args.push(&limit_str);
+
+                let output = runner
+                    .run(&binary, &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("{e}")))?;
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
+                let issues: Vec<IssueApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(issues.into_iter().map(IssueData::from).collect())
+            }
+        })
+        .await
+    }
+}
+
 #[async_trait]
-impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> IssueProvider for GitCodeIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let binary = crate::gitcode_binary();
         let mut cmd_args: Vec<&str> = vec![
@@ -385,44 +450,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         self.view(number).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let binary = crate::gitcode_binary();
-        let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", &self.repo, "--json"];
-
-        if let Some(ref state) = args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-        if let Some(ref search) = args.search {
-            cmd_args.push("--search");
-            cmd_args.push(search);
-        }
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-        for label in &args.labels {
-            cmd_args.push("--label");
-            cmd_args.push(label);
-        }
-
-        debug!(repo = %self.repo, "spawning gitcode issue list");
-        let output = self
-            .runner
-            .run(&binary, &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("{e}")))?;
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
-        let issues: Vec<IssueApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-        Ok(issues.into_iter().map(IssueData::from).collect())
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
@@ -1252,6 +1281,40 @@ mod tests {
         assert_eq!(comment.author.login, "bob");
         assert_eq!(comment.author.id, "u2");
     }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_on_gitcode() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "1001"),
+            "实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_keep_forwarding_label_filter_on_gitcode() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            labels: vec!["bug".to_string()],
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "bug")
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1272,6 +1335,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("contract fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];

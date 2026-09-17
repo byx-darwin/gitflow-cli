@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITLAB_MAX_PER_PAGE,
     commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
@@ -282,10 +283,86 @@ impl From<CommentApiResponse> for CommentData {
     }
 }
 
+impl<R: CommandRunner + Clone + 'static> GitLabIssueProvider<R> {
+    /// [`IssueProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
+    /// `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo_target = self.repo_target.clone();
+        let runner = self.runner.clone();
+        let state = args.state;
+        let search = args.search.clone();
+        let labels = args.labels.clone();
+
+        debug!(repo = %self.repo, cap, "spawning `glab issue list`");
+
+        fetch_capped(
+            FetchStrategy::Paged {
+                per_page: GITLAB_MAX_PER_PAGE,
+            },
+            cap,
+            move |page, per_page| {
+                let repo_target = repo_target.clone();
+                let runner = runner.clone();
+                let state = state;
+                let search = search.clone();
+                let labels = labels.clone();
+                async move {
+                    let page_str = page.to_string();
+                    let per_page_str = per_page.to_string();
+                    let mut cmd_args: Vec<&str> =
+                        vec!["issue", "list", "--repo", &repo_target, "--output", "json"];
+
+                    // glab 用 --closed 表示已关闭、--all 表示全部；默认（不加旗标）为 open。
+                    if let Some(state) = &state {
+                        match state {
+                            State::Closed => cmd_args.push("--closed"),
+                            State::All => cmd_args.push("--all"),
+                            State::Open => {}
+                        }
+                    }
+
+                    if let Some(ref search) = search {
+                        cmd_args.push("--search");
+                        cmd_args.push(search);
+                    }
+
+                    for label in &labels {
+                        cmd_args.push("--label");
+                        cmd_args.push(label);
+                    }
+
+                    cmd_args.push("--per-page");
+                    cmd_args.push(&per_page_str);
+                    cmd_args.push("--page");
+                    cmd_args.push(&page_str);
+
+                    let output = runner
+                        .run("glab", &cmd_args)
+                        .await
+                        .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+                    if !output.status.success() {
+                        return Err(parse_glab_error(&output.stderr).into());
+                    }
+
+                    let api_responses: Vec<IssueApiResponse> =
+                        serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                    Ok(api_responses.into_iter().map(IssueData::from).collect())
+                }
+            },
+        )
+        .await
+    }
+}
+
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> IssueProvider for GitLabIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");
@@ -402,53 +479,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         self.view(number).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd_args: Vec<&str> = vec![
-            "issue",
-            "list",
-            "--repo",
-            &self.repo_target,
-            "--output",
-            "json",
-        ];
-
-        // glab uses --closed for closed issues, --all for all issues
-        // Default (no flag) shows open issues
-        if let Some(state) = &args.state {
-            match state {
-                State::Closed => cmd_args.push("--closed"),
-                State::All => cmd_args.push("--all"),
-                State::Open => {}
-            }
-        }
-
-        if let Some(ref search) = args.search {
-            cmd_args.push("--search");
-            cmd_args.push(search);
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--per-page");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `glab issue list`");
-
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let api_responses: Vec<IssueApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_responses.into_iter().map(IssueData::from).collect())
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
@@ -1051,7 +1083,11 @@ mod tests {
                 "owner/repo",
                 "--output",
                 "json",
-                "--all"
+                "--all",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
             ]
             .into_iter()
             .map(String::from)
@@ -1598,6 +1634,51 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_should_walk_pages_with_per_page_100_on_glab() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "glab 的 --per-page 受 API 限制上限 100，必须按页大小而非总数传，实际 argv: \
+             {recorded:?}"
+        );
+        assert!(
+            recorded.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "必须显式指定页号，实际 argv: {recorded:?}"
+        );
+        assert_eq!(
+            runner.recorded_calls().len(),
+            1,
+            "首页为空（短于 per_page）即已取尽，不得请求第 2 页"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_forward_label_filter_to_glab() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            labels: vec!["bug".to_string()],
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "bug"),
+            "--label 过滤此前被静默丢弃，必须真正传给 glab，实际 argv: {recorded:?}"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1618,6 +1699,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("contract fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];

@@ -20,7 +20,17 @@ pub use gitflow_cli_adapter_utils::{
 #[derive(Debug, Clone)]
 pub struct MockCommandRunner {
     result: MockResult,
+    /// Recorded `(program, args)` sequences for every `run` call.
+    recorded: std::sync::Arc<std::sync::Mutex<RecordedCalls>>,
 }
+
+/// A single recorded command invocation: `(program, args)`.
+#[cfg(test)]
+type RecordedCall = (String, Vec<String>);
+
+/// All recorded command invocations in execution order.
+#[cfg(test)]
+type RecordedCalls = Vec<RecordedCall>;
 
 #[cfg(test)]
 #[derive(Debug, Clone)]
@@ -56,6 +66,7 @@ impl MockCommandRunner {
                 stdout: stdout.as_bytes().to_vec(),
                 stderr: Vec::new(),
             }),
+            recorded: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
@@ -68,6 +79,7 @@ impl MockCommandRunner {
                 stdout: Vec::new(),
                 stderr: stderr.as_bytes().to_vec(),
             }),
+            recorded: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
@@ -76,14 +88,30 @@ impl MockCommandRunner {
     pub fn spawn_error() -> Self {
         Self {
             result: MockResult::Error(std::io::ErrorKind::NotFound, "command not found".to_owned()),
+            recorded: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         }
+    }
+
+    /// Return the recorded `(program, args)` sequences from every executed call.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal recording mutex is poisoned (a prior panic while
+    /// holding the lock).
+    #[must_use]
+    pub fn recorded_calls(&self) -> Vec<(String, Vec<String>)> {
+        self.recorded.lock().expect("mock mutex poisoned").clone()
     }
 }
 
 #[cfg(test)]
 #[async_trait::async_trait]
 impl CommandRunner for MockCommandRunner {
-    async fn run(&self, _program: &str, _args: &[&str]) -> std::io::Result<CommandOutput> {
+    async fn run(&self, program: &str, args: &[&str]) -> std::io::Result<CommandOutput> {
+        self.recorded.lock().expect("mock mutex poisoned").push((
+            program.to_string(),
+            args.iter().map(|s| (*s).to_string()).collect(),
+        ));
         match &self.result {
             MockResult::Output(output) => Ok(output.clone()),
             MockResult::Error(kind, message) => Err(std::io::Error::new(*kind, message.clone())),

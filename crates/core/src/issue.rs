@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
+    paging::Paged,
     types::{CommentData, Label, State, UserSummary, deserialize_u64_or_string},
 };
 
@@ -79,8 +80,6 @@ pub struct ListIssueArgs {
     pub state: Option<State>,
     /// 按标签名过滤。
     pub labels: Vec<String>,
-    /// 按指派用户过滤。
-    pub assignee: Option<String>,
     /// 关键字搜索条件。
     pub search: Option<String>,
     /// 返回数量上限。
@@ -117,10 +116,13 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
 
     /// 根据过滤条件列出 Issue 列表。
     ///
+    /// 返回的 [`Paged`] 携带截断标志：平台侧的列表命令默认只返回首页，
+    /// 本方法保证要么取满上限，要么诚实报告还有更多。
+    ///
     /// # Errors
     ///
     /// 当平台 API 调用失败或过滤条件非法时返回错误。
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>>;
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>>;
 
     /// 查看指定编号的 Issue 详情。
     ///
@@ -286,7 +288,6 @@ mod tests {
         let args = ListIssueArgs::default();
         assert!(args.state.is_none());
         assert!(args.labels.is_empty());
-        assert!(args.assignee.is_none());
         assert!(args.search.is_none());
         assert!(args.limit.is_none());
     }

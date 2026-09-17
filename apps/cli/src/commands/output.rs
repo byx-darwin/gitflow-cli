@@ -29,11 +29,6 @@ pub fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> mi
 /// 抽成纯函数以便单元测试——实际写 stderr 的动作在
 /// [`print_list_output`] 中，本身不含逻辑。
 #[must_use]
-#[allow(
-    dead_code,
-    reason = "Wired into platform list commands starting with task 3 of the pagination plan; \
-              exercised directly by this module's unit tests in the meantime"
-)]
 pub fn truncation_warning(meta: &gitflow_core::PaginationMeta) -> Option<String> {
     if !meta.truncated {
         return None;
@@ -51,10 +46,6 @@ pub fn truncation_warning(meta: &gitflow_core::PaginationMeta) -> Option<String>
 /// # Errors
 ///
 /// 序列化或格式化失败时返回错误。
-#[allow(
-    dead_code,
-    reason = "Wired into platform list commands starting with task 3 of the pagination plan"
-)]
 pub fn print_list_output<T: serde::Serialize>(
     items: T,
     meta: gitflow_core::PaginationMeta,

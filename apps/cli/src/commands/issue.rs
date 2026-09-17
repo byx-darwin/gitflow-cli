@@ -14,7 +14,10 @@ use gitflow_gitcode::GitCodeIssueProvider;
 use gitflow_github::GitHubIssueProvider;
 use gitflow_gitlab::GitLabIssueProvider;
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// Issue 子命令集合。
 ///
@@ -267,20 +270,20 @@ pub async fn handle(
                     ))),
                 })
                 .transpose()?;
+            let limit = validate_limit(limit)?;
 
             let args = ListIssueArgs {
                 state: parsed_state,
                 labels: label,
-                assignee: None,
                 search,
                 limit,
             };
-            let issues = provider
+            let paged = provider
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list issues: {e}"))?;
-            let output = CliOutput::success(issues, platform, "issue list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "issue list", &output_format)?;
         }
         IssueCommand::View { number } => {
             let issue = provider

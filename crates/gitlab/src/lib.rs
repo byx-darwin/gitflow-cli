@@ -52,3 +52,9 @@ pub use mr::GitLabMrProvider;
 pub use pipeline::GitLabPipelineProvider;
 pub use release::GitLabReleaseProvider;
 pub use review::GitLabReviewProvider;
+
+/// GitLab API 对单页条数的硬上限。
+///
+/// 传入更大的值不会报错，服务端会静默按 100 处理——这正是此前
+/// `--limit 1000` 在 GitLab 上只返回 100 条的原因。
+pub(crate) const GITLAB_MAX_PER_PAGE: u32 = 100;
