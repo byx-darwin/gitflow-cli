@@ -4,6 +4,17 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs, missing_debug_implementations)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        clippy::disallowed_methods,
+        reason = "Tests unwrap fixture data built moments earlier, and build those fixtures with \
+                  synchronous std::fs — the async replacements would need a runtime these plain \
+                  #[test] functions do not have"
+    )
+)]
 
 pub mod config;
 pub mod fixture;
