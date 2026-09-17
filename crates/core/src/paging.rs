@@ -124,6 +124,23 @@ where
     })
 }
 
+impl<T> Paged<T> {
+    /// 拆成「纯条目」与「分页元数据」两半。
+    ///
+    /// CLI 层用它把条目放进输出的 `data`（保持数组形状），把元数据放进
+    /// 输出信封的 `pagination` 字段。
+    #[must_use]
+    pub fn into_parts(self) -> (Vec<T>, crate::output::PaginationMeta) {
+        let meta = crate::output::PaginationMeta {
+            truncated: self.truncated,
+            returned: self.items.len(),
+            limit: self.limit,
+            total_count: self.total_count,
+        };
+        (self.items, meta)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;

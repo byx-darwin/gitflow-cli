@@ -49,7 +49,7 @@ pub use auth_checker::{AuthCheckResult, AuthChecker};
 pub use cli_error::PlatformCliError;
 pub use compatibility::{PlatformCompat, platform_compatibility, platform_requirement};
 pub use doctor::{CheckItem, CheckStatus, DoctorReport, DoctorSummary, HealthCheck};
-pub use output::{CliError, CliOutput};
+pub use output::{CliError, CliOutput, PaginationMeta};
 pub use paging::{DEFAULT_LIST_LIMIT, FetchStrategy, Paged, fetch_capped};
 
 /// Application error type.

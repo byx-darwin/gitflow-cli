@@ -4,7 +4,7 @@
 //! JSON envelope with `success`, optional `data`, optional `error`,
 //! and metadata fields.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// CLI error information.
 ///
@@ -54,6 +54,11 @@ pub struct CliOutput<T: Serialize> {
     /// Error details, present only on failure.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<CliError>,
+    /// 分页元数据，仅列表类命令出现。
+    ///
+    /// 非列表命令不序列化此字段，因此其输出与本特性引入前逐字节相同。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<PaginationMeta>,
     /// The detected platform (e.g. `"github"`).
     pub platform: String,
     /// The command that was executed (e.g. `"issue create"`).
@@ -68,6 +73,7 @@ impl<T: Serialize> CliOutput<T> {
             success: true,
             data: Some(data),
             error: None,
+            pagination: None,
             platform: platform.into(),
             command: command.into(),
         }
@@ -80,10 +86,47 @@ impl<T: Serialize> CliOutput<T> {
             success: false,
             data: None,
             error: Some(error),
+            pagination: None,
             platform: platform.into(),
             command: String::new(),
         }
     }
+
+    /// 创建带分页元数据的成功输出。
+    #[must_use]
+    pub fn success_paged(
+        data: T,
+        pagination: PaginationMeta,
+        platform: &str,
+        command: &str,
+    ) -> Self {
+        Self {
+            success: true,
+            data: Some(data),
+            error: None,
+            pagination: Some(pagination),
+            platform: platform.into(),
+            command: command.into(),
+        }
+    }
+}
+
+/// 列表类命令的分页元数据。
+///
+/// 出现在输出信封上而非 `data` 内部，因此 `data` 仍是数组，既有的
+/// `.data[]` 消费方（jq 脚本、skill）不受影响。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginationMeta {
+    /// 是否因触顶而丢弃了更多条目。
+    pub truncated: bool,
+    /// 本次实际返回的条目数。
+    pub returned: usize,
+    /// 本次生效的上限。
+    pub limit: u32,
+    /// 平台原生便宜可得时的总数；GitHub 上恒为 `None`。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_count: Option<u32>,
 }
 
 #[cfg(test)]
@@ -153,5 +196,67 @@ mod tests {
         assert_eq!(error.code, "TEST_ERROR");
         assert_eq!(error.message, "test message");
         assert_eq!(error.hint, Some("test hint".into()));
+    }
+
+    #[test]
+    fn test_should_omit_pagination_key_for_non_list_output() {
+        let output = CliOutput::success("payload", "github", "issue view");
+        let json = serde_json::to_value(&output).expect("serialize");
+        assert!(
+            json.get("pagination").is_none(),
+            "非列表命令的输出必须与改动前逐字节相同，不得出现 pagination 键"
+        );
+    }
+
+    #[test]
+    fn test_should_keep_data_as_array_for_paged_output() {
+        let paged = crate::paging::Paged {
+            items: vec![1_u32, 2, 3],
+            truncated: false,
+            limit: 1000,
+            total_count: None,
+        };
+        let (items, meta) = paged.into_parts();
+        let output = CliOutput::success_paged(items, meta, "github", "issue list");
+        let json = serde_json::to_value(&output).expect("serialize");
+        assert!(
+            json["data"].is_array(),
+            "data 必须仍是数组，不得被包装成 {{items: [..]}}"
+        );
+        assert_eq!(json["data"].as_array().map(Vec::len), Some(3));
+    }
+
+    #[test]
+    fn test_should_emit_pagination_meta_in_camel_case() {
+        let paged = crate::paging::Paged {
+            items: vec![1_u32],
+            truncated: true,
+            limit: 1,
+            total_count: None,
+        };
+        let (items, meta) = paged.into_parts();
+        let output = CliOutput::success_paged(items, meta, "github", "issue list");
+        let json = serde_json::to_value(&output).expect("serialize");
+        assert_eq!(json["pagination"]["truncated"], serde_json::json!(true));
+        assert_eq!(json["pagination"]["returned"], serde_json::json!(1));
+        assert_eq!(json["pagination"]["limit"], serde_json::json!(1));
+        assert!(
+            json["pagination"].get("totalCount").is_none(),
+            "totalCount 为 None 时必须整个省略，而非输出 null"
+        );
+    }
+
+    #[test]
+    fn test_should_derive_returned_from_item_count() {
+        let paged = crate::paging::Paged {
+            items: vec!["a", "b"],
+            truncated: false,
+            limit: 1000,
+            total_count: None,
+        };
+        let (_, meta) = paged.into_parts();
+        assert_eq!(meta.returned, 2);
+        assert!(!meta.truncated);
+        assert_eq!(meta.limit, 1000);
     }
 }
