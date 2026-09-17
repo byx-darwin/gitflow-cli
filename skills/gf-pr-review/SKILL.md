@@ -62,7 +62,7 @@ gf review approve <n> --body "<c>"      # 4. submit (or request-changes / commen
 | Request changes | `gf review request-changes <n> --body "<c>"` |
 | Comment | `gf review comment <n> --body "<c>"` |
 
-Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../references/pr-review-checklist.md).
+Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../../docs/references/pr-review-checklist.md).
 
 ## Implementation
 
@@ -76,11 +76,11 @@ Dimensions: correctness, security, performance, maintainability, test-coverage, 
 
 ### Step 2: Assess 6 Dimensions
 
-For each dimension (correctness, security, performance, maintainability, test-coverage, docs): ✅ or ⚠️ with `path:line`. See [checklist](../references/pr-review-checklist.md).
+For each dimension (correctness, security, performance, maintainability, test-coverage, docs): ✅ or ⚠️ with `path:line`. See [checklist](../../docs/references/pr-review-checklist.md).
 
 ### Step 3: Draft Conclusion
 
-Per-dimension verdicts with `path:line` for ⚠️ items. See [template](../references/pr-review-checklist.md).
+Per-dimension verdicts with `path:line` for ⚠️ items. See [template](../../docs/references/pr-review-checklist.md).
 
 ### Step 4: Submit
 

@@ -9,7 +9,7 @@ description: |
 
 Read-only label analytics. Queries `gf label list`, then `gf issue list --label` per label and per priority. Produces a unified report: label group counts, priority distribution with health indicators, and unclassified Issue identification. Propose fixes — never mutate.
 
-See [full label taxonomy](../references/gf-label-stats-taxonomy.md) for canonical label category reference.
+See [full label taxonomy](../../docs/references/gf-label-stats-taxonomy.md) for canonical label category reference.
 
 ## CLI Requirement
 
