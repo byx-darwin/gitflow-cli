@@ -101,3 +101,115 @@ impl CommandRunner for RealCommandRunner {
         })
     }
 }
+
+/// Read-only access to process environment variables.
+///
+/// Abstracts environment lookups so tests can inject deterministic values
+/// instead of mutating process-global state. Mutating the real environment
+/// races with other tests running in parallel threads of the same process.
+pub trait EnvSource: std::fmt::Debug + Send + Sync {
+    /// Return the value of `key`.
+    ///
+    /// Returns `None` when the variable is unset or its value is not valid
+    /// UTF-8 — both cases are indistinguishable to callers, matching the
+    /// `std::env::var(..).ok()` behaviour this trait replaces.
+    fn var(&self, key: &str) -> Option<String>;
+}
+
+/// Default [`EnvSource`] reading the real process environment.
+///
+/// Used in production by all platform adapter crates.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RealEnv;
+
+impl EnvSource for RealEnv {
+    fn var(&self, key: &str) -> Option<String> {
+        std::env::var(key).ok()
+    }
+}
+
+/// In-memory [`EnvSource`] for tests.
+///
+/// Holds a fixed set of variables and never touches the process environment,
+/// so tests using it are immune both to parallel-test interference and to
+/// whatever the developer happens to have exported in their shell.
+///
+/// # Examples
+///
+/// ```
+/// use gitflow_cli_adapter_utils::{EnvSource, MockEnv};
+///
+/// let env = MockEnv::with("GL_TOKEN", "glpat-example");
+/// assert_eq!(env.var("GL_TOKEN"), Some("glpat-example".to_string()));
+/// assert_eq!(env.var("GITLAB_HOST"), None);
+/// ```
+#[cfg(feature = "test-util")]
+#[derive(Debug, Clone, Default)]
+pub struct MockEnv {
+    /// Fixed variable table consulted by [`EnvSource::var`].
+    vars: std::collections::HashMap<String, String>,
+}
+
+#[cfg(feature = "test-util")]
+impl MockEnv {
+    /// Create a source where every lookup returns `None`.
+    #[must_use]
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Create a source holding exactly one variable.
+    #[must_use]
+    pub fn with(key: &str, value: &str) -> Self {
+        let mut vars = std::collections::HashMap::new();
+        vars.insert(key.to_string(), value.to_string());
+        Self { vars }
+    }
+}
+
+#[cfg(feature = "test-util")]
+impl EnvSource for MockEnv {
+    fn var(&self, key: &str) -> Option<String> {
+        self.vars.get(key).cloned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "test-util")]
+    #[test]
+    fn test_should_return_none_from_mock_env_when_key_absent() {
+        let env = MockEnv::empty();
+        assert_eq!(env.var("GL_TOKEN"), None);
+    }
+
+    #[cfg(feature = "test-util")]
+    #[test]
+    fn test_should_return_value_from_mock_env_when_key_present() {
+        let env = MockEnv::with("GL_TOKEN", "glpat-mock");
+        assert_eq!(env.var("GL_TOKEN"), Some("glpat-mock".to_string()));
+    }
+
+    #[cfg(feature = "test-util")]
+    #[test]
+    fn test_should_isolate_unrelated_keys_in_mock_env() {
+        let env = MockEnv::with("GL_TOKEN", "glpat-mock");
+        assert_eq!(env.var("GITLAB_HOST"), None);
+    }
+
+    #[test]
+    fn test_should_read_real_process_env_through_real_env() {
+        // PATH 在所有支持的平台上均已设置，且本测试只读不写，
+        // 因此不会与并行测试产生竞态。
+        let env = RealEnv;
+        assert!(env.var("PATH").is_some());
+    }
+
+    #[test]
+    fn test_should_return_none_from_real_env_for_absent_key() {
+        let env = RealEnv;
+        assert_eq!(env.var("GF_DEFINITELY_NOT_SET_12345"), None);
+    }
+}
