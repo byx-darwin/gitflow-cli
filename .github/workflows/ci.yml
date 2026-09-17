@@ -116,6 +116,26 @@ jobs:
       - name: Check with MSRV toolchain
         run: cargo +${{ steps.msrv.outputs.msrv }} check --workspace --all-features
 
+  skill-docs:
+    name: Skill Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # validate-skill-commands.sh 需要一个可执行的 gf 来枚举真实子命令，
+      # 必须先构建（issue #342）。debug 构建足够且比 release 快。
+      - name: Build gf (debug)
+        run: cargo build --bin gf
+
+      - name: Verify agent instructions and skill docs
+        env:
+          GF_BIN: ${{ github.workspace }}/target/debug/gf
+        run: make check-agent-sync
+
   smoke-test:
     name: Smoke Test
     runs-on: ubuntu-latest

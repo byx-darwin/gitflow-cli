@@ -171,11 +171,14 @@ release-dry-run: ## Preview release without executing
 update-submodule: ## Update git submodules recursively
 	@git submodule update --init --recursive --remote
 
-check-agent-sync: ## Verify CLAUDE.md exists
+check-agent-sync: ## Verify agent instructions exist and skill docs stay consistent
 	@test -f CLAUDE.md || { \
-		echo "CLAUDE.md is required for project-level agent instructions."; \
+		echo "✗ CLAUDE.md is required for project-level agent instructions."; \
 		exit 1; \
 	}
+	@echo "✓ CLAUDE.md 存在"
+	@bash scripts/verify-skills-when-not-to-use.sh
+	@bash scripts/validate-skill-commands.sh
 
 check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-only (override SKILLS_DIR)
 	@$(SKILL_FNS) \

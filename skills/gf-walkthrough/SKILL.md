@@ -63,7 +63,7 @@ One read-only re-run fills gaps, else `Unverified`:
 | Allowed | Forbidden |
 |---|---|
 | `git log` / `diff` / `merge-base` / `show` | anything writing files |
-| `gf pr view` / `gf pr checks` | pushing or changing branch state |
+| `gf pr view` / `gf pr diff` / `gf pipeline status` | pushing or changing branch state |
 | read-only Gate Commands | installing dependencies |
 
 Failed re-run → `Unverified` with reason and workaround.
