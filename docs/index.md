@@ -34,6 +34,7 @@
 - [兼容性矩阵 gf 版本派生设计](./superpowers/specs/2026-08-18-compat-matrix-cargo-pkg-version-design.md) — Issue #207：移除 JSON 冗余 `gitflow_cli_version` 字段，矩阵文档版本头部由 `env!("CARGO_PKG_VERSION")` 自动派生，发版无需手动同步版本元数据。
 - [安装文档 Node.js 与技能来源前置条件设计](./superpowers/specs/2026-08-19-install-docs-node-prereq-design.md) — Issue #192：README / quickstart / workflow-guide 补齐前置条件（Node.js ≥ 22.20.0、Claude Code、技能来源），并在 `gf skills install` 硬阻断错误中内联 Node 版本提示。
 - [自动上报 bug 加固设计](./superpowers/specs/2026-08-30-autoreport-bug-hardening-design.md) — 2026-08-18 多角色评估后续：归档限流、CI 环境硬拦截、`auto-report` 标签缺失早失败、非交互 Preview 默认改为 skip、首次端到端验证。实施计划见 [plans/2026-08-30-autoreport-bug-hardening.md](./superpowers/plans/2026-08-30-autoreport-bug-hardening.md)。
+- [覆盖率度量口径统一设计](./superpowers/specs/2026-09-17-coverage-metric-unification-design.md) — Issues #340/#348/#354（milestone #2）：覆盖率工具统一到 `cargo-llvm-cov`、Gate 3 口径由「增量」改为总行覆盖 80%、空变更判 N/A、补写 `references/ruby.md`、去除 auto-fix 冲突、新增 skill 链接校验脚本。实测推翻 tarpaulin 37.55% 基线（llvm-cov 同口径 85.78%）。实施计划见 [plans/2026-09-17-coverage-metric-unification.md](./superpowers/plans/2026-09-17-coverage-metric-unification.md)。
 
 ## 官网与 GEO
 

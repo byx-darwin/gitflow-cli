@@ -98,7 +98,7 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 |---|------|---------------|
 | 1 | **build** | Code compiles (exit 0) |
 | 2 | **test** | All tests pass |
-| 3 | **coverage** | Incremental coverage ≥ 80% (`COV_THRESHOLD` overrides) |
+| 3 | **coverage** | Total coverage ≥ 80% (`COV_THRESHOLD` overrides); line coverage for Rust, Python, Java, Ruby and Node.js, **statement** coverage for Go — the units differ, so always report which; N/A when the change touches no source file of that language |
 | 4 | **format** | No formatting diff |
 | 5 | **static** | No lint/analysis warnings |
 | 6 | **pre-commit** | All hooks pass (N/A if no `.pre-commit-config.yaml`) |
@@ -107,6 +107,42 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 - `git rev-parse --show-toplevel` succeeds (in a git repo)
 - Workspace clean for Gate 2 (`git status --porcelain` empty)
 - If a tool is missing → mark gate `SKIPPED`, warn user, do NOT auto-install
+- Gate 3 is `N/A` when the change set contains no source file of the detected language. Determine the base
+  commit and the change set with:
+
+  ```bash
+  base_ref="${BASE_REF:-}"
+  if [ -z "$base_ref" ]; then
+    for ref in origin/main origin/master origin/HEAD main master; do
+      if git rev-parse --verify --quiet "$ref" >/dev/null; then base_ref="$ref"; break; fi
+    done
+  fi
+  [ -n "$base_ref" ] || { echo "no base ref resolved"; }
+
+  base_commit=""
+  if [ -n "$base_ref" ]; then
+    base_commit="$(git merge-base HEAD "$base_ref" 2>/dev/null || true)"
+  fi
+
+  if [ -z "$base_commit" ] || [ "$base_commit" = "$(git rev-parse HEAD)" ]; then
+    change_set="__WHOLE_TREE__"   # HEAD is the base (or no base resolved): run Gate 3 over everything
+  else
+    change_set="$(git diff --name-only "$base_commit")"
+  fi
+  ```
+
+  Never write a bare `git merge-base HEAD "$(…)"` with an unchecked `${BASE_REF:-origin/main}`: GitLab and
+  GitCode projects routinely use a default branch other than `main`, `origin/main` then fails to resolve, the
+  command substitution collapses to an empty string, and the diff errors out instead of reporting a status.
+- **`__WHOLE_TREE__` means Gate 3 runs normally, not `N/A`.** When `HEAD` *is* the base branch — the release
+  check named in this skill's `description` — the merge-base is `HEAD` itself and the diff is necessarily empty
+  (Gate 2's precondition already requires a clean worktree). That empty diff means "there is nothing to compare
+  against", not "this change set touches no source file of that language". Treating it as `N/A` would silently
+  delete the coverage gate exactly when a release is being verified. Run Gate 3 against the whole tree instead.
+- Report `N/A` distinctly from a tool-missing `SKIPPED` — they have different causes and different follow-ups.
+  `N/A` = the change set contains no source file of that language. `SKIPPED` = the coverage tool or its
+  threshold configuration is absent, so nothing was measured. A missing tool or a missing threshold config is
+  never `N/A`.
 
 ## Step 3: Quality Report
 

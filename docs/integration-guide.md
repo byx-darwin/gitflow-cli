@@ -93,13 +93,14 @@ gf 与 Superpowers 形成**互补分层**的协作关系：
 
 ```
 ┌─ gf-quality ────────────────────────────────────────────┐
-│  5 项检查，快速失败:                                          │
+│  6 项检查，快速失败:                                          │
 │                                                               │
 │  1. build     cargo build --workspace              ✅/❌      │
 │  2. test      cargo test --workspace               ✅/❌      │
-│  3. coverage  cargo tarpaulin (>80%)               ✅/❌      │
+│  3. coverage  cargo llvm-cov (行覆盖 >80%)         ✅/❌      │
 │  4. format    cargo +nightly fmt -- --check        ✅/❌      │
 │  5. static    cargo clippy -D warnings             ✅/❌      │
+│  6. pre-commit  pre-commit run --all-files         ✅/❌      │
 │                                                               │
 │  • 自动检测项目语言 (Rust/Node/Python/Go)                      │
 │  • 生成 Markdown 质量报告                                      │
