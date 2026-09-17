@@ -8,7 +8,7 @@
 |---|------|---------|---------------|
 | 1 | build | `go build ./...` | exit 0 |
 | 2 | test | `go test ./... -race -count=1` | all pass |
-| 3 | coverage | `go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out \| awk -v t="${COV_THRESHOLD:-80}" '/^total:/ {gsub(/%/,"",$3); exit ($3+0 < t+0)}'` | exit 0 (total line coverage ≥ threshold); N/A if no `.go` in change set |
+| 3 | coverage | `go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out \| awk -v t="${COV_THRESHOLD:-80}" '/^total:/ {gsub(/%/,"",$3); exit ($3+0 < t+0)}'` | exit 0 (total **statement** coverage ≥ threshold); N/A if no `.go` in change set |
 | 4 | format | `gofmt -l .` | no output (all formatted) |
 | 5 | static | `go vet ./...` then `golangci-lint run ./...` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
@@ -24,7 +24,9 @@ If golangci-lint is missing, fall back to `go vet ./...` only.
 ## Notes
 
 - Gate 2 includes `-race` for race condition detection
-- Gate 3: total line coverage ≥ `COV_THRESHOLD` (default 80%); N/A when the change set has no `.go` file
+- Gate 3: total **statement** coverage ≥ `COV_THRESHOLD` (default 80%); N/A if no `.go` in change set
+- Gate 3 reports SKIPPED if `go tool cover` is unavailable — N/A is reserved for a change set with no `.go` file
+- Go's coverage unit is the **statement**, not the line: `go tool cover -func` prints `total:\t(statements)\t50.0%`, and the Go toolchain has no line-coverage mode. The number is therefore not directly comparable to the line-coverage figures reported for Rust, Python, Java, Ruby and Node.js — state the unit whenever a Go coverage value appears in a report
 - Gate 4: report the `gofmt -l .` file list — never run `gofmt -w .`
 - Gate 5: `staticcheck ./...` as fallback if golangci-lint unavailable
 
@@ -79,6 +81,7 @@ require (
 
 | Variable | Effect | Default |
 |----------|--------|---------|
+| `COV_THRESHOLD` / `COVERAGE_THRESHOLD` | Override coverage threshold (compared against Go's **statement** coverage) | 80% |
 | `GOPROXY` | Go module proxy | `https://proxy.golang.org` |
 | `GONOSUMCHECK` | Skip checksum verification | — |
 | `GOFLAGS` | Default go command flags | — |
@@ -86,7 +89,9 @@ require (
 ### Language-Specific Notes
 
 - Gate 2 includes `-race` for race condition detection
-- Gate 3: total line coverage ≥ `COV_THRESHOLD` (default 80%); N/A when the change set has no `.go` file
+- Gate 3: total **statement** coverage ≥ `COV_THRESHOLD` (default 80%); N/A if no `.go` in change set
+- Gate 3 reports SKIPPED if `go tool cover` is unavailable — N/A is reserved for a change set with no `.go` file
+- Go's coverage unit is the **statement**, not the line: `go tool cover -func` prints `total:\t(statements)\t50.0%`, and the Go toolchain has no line-coverage mode. The number is therefore not directly comparable to the line-coverage figures reported for Rust, Python, Java, Ruby and Node.js — state the unit whenever a Go coverage value appears in a report
 - Gate 4: report the `gofmt -l .` file list — never run `gofmt -w .`
 - Gate 5: `staticcheck ./...` as fallback if golangci-lint unavailable
 

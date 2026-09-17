@@ -51,7 +51,7 @@
 |---|---|---|
 | D1 | 覆盖率工具统一到 **cargo-llvm-cov** | Makefile 既有实现；LLVM source-based 为 Rust 工具链原生能力；macOS 上计量正确 |
 | D2 | Gate 3 口径改为**总行覆盖率**，放弃 incremental | 两工具均无原生 diff；引入 diff-cover 会给五种语言各加一个跨生态外部依赖 |
-| D3 | 阈值保持 **80%**，口径为**行覆盖** | 实测 85.78%，余量 5.8 点；行覆盖是五种语言工具链共有的概念，区域覆盖仅 LLVM 有 |
+| D3 | 阈值保持 **80%**，口径为**行覆盖**（Go 例外，见下） | 实测 85.78%，余量 5.8 点；行覆盖是 Rust/Python/Java/Ruby/Node.js 工具链共有的概念，区域覆盖仅 LLVM 有。**Go 工具链只提供语句覆盖**（`go tool cover -func` 打印 `(statements)`），阈值数值沿用 80 但单位不同，报告中必须注明 |
 | D4 | 本次变更未触及该语言源码 → Gate 3 判 **N/A 跳过** | 消除 #329 那类纯文档变更靠人工豁免放行的情形；同时省掉一次全量插桩编译 |
 | D5 | **补写** `references/ruby.md`，而非移除 detector 映射 | 保留 skill 对下游 Ruby 项目的支持能力 |
 | D6 | tarpaulin 残留**按规范性/史料分类处理** | 改写已归档报告与历史计划会让记录与当时实际发生的事不符 |
@@ -82,20 +82,49 @@
 |---|---|---|
 | `rust.md` | 11 | `--fail-under-lines ${COV_THRESHOLD:-80}` |
 | `python.md` | 11 | `--cov-fail-under=${COV_THRESHOLD:-80}` |
-| `node.md` | 26 / 37 | bun `--coverage-threshold` / jest `--coverageThreshold` / vitest `coverage.thresholds.lines` |
+| `node.md` | 26 / 37 | bun：`bunfig.toml` 的 `[test] coverageThreshold`（**分数**，`0.80` 对应 `COV_THRESHOLD=80`）；jest：`--coverageThreshold="{\"global\":{\"lines\":${COV_THRESHOLD:-80}}}"`；vitest：`vitest.config.*` 的 `coverage.thresholds.lines`（由项目配置提供，skill 只读取不写入） |
 | `java.md` | 13 / 24 | JaCoCo `check` goal 的 `LINE` COVEREDRATIO rule |
 | `go.md` | 11 | `go tool cover -func` 输出接 `awk` 与阈值比较（无原生支持） |
 | `ruby.md` | 新建 | SimpleCov `minimum_coverage` |
 
+**bun 阈值机制的实测修正（实施期间）**：本设计初稿写的 bun `--coverage-threshold` **不存在**。Bun 1.3.14 的 `bun test --help` 只有 `--coverage`、`--coverage-reporter`、`--coverage-dir` 三个覆盖率相关标志，且 `bun test` 对未识别标志**静默忽略**——传该标志既不报错也不生效，是一个恒绿的假闸门。唯一可用机制是 `bunfig.toml` 的 `[test] coverageThreshold`。因此 `node.md` 实现为读取 `bunfig.toml`；若该键缺失，`bun test --coverage` 在任何覆盖率下都退出 0，Gate 3 判 **SKIPPED**（`SKILL.md` 禁止 skill 创建文件，故不自动补写 `bunfig.toml`）。本表已按实测结果更新，不得回改为 `--coverage-threshold`。
+
+**vitest**：`node.md` 未实现自动注入，阈值来自项目自身 `vitest.config.*` 的 `coverage.thresholds.lines`；裸跑 `vitest --coverage` 不强制任何阈值，此时 Gate 3 判 **SKIPPED**。
+
+**java（JaCoCo）**：JaCoCo 无命令行阈值标志，规则写在 `pom.xml` / `build.gradle` 的 `check` / `jacocoTestCoverageVerification` 中，且以**分数**表示。`COV_THRESHOLD=90` 对应 `LINE` `COVEREDRATIO` 最小值 `0.90`。因 Gate 3 不得修改构建文件，skill 只读取已配置的 `COVEREDRATIO` 并与 `COV_THRESHOLD/100` 比较；规则缺失判 **SKIPPED**。
+
 同时删除 `go.md:27` 与 `:89` 已失效的 `compare against previous run`。
+
+**go 的计量单位（实测 go1.26.6）**：`go tool cover -func` 输出 `total:\t(statements)\t50.0%`，Go 工具链**只有语句覆盖，没有行覆盖概念**。`go.md` 因此表述为 statement coverage，并在报告中注明其单位与其余语言的行覆盖不可直接比较。
 
 ### 3. 空变更的 N/A 判定
 
 Gate 3 执行前先取本次变更集，不含该语言源文件则判 N/A 并在报告中写明理由。Rust 判据：
 
 ```bash
-git diff --name-only "$(git merge-base HEAD "${BASE_REF:-origin/main}")" | grep -qE '\.rs$'
+base_ref="${BASE_REF:-}"
+if [ -z "$base_ref" ]; then
+  for ref in origin/main origin/master origin/HEAD main master; do
+    if git rev-parse --verify --quiet "$ref" >/dev/null; then base_ref="$ref"; break; fi
+  done
+fi
+
+base_commit=""
+if [ -n "$base_ref" ]; then
+  base_commit="$(git merge-base HEAD "$base_ref" 2>/dev/null || true)"
+fi
+
+if [ -z "$base_commit" ] || [ "$base_commit" = "$(git rev-parse HEAD)" ]; then
+  : # HEAD 即基线（或基线无法解析）：Gate 3 按全量执行，不判 N/A
+else
+  git diff --name-only "$base_commit" | grep -qE '\.rs$'
+fi
 ```
+
+两处必须保留：
+
+1. **基线兜底**：不能直接写 `${BASE_REF:-origin/main}`。GitLab / GitCode 项目默认分支常非 `main`，`origin/main` 解析失败时命令替换塌缩为空串，`git merge-base HEAD ""` 直接报错，Gate 3 拿不到状态。
+2. **`HEAD` 即基线**：在基线分支上（`SKILL.md` 的 `description` 明确把「验证分支可发布」列为用例）merge-base 就是 `HEAD` 本身，加上 Gate 2 已要求工作区干净，变更集必然为空。此时空变更集的含义是「无可比对象」，**不是**「本次变更不含该语言源文件」，判 N/A 会让发布时刻的覆盖率闸门静默消失。该情形下 Gate 3 按全量执行。
 
 各语言的扩展名判据分别为 `\.go$` / `\.(js|jsx|ts|tsx)$` / `\.py$` / `\.java$` / `\.rb$`。
 
