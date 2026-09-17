@@ -40,10 +40,6 @@ clean-staged-skills: ## Remove staged skills from apps/cli/skills/
 	@rm -rf apps/cli/skills
 	@echo "✓ Cleaned staged skills"
 
-local-rebuild: ## Clean, rebuild, and reinstall
-	@cargo clean
-	@$(MAKE) local-install
-
 check: ## Fast compile check (no codegen)
 	@cargo check --workspace --all-targets --all-features
 
@@ -409,7 +405,7 @@ package: ## Build and package current platform binary into dist/
 	fi
 	@echo "Packaged to dist/"
 
-.PHONY: help build build-release local-install local-rebuild check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
+.PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
         update-submodule check-agent-sync check-smell-skill check-walkthrough-skill check-skills-drift release release-quick release-rehearse \
