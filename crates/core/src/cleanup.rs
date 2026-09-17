@@ -272,7 +272,8 @@ impl CleanupService {
                 state: Some(State::Closed),
                 limit: None,
             })
-            .await?;
+            .await?
+            .items;
 
         let targets: Vec<&PrData> = if require_merged {
             select_merge_candidates(&prs)

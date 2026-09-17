@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
+    paging::Paged,
     types::{
         CommentData, MergeResult, MergeStrategy, State, UserSummary, deserialize_u64_or_string,
     },
@@ -109,10 +110,12 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
 
     /// 根据过滤条件列出 PR 列表。
     ///
+    /// 返回的 [`Paged`] 携带截断标志，语义见 [`crate::paging`]。
+    ///
     /// # Errors
     ///
     /// 当平台 API 调用失败或过滤条件非法时返回错误。
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>>;
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>>;
 
     /// 查看指定编号的 PR 详情。
     ///
@@ -381,7 +384,10 @@ mod tests {
             async fn create(&self, _args: crate::pr::CreatePrArgs) -> Result<crate::pr::PrData> {
                 unimplemented!()
             }
-            async fn list(&self, _args: crate::pr::ListPrArgs) -> Result<Vec<crate::pr::PrData>> {
+            async fn list(
+                &self,
+                _args: crate::pr::ListPrArgs,
+            ) -> Result<crate::paging::Paged<crate::pr::PrData>> {
                 unimplemented!()
             }
             async fn view(&self, _number: u64) -> Result<crate::pr::PrData> {

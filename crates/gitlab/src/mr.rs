@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITLAB_MAX_PER_PAGE,
     commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
@@ -154,6 +155,62 @@ impl<R: CommandRunner> GitLabMrProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
         Ok(())
+    }
+
+    /// [`PrProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
+        let state = args.state;
+        // 页大小不必超过 cap+1：N+1 探测只需要多要一条即可判断截断，
+        // 请求整页 100 条再丢弃对 cap 很小的调用（如 `--limit 5`）是纯浪费。
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
+
+        debug!(repo = %self.repo, cap, "spawning `glab mr list`");
+
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> =
+                    vec!["mr", "list", "--repo", repo_target, "--output", "json"];
+
+                // glab 用 --closed 表示已关闭、--all 表示全部；默认（不加旗标）为 open。
+                if let Some(state) = &state {
+                    match state {
+                        State::Closed => cmd_args.push("--closed"),
+                        State::All => cmd_args.push("--all"),
+                        State::Open => {}
+                    }
+                }
+
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
+
+                let output = runner
+                    .run("glab", &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let api_responses: Vec<MrApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(api_responses.into_iter().map(PrData::from).collect())
+            },
+        )
+        .await
     }
 }
 
@@ -332,48 +389,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         self.view(mr_iid).await
     }
 
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd_args: Vec<&str> = vec![
-            "mr",
-            "list",
-            "--repo",
-            &self.repo_target,
-            "--output",
-            "json",
-        ];
-
-        // glab uses --closed for closed MRs, --all for all MRs
-        // Default (no flag) shows open MRs
-        if let Some(state) = &args.state {
-            match state {
-                State::Closed => cmd_args.push("--closed"),
-                State::All => cmd_args.push("--all"),
-                State::Open => {}
-            }
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--per-page");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `glab mr list`");
-
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let api_responses: Vec<MrApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_responses.into_iter().map(PrData::from).collect())
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
@@ -1042,7 +1059,11 @@ mod tests {
                 "owner/repo",
                 "--output",
                 "json",
-                "--all"
+                "--all",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
             ]
             .into_iter()
             .map(String::from)
@@ -1445,5 +1466,50 @@ mod tests {
         let result = provider.default_branch().await;
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_walk_pages_for_mr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListPrArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100")
+        );
+        assert!(recorded.windows(2).any(|w| w[0] == "--page" && w[1] == "1"));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_mr_list_with_state() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0];
+        assert_eq!(recorded.0, "glab");
+        assert_eq!(
+            recorded.1,
+            vec![
+                "mr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
+            ]
+        );
     }
 }

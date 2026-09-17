@@ -14,7 +14,10 @@ use gitflow_gitcode::GitCodePrProvider;
 use gitflow_github::GitHubPrProvider;
 use gitflow_gitlab::GitLabMrProvider;
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// PR 子命令集合。
 ///
@@ -281,17 +284,18 @@ pub async fn handle(
                     ))),
                 })
                 .transpose()?;
+            let limit = validate_limit(limit)?;
 
             let args = ListPrArgs {
                 state: parsed_state,
                 limit,
             };
-            let prs = provider
+            let paged = provider
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list prs: {e}"))?;
-            let output = CliOutput::success(prs, platform, "pr list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "pr list", &output_format)?;
         }
         PrCommand::View { number } => {
             let pr = provider
