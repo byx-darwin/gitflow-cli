@@ -23,7 +23,7 @@ First match wins. If no lock file, default to `npm`.
 |---|------|---------|---------------|
 | 1 | build | `bun run build` or `bunx tsc --noEmit` (TS) | exit 0 |
 | 2 | test | `bun test` | all pass |
-| 3 | coverage | `bun test --coverage --coverage-threshold=${COV_THRESHOLD:-80}` | exit 0 (total line coverage ≥ threshold); N/A if no `.js`/`.jsx`/`.ts`/`.tsx` in change set |
+| 3 | coverage | `bun test --coverage` | exit 0 (threshold enforced via `bunfig.toml`'s `[test] coverageThreshold`, a fraction where `0.80` = the skill's default 80%); N/A if no `.js`/`.jsx`/`.ts`/`.tsx` in change set |
 | 4 | format | `bunx prettier --check .` | exit 0 |
 | 5 | static | `bunx eslint .` or `bun run lint` | exit 0, no errors |
 | 6 | pre-commit | `pre-commit run --all-files` or `bunx lint-staged` | all hooks pass (or N/A) |
@@ -123,6 +123,18 @@ done
   "include": ["src/**/*"]
 }
 ```
+
+#### bunfig.toml (Bun coverage threshold)
+
+```toml
+[test]
+coverageThreshold = 0.80
+```
+
+`coverageThreshold` is a fraction, not a percentage — `0.80` corresponds to the skill's default
+`COV_THRESHOLD=80`. Bun's `bun test --coverage` has no CLI flag for the threshold; it only reads
+`bunfig.toml`. `bun test` silently ignores unrecognized flags, so a threshold passed on the
+command line has no effect and must not be relied upon.
 
 #### package.json (scripts section)
 
