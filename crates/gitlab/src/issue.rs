@@ -283,76 +283,70 @@ impl From<CommentApiResponse> for CommentData {
     }
 }
 
-impl<R: CommandRunner + Clone + 'static> GitLabIssueProvider<R> {
+impl<R: CommandRunner> GitLabIssueProvider<R> {
     /// [`IssueProvider::list`] 的实际实现。
     ///
     /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
     /// `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
     async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
         let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
-        let repo_target = self.repo_target.clone();
-        let runner = self.runner.clone();
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
         let state = args.state;
-        let search = args.search.clone();
-        let labels = args.labels.clone();
+        let search = &args.search;
+        let labels = &args.labels;
+        // 页大小不必超过 cap+1：N+1 探测只需要多要一条即可判断截断，
+        // 请求整页 100 条再丢弃对 cap 很小的调用（如 `--limit 5`）是纯浪费。
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
 
         debug!(repo = %self.repo, cap, "spawning `glab issue list`");
 
         fetch_capped(
-            FetchStrategy::Paged {
-                per_page: GITLAB_MAX_PER_PAGE,
-            },
+            FetchStrategy::Paged { per_page },
             cap,
-            move |page, per_page| {
-                let repo_target = repo_target.clone();
-                let runner = runner.clone();
-                let state = state;
-                let search = search.clone();
-                let labels = labels.clone();
-                async move {
-                    let page_str = page.to_string();
-                    let per_page_str = per_page.to_string();
-                    let mut cmd_args: Vec<&str> =
-                        vec!["issue", "list", "--repo", &repo_target, "--output", "json"];
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> =
+                    vec!["issue", "list", "--repo", repo_target, "--output", "json"];
 
-                    // glab 用 --closed 表示已关闭、--all 表示全部；默认（不加旗标）为 open。
-                    if let Some(state) = &state {
-                        match state {
-                            State::Closed => cmd_args.push("--closed"),
-                            State::All => cmd_args.push("--all"),
-                            State::Open => {}
-                        }
+                // glab 用 --closed 表示已关闭、--all 表示全部；默认（不加旗标）为 open。
+                if let Some(state) = &state {
+                    match state {
+                        State::Closed => cmd_args.push("--closed"),
+                        State::All => cmd_args.push("--all"),
+                        State::Open => {}
                     }
-
-                    if let Some(ref search) = search {
-                        cmd_args.push("--search");
-                        cmd_args.push(search);
-                    }
-
-                    for label in &labels {
-                        cmd_args.push("--label");
-                        cmd_args.push(label);
-                    }
-
-                    cmd_args.push("--per-page");
-                    cmd_args.push(&per_page_str);
-                    cmd_args.push("--page");
-                    cmd_args.push(&page_str);
-
-                    let output = runner
-                        .run("glab", &cmd_args)
-                        .await
-                        .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-                    if !output.status.success() {
-                        return Err(parse_glab_error(&output.stderr).into());
-                    }
-
-                    let api_responses: Vec<IssueApiResponse> =
-                        serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-                    Ok(api_responses.into_iter().map(IssueData::from).collect())
                 }
+
+                if let Some(search) = search {
+                    cmd_args.push("--search");
+                    cmd_args.push(search);
+                }
+
+                for label in labels {
+                    cmd_args.push("--label");
+                    cmd_args.push(label);
+                }
+
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
+
+                let output = runner
+                    .run("glab", &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let api_responses: Vec<IssueApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(api_responses.into_iter().map(IssueData::from).collect())
             },
         )
         .await
@@ -362,7 +356,7 @@ impl<R: CommandRunner + Clone + 'static> GitLabIssueProvider<R> {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl<R: CommandRunner + Clone + 'static> IssueProvider for GitLabIssueProvider<R> {
+impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");

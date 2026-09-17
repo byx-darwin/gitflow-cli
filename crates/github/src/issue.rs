@@ -113,7 +113,7 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
     }
 }
 
-impl<R: CommandRunner + Clone + 'static> GitHubIssueProvider<R> {
+impl<R: CommandRunner> GitHubIssueProvider<R> {
     /// [`IssueProvider::list`] 的实际实现。
     ///
     /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
@@ -125,61 +125,55 @@ impl<R: CommandRunner + Clone + 'static> GitHubIssueProvider<R> {
             State::Closed => "closed",
             State::All => "all",
         });
-        let repo = self.repo.clone();
-        let runner = self.runner.clone();
-        let search = args.search.clone();
-        let labels = args.labels.clone();
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let search = &args.search;
+        let labels = &args.labels;
 
         debug!(repo = %self.repo, cap, "spawning `gh issue list`");
 
-        fetch_capped(FetchStrategy::SingleShot, cap, move |_page, limit| {
-            let repo = repo.clone();
-            let runner = runner.clone();
-            let search = search.clone();
-            let labels = labels.clone();
-            async move {
-                let limit_str = limit.to_string();
-                let mut cmd_args: Vec<&str> =
-                    vec!["issue", "list", "--repo", &repo, "--json", ISSUE_FIELDS];
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> =
+                vec!["issue", "list", "--repo", repo, "--json", ISSUE_FIELDS];
 
-                if let Some(state) = state {
-                    cmd_args.push("--state");
-                    cmd_args.push(state);
-                }
-
-                if let Some(ref search) = search {
-                    cmd_args.push("--search");
-                    cmd_args.push(search);
-                }
-
-                for label in &labels {
-                    cmd_args.push("--label");
-                    cmd_args.push(label);
-                }
-
-                cmd_args.push("--limit");
-                cmd_args.push(&limit_str);
-
-                let output = runner
-                    .run("gh", &cmd_args)
-                    .await
-                    .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
-
-                if !output.status.success() {
-                    return Err(parse_gh_error(&output.stderr).into());
-                }
-
-                let issues: Vec<IssueData> =
-                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-                Ok(issues)
+            if let Some(state) = state {
+                cmd_args.push("--state");
+                cmd_args.push(state);
             }
+
+            if let Some(search) = search {
+                cmd_args.push("--search");
+                cmd_args.push(search);
+            }
+
+            for label in labels {
+                cmd_args.push("--label");
+                cmd_args.push(label);
+            }
+
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run("gh", &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+            if !output.status.success() {
+                return Err(parse_gh_error(&output.stderr).into());
+            }
+
+            let issues: Vec<IssueData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(issues)
         })
         .await
     }
 }
 
 #[async_trait]
-impl<R: CommandRunner + Clone + 'static> IssueProvider for GitHubIssueProvider<R> {
+impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");
@@ -1884,6 +1878,41 @@ mod contract_tests {
                 .windows(2)
                 .any(|w| w[0] == "--label" && w[1] == "help wanted"),
             "多个标签必须各自重复 --label，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_list_issues_with_state_and_label_using_full_argv() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                state: Some(State::Open),
+                labels: vec!["bug".to_string()],
+                ..ListIssueArgs::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                ISSUE_FIELDS,
+                "--state",
+                "open",
+                "--label",
+                "bug",
+                "--limit",
+                "1001"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 }

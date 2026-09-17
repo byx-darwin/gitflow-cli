@@ -283,73 +283,66 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
     }
 }
 
-impl<R: CommandRunner + Clone + 'static> GitCodeIssueProvider<R> {
+impl<R: CommandRunner> GitCodeIssueProvider<R> {
     /// [`IssueProvider::list`] 的实际实现。
     ///
     /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
     /// `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
     async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
         let binary = crate::gitcode_binary();
+        let binary = &binary;
         let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
-        let repo = self.repo.clone();
-        let runner = self.runner.clone();
+        let repo = &self.repo;
+        let runner = &self.runner;
         let state = args.state;
-        let search = args.search.clone();
-        let labels = args.labels.clone();
+        let search = &args.search;
+        let labels = &args.labels;
 
         debug!(repo = %self.repo, cap, "spawning gitcode issue list");
 
         // gitcode CLI 在开发环境不可获得，其 `--limit` 语义未经实测验证，
         // 此处按与 gh 相同的「总条数上限」处理。若实际为页大小，N+1 探测会
         // 过度上报 truncated 而非静默丢数据——失效方向是安全的。
-        fetch_capped(FetchStrategy::SingleShot, cap, move |_page, limit| {
-            let binary = binary.clone();
-            let repo = repo.clone();
-            let runner = runner.clone();
-            let state = state;
-            let search = search.clone();
-            let labels = labels.clone();
-            async move {
-                let limit_str = limit.to_string();
-                let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", &repo, "--json"];
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", repo, "--json"];
 
-                if let Some(ref state) = state {
-                    cmd_args.push("--state");
-                    cmd_args.push(match state {
-                        State::Open => "open",
-                        State::Closed => "closed",
-                        State::All => "all",
-                    });
-                }
-                if let Some(ref search) = search {
-                    cmd_args.push("--search");
-                    cmd_args.push(search);
-                }
-                for label in &labels {
-                    cmd_args.push("--label");
-                    cmd_args.push(label);
-                }
-                cmd_args.push("--limit");
-                cmd_args.push(&limit_str);
-
-                let output = runner
-                    .run(&binary, &cmd_args)
-                    .await
-                    .map_err(|e| CoreError::Platform(format!("{e}")))?;
-                if !output.status.success() {
-                    return Err(parse_gitcode_error(&output.stderr).into());
-                }
-                let issues: Vec<IssueApiResponse> =
-                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-                Ok(issues.into_iter().map(IssueData::from).collect())
+            if let Some(state) = &state {
+                cmd_args.push("--state");
+                cmd_args.push(match state {
+                    State::Open => "open",
+                    State::Closed => "closed",
+                    State::All => "all",
+                });
             }
+            if let Some(search) = search {
+                cmd_args.push("--search");
+                cmd_args.push(search);
+            }
+            for label in labels {
+                cmd_args.push("--label");
+                cmd_args.push(label);
+            }
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run(binary, &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("{e}")))?;
+            if !output.status.success() {
+                return Err(parse_gitcode_error(&output.stderr).into());
+            }
+            let issues: Vec<IssueApiResponse> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(issues.into_iter().map(IssueData::from).collect())
         })
         .await
     }
 }
 
 #[async_trait]
-impl<R: CommandRunner + Clone + 'static> IssueProvider for GitCodeIssueProvider<R> {
+impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let binary = crate::gitcode_binary();
         let mut cmd_args: Vec<&str> = vec![
@@ -1313,6 +1306,40 @@ mod tests {
             recorded
                 .windows(2)
                 .any(|w| w[0] == "--label" && w[1] == "bug")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_list_issues_with_state_and_label_using_full_argv() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                state: Some(State::Open),
+                labels: vec!["bug".to_string()],
+                ..ListIssueArgs::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                "--state",
+                "open",
+                "--label",
+                "bug",
+                "--limit",
+                "1001"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 }

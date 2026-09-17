@@ -75,6 +75,41 @@ pub enum FetchStrategy {
 /// `async move |..| {..}` 闭包会触发 rustc 的 HRTB `Send` 检查缺陷
 /// （`implementation of Send is not general enough`）。返回具名 `Future` 的
 /// 普通闭包不受此限制影响。
+///
+/// # Examples
+///
+/// 从一个自身借用了 `self` 字段的方法体里调用时，**借用**要捕获的字段
+/// （而非 `.clone()` 后 `move` 进闭包），再让每次调用返回的 `async move`
+/// 块去移动那个借用——借用是 `Copy`，因此闭包仍满足 `Fn`：
+///
+/// ```
+/// use gitflow_core::{FetchStrategy, Result, fetch_capped};
+///
+/// struct Source {
+///     repo: String,
+/// }
+///
+/// impl Source {
+///     async fn list(&self, cap: u32) -> Result<Vec<String>> {
+///         let repo = &self.repo;
+///         let paged = fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+///             // `repo` 是 `&String`（`Copy`），可在每次调用中重新借出，
+///             // 无需 `.clone()`；此处仅返回不超过 `limit` 条的假数据。
+///             let all: Vec<String> = (0..3).map(|i| format!("{repo}#{i}")).collect();
+///             Ok(all.into_iter().take(limit as usize).collect())
+///         })
+///         .await?;
+///         Ok(paged.items)
+///     }
+/// }
+///
+/// # #[tokio::main]
+/// # async fn main() {
+/// let source = Source { repo: "octocat/hello-world".to_string() };
+/// let items = source.list(10).await.expect("fetch should succeed");
+/// assert_eq!(items.len(), 3);
+/// # }
+/// ```
 pub async fn fetch_capped<T, F, Fut>(
     strategy: FetchStrategy,
     cap: u32,
