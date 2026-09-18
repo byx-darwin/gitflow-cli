@@ -13,6 +13,7 @@ use gitflow_core::{
 use gitflow_gitcode::GitCodePrProvider;
 use gitflow_github::GitHubPrProvider;
 use gitflow_gitlab::GitLabMrProvider;
+use is_terminal::IsTerminal;
 
 use crate::{
     OutputFormat,
@@ -180,7 +181,7 @@ pub enum PrCommand {
         #[arg(long)]
         dry_run: bool,
 
-        /// 跳过交互式确认。
+        /// 跳过 --merged/--closed 批量清理的确认提示（显式指定 PR 编号时本就不确认）。
         #[arg(long, short = 'y')]
         yes: bool,
 
@@ -445,14 +446,34 @@ pub async fn handle(
                 yes,
             };
 
-            let results = if args.merged {
-                gitflow_core::cleanup::CleanupService::cleanup_merged(&*provider, &args)
+            let results = if args.merged || args.closed {
+                let plan = if args.merged {
+                    gitflow_core::cleanup::CleanupService::plan_merged(&*provider, &args)
+                        .await
+                        .map_err(|e| miette::miette!("Failed to plan merged PR cleanup: {e}"))?
+                } else {
+                    gitflow_core::cleanup::CleanupService::plan_closed(&*provider, &args)
+                        .await
+                        .map_err(|e| miette::miette!("Failed to plan closed PR cleanup: {e}"))?
+                };
+
+                if plan.truncated {
+                    eprintln!(
+                        "警告：仓库中还有更多符合条件的 PR 未被纳入本次计划（已达到分页上限）。"
+                    );
+                }
+
+                if !args.yes
+                    && !args.dry_run
+                    && !confirm_cleanup(plan.targets.len(), plan.truncated)?
+                {
+                    println!("已取消，未删除任何内容。");
+                    return Ok(());
+                }
+
+                gitflow_core::cleanup::CleanupService::execute_plan(&*provider, &args, &plan)
                     .await
-                    .map_err(|e| miette::miette!("Failed to cleanup merged PRs: {e}"))?
-            } else if args.closed {
-                gitflow_core::cleanup::CleanupService::cleanup_closed(&*provider, &args)
-                    .await
-                    .map_err(|e| miette::miette!("Failed to cleanup closed PRs: {e}"))?
+                    .map_err(|e| miette::miette!("Failed to execute PR cleanup plan: {e}"))?
             } else {
                 gitflow_core::cleanup::CleanupService::cleanup(&*provider, &args)
                     .await
@@ -465,6 +486,47 @@ pub async fn handle(
     }
 
     Ok(())
+}
+
+/// 构造批量清理（`--merged`/`--closed`）的确认提示文案。
+///
+/// `count` 为计划清理的 PR 数量；`truncated` 为真时说明底层列表已触顶分页上限，
+/// 仓库中还有更多符合条件的 PR 未被纳入本次计划。
+#[must_use]
+pub fn cleanup_confirmation_prompt(count: usize, truncated: bool) -> String {
+    let mut prompt = format!("即将清理 {count} 个 PR 的远程分支、本地分支与 worktree，是否继续？");
+    if truncated {
+        prompt.push_str(" 注意：仓库中还有更多符合条件的 PR 未被纳入本次计划（已达到分页上限）。");
+    }
+    prompt
+}
+
+/// 在删除任何东西之前，为批量清理（`--merged`/`--closed`）请求用户确认。
+///
+/// 非 TTY 环境（stderr 被重定向，如管道或 CI）下直接返回错误，
+/// 不挂起等待输入，也不默认放行。
+///
+/// # Errors
+///
+/// - 非 TTY 环境下返回错误，提示改用 `--yes`。
+/// - 读取 stdin 失败时返回错误。
+fn confirm_cleanup(count: usize, truncated: bool) -> miette::Result<bool> {
+    if !std::io::stderr().is_terminal() {
+        return Err(miette::miette!(
+            "Refusing to prompt for confirmation in a non-interactive session; re-run with --yes \
+             to skip confirmation."
+        ));
+    }
+
+    let prompt = cleanup_confirmation_prompt(count, truncated);
+    eprint!("{prompt} [y/N] ");
+    let _ = std::io::Write::flush(&mut std::io::stderr());
+
+    let mut line = String::new();
+    std::io::BufRead::read_line(&mut std::io::stdin().lock(), &mut line)
+        .map_err(|e| miette::miette!("Failed to read confirmation: {e}"))?;
+
+    Ok(matches!(line.trim().to_lowercase().as_str(), "y" | "yes"))
 }
 
 /// 解析 `--body` 与 `--body-file` 参数。
@@ -1077,5 +1139,20 @@ mod tests {
             }
             _ => panic!("Expected PrCommand::Create"),
         }
+    }
+
+    #[test]
+    fn test_should_mention_count_in_cleanup_confirmation_prompt() {
+        let prompt = cleanup_confirmation_prompt(7, false);
+        assert!(prompt.contains('7'));
+    }
+
+    #[test]
+    fn test_should_warn_about_more_prs_when_plan_truncated() {
+        let truncated_prompt = cleanup_confirmation_prompt(1000, true);
+        assert!(truncated_prompt.contains("更多"));
+
+        let complete_prompt = cleanup_confirmation_prompt(3, false);
+        assert!(!complete_prompt.contains("更多"));
     }
 }
