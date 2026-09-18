@@ -28,11 +28,6 @@ pub struct Paged<T> {
     pub truncated: bool,
     /// 本次生效的上限。
     pub limit: u32,
-    /// 平台原生便宜可得时的总数，否则为 `None`。
-    ///
-    /// GitHub 上恒为 `None`：`gh issue list --json` 的字段集中没有总数，
-    /// 取真实总数需另发一次 GraphQL/search 查询，不值得为此多打一轮 API。
-    pub total_count: Option<u32>,
 }
 
 /// 平台的分页能力。
@@ -166,7 +161,6 @@ where
         items,
         truncated,
         limit: cap,
-        total_count: None,
     })
 }
 
@@ -181,7 +175,6 @@ impl<T> Paged<T> {
             truncated: self.truncated,
             returned: self.items.len(),
             limit: self.limit,
-            total_count: self.total_count,
         };
         (self.items, meta)
     }

@@ -274,7 +274,6 @@ mod tests {
             truncated: false,
             returned: 33,
             limit: 1000,
-            total_count: None,
         };
         assert_eq!(truncation_warning(&meta), None);
     }
@@ -285,7 +284,6 @@ mod tests {
             truncated: true,
             returned: 1000,
             limit: 1000,
-            total_count: None,
         };
         let warning = truncation_warning(&meta).expect("truncated 必须产生警告");
         assert!(warning.contains("1000"), "警告必须含实际返回条数");

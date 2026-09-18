@@ -291,7 +291,7 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
     async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
         let binary = crate::gitcode_binary();
         let binary = &binary;
-        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let cap = args.limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
         let repo = &self.repo;
         let runner = &self.runner;
         let state = args.state;
@@ -1352,7 +1352,7 @@ mod tests {
         assert!(
             recorded
                 .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "1001"),
+                .any(|w| w[0] == "--limit" && w[1] == "101"),
             "实际 argv: {recorded:?}"
         );
     }
@@ -1400,7 +1400,7 @@ mod tests {
                 "--label",
                 "bug",
                 "--limit",
-                "1001"
+                "101"
             ]
             .into_iter()
             .map(String::from)

@@ -125,6 +125,20 @@ PATH 上的 `gc` 是其他工具）。本次：
 不得在交付时声称三平台已全覆盖。其余四个命令（issue/pr/release list、comments）
 gitcode 侧沿用其既有的 `--limit` / `api` 形态，可正常参与 N+1 探测。
 
+### 4.3.1 gitcode 的 `--limit` 默认值：保守取值，不做通用 clamp
+
+`issue list` / `pr list` / `release list` 的 `cap = limit.unwrap_or(DEFAULT_LIST_LIMIT)`
+默认为 1000，N+1 探测会把 `cap + 1 = 1001` 传给 `--limit`。但 gitcode CLI 在本机不可
+获得，其 `--limit` 的合法取值范围未经实测；本设计 §4.3 已经假定 100 是 gitcode 的
+单页上限（`GITCODE_API_MAX_PER_PAGE`）。若 1001 超出 gitcode `--limit` 的真实上限，
+这三个命令会在默认调用下直接报错，对所有 gitcode 用户破坏式回归。
+
+处理方式：gitcode 单独持有 `GITCODE_DEFAULT_LIST_LIMIT = GITCODE_API_MAX_PER_PAGE`
+（即 100），只替换这三个命令里 `.unwrap_or(DEFAULT_LIST_LIMIT)` 的默认值来源；
+**用户显式传入的 `--limit` 不做任何 clamp**——该值在本分支之前就必须落在 gitcode
+允许的范围内（否则本就会报错），本分支不改变这一事实。`label list` / `milestone
+list`（见 §4.3）继续不传 `--limit`，不受影响；github、gitlab 不受影响。
+
 ## 5. 输出契约
 
 ### 5.0 两个类型，两个边界
@@ -142,8 +156,6 @@ pub struct Paged<T> {
     pub truncated: bool,
     /// 实际生效的上限。
     pub limit: u32,
-    /// 平台原生便宜可得时的总数，否则为 `None`。
-    pub total_count: Option<u32>,
 }
 ```
 
@@ -173,30 +185,43 @@ pub struct CliOutput<T: Serialize> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct PaginationMeta {
     pub truncated: bool,
     pub returned: usize,
     pub limit: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_count: Option<u32>,
 }
 ```
+
+`PaginationMeta` 未标 `#[non_exhaustive]`：该属性会禁止结构体字面量构造，而 CLI
+层的测试需要直接用字面量构造 `PaginationMeta` 来断言渲染逻辑（见
+`apps/cli/src/commands/output.rs` 的测试）。这是实现阶段的有意选择，设计到此为止
+不再假定该属性存在。
 
 两条性质：
 
 1. `skip_serializing_if` ⇒ **所有非列表命令的输出与今天逐字节相同**。现有 jq 脚本与
    skill 不受影响；`data[]` 仍是数组，不会变成 `data.items[]`。
-2. 四种输出格式（Json / Text / Toon / Auto）共用 `serde_json::to_value(信封)` 再分流
-   （`apps/cli/src/commands/output.rs`），因此**一个信封字段令四条路径同时获得信号**。
-   这点关键：skill 消费的是默认 Auto（本仓库 33 条会走 TOON），只塞 JSON 等于让
-   受害最深的调用方看不到。
+2. 四种输出格式（Json / Text / Toon / Auto）**信封上的 `pagination` 键在全部四种格式
+   中都会出现**，因为都是从同一个 `serde_json::to_value(信封)` 分流而来
+   （`apps/cli/src/commands/output.rs`）。但人类可读信号并不因此均匀：Text 模式把
+   信封交给对象格式化器渲染，`pagination` 只会作为一个嵌套对象出现在文本输出里，
+   而不是一句警告；Text 模式下真正面向人的截断信号是 §5.3 描述的 stderr 警告，
+   与 JSON/Toon/Auto 中作为结构化字段出现的 `pagination` 不是同一回事。这点关键：
+   skill 消费的是默认 Auto（本仓库 33 条会走 TOON），键的存在能让受害最深的调用方
+   读到信号。
 
-### 5.2 `totalCount` 的现实约束
+### 5.2 不携带总数
 
-`gh issue list --json` 的字段集中没有总数，取真实总数需另发一次 GraphQL/search 查询。
-因此 `total_count` 降级为「平台原生便宜可得时才填」，gh 上为 `None`。
-保证项是 `truncated` + `returned`，不为 `total_count` 多打一轮 API。
+`Paged<T>` 与 `PaginationMeta` 均不携带总数字段。本次范围内的三个平台都不能
+廉价提供总数：`gh issue list --json` 的字段集中没有总数，取真实总数需另发一次
+GraphQL/search 查询；gitlab、gitcode 同理未实测出廉价途径。保证项是
+`truncated` + `returned`，不为总数多打一轮 API。
+
+`Paged<T>` 标记了 `#[non_exhaustive]`，日后若某平台确实能廉价拿到总数，在
+`Paged<T>` 上新增一个 `Option` 字段是非破坏性（non-breaking）的加法；
+`PaginationMeta` 未标记 `#[non_exhaustive]`（见 §5.1 注）但同样只是加一个
+`#[serde(skip_serializing_if = "Option::is_none")]` 字段，不破坏现有 JSON
+消费方。不需要现在为它们预留字段。
 
 ### 5.3 人类可读警告
 
@@ -329,4 +354,8 @@ async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>>;
 1. `gf pipeline list` 硬编码 30 —— 见 §4.2，判定为有意的时间窗口
 2. gitcode 的 `label list` / `milestone list` 截断无法探测 —— 见 §4.3，已知缺口
 3. gitcode 适配器全程未经实测验证 —— 见 §6.2，失效方向安全但非零风险
-4. `total_count` 在 gh 上恒为 `None` —— 见 §5.2
+4. 本次范围内三个平台均不携带总数 —— 见 §5.2，`Paged<T>`/`PaginationMeta` 均无
+   `total_count` 字段；后续若某平台能廉价提供，可作为非破坏性加法补上
+5. gitcode 的 `--limit` 取值范围未经验证，默认值出于保守选择 —— 见 §4.3.1（gitcode
+   本机不可获得，无法实测其真实上限；若未来 gitcode CLI 可用，应验证真实上限并
+   据此调整默认值）

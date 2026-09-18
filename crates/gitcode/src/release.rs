@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
+    CoreError, FetchStrategy, Paged, Result, Session, fetch_capped,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
 };
 use tracing::debug;
@@ -145,7 +145,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
     async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>> {
         let binary = crate::gitcode_binary();
         let binary = &binary;
-        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let cap = limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
         let repo = &self.repo;
         let runner = &self.runner;
 
@@ -653,7 +653,7 @@ mod tests {
         assert!(
             recorded
                 .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "1001"),
+                .any(|w| w[0] == "--limit" && w[1] == "101"),
             "实际 argv: {recorded:?}"
         );
     }
@@ -687,7 +687,7 @@ mod tests {
                 "--json",
                 RELEASE_FIELDS,
                 "--limit",
-                "1001",
+                "101",
             ]
         );
     }

@@ -63,6 +63,17 @@ use tracing::debug;
 /// 的行为，既不会死循环，也不会丢数据。
 pub(crate) const GITCODE_API_MAX_PER_PAGE: u32 = 100;
 
+/// `issue list` / `pr list` / `release list` 在未显式传 `--limit` 时使用的默认值。
+///
+/// GitCode CLI 在本环境无法获取，其 `--limit` 的真实取值范围未经实测。本 crate 的
+/// `api` 分页路径已经假定 100 是 GitCode 的单页上限
+/// （见 [`GITCODE_API_MAX_PER_PAGE`]）；在缺乏进一步证据的情况下，为
+/// `list` 子命令选用同一个保守值，既能避免用「`DEFAULT_LIST_LIMIT + 1` = 1001」这样
+/// 的探测值撞上未知的服务端上限而报错，又仍然驱动 `fetch_capped` 的 N+1 探测、
+/// 继续诚实报告截断。**用户显式传入的 `--limit` 不受此值影响**——那是调用方自己
+/// 的选择，且在本分支之前就必须落在 GitCode 允许的范围内，否则早已报错。
+pub(crate) const GITCODE_DEFAULT_LIST_LIMIT: u32 = GITCODE_API_MAX_PER_PAGE;
+
 pub mod auth;
 pub mod commit;
 pub mod error;

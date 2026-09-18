@@ -446,13 +446,13 @@ pub async fn handle(
                 yes,
             };
 
-            let results = if args.merged || args.closed {
+            if args.merged || args.closed {
                 let plan = if args.merged {
-                    gitflow_core::cleanup::CleanupService::plan_merged(&*provider, &args)
+                    gitflow_core::cleanup::CleanupService::plan_merged(&*provider)
                         .await
                         .map_err(|e| miette::miette!("Failed to plan merged PR cleanup: {e}"))?
                 } else {
-                    gitflow_core::cleanup::CleanupService::plan_closed(&*provider, &args)
+                    gitflow_core::cleanup::CleanupService::plan_closed(&*provider)
                         .await
                         .map_err(|e| miette::miette!("Failed to plan closed PR cleanup: {e}"))?
                 };
@@ -471,21 +471,54 @@ pub async fn handle(
                     return Ok(());
                 }
 
-                gitflow_core::cleanup::CleanupService::execute_plan(&*provider, &args, &plan)
-                    .await
-                    .map_err(|e| miette::miette!("Failed to execute PR cleanup plan: {e}"))?
-            } else {
-                gitflow_core::cleanup::CleanupService::cleanup(&*provider, &args)
-                    .await
-                    .map_err(|e| miette::miette!("Failed to cleanup PRs: {e}"))?
-            };
+                let truncated = plan.truncated;
+                let limit = plan.limit;
+                let results =
+                    gitflow_core::cleanup::CleanupService::execute_plan(&*provider, &args, &plan)
+                        .await
+                        .map_err(|e| miette::miette!("Failed to execute PR cleanup plan: {e}"))?;
 
-            let output = CliOutput::success(results, platform, "pr cleanup");
-            print_output(&output, &output_format)?;
+                // `truncated`/`limit` below describe the underlying closed-PR
+                // listing that produced `plan`, NOT `results`/`data`: `data` is
+                // already filtered down from that listing (e.g. to the merged
+                // subset for `--merged`), so its length can differ from
+                // `limit` even when `truncated` is `false`. Do not read this
+                // pagination block as a claim about `data.len()`.
+                let meta = cleanup_pagination_meta(truncated, limit, results.len());
+                let output =
+                    gitflow_core::CliOutput::success_paged(results, meta, platform, "pr cleanup");
+                print_output(&output, &output_format)?;
+            } else {
+                let results = gitflow_core::cleanup::CleanupService::cleanup(&*provider, &args)
+                    .await
+                    .map_err(|e| miette::miette!("Failed to cleanup PRs: {e}"))?;
+
+                let output = CliOutput::success(results, platform, "pr cleanup");
+                print_output(&output, &output_format)?;
+            }
         }
     }
 
     Ok(())
+}
+
+/// 为批量清理（`--merged`/`--closed`）的 JSON 输出构造 [`gitflow_core::PaginationMeta`]。
+///
+/// `truncated` 与 `limit` 描述的是产生 [`gitflow_core::cleanup::CleanupPlan`] 的那次
+/// 底层已关闭 PR 列表查询，**不是** `data`（即 `returned`）：`data` 已经从该列表里
+/// 按 `--merged`/`--closed` 过滤出一个子集，其长度可以小于 `limit`，即便
+/// `truncated` 为 `false`。调用方不得把这个分页块读成对 `data.len()` 的断言。
+#[must_use]
+pub fn cleanup_pagination_meta(
+    truncated: bool,
+    limit: u32,
+    returned: usize,
+) -> gitflow_core::PaginationMeta {
+    gitflow_core::PaginationMeta {
+        truncated,
+        returned,
+        limit,
+    }
 }
 
 /// 构造批量清理（`--merged`/`--closed`）的确认提示文案。
@@ -1181,6 +1214,35 @@ mod tests {
 
         let complete_prompt = cleanup_confirmation_prompt(3, false);
         assert!(!complete_prompt.contains("更多"));
+    }
+
+    #[test]
+    fn test_should_surface_truncated_flag_in_cleanup_pagination_meta() {
+        // Mirrors the shape of `pr cleanup`'s underlying closed-PR listing
+        // hitting the cap: the plan says truncated, but `data` (returned) is
+        // whatever survived the merged/closed filter — smaller than `limit`.
+        let meta = cleanup_pagination_meta(true, 1000, 3);
+        assert!(meta.truncated);
+        assert_eq!(meta.limit, 1000);
+        assert_eq!(meta.returned, 3);
+    }
+
+    #[test]
+    fn test_should_not_report_truncated_when_plan_was_not_truncated() {
+        let meta = cleanup_pagination_meta(false, 1000, 3);
+        assert!(!meta.truncated);
+    }
+
+    #[test]
+    fn test_should_emit_pagination_truncated_in_cleanup_json_output_when_plan_truncated() {
+        // Reproduces F-3: `gf pr cleanup --output json` must carry an in-band
+        // truncation signal, not just the stderr warning.
+        let meta = cleanup_pagination_meta(true, 1000, 3);
+        let results: Vec<gitflow_core::cleanup::CleanupResult> = Vec::new();
+        let output = gitflow_core::CliOutput::success_paged(results, meta, "github", "pr cleanup");
+        let json = serde_json::to_value(&output).expect("serialize cleanup output");
+        assert_eq!(json["pagination"]["truncated"], serde_json::json!(true));
+        assert_eq!(json["success"], serde_json::json!(true));
     }
 
     #[test]

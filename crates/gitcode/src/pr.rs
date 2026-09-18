@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
+    CoreError, FetchStrategy, Paged, Result, Session, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -224,7 +224,7 @@ impl<R: CommandRunner> GitCodePrProvider<R> {
     async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
         let binary = crate::gitcode_binary();
         let binary = &binary;
-        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let cap = args.limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
         let repo = &self.repo;
         let runner = &self.runner;
         let state = args.state;
@@ -1008,7 +1008,7 @@ mod tests {
         assert!(
             recorded
                 .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "1001")
+                .any(|w| w[0] == "--limit" && w[1] == "101")
         );
     }
 
@@ -1032,7 +1032,7 @@ mod tests {
                 "--state",
                 "open",
                 "--limit",
-                "1001",
+                "101",
             ]
         );
     }

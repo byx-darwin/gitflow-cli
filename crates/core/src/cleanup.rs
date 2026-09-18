@@ -61,6 +61,13 @@ pub struct CleanupPlan {
     /// the repository has more than [`crate::paging::DEFAULT_LIST_LIMIT`]
     /// closed PRs and only the first page was scanned.
     pub truncated: bool,
+    /// The cap that was applied to the underlying closed-PR listing.
+    ///
+    /// This is the limit `fetch_capped` used when listing closed PRs, not a
+    /// limit on `targets` — `targets` is filtered down from what the listing
+    /// returned (e.g. only the merged subset for `--merged`), so it can be
+    /// smaller than `limit` even when `truncated` is `false`.
+    pub limit: u32,
 }
 
 /// Result of cleaning up a single PR.
@@ -270,50 +277,13 @@ impl CleanupService {
         Ok(results)
     }
 
-    /// Clean up all merged PRs.
-    ///
-    /// Implemented as [`Self::plan_merged`] immediately followed by
-    /// [`Self::execute_plan`]. Kept as a single call for callers that don't
-    /// need to insert a confirmation step between planning and execution.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if listing PRs fails.
-    pub async fn cleanup_merged(
-        provider: &dyn crate::pr::PrProvider,
-        args: &CleanupArgs,
-    ) -> crate::Result<Vec<CleanupResult>> {
-        let plan = Self::plan_merged(provider, args).await?;
-        Self::execute_plan(provider, args, &plan).await
-    }
-
-    /// Clean up all closed PRs.
-    ///
-    /// Implemented as [`Self::plan_closed`] immediately followed by
-    /// [`Self::execute_plan`]. Kept as a single call for callers that don't
-    /// need to insert a confirmation step between planning and execution.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if listing PRs fails.
-    pub async fn cleanup_closed(
-        provider: &dyn crate::pr::PrProvider,
-        args: &CleanupArgs,
-    ) -> crate::Result<Vec<CleanupResult>> {
-        let plan = Self::plan_closed(provider, args).await?;
-        Self::execute_plan(provider, args, &plan).await
-    }
-
     /// Work out which merged PRs `--merged` would clean up, without deleting
     /// anything.
     ///
     /// # Errors
     ///
     /// Returns an error if listing PRs fails.
-    pub async fn plan_merged(
-        provider: &dyn crate::pr::PrProvider,
-        _args: &CleanupArgs,
-    ) -> crate::Result<CleanupPlan> {
+    pub async fn plan_merged(provider: &dyn crate::pr::PrProvider) -> crate::Result<CleanupPlan> {
         Self::plan_filtered(provider, true).await
     }
 
@@ -323,10 +293,7 @@ impl CleanupService {
     /// # Errors
     ///
     /// Returns an error if listing PRs fails.
-    pub async fn plan_closed(
-        provider: &dyn crate::pr::PrProvider,
-        _args: &CleanupArgs,
-    ) -> crate::Result<CleanupPlan> {
+    pub async fn plan_closed(provider: &dyn crate::pr::PrProvider) -> crate::Result<CleanupPlan> {
         Self::plan_filtered(provider, false).await
     }
 
@@ -364,6 +331,7 @@ impl CleanupService {
         Ok(CleanupPlan {
             targets,
             truncated: paged.truncated,
+            limit: paged.limit,
         })
     }
 
@@ -785,7 +753,6 @@ mod tests {
                 items: self.prs.clone(),
                 truncated: self.truncated,
                 limit: crate::paging::DEFAULT_LIST_LIMIT,
-                total_count: None,
             })
         }
 
@@ -863,29 +830,14 @@ mod tests {
         }
     }
 
-    fn cleanup_args_for_plan() -> CleanupArgs {
-        CleanupArgs {
-            numbers: vec![],
-            merged: true,
-            closed: false,
-            worktree: None,
-            remote: false,
-            local: false,
-            force: false,
-            dry_run: true,
-            yes: false,
-        }
-    }
-
     #[tokio::test]
     async fn test_should_carry_truncated_flag_into_cleanup_plan() {
         let provider = RecordingProvider::new(
             vec![pr_fixture(500, State::Closed, true)],
             true, // Paged { truncated: true, .. }
         );
-        let args = cleanup_args_for_plan();
 
-        let plan = CleanupService::plan_merged(&provider, &args)
+        let plan = CleanupService::plan_merged(&provider)
             .await
             .expect("plan_merged should succeed");
 
@@ -903,9 +855,8 @@ mod tests {
             ],
             false,
         );
-        let args = cleanup_args_for_plan();
 
-        let _plan = CleanupService::plan_merged(&provider, &args)
+        let _plan = CleanupService::plan_merged(&provider)
             .await
             .expect("plan_merged should succeed");
 
@@ -929,58 +880,12 @@ mod tests {
             ],
             false,
         );
-        let args = cleanup_args_for_plan();
 
-        let plan = CleanupService::plan_merged(&provider, &args)
+        let plan = CleanupService::plan_merged(&provider)
             .await
             .expect("plan_merged should succeed");
 
         let numbers: Vec<u64> = plan.targets.iter().map(|pr| pr.number).collect();
         assert_eq!(numbers, vec![700]);
-    }
-
-    #[tokio::test]
-    async fn test_should_produce_same_results_through_plan_and_execute() {
-        // Non-protected, non-checked-out branch names so `check_safety` passes;
-        // `dry_run: true` guarantees no real git mutation regardless of
-        // `remote`/`local`, so this is safe to run against the real repo.
-        let prs = vec![
-            pr_fixture(800, State::Closed, true),
-            pr_fixture(801, State::Closed, true),
-        ];
-        let args = cleanup_args_for_plan();
-
-        let provider_a = RecordingProvider::new(prs.clone(), false);
-        let combined = CleanupService::cleanup_merged(&provider_a, &args)
-            .await
-            .expect("cleanup_merged should succeed");
-
-        let provider_b = RecordingProvider::new(prs, false);
-        let plan = CleanupService::plan_merged(&provider_b, &args)
-            .await
-            .expect("plan_merged should succeed");
-        let staged = CleanupService::execute_plan(&provider_b, &args, &plan)
-            .await
-            .expect("execute_plan should succeed");
-
-        let combined_numbers: Vec<u64> = combined.iter().map(|r| r.pr_number).collect();
-        let staged_numbers: Vec<u64> = staged.iter().map(|r| r.pr_number).collect();
-        assert_eq!(combined_numbers, staged_numbers);
-
-        // Compare the fuller result shape, not just `pr_number`/`dry_run` (the
-        // latter is `args.dry_run` on both paths and proves nothing). This is
-        // the evidence that the plan/execute split preserved behaviour.
-        let result_tuple = |r: &CleanupResult| {
-            (
-                r.pr_number,
-                r.error.clone(),
-                r.remote_deleted,
-                r.local_deleted,
-                r.worktree_removed,
-            )
-        };
-        let combined_tuples: Vec<_> = combined.iter().map(result_tuple).collect();
-        let staged_tuples: Vec<_> = staged.iter().map(result_tuple).collect();
-        assert_eq!(combined_tuples, staged_tuples);
     }
 }

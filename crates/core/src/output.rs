@@ -124,9 +124,6 @@ pub struct PaginationMeta {
     pub returned: usize,
     /// 本次生效的上限。
     pub limit: u32,
-    /// 平台原生便宜可得时的总数；GitHub 上恒为 `None`。
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_count: Option<u32>,
 }
 
 #[cfg(test)]
@@ -214,7 +211,6 @@ mod tests {
             items: vec![1_u32, 2, 3],
             truncated: false,
             limit: 1000,
-            total_count: None,
         };
         let (items, meta) = paged.into_parts();
         let output = CliOutput::success_paged(items, meta, "github", "issue list");
@@ -232,7 +228,6 @@ mod tests {
             items: vec![1_u32],
             truncated: true,
             limit: 1,
-            total_count: None,
         };
         let (items, meta) = paged.into_parts();
         let output = CliOutput::success_paged(items, meta, "github", "issue list");
@@ -240,10 +235,6 @@ mod tests {
         assert_eq!(json["pagination"]["truncated"], serde_json::json!(true));
         assert_eq!(json["pagination"]["returned"], serde_json::json!(1));
         assert_eq!(json["pagination"]["limit"], serde_json::json!(1));
-        assert!(
-            json["pagination"].get("totalCount").is_none(),
-            "totalCount 为 None 时必须整个省略，而非输出 null"
-        );
     }
 
     #[test]
@@ -252,7 +243,6 @@ mod tests {
             items: vec!["a", "b"],
             truncated: false,
             limit: 1000,
-            total_count: None,
         };
         let (_, meta) = paged.into_parts();
         assert_eq!(meta.returned, 2);
