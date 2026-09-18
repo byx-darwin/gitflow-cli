@@ -3,12 +3,20 @@
 //! 通过 `gitcode` CLI 实现 [`ReleaseProvider`] trait，支持 Release 的创建、列表、
 //! 查看、编辑、资源上传/下载及删除。
 //! 所有方法通过 `tokio::process::Command` 调用 `gc`，捕获 stdout 并解析 JSON。
+//!
+//! 例外：`list` 走 `gitcode api`，其响应字段名是 snake_case（`tag_name` / `html_url`），
+//! 与 [`ReleaseData`] 的 camelCase 线上命名不兼容，因此先反序列化为中间类型
+//! [`ReleaseApiResponse`] 再转换为 core 类型——与本 crate 的 `IssueApiResponse`
+//! 及 `gitflow-gitlab` 的同名类型同构。
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use gitflow_core::{
     CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
+    types::{UserSummary, deserialize_u64_or_string_to_string},
 };
+use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
@@ -19,6 +27,82 @@ use crate::{
 /// `gc release` 请求的 JSON 字段列表。
 const RELEASE_FIELDS: &str =
     "id,tagName,name,body,isDraft,isPrerelease,author,createdAt,publishedAt,url";
+
+// ── 中间 API 响应类型 ──────────────────────────────────────────────
+
+/// `gitcode api` release 响应中的作者对象。
+///
+/// 独立于 [`UserSummary`] 的原因：gitcode api 的 `id` 可能是数字也可能是字符串，
+/// 而 `UserSummary::id` 是 `String` 且未挂 `deserialize_u64_or_string_to_string`，
+/// 直接反序列化数字 id 会硬报 `invalid type: integer`。
+#[derive(Debug, Clone, Deserialize)]
+struct ReleaseUserApi {
+    #[serde(default)]
+    login: String,
+    #[serde(default, deserialize_with = "deserialize_u64_or_string_to_string")]
+    id: String,
+}
+
+impl From<ReleaseUserApi> for UserSummary {
+    fn from(u: ReleaseUserApi) -> Self {
+        Self {
+            login: u.login,
+            id: u.id,
+        }
+    }
+}
+
+/// `gitcode api /repos/{owner}/{repo}/releases` 的响应结构。
+///
+/// 线上字段名为 snake_case，与 [`ReleaseData`] 的 camelCase
+/// （`tagName` / `createdAt` / `publishedAt`）不同，故必须经由本类型转换。
+/// 每个字段都标注 `#[serde(default)]`：Gitee 血统的 release 对象未必带
+/// `draft` / `prerelease` 概念，形状不匹配时应可预期地退化而非半途失败。
+#[derive(Debug, Clone, Deserialize)]
+struct ReleaseApiResponse {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    tag_name: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default)]
+    draft: bool,
+    #[serde(default)]
+    prerelease: bool,
+    #[serde(default)]
+    author: Option<ReleaseUserApi>,
+    #[serde(default)]
+    created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    published_at: Option<DateTime<Utc>>,
+    /// 可浏览的网页地址。gitcode 沿用 GitHub 的切分：`url` 是 API self-link，
+    /// `html_url` 才是网页地址。`release view`（CLI 路径）返回的是网页地址，
+    /// 故此处优先取 `html_url`，避免同一字段在 `list` 与 `view` 下含义不同。
+    #[serde(default)]
+    html_url: Option<String>,
+    #[serde(default)]
+    url: Option<String>,
+}
+
+impl From<ReleaseApiResponse> for ReleaseData {
+    fn from(api: ReleaseApiResponse) -> Self {
+        Self {
+            id: api.id,
+            tag_name: api.tag_name,
+            name: api.name,
+            body: api.body,
+            draft: api.draft,
+            prerelease: api.prerelease,
+            author: api.author.map(UserSummary::from),
+            created_at: api.created_at.unwrap_or_else(Utc::now),
+            published_at: api.published_at,
+            url: api.html_url.or(api.url).unwrap_or_default(),
+        }
+    }
+}
 
 /// GitCode Release 提供者，通过 `gitcode` CLI 操作。
 ///
@@ -149,6 +233,8 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
     /// `per_page` 被静默封顶在 100，因此 CLI 路径无法诚实报告截断。api 路径与
     /// 本 crate 的 `issue comments`（`issue.rs`）同构。
     ///
+    /// api 响应是 snake_case，经 [`ReleaseApiResponse`] 转换为 [`ReleaseData`]。
+    ///
     /// `create` / `view` 等其余方法仍走 CLI 子命令，不受影响。
     ///
     /// # Errors
@@ -178,9 +264,9 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
                     return Err(parse_gitcode_error(&output.stderr).into());
                 }
 
-                let releases: Vec<ReleaseData> =
+                let releases: Vec<ReleaseApiResponse> =
                     serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-                Ok(releases)
+                Ok(releases.into_iter().map(ReleaseData::from).collect())
             },
         )
         .await
@@ -627,6 +713,27 @@ mod tests {
         }"#
     }
 
+    /// `gitcode api /repos/{owner}/{repo}/releases` 的真实响应形状：snake_case
+    /// 字段名、数字型 author id、`url` 与 `html_url` 并存。
+    ///
+    /// 这是 C1 的回归护栏——用 [`ReleaseData`] 直接反序列化这份 payload 会得到
+    /// `missing field \`tagName\``。
+    fn valid_release_api_json() -> &'static str {
+        r#"{
+            "id": 1,
+            "tag_name": "v1.0.0",
+            "name": "Release 1.0.0",
+            "body": "First stable release",
+            "draft": false,
+            "prerelease": false,
+            "author": {"login": "dev", "id": 1},
+            "created_at": "2026-01-01T00:00:00Z",
+            "published_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://gitcode.com/owner/repo/releases/tag/v1.0.0",
+            "url": "https://api.gitcode.com/repos/owner/repo/releases/1"
+        }"#
+    }
+
     #[tokio::test]
     async fn test_should_view_release_successfully() {
         let runner = MockCommandRunner::success(valid_release_json());
@@ -640,7 +747,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_should_list_releases_successfully() {
-        let json = format!("[{}]", valid_release_json());
+        let json = format!("[{}]", valid_release_api_json());
         let runner = MockCommandRunner::success(&json);
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
 
@@ -654,7 +761,7 @@ mod tests {
         // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
         // cap 必须 ≥ 100，否则 per_page 恰为 cap+1，循环只发一次调用，
         // 断言 calls[1] 会直接索引越界。
-        let one = valid_release_json();
+        let one = valid_release_api_json();
         let page = format!("[{}]", vec![one; 100].join(","));
         let runner = SequencedMockCommandRunner::from_results(&[(true, &page), (true, &page)]);
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
@@ -671,36 +778,138 @@ mod tests {
             "必须真的翻到第二页，实际调用数: {}",
             calls.len()
         );
-        assert_eq!(calls[0].1[0], "api");
-        let first_path = &calls[0].1[1];
-        assert!(
-            first_path.starts_with("/repos/owner/repo/releases?"),
-            "实际 api path: {first_path}"
+        // 整串相等，而非 `contains`：`"per_page=1001".contains("per_page=100")`
+        // 与 `"per_page=100".contains("page=1")` 都为真，子串断言检测不出钳位失效。
+        assert_eq!(
+            calls[0].1,
+            vec!["api", "/repos/owner/repo/releases?per_page=100&page=1"]
         );
-        assert!(
-            first_path.contains("per_page=100"),
-            "实际 api path: {first_path}"
-        );
-        assert!(first_path.contains("page=1"), "实际 api path: {first_path}");
-
-        let second_path = &calls[1].1[1];
-        assert!(
-            second_path.contains("page=2"),
-            "页号必须递增，实际 api path: {second_path}"
+        assert_eq!(
+            calls[1].1,
+            vec!["api", "/repos/owner/repo/releases?per_page=100&page=2"]
         );
     }
 
     #[tokio::test]
     async fn test_should_deserialize_release_from_gitcode_api_response() {
-        // 钉住 api 响应 → ReleaseData 的字段映射（本机无带 release 的公开
-        // gitcode 仓库可验，故以 fixture 覆盖）。
-        let runner = MockCommandRunner::success(&format!("[{}]", valid_release_json()));
+        // 钉住 api 响应（snake_case）→ ReleaseData 的字段映射（本机无带 release 的
+        // 公开 gitcode 仓库可验，故以 fixture 覆盖）。
+        let runner = MockCommandRunner::success(&format!("[{}]", valid_release_api_json()));
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
 
         let paged = provider.list(None).await.expect("list should succeed");
 
         assert_eq!(paged.items.len(), 1);
-        assert_eq!(paged.items[0].tag_name, "v1.0.0");
+        let release = &paged.items[0];
+        assert_eq!(release.id, 1);
+        assert_eq!(release.tag_name, "v1.0.0");
+        assert_eq!(release.name.as_deref(), Some("Release 1.0.0"));
+        assert_eq!(release.body.as_deref(), Some("First stable release"));
+        assert!(!release.draft);
+        assert!(!release.prerelease);
+        // 数字型 author id 必须被接受并转成字符串。
+        let author = release.author.as_ref().expect("author");
+        assert_eq!(author.login, "dev");
+        assert_eq!(author.id, "1");
+        assert_eq!(release.created_at.to_rfc3339(), "2026-01-01T00:00:00+00:00");
+        assert!(release.published_at.is_some());
+        // html_url 优先于 API self-link。
+        assert_eq!(
+            release.url,
+            "https://gitcode.com/owner/repo/releases/tag/v1.0.0"
+        );
+    }
+
+    #[test]
+    fn test_should_reject_snake_case_api_payload_when_using_core_release_data() {
+        // C1 的成因说明：ReleaseData 是 camelCase 线上命名，直接吃 api 响应会失败。
+        // 这两条断言把「必须有中间类型」这一事实钉住，防止日后有人把它去掉。
+
+        // 成因一：字段名不匹配。剥掉 author 以隔离出 tagName 这一项。
+        let no_author = r#"{
+            "tag_name": "v1.0.0",
+            "draft": false,
+            "prerelease": false,
+            "created_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let err = serde_json::from_str::<ReleaseData>(no_author)
+            .expect_err("ReleaseData must not accept a snake_case api payload");
+        assert!(err.to_string().contains("tagName"), "实际错误: {err}");
+
+        // 成因二：UserSummary::id 是 String，api 的数字 id 会硬报类型错误。
+        let err = serde_json::from_str::<ReleaseData>(valid_release_api_json())
+            .expect_err("ReleaseData must not accept the full api payload either");
+        assert!(
+            err.to_string().contains("invalid type: integer"),
+            "实际错误: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_prefer_html_url_over_api_self_link_for_release_url() {
+        let json = r#"[{
+            "tag_name": "v2.0.0",
+            "url": "https://api.gitcode.com/repos/owner/repo/releases/9",
+            "html_url": "https://gitcode.com/owner/repo/releases/tag/v2.0.0"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(
+            paged.items[0].url,
+            "https://gitcode.com/owner/repo/releases/tag/v2.0.0"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_fall_back_to_url_when_api_omits_html_url() {
+        let json = r#"[{
+            "tag_name": "v2.0.0",
+            "url": "https://gitcode.com/owner/repo/releases/tag/v2.0.0"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(
+            paged.items[0].url,
+            "https://gitcode.com/owner/repo/releases/tag/v2.0.0"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_degrade_predictably_for_minimal_api_release_object() {
+        // 形状不匹配时必须整体退化而非半途失败：所有字段都有 default。
+        let runner = MockCommandRunner::success(r#"[{"tag_name": "v0.0.1"}]"#);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        let release = &paged.items[0];
+        assert_eq!(release.tag_name, "v0.0.1");
+        assert_eq!(release.id, 0);
+        assert!(!release.draft);
+        assert!(!release.prerelease);
+        assert!(release.author.is_none());
+        assert!(release.published_at.is_none());
+        assert!(release.url.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_accept_string_author_id_from_api() {
+        let json = r#"[{
+            "tag_name": "v1.0.0",
+            "author": {"login": "dev", "id": "42"}
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(paged.items[0].author.as_ref().expect("author").id, "42");
     }
 
     #[tokio::test]
@@ -710,10 +919,12 @@ mod tests {
 
         provider.list(None).await.expect("list should succeed");
 
-        let path = &runner.recorded_calls()[0].1[1];
-        assert!(
-            path.contains("per_page=100"),
-            "默认 cap=1000 时 per_page 必须被 API 上限 100 钳住，实际: {path}"
+        // 整串相等：`contains("per_page=100")` 在 per_page=1001 时同样为真，
+        // 无法证明钳位生效。
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["api", "/repos/owner/repo/releases?per_page=100&page=1"],
+            "默认 cap={DEFAULT_LIST_LIMIT} 时 per_page 必须被 API 上限 100 钳住"
         );
     }
 

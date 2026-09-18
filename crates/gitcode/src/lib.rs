@@ -57,13 +57,16 @@ use tracing::debug;
 
 /// gitcode 分页端点的单页最大条目数。
 ///
-/// **已实测**（gitcode-cli 0.12.0，样本 `openharmony/docs`）：`per_page` 不报错，
-/// 而是被服务端**静默封顶**在 100 —— `per_page=101` 与 `per_page=1001` 均实回
-/// 100 条。`--page` 真实翻页，`--per-page 3 --page 1/2` 返回的编号不重叠。
+/// **实测样本**（gitcode-cli 0.12.0，`openharmony/docs` 的 **issues** 端点）：
+/// `per_page` 超限不报错，而是被服务端**静默封顶**在 100 —— `per_page=101` 与
+/// `per_page=1001` 均实回 100 条；`--page` 是真实翻页，`--per-page 3 --page 1/2`
+/// 返回的编号不重叠。
 ///
-/// `issue` / `pr` / `label` / `milestone` 的 list 子命令与 `api` 端点共用这一上限，
-/// 因此本 crate 的所有分页路径都用它钳住页大小：
+/// 该上限是平台 API 层面的约定而非单个端点的特性，因此 `issue` / `pr` / `label` /
+/// `milestone` / `release` 的分页路径共用它钳住页大小：
 /// `cap.saturating_add(1).min(GITCODE_API_MAX_PER_PAGE)`。
+/// 其中 **`/releases` 端点本身未被单独采样**，它沿用这一全局上限；若该端点的真实
+/// 上限更低，首页会短于 `per_page`，翻页循环因短页提前终止——不会死循环也不会丢数据。
 pub(crate) const GITCODE_API_MAX_PER_PAGE: u32 = 100;
 
 pub mod auth;

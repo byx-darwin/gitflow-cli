@@ -1092,8 +1092,13 @@ mod tests {
             1,
             "must have exactly one '&', got: {api_path}"
         );
-        assert!(api_path.contains("per_page=100"), "got: {api_path}");
-        assert!(api_path.contains("page=1"), "got: {api_path}");
+        // 整串相等，而非 `contains`：`"per_page=1001".contains("per_page=100")`
+        // 与 `"per_page=100".contains("page=1")` 都为真，子串断言无法检测出
+        // 页大小钳位失效或页号错误——正是本测试得名的那个缺陷。
+        assert_eq!(
+            api_path, "/repos/owner/repo/issues/359/comments?per_page=100&page=1",
+            "got: {api_path}"
+        );
     }
 
     #[tokio::test]
