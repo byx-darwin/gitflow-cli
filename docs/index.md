@@ -36,6 +36,7 @@
 - [自动上报 bug 加固设计](./superpowers/specs/2026-08-30-autoreport-bug-hardening-design.md) — 2026-08-18 多角色评估后续：归档限流、CI 环境硬拦截、`auto-report` 标签缺失早失败、非交互 Preview 默认改为 skip、首次端到端验证。实施计划见 [plans/2026-08-30-autoreport-bug-hardening.md](./superpowers/plans/2026-08-30-autoreport-bug-hardening.md)。
 - [覆盖率度量口径统一设计](./superpowers/specs/2026-09-17-coverage-metric-unification-design.md) — Issues #340/#348/#354（milestone #2）：覆盖率工具统一到 `cargo-llvm-cov`、Gate 3 口径由「增量」改为总行覆盖 80%、空变更判 N/A、补写 `references/ruby.md`、去除 auto-fix 冲突、新增 skill 链接校验脚本。实测推翻 tarpaulin 37.55% 基线（llvm-cov 同口径 85.78%）。实施计划见 [plans/2026-09-17-coverage-metric-unification.md](./superpowers/plans/2026-09-17-coverage-metric-unification.md)。
 - [EnvSource 注入消除测试级进程环境竞态设计](./superpowers/specs/2026-09-17-envsource-injection-design.md) — Issue #359：`temp_env` 写进程级环境变量与 `cargo test` 多线程并行竞态致恒红。在 `gitflow-cli-adapter-utils` 新增 `EnvSource`/`RealEnv` 抽象，三个 adapter provider 增加带默认值的 env 泛型参数，测试改为注入假 env，并移除 `temp-env`（含 `apps/cli` 的死依赖）。
+- [gitcode 列表命令分页修复设计](./superpowers/specs/2026-09-18-gitcode-pagination-fix-design.md) — Issue #365：#360 在 gitcode 上未真正生效（阈值从 30 挪到 100，仍报 `truncated: false`）。首次获得 gitcode CLI 实测后，`issue`/`pr`/`label`/`milestone` 五处 list 改 `Paged` + `--per-page`/`--page`，`release list` 因实测无分页旗标改走 `gitcode api`，移除 `GITCODE_DEFAULT_LIST_LIMIT`，并新增 argv 回归护栏与公开仓库只读 e2e。实施计划见 [plans/2026-09-18-gitcode-pagination-fix.md](./superpowers/plans/2026-09-18-gitcode-pagination-fix.md)。
 
 ## 官网与 GEO
 
