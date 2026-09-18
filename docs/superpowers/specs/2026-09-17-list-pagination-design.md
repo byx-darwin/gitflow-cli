@@ -95,12 +95,12 @@ $ gh api "repos/byx-darwin/gitflow-cli/issues/359/comments?per_page=1&page=2"  �
 
 | 命令 | github | gitlab | gitcode |
 |---|---|---|---|
-| `issue list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `SingleShot` — `--limit N` |
-| `pr list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `SingleShot` — `--limit N` |
-| `release list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `SingleShot` — `--limit N` |
-| `label list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | 见 §4.3 |
-| `milestone list` | `Paged{100}` — `api ?per_page&page` | `Paged{100}` — `--per-page/--page` | 见 §4.3 |
-| `issue comments` | `Paged{100}` — `api ?per_page&page` | `Paged{100}` — `api ?per_page&page` | `Paged{100}` — `api ?per_page&page`（未实测） |
+| `issue list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `Paged{100}` — `--per-page/--page` |
+| `pr list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `Paged{100}` — `--per-page/--page` |
+| `release list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `Paged{100}` — `api ?per_page&page`（CLI 无分页旗标） |
+| `label list` | `SingleShot` — `--limit N` | `Paged{100}` — `--per-page/--page` | `Paged{100}` — `--per-page/--page` |
+| `milestone list` | `Paged{100}` — `api ?per_page&page` | `Paged{100}` — `--per-page/--page` | `Paged{100}` — `--per-page/--page` |
+| `issue comments` | `Paged{100}` — `api ?per_page&page` | `Paged{100}` — `api ?per_page&page` | `Paged{100}` — `api ?per_page&page` |
 
 `gh` 侧全部默认 30（`issue/pr/label/release list` 的 `--limit` 默认值均为 30，已实测）；
 `glab` 侧 `--per-page` 默认 30，`milestone list` 默认 20。
@@ -111,44 +111,36 @@ $ gh api "repos/byx-darwin/gitflow-cli/issues/359/comments?per_page=1&page=2"  �
 **最近 30 次运行**，是有意的时间窗口，不是完整性声明 —— 与本 Issue「自称全量却残缺」
 不是同一问题。已核查，不改。
 
-### 4.3 gitcode 的 label / milestone：无法保证，如实记录
+### 4.3 gitcode 的 label / milestone：已实测，分页可用
 
-`crates/gitcode/src/label.rs:99`（label list）与 `:310`（milestone list）**绕过 `runner`**，
-直接用 `tokio::process::Command`，且其分页旗标无从实测（gitcode CLI 在开发环境不可获得，
-PATH 上的 `gc` 是其他工具）。本次：
+**本节已由 Issue #365 用实测结论替换。** 原记载「其分页旗标无从实测，故不传
+`--limit`，截断无法探测也无法报告」是在 gitcode CLI 不可获得的前提下写的，该
+前提已不成立。
 
-- 两处改走 `runner`，恢复可测性（否则本设计的 argv 断言对其完全失效）
-- 策略声明为 `SingleShot`，但**不传 `--limit`**（该旗标是否存在未知，乱传会直接报错）
+实测（gitcode-cli 0.12.0，样本 `openharmony/docs`）：`label list` 与
+`milestone list` **都支持** `-L/--limit`、`--page`（默认 1）、`--per-page`，且
+`--per-page 2 --page 1/2` 返回的条目不重叠 —— 分页真实生效。两者已随 #365 改为
+`Paged{per_page}` 并显式传 `--per-page` / `--page`，截断检测能力完整。
 
-**后果必须如实说明**：若 gitcode 的这两个命令在服务端有默认上限，
-本次改动**无法探测也无法报告**其截断。这是一个已知的、未闭合的缺口，
-不得在交付时声称三平台已全覆盖。其余四个命令（issue/pr/release list、comments）
-gitcode 侧沿用其既有的 `--limit` / `api` 形态，可正常参与 N+1 探测。
+两处此前已改走 `runner`，argv 可被测试观测，该部分结论不变。
 
-### 4.3.1 gitcode 的 `--limit` 默认值：保守取值，不做通用 clamp
+详见 `docs/superpowers/specs/2026-09-18-gitcode-pagination-fix-design.md`。
 
-`issue list` / `pr list` / `release list` 的 `cap = limit.unwrap_or(DEFAULT_LIST_LIMIT)`
-默认为 1000，N+1 探测会把 `cap + 1 = 1001` 传给 `--limit`。但 gitcode CLI 在本机不可
-获得，其 `--limit` 的合法取值范围未经实测；本设计 §4.3 已经假定 100 是 gitcode 的
-单页上限（`GITCODE_API_MAX_PER_PAGE`）。若 1001 超出 gitcode `--limit` 的真实上限，
-这三个命令会在默认调用下直接报错，对所有 gitcode 用户破坏式回归。
+### 4.3.1 gitcode 的默认 limit：常量已移除
 
-处理方式：gitcode 单独持有 `GITCODE_DEFAULT_LIST_LIMIT = GITCODE_API_MAX_PER_PAGE`
-（即 100），只替换这三个命令里 `.unwrap_or(DEFAULT_LIST_LIMIT)` 的默认值来源；
-**用户显式传入的 `--limit` 不做任何 clamp**——该值在本分支之前就必须落在 gitcode
-允许的范围内（否则本就会报错），本分支不改变这一事实。`label list` / `milestone
-list`（见 §4.3）继续不传 `--limit`，不受影响；github、gitlab 不受影响。
+**本节已由 Issue #365 作废。** 原设计为 gitcode 单列
+`GITCODE_DEFAULT_LIST_LIMIT = 100`，理由是「`--limit` 的合法取值范围未经实测，
+传 `DEFAULT_LIST_LIMIT + 1 = 1001` 可能越界报错」，并记录了「实际传出 `--limit 101`，
+仍比假定上限多 1，风险未归零」的残留风险。
 
-**残留风险（已知、已评估、有意不消除）**：N+1 探测必然发送 `cap + 1`，因此默认调用
-实际传出的是 `--limit 101` —— 仍然比本设计假定的 gitcode 单页上限 100 **多 1**。
-若 `gc issue/pr/release list` 的 `--limit` 与其 `api` 的 `per_page` 共用同一个 100
-上限，这三个命令在默认调用下**依然会报错**，而本分支之前它们在用户未指定 limit 时
-根本不发 `--limit` 旗标。
+实测推翻了这一整条推理链：gitcode 的 `per_page` **不报错**，而是静默封顶在 100
+（`per_page=101` 与 `per_page=1001` 均实回 100 条）。「越界报错」的风险从不存在；
+真正存在的是**反方向的缺陷** —— 静默封顶叠加 `SingleShot` 的 N+1 探测，令
+`truncated = 100 > 100 = false`，即本设计要消灭的静默丢数据，只是阈值从 30 挪到了 100。
 
-风险因此是从「1001，几乎必然越界」降到「101，越界 1」，**未归零**。把默认值取 99
-（探测恰好发出 100）可以在同一假设下彻底消除它，但那个上限本身也只是推断，99 不过是
-另一个猜测。经评估决定：保留 100，把风险如实记录于此，待 gitcode CLI 可获得时优先
-实测其 `--limit` 真实上限，再一次性校准默认值。
+因此 #365 删除了 `GITCODE_DEFAULT_LIST_LIMIT`：改用 `Paged` 之后，`cap` 不再出现在
+任何 argv 中，页大小由 `cap.saturating_add(1).min(GITCODE_API_MAX_PER_PAGE)` 钳住，
+gitcode 与 github / gitlab 一样回落 `DEFAULT_LIST_LIMIT`。
 
 ## 5. 输出契约
 
@@ -363,10 +355,9 @@ async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>>;
 ## 12. 已知遗留（不在本次范围）
 
 1. `gf pipeline list` 硬编码 30 —— 见 §4.2，判定为有意的时间窗口
-2. gitcode 的 `label list` / `milestone list` 截断无法探测 —— 见 §4.3，已知缺口
-3. gitcode 适配器全程未经实测验证 —— 见 §6.2，失效方向安全但非零风险
-4. 本次范围内三个平台均不携带总数 —— 见 §5.2，`Paged<T>`/`PaginationMeta` 均无
+2. 本次范围内三个平台均不携带总数 —— 见 §5.2，`Paged<T>`/`PaginationMeta` 均无
    `total_count` 字段；后续若某平台能廉价提供，可作为非破坏性加法补上
-5. gitcode 的 `--limit` 取值范围未经验证，默认值出于保守选择 —— 见 §4.3.1（gitcode
-   本机不可获得，无法实测其真实上限；若未来 gitcode CLI 可用，应验证真实上限并
-   据此调整默认值）
+3. gitcode `release list` 子命令无任何分页旗标 —— 实测（#365）只有 `-L/--limit`，
+   故该路径改走 `gitcode api /repos/{repo}/releases?per_page&page`。api 非空响应的
+   字段形状未经真实服务端确认（本机未找到带 release 的公开 gitcode 仓库），由
+   fixture 单测覆盖

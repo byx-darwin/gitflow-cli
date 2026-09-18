@@ -8,6 +8,11 @@
 //!
 //! **本测试在 Issue #365 修复前必然失败**：彼时 `gf issue list --limit 150`
 //! 返回 100 条却报告 `truncated: false`。
+//!
+//! **覆盖 `E2E_TEST_REPO_GITCODE` 时的陷阱**：把它指向一个 issue 数 ≤100 的仓库
+//! 会产生假失败——本测试无法区分「这个仓库确实只有不到 100 个 issue」和「在恰好
+//! 100 条处被静默截断」。只有已验证 issue 数超过 100 的仓库才适合作为覆盖值；
+//! 默认值 `openharmony/docs`（issue 数 >200）已满足这一条件。
 
 #![allow(
     clippy::unwrap_used,

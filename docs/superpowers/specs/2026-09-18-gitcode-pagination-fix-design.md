@@ -116,12 +116,23 @@ let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 `gitcode api /repos/{repo}/releases?per_page={}&page={}`，策略 `Paged{per_page}`，
 与已交付且正确的 `issue comments` 路径（`issue.rs:594`）完全同构。
 
-**类型复用，不新增中间类型**：`ReleaseData` 的主字段名已是 snake_case
-（`tag_name` / `created_at` / `published_at` / `draft` / `prerelease`），与 GitCode
-REST 响应同构；`id` / `body` / `author` / `url` 均已 `#[serde(default)]` 或 `Option`，
-api 返回的多余字段不影响反序列化。gitcode CLI 的 Go 二进制中可见
-`json:"tag_name"` / `json:"prerelease"` 等 snake_case tag，佐证两侧形状一致。
-实现时用一份 fixture 单测钉住该形状。
+**本节原判断「类型复用，不新增中间类型」已被实现推翻，如实记录**：原推理只看了
+`ReleaseData`（`crates/core/src/release.rs`）的 Rust 字段名——`tag_name` /
+`created_at` 等确实是 snake_case——就断定它能直接吃下 gitcode 的 snake_case REST
+响应。这混淆了 **Rust 标识符** 和 **serde 线上名**：`ReleaseData` 标注了
+`#[serde(rename_all = "camelCase")]`，其反序列化实际接受的字段名是
+`tagName` / `createdAt` / `publishedAt`。直接把 gitcode api 的 snake_case 响应
+反序列化进 `ReleaseData`，在任何有 release 的仓库上都会以
+`missing field 'tagName'` 失败——这本该在实现前的类型审查阶段发现，而不是留到
+运行时。
+
+因此实际交付引入了私有中间类型，与 `crates/gitlab/src/release.rs` 同构：
+`ReleaseApiResponse`（snake_case，逐字段 `#[serde(default)]`）+
+`ReleaseUserApi`（同样 `#[serde(default)]`），再通过 `From<ReleaseApiResponse>
+for ReleaseData` 与 `From<ReleaseUserApi> for UserSummary` 转换到 core 类型。
+`id` / `body` / `author` / `url` 等字段在 `ReleaseApiResponse` 里同样是
+`Option` 或帶默认值，转换后落入 `ReleaseData` 对应字段。实现用一份 fixture
+单测钉住该形状（见 `crates/gitcode/src/release.rs` 模块文档）。
 
 `release` 的其他方法（`create` / `view` / 资源上传下载）**不动**，仍走 CLI 子命令。
 
@@ -191,10 +202,16 @@ gitcode 的 `SequencedMockCommandRunner`（`crates/gitcode/src/runner.rs:210`）
 ## 7. 已知遗留
 
 1. `release list` 的 api 非空响应字段形状未经真实服务端确认 —— 见 §3.2，
-   由 fixture 单测覆盖，本机无带 release 的 gitcode 仓库可验
-2. `LABEL_FIELDS` / `RELEASE_FIELDS` 在 gitcode 侧其余调用点仍是死参数 —— 见 §3.3，
+   由 fixture 单测覆盖，本机无带 release 的 gitcode 仓库可验。`ReleaseApiResponse`
+   每个字段都标注了 `#[serde(default)]`，因此即便字段形状与假设有出入，也只是
+   该字段退化为默认值，不会导致整个响应反序列化失败
+2. `ReleaseApiResponse` → `ReleaseData` 的 `created_at` 在 api 未返回该字段时
+   回退 `Utc::now()`（仅用于展示，做法照搬自 gitlab 侧同构实现）。诚实的修法是把
+   core 层 `ReleaseData::created_at` 改成 `Option<DateTime<Utc>>`，并在 github /
+   gitlab / gitcode 三个平台一并改动；本次有意不做，范围超出 #365
+3. `LABEL_FIELDS` / `RELEASE_FIELDS` 在 gitcode 侧其余调用点仍是死参数 —— 见 §3.3，
    本次只清理重写到的两条 argv
-3. `gf pipeline list` 硬编码 `--limit 30` —— 沿用 #360 §4.2 的判定：有意的时间窗口，
+4. `gf pipeline list` 硬编码 `--limit 30` —— 沿用 #360 §4.2 的判定：有意的时间窗口，
    不是完整性声明，不改
 
 ## 8. 验收对照（Issue #365）
