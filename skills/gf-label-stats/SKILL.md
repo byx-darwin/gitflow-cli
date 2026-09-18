@@ -101,7 +101,7 @@ gf issue list --state open
 |-------|----------|
 | Auth failure | Stop. `auth login`. |
 | Label API failure | Skip label; continue. |
-| >1000 Issues | `gf issue list` 默认取至 1000 条上限。触顶时输出 `pagination.truncated: true`，此时必须用 `--limit <N>` 提高上限重取，并在报告中声明本次覆盖范围。 |
+| >1000 Issues | `gf issue list` defaults to a 1000-item cap. On truncation it reports `pagination.truncated: true`; raise the cap with `--limit <N>` and re-run, and state the resulting coverage explicitly in the report. |
 
 ## Responsibility
 
