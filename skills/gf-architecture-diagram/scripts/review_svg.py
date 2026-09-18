@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 OVERFLOW_TOLERANCE = 1.05
-AVG_CHAR_WIDTH_RATIO = 0.6
+AVG_CHAR_WIDTH_RATIO = 0.45
 DEFAULT_FONT_SIZE = 14.0
 
 

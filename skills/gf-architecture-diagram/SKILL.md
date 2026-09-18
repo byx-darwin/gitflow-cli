@@ -94,7 +94,8 @@ regeneration would silently discard the edit.
 
 Regenerate the same diagram a second time from the same extraction capture
 (Stage 1 output). Compare the node set and edge set (topology) between the
-two 生成结果 — 同一输入重新生成两次，拓扑必须完全一致. Coordinate-level
+two generation results — regenerating the same input twice must produce
+identical topology. Coordinate-level
 jitter from the layout engine is acceptable; a different node set, edge set,
 or cluster membership is not and means Stage 1/3 has a non-determinism bug.
 

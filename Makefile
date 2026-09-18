@@ -333,12 +333,13 @@ check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets 
 	grep -qF 'SVG' "$$S" \
 		&& echo "✓ AC#8 声明输出为 SVG" \
 		|| { echo "✗ AC#8 未声明 SVG 输出格式"; FAIL=1; }; \
-	grep -qF 'Determinism' "$$S" && grep -qF '重新生成两次' "$$S" \
-		&& echo "✓ AC#9 声明确定性检查（重新生成两次）" \
+	grep -qF 'Determinism' "$$S" && grep -qF 'regenerating the same input twice' "$$S" \
+		&& echo "✓ AC#9 声明确定性检查（regenerating the same input twice）" \
 		|| { echo "✗ AC#9 未声明确定性检查"; FAIL=1; }; \
 	if [ -f "$$SC" ]; then \
-		GOOD=$$(mktemp -t gf-arch-good.svg); \
-		BAD=$$(mktemp -t gf-arch-bad.svg); \
+		GOOD=$$(mktemp /tmp/gf-arch-good.XXXXXX.svg); \
+		BAD=$$(mktemp /tmp/gf-arch-bad.XXXXXX.svg); \
+		OVERFLOW_ONLY=$$(mktemp /tmp/gf-arch-overflow-only.XXXXXX.svg); \
 		printf '%s\n' \
 			'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">' \
 			'<g class="node"><title>a</title><polygon points="10,10 90,10 90,50 10,50"/><text x="50" y="30" font-size="10">a</text></g>' \
@@ -349,13 +350,19 @@ check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets 
 			'<g class="node"><title>a</title><polygon points="10,10 90,10 90,50 10,50"/><text x="50" y="30" font-size="10">a</text></g>' \
 			'<g class="node"><title>b</title><polygon points="70,10 150,10 150,50 70,50"/><text x="110" y="30" font-size="10">this label is far too long to fit</text></g>' \
 			'</svg>' > "$$BAD"; \
+		printf '%s\n' \
+			'<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100">' \
+			'<g class="node"><title>a</title><polygon points="10,10 90,10 90,50 10,50"/><text x="50" y="30" font-size="10">a</text></g>' \
+			'<g class="node"><title>b</title><polygon points="150,10 230,10 230,50 150,50"/><text x="190" y="30" font-size="10">this label is far too long to fit</text></g>' \
+			'</svg>' > "$$OVERFLOW_ONLY"; \
 		python3 "$$SC" "$$GOOD" >/dev/null 2>&1; GOOD_RC=$$?; \
 		python3 "$$SC" "$$BAD" >/dev/null 2>&1; BAD_RC=$$?; \
-		rm -f "$$GOOD" "$$BAD"; \
-		if [ "$$GOOD_RC" -eq 0 ] && [ "$$BAD_RC" -ne 0 ]; then \
-			echo "✓ AC#7 review_svg.py 正确区分干净样例与越界/重叠样例"; \
+		python3 "$$SC" "$$OVERFLOW_ONLY" >/dev/null 2>&1; OVERFLOW_RC=$$?; \
+		rm -f "$$GOOD" "$$BAD" "$$OVERFLOW_ONLY"; \
+		if [ "$$GOOD_RC" -eq 0 ] && [ "$$BAD_RC" -ne 0 ] && [ "$$OVERFLOW_RC" -ne 0 ]; then \
+			echo "✓ AC#7 review_svg.py 正确区分干净样例、越界/重叠样例与仅越界（无重叠）样例"; \
 		else \
-			echo "✗ AC#7 review_svg.py 未正确判定（good_rc=$$GOOD_RC bad_rc=$$BAD_RC）"; FAIL=1; \
+			echo "✗ AC#7 review_svg.py 未正确判定（good_rc=$$GOOD_RC bad_rc=$$BAD_RC overflow_rc=$$OVERFLOW_RC）"; FAIL=1; \
 		fi; \
 	fi; \
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \

@@ -1,7 +1,7 @@
 digraph gitflow_architecture {
     rankdir=TB;
     fontname="Helvetica";
-    node [fontname="Helvetica", fontsize=10, shape=box, margin="0.36,0.10"];
+    node [fontname="Helvetica", fontsize=10, shape=box];
     edge [fontname="Helvetica", fontsize=8];
     label="gitflow-cli (gf) Architecture Overview — dependency-derived (cargo metadata)";
     labelloc=t;
@@ -53,9 +53,6 @@ digraph gitflow_architecture {
         label="Ecosystem";
         style=dashed;
         color=gray;
-        skills [label="26+ AI Skills\n(gf-*)", shape=component];
-        hooks [label="Hooks\npre-commit", shape=component];
-        self_update [label="self_update\nEd25519 verify", shape=component];
         "release-signer" [shape=box, fillcolor="#fff2cc", style=filled];
     }
 
