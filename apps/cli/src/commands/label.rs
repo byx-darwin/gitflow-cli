@@ -6,14 +6,20 @@
 
 use clap::Subcommand;
 use gitflow_core::{
-    CliOutput,
-    label::{CreateLabelArgs, CreateMilestoneArgs, LabelProvider, MilestoneProvider},
+    CliOutput, Paged,
+    label::{
+        CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
+        MilestoneProvider,
+    },
 };
 use gitflow_gitcode::{GitCodeLabelProvider, GitCodeMilestoneProvider};
 use gitflow_github::{GitHubLabelProvider, GitHubMilestoneProvider};
 use gitflow_gitlab::{GitLabLabelProvider, GitLabMilestoneProvider};
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// 标签（Label）管理子命令集合。
 ///
@@ -35,7 +41,11 @@ pub enum LabelCommand {
     },
 
     /// 列出仓库中的所有标签。
-    List,
+    List {
+        /// 返回数量上限（可选）。
+        #[arg(long)]
+        limit: Option<u32>,
+    },
 
     /// 编辑一个已有的标签。
     Edit {
@@ -83,7 +93,11 @@ pub enum MilestoneCommand {
     },
 
     /// 列出仓库中的所有里程碑。
-    List,
+    List {
+        /// 返回数量上限（可选）。
+        #[arg(long)]
+        limit: Option<u32>,
+    },
 
     /// 编辑一个已有的里程碑。
     Edit {
@@ -114,6 +128,55 @@ pub enum MilestoneCommand {
         /// 里程碑编号。
         number: u64,
     },
+}
+
+/// 在已分页的标签结果中按名称解析出单个标签。
+///
+/// 若 `paged.truncated` 为真，说明本次抓取未能覆盖仓库中的全部标签，此时
+/// 继续在残缺集合中查找会把"存在但不在前 N 条内"的标签误判为不存在，
+/// 因此直接报错而非静默返回"未找到"。
+///
+/// # Errors
+///
+/// 结果被截断时返回错误；未截断但确实不存在该名称的标签时也返回错误。
+fn resolve_label_by_name<'a>(
+    paged: &'a Paged<LabelData>,
+    name: &str,
+) -> miette::Result<&'a LabelData> {
+    if paged.truncated {
+        return Err(miette::miette!(
+            "label lookup truncated; too many labels to resolve by name"
+        ));
+    }
+    paged
+        .items
+        .iter()
+        .find(|l| l.name == name)
+        .ok_or_else(|| miette::miette!("Label '{name}' not found"))
+}
+
+/// 在已分页的里程碑结果中按编号解析出单个里程碑。
+///
+/// 截断语义与 [`resolve_label_by_name`] 相同：结果被截断时报错而非误判
+/// "未找到"。
+///
+/// # Errors
+///
+/// 结果被截断时返回错误；未截断但确实不存在该编号的里程碑时也返回错误。
+fn resolve_milestone_by_number(
+    paged: &Paged<MilestoneData>,
+    number: u64,
+) -> miette::Result<&MilestoneData> {
+    if paged.truncated {
+        return Err(miette::miette!(
+            "milestone lookup truncated; too many milestones to resolve by number"
+        ));
+    }
+    paged
+        .items
+        .iter()
+        .find(|m| m.number == number)
+        .ok_or_else(|| miette::miette!("Milestone #{number} not found"))
 }
 
 /// 处理 `gf label` 子命令。
@@ -174,13 +237,14 @@ pub async fn handle_label(
             let output = CliOutput::success(label, platform, "label create");
             print_output(&output, &output_format)?;
         }
-        LabelCommand::List => {
-            let labels = provider
-                .list()
+        LabelCommand::List { limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list(limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list labels: {e}"))?;
-            let output = CliOutput::success(labels, platform, "label list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "label list", &output_format)?;
         }
         LabelCommand::Edit {
             name,
@@ -192,14 +256,11 @@ pub async fn handle_label(
                 (Some(c), d) => (c.clone(), d.clone()),
                 (None, Some(d)) => {
                     // 仅更新描述，需要先获取当前标签的 color
-                    let current = provider
-                        .list()
+                    let paged = provider
+                        .list(None)
                         .await
                         .map_err(|e| miette::miette!("Failed to list labels for edit: {e}"))?;
-                    let existing = current
-                        .iter()
-                        .find(|l| l.name == name)
-                        .ok_or_else(|| miette::miette!("Label '{name}' not found"))?;
+                    let existing = resolve_label_by_name(&paged, &name)?;
                     let c = existing
                         .color
                         .clone()
@@ -313,13 +374,14 @@ pub async fn handle_milestone(
             let output = CliOutput::success(milestone, platform, "milestone create");
             print_output(&output, &output_format)?;
         }
-        MilestoneCommand::List => {
-            let milestones = provider
-                .list()
+        MilestoneCommand::List { limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list(limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list milestones: {e}"))?;
-            let output = CliOutput::success(milestones, platform, "milestone list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "milestone list", &output_format)?;
         }
         MilestoneCommand::Edit {
             number,
@@ -334,14 +396,11 @@ pub async fn handle_milestone(
             }
 
             // 获取当前里程碑信息作为默认值
-            let current_milestones = provider
-                .list()
+            let paged_milestones = provider
+                .list(None)
                 .await
                 .map_err(|e| miette::miette!("Failed to list milestones for edit: {e}"))?;
-            let existing = current_milestones
-                .iter()
-                .find(|m| m.number == number)
-                .ok_or_else(|| miette::miette!("Milestone #{number} not found"))?;
+            let existing = resolve_milestone_by_number(&paged_milestones, number)?;
 
             let resolved_title = title.clone().unwrap_or_else(|| existing.title.clone());
             let resolved_description = description.clone().or(existing.description.clone());
@@ -442,9 +501,24 @@ mod tests {
     #[test]
     fn test_should_parse_label_list() {
         use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "label", "list", "--limit", "10"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Label(LabelCommand::List { limit }) => {
+                assert_eq!(limit, Some(10));
+            }
+            _ => panic!("Expected LabelCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_label_list_without_limit() {
+        use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "label", "list"]).expect("parse");
         match cli.command {
-            crate::Commands::Label(LabelCommand::List) => {}
+            crate::Commands::Label(LabelCommand::List { limit }) => {
+                assert!(limit.is_none());
+            }
             _ => panic!("Expected LabelCommand::List"),
         }
     }
@@ -515,9 +589,24 @@ mod tests {
     #[test]
     fn test_should_parse_milestone_list() {
         use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "milestone", "list", "--limit", "10"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Milestone(MilestoneCommand::List { limit }) => {
+                assert_eq!(limit, Some(10));
+            }
+            _ => panic!("Expected MilestoneCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_milestone_list_without_limit() {
+        use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "milestone", "list"]).expect("parse");
         match cli.command {
-            crate::Commands::Milestone(MilestoneCommand::List) => {}
+            crate::Commands::Milestone(MilestoneCommand::List { limit }) => {
+                assert!(limit.is_none());
+            }
             _ => panic!("Expected MilestoneCommand::List"),
         }
     }
@@ -688,5 +777,112 @@ mod tests {
         let value = serde_json::json!({"name": "test", "color": "ff0000"});
         let result = print_output(&value, &OutputFormat::Auto);
         assert!(result.is_ok());
+    }
+
+    // --- 截断安全查找测试（I1：CLI 层 edit 的按名/按号查找） ---
+    //
+    // `label edit --description`（无 `--color`）与 `milestone edit` 都先
+    // `provider.list(None)` 再按名/号在结果中查找。若结果被截断
+    // （标签/里程碑数超过 DEFAULT_LIST_LIMIT），直接在残缺集合中查找会把
+    // "存在但不在前 N 条内"误判为"不存在"。以下测试证明截断时报错而非
+    // 误报 not found。
+
+    async fn build_truncated_label_paged() -> Paged<LabelData> {
+        gitflow_core::fetch_capped(
+            gitflow_core::FetchStrategy::SingleShot,
+            gitflow_core::DEFAULT_LIST_LIMIT,
+            |_page, _limit| async {
+                let items: Vec<LabelData> = (0..=gitflow_core::DEFAULT_LIST_LIMIT)
+                    .map(|i| LabelData {
+                        name: format!("label-{i}"),
+                        color: Some("ffffff".into()),
+                        description: None,
+                    })
+                    .collect();
+                Ok(items)
+            },
+        )
+        .await
+        .expect("fetch_capped should succeed")
+    }
+
+    async fn build_truncated_milestone_paged() -> Paged<MilestoneData> {
+        gitflow_core::fetch_capped(
+            gitflow_core::FetchStrategy::SingleShot,
+            gitflow_core::DEFAULT_LIST_LIMIT,
+            |_page, _limit| async {
+                let items: Vec<MilestoneData> = (0..=u64::from(gitflow_core::DEFAULT_LIST_LIMIT))
+                    .map(|i| MilestoneData {
+                        number: i,
+                        title: format!("v{i}"),
+                        description: None,
+                        state: gitflow_core::types::State::Open,
+                        due_on: None,
+                        closed_issues: 0,
+                        open_issues: 0,
+                    })
+                    .collect();
+                Ok(items)
+            },
+        )
+        .await
+        .expect("fetch_capped should succeed")
+    }
+
+    #[tokio::test]
+    async fn test_should_error_on_truncation_when_resolving_label_by_name_for_edit() {
+        let paged = build_truncated_label_paged().await;
+        assert!(paged.truncated);
+
+        // 即使目标名称确实存在于第一条，截断时也必须报错而非返回它。
+        let err = resolve_label_by_name(&paged, "label-0")
+            .expect_err("should error when lookup is truncated");
+        assert!(err.to_string().contains("truncated"));
+    }
+
+    #[tokio::test]
+    async fn test_should_error_on_truncation_when_resolving_milestone_by_number_for_edit() {
+        let paged = build_truncated_milestone_paged().await;
+        assert!(paged.truncated);
+
+        let err = resolve_milestone_by_number(&paged, 0)
+            .expect_err("should error when lookup is truncated");
+        assert!(err.to_string().contains("truncated"));
+    }
+
+    #[tokio::test]
+    async fn test_should_resolve_label_by_name_when_not_truncated() {
+        let paged = gitflow_core::fetch_capped(
+            gitflow_core::FetchStrategy::SingleShot,
+            gitflow_core::DEFAULT_LIST_LIMIT,
+            |_page, _limit| async {
+                Ok(vec![LabelData {
+                    name: "bug".into(),
+                    color: Some("d73a4a".into()),
+                    description: None,
+                }])
+            },
+        )
+        .await
+        .expect("fetch_capped should succeed");
+        assert!(!paged.truncated);
+
+        let found = resolve_label_by_name(&paged, "bug").expect("should find label");
+        assert_eq!(found.name, "bug");
+    }
+
+    #[tokio::test]
+    async fn test_should_error_not_found_when_label_absent_and_not_truncated() {
+        let paged = gitflow_core::fetch_capped(
+            gitflow_core::FetchStrategy::SingleShot,
+            gitflow_core::DEFAULT_LIST_LIMIT,
+            |_page, _limit| async { Ok(Vec::<LabelData>::new()) },
+        )
+        .await
+        .expect("fetch_capped should succeed");
+        assert!(!paged.truncated);
+
+        let err = resolve_label_by_name(&paged, "missing").expect_err("should error");
+        assert!(err.to_string().contains("not found"));
     }
 }

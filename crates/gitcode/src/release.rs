@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, FetchStrategy, Paged, Result, Session, fetch_capped,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
 };
 use tracing::debug;
@@ -142,34 +142,43 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
         }
     }
 
-    async fn list(&self) -> Result<Vec<ReleaseData>> {
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>> {
         let binary = crate::gitcode_binary();
-        debug!(repo = %self.repo, "spawning `gc release list`");
+        let binary = &binary;
+        let cap = limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = self
-            .runner
-            .run(
-                &binary,
-                &[
-                    "release",
-                    "list",
-                    "-R",
-                    &self.repo,
-                    "--json",
-                    RELEASE_FIELDS,
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
+        debug!(repo = %self.repo, cap, "spawning `gc release list`");
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let output = runner
+                .run(
+                    binary,
+                    &[
+                        "release",
+                        "list",
+                        "-R",
+                        repo,
+                        "--json",
+                        RELEASE_FIELDS,
+                        "--limit",
+                        &limit_str,
+                    ],
+                )
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
-        let releases: Vec<ReleaseData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            if !output.status.success() {
+                return Err(parse_gitcode_error(&output.stderr).into());
+            }
 
-        Ok(releases)
+            let releases: Vec<ReleaseData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(releases)
+        })
+        .await
     }
 
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
@@ -411,7 +420,7 @@ mod tests {
         let runner = MockCommandRunner::failure("forbidden", 256);
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
 
-        let result = provider.list().await;
+        let result = provider.list(None).await;
 
         assert!(matches!(
             result.unwrap_err(),
@@ -424,7 +433,7 @@ mod tests {
         let runner = MockCommandRunner::success("invalid");
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
 
-        let result = provider.list().await;
+        let result = provider.list(None).await;
 
         assert!(matches!(
             result.unwrap_err(),
@@ -630,9 +639,57 @@ mod tests {
         let runner = MockCommandRunner::success(&json);
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
 
-        let releases = provider.list().await.expect("list should succeed");
-        assert_eq!(releases.len(), 1);
-        assert_eq!(releases[0].tag_name, "v1.0.0");
+        let paged = provider.list(None).await.expect("list should succeed");
+        assert_eq!(paged.items.len(), 1);
+        assert_eq!(paged.items[0].tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_for_release_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(None).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "101"),
+            "实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_honour_user_release_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(Some(10)).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "11"),
+            "用户 limit 必须真正抵达底层 CLI，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_release_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(None).await.expect("list should succeed");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "release",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                RELEASE_FIELDS,
+                "--limit",
+                "101",
+            ]
+        );
     }
 
     #[tokio::test]

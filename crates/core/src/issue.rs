@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
+    paging::Paged,
     types::{CommentData, Label, State, UserSummary, deserialize_u64_or_string},
 };
 
@@ -79,8 +80,6 @@ pub struct ListIssueArgs {
     pub state: Option<State>,
     /// 按标签名过滤。
     pub labels: Vec<String>,
-    /// 按指派用户过滤。
-    pub assignee: Option<String>,
     /// 关键字搜索条件。
     pub search: Option<String>,
     /// 返回数量上限。
@@ -117,10 +116,13 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
 
     /// 根据过滤条件列出 Issue 列表。
     ///
+    /// 返回的 [`Paged`] 携带截断标志：平台侧的列表命令默认只返回首页，
+    /// 本方法保证要么取满上限，要么诚实报告还有更多。
+    ///
     /// # Errors
     ///
     /// 当平台 API 调用失败或过滤条件非法时返回错误。
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>>;
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>>;
 
     /// 查看指定编号的 Issue 详情。
     ///
@@ -150,12 +152,14 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
     /// 当 Issue 不存在、`body` 为空或平台 API 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData>;
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
+    ///
+    /// `limit` 为 `None` 时取至 [`crate::paging::DEFAULT_LIST_LIMIT`]。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或平台 API 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>>;
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>>;
 
     /// 为指定 Issue 添加标签。
     ///
@@ -286,7 +290,6 @@ mod tests {
         let args = ListIssueArgs::default();
         assert!(args.state.is_none());
         assert!(args.labels.is_empty());
-        assert!(args.assignee.is_none());
         assert!(args.search.is_none());
         assert!(args.limit.is_none());
     }

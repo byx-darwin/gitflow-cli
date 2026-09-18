@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
 };
 use tracing::debug;
@@ -133,33 +133,41 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitHubReleaseProvider<R> {
         self.view(&args.tag_name).await
     }
 
-    async fn list(&self) -> Result<Vec<ReleaseData>> {
-        debug!(repo = %self.repo, "spawning `gh release list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = self
-            .runner
-            .run(
-                "gh",
-                &[
-                    "release",
-                    "list",
-                    "--repo",
-                    &self.repo,
-                    "--json",
-                    RELEASE_LIST_FIELDS,
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+        debug!(repo = %self.repo, cap, "spawning `gh release list`");
 
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let output = runner
+                .run(
+                    "gh",
+                    &[
+                        "release",
+                        "list",
+                        "--repo",
+                        repo,
+                        "--json",
+                        RELEASE_LIST_FIELDS,
+                        "--limit",
+                        &limit_str,
+                    ],
+                )
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
 
-        let releases: Vec<ReleaseData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            if !output.status.success() {
+                return Err(parse_gh_error(&output.stderr).into());
+            }
 
-        Ok(releases)
+            let releases: Vec<ReleaseData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(releases)
+        })
+        .await
     }
 
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
@@ -586,7 +594,7 @@ mod tests {
         let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
-        let result = provider.list().await;
+        let result = provider.list(None).await;
 
         assert!(result.is_err());
         assert!(matches!(
@@ -600,7 +608,7 @@ mod tests {
         let runner = MockCommandRunner::success("invalid json");
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
-        let result = provider.list().await;
+        let result = provider.list(None).await;
 
         assert!(result.is_err());
         assert!(matches!(
@@ -852,9 +860,9 @@ mod tests {
         let runner = MockCommandRunner::success(&json);
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
-        let releases = provider.list().await.expect("list should succeed");
-        assert_eq!(releases.len(), 1);
-        assert_eq!(releases[0].tag_name, "v1.0.0");
+        let paged = provider.list(None).await.expect("list should succeed");
+        assert_eq!(paged.items.len(), 1);
+        assert_eq!(paged.items[0].tag_name, "v1.0.0");
     }
 
     #[tokio::test]
@@ -862,8 +870,58 @@ mod tests {
         let runner = MockCommandRunner::success("[]");
         let provider = GitHubReleaseProvider::with_runner("owner/repo", runner);
 
-        let releases = provider.list().await.expect("list should succeed");
-        assert!(releases.is_empty());
+        let paged = provider.list(None).await.expect("list should succeed");
+        assert!(paged.items.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_for_release_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(None).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "1001"),
+            "release list 此前完全没有 limit 概念，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_honour_user_release_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(Some(10)).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "11"),
+            "用户 limit 必须真正抵达底层 CLI，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_release_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(None).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0];
+        assert_eq!(recorded.0, "gh");
+        assert_eq!(
+            recorded.1,
+            vec![
+                "release",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                RELEASE_LIST_FIELDS,
+                "--limit",
+                "1001",
+            ]
+        );
     }
 
     #[tokio::test]

@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, FetchStrategy, Paged, Result, Session, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -216,6 +216,53 @@ impl<R: CommandRunner> GitCodePrProvider<R> {
             runner,
         }
     }
+
+    /// [`PrProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = args.limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let state = args.state;
+
+        debug!(repo = %self.repo, cap, "spawning `gitcode pr list`");
+
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", repo, "--json"];
+
+            if let Some(state) = &state {
+                cmd_args.push("--state");
+                cmd_args.push(match state {
+                    State::Open => "open",
+                    State::Closed => "closed",
+                    State::All => "all",
+                });
+            }
+
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run(binary, &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
+
+            if !output.status.success() {
+                return Err(parse_gitcode_error(&output.stderr).into());
+            }
+
+            let apis: Vec<PrApiResponse> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+            Ok(apis.into_iter().map(PrData::from).collect())
+        })
+        .await
+    }
 }
 
 #[async_trait]
@@ -272,41 +319,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
         Ok(api.into())
     }
 
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let binary = crate::gitcode_binary();
-        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json"];
-
-        if let Some(state) = &args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `gitcode pr list`");
-
-        let output = self
-            .runner
-            .run(&binary, &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
-
-        let apis: Vec<PrApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(apis.into_iter().map(PrData::from).collect())
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
@@ -983,6 +997,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_for_gitcode_pr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListPrArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "101")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitcode_pr_list_with_state() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "pr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                "--state",
+                "open",
+                "--limit",
+                "101",
+            ]
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_return_platform_error_when_gc_fails_for_view() {
         let runner = MockCommandRunner::failure("pr not found", 256);
         let provider = GitCodePrProvider::with_runner("owner/repo", runner);
@@ -1234,10 +1289,11 @@ mod tests {
             .await
             .expect("list should succeed");
 
-        assert_eq!(prs.len(), 1);
+        assert_eq!(prs.items.len(), 1);
         let args = &runner.calls()[0];
         assert!(args.contains(&"--limit".to_string()));
-        assert!(args.contains(&"5".to_string()));
+        // N+1 探测：cap=5 时实际请求 6 条，以便区分"恰好 5 条"与"还有更多"。
+        assert!(args.contains(&"6".to_string()));
         assert!(args.contains(&"--state".to_string()));
         assert!(args.contains(&"open".to_string()));
     }
@@ -1384,6 +1440,7 @@ mod contract_tests {
             .list(ListPrArgs::default())
             .await
             .expect("contract fixture must parse");
+        let prs = prs.items;
 
         assert_eq!(prs.len(), 1);
         let pr = &prs[0];

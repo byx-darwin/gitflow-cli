@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State},
 };
@@ -94,6 +94,49 @@ impl<R: CommandRunner> GitHubPrProvider<R> {
             runner,
         }
     }
+
+    /// [`PrProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let state = args.state.map(|state| match state {
+            State::Open => "open",
+            State::Closed => "closed",
+            State::All => "all",
+        });
+        let repo = &self.repo;
+        let runner = &self.runner;
+
+        debug!(repo = %self.repo, cap, "spawning `gh pr list`");
+
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", repo, "--json", PR_FIELDS];
+
+            if let Some(state) = state {
+                cmd_args.push("--state");
+                cmd_args.push(state);
+            }
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run("gh", &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+            if !output.status.success() {
+                return Err(parse_gh_error(&output.stderr).into());
+            }
+
+            let prs: Vec<PrData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(prs)
+        })
+        .await
+    }
 }
 
 #[async_trait]
@@ -154,40 +197,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
         self.view(pr_number).await
     }
 
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json", PR_FIELDS];
-
-        if let Some(state) = &args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `gh pr list`");
-
-        let output = self
-            .runner
-            .run("gh", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
-
-        let prs: Vec<PrData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(prs)
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
@@ -1277,5 +1288,68 @@ mod tests {
         let result = provider.default_branch().await;
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_for_pr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+        let paged = provider
+            .list(ListPrArgs::default())
+            .await
+            .expect("list should succeed");
+        assert!(!paged.truncated);
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "1001"),
+            "实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_still_forward_state_filter_for_pr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--state" && w[1] == "open")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_pr_list_with_state() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0];
+        assert_eq!(recorded.0, "gh");
+        assert_eq!(
+            recorded.1,
+            vec![
+                "pr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                PR_FIELDS,
+                "--state",
+                "open",
+                "--limit",
+                "1001",
+            ]
+        );
     }
 }

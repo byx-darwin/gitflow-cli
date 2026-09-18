@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
@@ -283,6 +283,64 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
     }
 }
 
+impl<R: CommandRunner> GitCodeIssueProvider<R> {
+    /// [`IssueProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
+    /// `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = args.limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let state = args.state;
+        let search = &args.search;
+        let labels = &args.labels;
+
+        debug!(repo = %self.repo, cap, "spawning gitcode issue list");
+
+        // gitcode CLI 在开发环境不可获得，其 `--limit` 语义未经实测验证，
+        // 此处按与 gh 相同的「总条数上限」处理。若实际为页大小，N+1 探测会
+        // 过度上报 truncated 而非静默丢数据——失效方向是安全的。
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", repo, "--json"];
+
+            if let Some(state) = &state {
+                cmd_args.push("--state");
+                cmd_args.push(match state {
+                    State::Open => "open",
+                    State::Closed => "closed",
+                    State::All => "all",
+                });
+            }
+            if let Some(search) = search {
+                cmd_args.push("--search");
+                cmd_args.push(search);
+            }
+            for label in labels {
+                cmd_args.push("--label");
+                cmd_args.push(label);
+            }
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run(binary, &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("{e}")))?;
+            if !output.status.success() {
+                return Err(parse_gitcode_error(&output.stderr).into());
+            }
+            let issues: Vec<IssueApiResponse> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(issues.into_iter().map(IssueData::from).collect())
+        })
+        .await
+    }
+}
+
 #[async_trait]
 impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
@@ -385,44 +443,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         self.view(number).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let binary = crate::gitcode_binary();
-        let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", &self.repo, "--json"];
-
-        if let Some(ref state) = args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-        if let Some(ref search) = args.search {
-            cmd_args.push("--search");
-            cmd_args.push(search);
-        }
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-        for label in &args.labels {
-            cmd_args.push("--label");
-            cmd_args.push(label);
-        }
-
-        debug!(repo = %self.repo, "spawning gitcode issue list");
-        let output = self
-            .runner
-            .run(&binary, &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("{e}")))?;
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
-        let issues: Vec<IssueApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-        Ok(issues.into_iter().map(IssueData::from).collect())
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
@@ -545,34 +567,51 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         Ok(CommentData::from(api))
     }
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
     ///
     /// 调用 `gitcode api /repos/{owner}/{repo}/issues/{number}/comments` 获取评论列表，
-    /// 并返回评论数据数组。
+    /// 通过 `per_page`/`page` 查询参数逐页取到 `limit`。
+    ///
+    /// GitCode CLI 的 `api` 子命令是否支持这两个查询参数**未经实测**（本环境
+    /// 无法获取 GitCode CLI 二进制）。若平台忽略它们，首页会短于 `per_page`，
+    /// 翻页循环在第一次调用后即因短页而终止——退化为今天「只取首页」的行为，
+    /// 不会死循环也不会丢数据。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或 `gitcode` CLI 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let binary = crate::gitcode_binary();
-        debug!(repo = %self.repo, number, "spawning `gitcode api` GET issue comments");
+        let binary = &binary;
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        let api_path = format!("/repos/{}/issues/{}/comments", self.repo, number);
+        debug!(repo = %self.repo, number, cap, "spawning `gitcode api` GET issue comments");
 
-        let output = self
-            .runner
-            .run(&binary, &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode api: {e}")))?;
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!(
+                    "/repos/{repo}/issues/{number}/comments?per_page={per_page}&page={page}"
+                );
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+                let output = runner.run(binary, &["api", &api_path]).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode api: {e}"))
+                })?;
 
-        let comments: Vec<CommentApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
 
-        Ok(comments.into_iter().map(CommentData::from).collect())
+                let comments: Vec<CommentApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(comments.into_iter().map(CommentData::from).collect())
+            },
+        )
+        .await
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -1002,6 +1041,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_produce_complete_argv_for_list_comments_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, crate::gitcode_binary());
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "api",
+                "/repos/owner/repo/issues/359/comments?per_page=100&page=1"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_build_well_formed_query_string_for_list_comments() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        let calls = runner.recorded_calls();
+        let api_path = &calls[0].1[1];
+        assert_eq!(
+            api_path.matches('?').count(),
+            1,
+            "must have exactly one '?', got: {api_path}"
+        );
+        assert_eq!(
+            api_path.matches('&').count(),
+            1,
+            "must have exactly one '&', got: {api_path}"
+        );
+        assert!(api_path.contains("per_page=100"), "got: {api_path}");
+        assert!(api_path.contains("page=1"), "got: {api_path}");
+    }
+
+    #[tokio::test]
     async fn test_should_return_platform_error_when_gc_fails_for_add_labels() {
         let runner = MockCommandRunner::failure("not found", 256);
         let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
@@ -1252,6 +1339,74 @@ mod tests {
         assert_eq!(comment.author.login, "bob");
         assert_eq!(comment.author.id, "u2");
     }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_on_gitcode() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "101"),
+            "实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_keep_forwarding_label_filter_on_gitcode() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            labels: vec!["bug".to_string()],
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "bug")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_list_issues_with_state_and_label_using_full_argv() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                state: Some(State::Open),
+                labels: vec!["bug".to_string()],
+                ..ListIssueArgs::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                "--state",
+                "open",
+                "--label",
+                "bug",
+                "--limit",
+                "101"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1272,6 +1427,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("contract fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];

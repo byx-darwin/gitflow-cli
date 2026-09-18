@@ -6,6 +6,7 @@ pub mod completions;
 pub mod doctor;
 pub mod issue;
 pub mod label;
+pub mod list_args;
 pub mod output;
 pub mod pipeline;
 pub mod pr;

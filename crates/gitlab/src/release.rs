@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
     types::UserSummary,
 };
@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITLAB_MAX_PER_PAGE,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -233,33 +234,53 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitLabReleaseProvider<R> {
         self.view(&args.tag_name).await
     }
 
-    async fn list(&self) -> Result<Vec<ReleaseData>> {
-        debug!(repo = %self.repo, "spawning `glab release list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
+        // 页大小不必超过 cap+1：N+1 探测只需要多要一条即可判断截断，
+        // 请求整页 100 条再丢弃对 cap 很小的调用（如 `--limit 5`）是纯浪费。
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
 
-        let output = self
-            .runner
-            .run(
-                "glab",
-                &[
-                    "release",
-                    "list",
-                    "--repo",
-                    &self.repo_target,
-                    "--output",
-                    "json",
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+        debug!(repo = %self.repo, cap, "spawning `glab release list`");
 
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
 
-        let api_responses: Vec<ReleaseApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                let output = runner
+                    .run(
+                        "glab",
+                        &[
+                            "release",
+                            "list",
+                            "--repo",
+                            repo_target,
+                            "--output",
+                            "json",
+                            "--per-page",
+                            &per_page_str,
+                            "--page",
+                            &page_str,
+                        ],
+                    )
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
 
-        Ok(api_responses.into_iter().map(ReleaseData::from).collect())
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let api_responses: Vec<ReleaseApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(api_responses.into_iter().map(ReleaseData::from).collect())
+            },
+        )
+        .await
     }
 
     async fn view(&self, tag_name: &str) -> Result<ReleaseData> {
@@ -622,7 +643,7 @@ mod tests {
         let runner = MockCommandRunner::failure(r#"{"message": "Forbidden"}"#, 256);
         let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
 
-        let result = provider.list().await;
+        let result = provider.list(None).await;
 
         assert!(matches!(
             result.unwrap_err(),
@@ -635,7 +656,7 @@ mod tests {
         let runner = MockCommandRunner::success("invalid");
         let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
 
-        let result = provider.list().await;
+        let result = provider.list(None).await;
 
         assert!(matches!(
             result.unwrap_err(),
@@ -863,9 +884,65 @@ mod tests {
         let runner = MockCommandRunner::success(&json);
         let provider = GitLabReleaseProvider::with_runner("owner/repo", runner);
 
-        let releases = provider.list().await.expect("list should succeed");
-        assert_eq!(releases.len(), 1);
-        assert_eq!(releases[0].tag_name, "v1.0.0");
+        let paged = provider.list(None).await.expect("list should succeed");
+        assert_eq!(paged.items.len(), 1);
+        assert_eq!(paged.items[0].tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_request_max_per_page_for_default_release_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(None).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {recorded:?}"
+        );
+        assert!(
+            recorded.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_release_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(None).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0];
+        assert_eq!(recorded.0, "glab");
+        assert_eq!(
+            recorded.1,
+            vec![
+                "release",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_honour_user_release_limit_via_per_page() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabReleaseProvider::with_runner("owner/repo", runner.clone());
+        provider.list(Some(10)).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "11"),
+            "cap+1=11 应作为 per_page 传给 glab，实际 argv: {recorded:?}"
+        );
     }
 
     #[tokio::test]

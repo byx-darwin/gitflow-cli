@@ -34,6 +34,9 @@
 
 #![forbid(unsafe_code)]
 
+/// `gh api` 端点单页最大条目数（GitHub REST API 硬约束）。
+pub(crate) const GITHUB_API_MAX_PER_PAGE: u32 = 100;
+
 pub mod auth;
 pub mod commit;
 pub mod error;

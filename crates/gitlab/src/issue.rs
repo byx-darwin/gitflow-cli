@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITLAB_MAX_PER_PAGE,
     commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
@@ -282,6 +283,76 @@ impl From<CommentApiResponse> for CommentData {
     }
 }
 
+impl<R: CommandRunner> GitLabIssueProvider<R> {
+    /// [`IssueProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
+    /// `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
+        let state = args.state;
+        let search = &args.search;
+        let labels = &args.labels;
+        // 页大小不必超过 cap+1：N+1 探测只需要多要一条即可判断截断，
+        // 请求整页 100 条再丢弃对 cap 很小的调用（如 `--limit 5`）是纯浪费。
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
+
+        debug!(repo = %self.repo, cap, "spawning `glab issue list`");
+
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> =
+                    vec!["issue", "list", "--repo", repo_target, "--output", "json"];
+
+                // glab 用 --closed 表示已关闭、--all 表示全部；默认（不加旗标）为 open。
+                if let Some(state) = &state {
+                    match state {
+                        State::Closed => cmd_args.push("--closed"),
+                        State::All => cmd_args.push("--all"),
+                        State::Open => {}
+                    }
+                }
+
+                if let Some(search) = search {
+                    cmd_args.push("--search");
+                    cmd_args.push(search);
+                }
+
+                for label in labels {
+                    cmd_args.push("--label");
+                    cmd_args.push(label);
+                }
+
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
+
+                let output = runner
+                    .run("glab", &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let api_responses: Vec<IssueApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(api_responses.into_iter().map(IssueData::from).collect())
+            },
+        )
+        .await
+    }
+}
+
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
@@ -402,53 +473,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         self.view(number).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd_args: Vec<&str> = vec![
-            "issue",
-            "list",
-            "--repo",
-            &self.repo_target,
-            "--output",
-            "json",
-        ];
-
-        // glab uses --closed for closed issues, --all for all issues
-        // Default (no flag) shows open issues
-        if let Some(state) = &args.state {
-            match state {
-                State::Closed => cmd_args.push("--closed"),
-                State::All => cmd_args.push("--all"),
-                State::Open => {}
-            }
-        }
-
-        if let Some(ref search) = args.search {
-            cmd_args.push("--search");
-            cmd_args.push(search);
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--per-page");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `glab issue list`");
-
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let api_responses: Vec<IssueApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_responses.into_iter().map(IssueData::from).collect())
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
@@ -574,36 +600,49 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         Ok(api_response.into())
     }
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
     ///
     /// 调用 `glab api /projects/{repo-encoded}/issues/{iid}/notes` 获取评论列表，
     /// 其中 `{repo-encoded}` 为全量 URL 编码的项目路径
     /// （如 `group/subgroup/project` → `group%2Fsubgroup%2Fproject`），
-    /// 并返回评论数据数组。
+    /// 通过 `per_page`/`page` 查询参数逐页取到 `limit`。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或 `glab` CLI 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
-        debug!(repo = %self.repo, number, "spawning `glab api` GET issue notes");
-
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let encoded_path = encode_project_path(&self.repo);
-        let api_path = format!("/projects/{encoded_path}/issues/{number}/notes");
+        let encoded_path = &encoded_path;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
 
-        let output = self
-            .runner
-            .run("glab", &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
+        debug!(repo = %self.repo, number, cap, "spawning `glab api` GET issue notes");
 
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!(
+                    "/projects/{encoded_path}/issues/{number}/notes?per_page={per_page}&\
+                     page={page}"
+                );
 
-        let comments: Vec<CommentApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                let output = runner
+                    .run("glab", &["api", &api_path])
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
-        Ok(comments.into_iter().map(CommentData::from).collect())
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let comments: Vec<CommentApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(comments.into_iter().map(CommentData::from).collect())
+            },
+        )
+        .await
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -1051,7 +1090,11 @@ mod tests {
                 "owner/repo",
                 "--output",
                 "json",
-                "--all"
+                "--all",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
             ]
             .into_iter()
             .map(String::from)
@@ -1309,19 +1352,67 @@ mod tests {
         );
         let provider = GitLabIssueProvider::with_runner("group/subgroup/project", runner.clone());
 
-        let comments = provider.list_comments(42).await.expect("should list");
+        let paged = provider.list_comments(42, None).await.expect("should list");
 
-        assert_eq!(comments.len(), 1);
+        assert_eq!(paged.items.len(), 1);
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
                 "api",
-                "/projects/group%2Fsubgroup%2Fproject/issues/42/notes"
+                "/projects/group%2Fsubgroup%2Fproject/issues/42/notes?per_page=100&page=1"
             ]
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_list_comments_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "glab");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "api",
+                "/projects/owner%2Frepo/issues/359/notes?per_page=100&page=1"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_build_well_formed_query_string_for_list_comments() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        let calls = runner.recorded_calls();
+        let api_path = &calls[0].1[1];
+        assert_eq!(
+            api_path.matches('?').count(),
+            1,
+            "must have exactly one '?', got: {api_path}"
+        );
+        assert_eq!(
+            api_path.matches('&').count(),
+            1,
+            "must have exactly one '&', got: {api_path}"
+        );
+        assert!(api_path.contains("per_page=100"), "got: {api_path}");
+        assert!(api_path.contains("page=1"), "got: {api_path}");
     }
 
     #[tokio::test]
@@ -1598,6 +1689,51 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_should_walk_pages_with_per_page_100_on_glab() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "glab 的 --per-page 受 API 限制上限 100，必须按页大小而非总数传，实际 argv: \
+             {recorded:?}"
+        );
+        assert!(
+            recorded.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "必须显式指定页号，实际 argv: {recorded:?}"
+        );
+        assert_eq!(
+            runner.recorded_calls().len(),
+            1,
+            "首页为空（短于 per_page）即已取尽，不得请求第 2 页"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_forward_label_filter_to_glab() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            labels: vec!["bug".to_string()],
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "bug"),
+            "--label 过滤此前被静默丢弃，必须真正传给 glab，实际 argv: {recorded:?}"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1618,6 +1754,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("contract fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];
