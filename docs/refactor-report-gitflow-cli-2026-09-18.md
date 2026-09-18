@@ -2,7 +2,7 @@
 生成时间：2026-09-18 · 目标范围：paging.rs 及 gf-smell 同批候选 · 应用手法数：1 · 建议手法数：1
 
 ## 已应用（等价，自动应用）
-### RF-001 · Extract Function 提炼函数 · commit d4c14d48197dbb8b0af2c47b0d674de5ac015656
+### RF-001 · Extract Function 提炼函数 · commit bfa5ba6c8ad7370bc14e43d718737d6a430e41d5
 - 位置：crates/core/src/paging.rs（提炼前 `fetch_capped` 内 `FetchStrategy::Paged` 分支的分页循环）→ 新增私有函数
   `fetch_all_pages<T, F, Fut>(per_page: u32, want: usize, fetch: &F) -> Result<Vec<T>>`
 - 提炼范围：`per_page == 0` 校验、`let mut page = 1; loop { .. }` 分页循环（两个 `break` 与
