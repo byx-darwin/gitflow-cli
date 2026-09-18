@@ -17,6 +17,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITHUB_API_MAX_PER_PAGE,
     error::parse_gh_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -78,9 +79,6 @@ impl<R: CommandRunner> GitHubLabelProvider<R> {
 
 /// `gh label list/create` 请求的 JSON 字段列表。
 const LABEL_FIELDS: &str = "name,color,description";
-
-/// `gh api` 端点单页最大条目数（GitHub REST API 硬约束）。
-const GITHUB_API_MAX_PER_PAGE: u32 = 100;
 
 #[async_trait]
 impl<R: CommandRunner + 'static> LabelProvider for GitHubLabelProvider<R> {

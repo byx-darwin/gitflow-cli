@@ -600,36 +600,49 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
         Ok(api_response.into())
     }
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
     ///
     /// 调用 `glab api /projects/{repo-encoded}/issues/{iid}/notes` 获取评论列表，
     /// 其中 `{repo-encoded}` 为全量 URL 编码的项目路径
     /// （如 `group/subgroup/project` → `group%2Fsubgroup%2Fproject`），
-    /// 并返回评论数据数组。
+    /// 通过 `per_page`/`page` 查询参数逐页取到 `limit`。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或 `glab` CLI 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
-        debug!(repo = %self.repo, number, "spawning `glab api` GET issue notes");
-
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let encoded_path = encode_project_path(&self.repo);
-        let api_path = format!("/projects/{encoded_path}/issues/{number}/notes");
+        let encoded_path = &encoded_path;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
 
-        let output = self
-            .runner
-            .run("glab", &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
+        debug!(repo = %self.repo, number, cap, "spawning `glab api` GET issue notes");
 
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!(
+                    "/projects/{encoded_path}/issues/{number}/notes?per_page={per_page}&\
+                     page={page}"
+                );
 
-        let comments: Vec<CommentApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                let output = runner
+                    .run("glab", &["api", &api_path])
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab api: {e}")))?;
 
-        Ok(comments.into_iter().map(CommentData::from).collect())
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let comments: Vec<CommentApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(comments.into_iter().map(CommentData::from).collect())
+            },
+        )
+        .await
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -1339,19 +1352,67 @@ mod tests {
         );
         let provider = GitLabIssueProvider::with_runner("group/subgroup/project", runner.clone());
 
-        let comments = provider.list_comments(42).await.expect("should list");
+        let paged = provider.list_comments(42, None).await.expect("should list");
 
-        assert_eq!(comments.len(), 1);
+        assert_eq!(paged.items.len(), 1);
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
                 "api",
-                "/projects/group%2Fsubgroup%2Fproject/issues/42/notes"
+                "/projects/group%2Fsubgroup%2Fproject/issues/42/notes?per_page=100&page=1"
             ]
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_list_comments_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "glab");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "api",
+                "/projects/owner%2Frepo/issues/359/notes?per_page=100&page=1"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_build_well_formed_query_string_for_list_comments() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        let calls = runner.recorded_calls();
+        let api_path = &calls[0].1[1];
+        assert_eq!(
+            api_path.matches('?').count(),
+            1,
+            "must have exactly one '?', got: {api_path}"
+        );
+        assert_eq!(
+            api_path.matches('&').count(),
+            1,
+            "must have exactly one '&', got: {api_path}"
+        );
+        assert!(api_path.contains("per_page=100"), "got: {api_path}");
+        assert!(api_path.contains("page=1"), "got: {api_path}");
     }
 
     #[tokio::test]

@@ -567,34 +567,51 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         Ok(CommentData::from(api))
     }
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
     ///
     /// 调用 `gitcode api /repos/{owner}/{repo}/issues/{number}/comments` 获取评论列表，
-    /// 并返回评论数据数组。
+    /// 通过 `per_page`/`page` 查询参数逐页取到 `limit`。
+    ///
+    /// GitCode CLI 的 `api` 子命令是否支持这两个查询参数**未经实测**（本环境
+    /// 无法获取 GitCode CLI 二进制）。若平台忽略它们，首页会短于 `per_page`，
+    /// 翻页循环在第一次调用后即因短页而终止——退化为今天「只取首页」的行为，
+    /// 不会死循环也不会丢数据。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或 `gitcode` CLI 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let binary = crate::gitcode_binary();
-        debug!(repo = %self.repo, number, "spawning `gitcode api` GET issue comments");
+        let binary = &binary;
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        let api_path = format!("/repos/{}/issues/{}/comments", self.repo, number);
+        debug!(repo = %self.repo, number, cap, "spawning `gitcode api` GET issue comments");
 
-        let output = self
-            .runner
-            .run(&binary, &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode api: {e}")))?;
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!(
+                    "/repos/{repo}/issues/{number}/comments?per_page={per_page}&page={page}"
+                );
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+                let output = runner.run(binary, &["api", &api_path]).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode api: {e}"))
+                })?;
 
-        let comments: Vec<CommentApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
 
-        Ok(comments.into_iter().map(CommentData::from).collect())
+                let comments: Vec<CommentApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(comments.into_iter().map(CommentData::from).collect())
+            },
+        )
+        .await
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -1021,6 +1038,54 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_list_comments_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, crate::gitcode_binary());
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "api",
+                "/repos/owner/repo/issues/359/comments?per_page=100&page=1"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_build_well_formed_query_string_for_list_comments() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        let calls = runner.recorded_calls();
+        let api_path = &calls[0].1[1];
+        assert_eq!(
+            api_path.matches('?').count(),
+            1,
+            "must have exactly one '?', got: {api_path}"
+        );
+        assert_eq!(
+            api_path.matches('&').count(),
+            1,
+            "must have exactly one '&', got: {api_path}"
+        );
+        assert!(api_path.contains("per_page=100"), "got: {api_path}");
+        assert!(api_path.contains("page=1"), "got: {api_path}");
     }
 
     #[tokio::test]

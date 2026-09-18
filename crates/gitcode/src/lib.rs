@@ -55,6 +55,14 @@ use std::sync::OnceLock;
 
 use tracing::debug;
 
+/// `gitcode api` 端点单页最大条目数，与 GitHub/GitLab REST API 的惯例对齐。
+///
+/// GitCode CLI 的 `api` 子命令是否真的支持 `per_page`/`page` 查询参数**未经实测**
+/// （本环境无法获取 GitCode CLI）。若该平台忽略这两个参数，首页会短于
+/// `per_page`，翻页循环在第一次调用后就因短页而终止——退化为今天「只取首页」
+/// 的行为，既不会死循环，也不会丢数据。
+pub(crate) const GITCODE_API_MAX_PER_PAGE: u32 = 100;
+
 pub mod auth;
 pub mod commit;
 pub mod error;

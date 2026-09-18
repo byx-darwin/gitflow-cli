@@ -125,6 +125,10 @@ pub enum IssueCommand {
     Comments {
         /// Issue 编号。
         number: u64,
+
+        /// 返回数量上限。
+        #[arg(long)]
+        limit: Option<u32>,
     },
 
     /// 为 Issue 添加标签。
@@ -322,13 +326,14 @@ pub async fn handle(
             let output = CliOutput::success(comment, platform, "issue comment");
             print_output(&output, &output_format)?;
         }
-        IssueCommand::Comments { number } => {
-            let comments = provider
-                .list_comments(number)
+        IssueCommand::Comments { number, limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list_comments(number, limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list comments for issue #{number}: {e}"))?;
-            let output = CliOutput::success(comments, platform, "issue comments");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "issue comments", &output_format)?;
         }
         IssueCommand::AddLabel { number, label } => {
             provider
@@ -783,8 +788,24 @@ mod tests {
         let cli =
             crate::Cli::try_parse_from(["gitflow", "issue", "comments", "10"]).expect("parse");
         match cli.command {
-            crate::Commands::Issue(IssueCommand::Comments { number }) => {
+            crate::Commands::Issue(IssueCommand::Comments { number, limit }) => {
                 assert_eq!(number, 10);
+                assert_eq!(limit, None);
+            }
+            _ => panic!("Expected IssueCommand::Comments"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_comments_with_limit() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "comments", "10", "--limit", "5"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Comments { number, limit }) => {
+                assert_eq!(number, 10);
+                assert_eq!(limit, Some(5));
             }
             _ => panic!("Expected IssueCommand::Comments"),
         }

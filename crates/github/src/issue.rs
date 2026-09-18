@@ -13,6 +13,7 @@ use gitflow_core::{
 use tracing::debug;
 
 use crate::{
+    GITHUB_API_MAX_PER_PAGE,
     error::parse_gh_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -437,37 +438,47 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         Ok(comment.into())
     }
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
     ///
     /// 调用 `gh api repos/{repo}/issues/{number}/comments` 获取评论列表，
-    /// 直接从响应中解析评论数据数组。
+    /// 通过 `per_page`/`page` 查询参数逐页取到 `limit`（已实测 `gh api`
+    /// 直接接受这两个查询参数，无需 `--paginate`）。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或 `gh` CLI 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
-        debug!(repo = %self.repo, number, "spawning `gh api` GET issue comments");
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let api_path = format!(
-            "repos/{repo}/issues/{number}/comments",
-            repo = self.repo,
-            number = number
-        );
+        debug!(repo = %self.repo, number, cap, "spawning `gh api` GET issue comments");
 
-        let output = self
-            .runner
-            .run("gh", &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
+        fetch_capped(
+            FetchStrategy::Paged {
+                per_page: cap.saturating_add(1).min(GITHUB_API_MAX_PER_PAGE),
+            },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!(
+                    "repos/{repo}/issues/{number}/comments?per_page={per_page}&page={page}"
+                );
 
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
+                let output = runner
+                    .run("gh", &["api", &api_path])
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
-        let comments: Vec<GitHubCommentApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gh_error(&output.stderr).into());
+                }
 
-        Ok(comments.into_iter().map(CommentData::from).collect())
+                let comments: Vec<GitHubCommentApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(comments.into_iter().map(CommentData::from).collect())
+            },
+        )
+        .await
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -1353,6 +1364,96 @@ mod tests {
         assert!(
             matches!(err, CoreError::Cli(_)),
             "expected Cli error, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_list_comments_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "gh");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "api",
+                "repos/owner/repo/issues/359/comments?per_page=100&page=1"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_build_well_formed_query_string_for_list_comments() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        let calls = runner.recorded_calls();
+        let api_path = &calls[0].1[1];
+        assert_eq!(
+            api_path.matches('?').count(),
+            1,
+            "must have exactly one '?', got: {api_path}"
+        );
+        assert_eq!(
+            api_path.matches('&').count(),
+            1,
+            "must have exactly one '&', got: {api_path}"
+        );
+        assert!(api_path.contains("per_page=100"), "got: {api_path}");
+        assert!(api_path.contains("page=1"), "got: {api_path}");
+    }
+
+    /// 证明分页确实会递增页码：第一页给满 100 条（`per_page` 值），
+    /// 迫使循环请求第二页；第二页给 1 条（短页）以终止循环。
+    #[tokio::test]
+    async fn test_should_increment_page_across_calls_for_list_comments() {
+        let full_page: Vec<String> = (0..100)
+            .map(|i| {
+                format!(
+                    r#"{{"id":{i},"body":"c{i}","user":{{"login":"u","id":1}},"created_at":"2026-08-18T00:00:00Z"}}"#
+                )
+            })
+            .collect();
+        let full_page_json = format!("[{}]", full_page.join(","));
+
+        let short_page_json = r#"[{"id":9999,"body":"last","user":{"login":"u","id":1},"created_at":"2026-08-18T00:00:00Z"}]"#;
+
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &full_page_json),
+            (true, short_page_json),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, Some(150))
+            .await
+            .expect("should list across two pages");
+
+        assert_eq!(paged.items.len(), 101);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须恰好翻两页");
+        assert!(
+            calls[0].1[1].contains("page=1"),
+            "第一次调用必须请求 page=1，实际: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1].1[1].contains("page=2"),
+            "第二次调用必须请求 page=2，实际: {:?}",
+            calls[1].1
         );
     }
 
