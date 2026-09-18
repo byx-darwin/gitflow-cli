@@ -32,7 +32,7 @@ protocol in this file; language-specific detection in `references/<lang>.md`.
 
 | Scenario | Why Not | Use Instead |
 |----------|---------|-------------|
-| Fixing the smells found | This skill detects and reports only | `/gf-workflow` to implement refactors |
+| Fixing the smells found | This skill detects and reports only | `/gf-refactor` for behavior-preserving fixes, or `/gf-workflow` for the full pipeline |
 | Pre-delivery quality gate | This skill measures structure, not gate pass/fail | `/gf-quality` |
 | Secret / vulnerability scanning | Different problem class | `/gf-security-check` |
 | Reviewing a PR diff | This skill scans a tree, not a diff verdict | `/gf-pr-review` |
@@ -303,7 +303,7 @@ Nothing mechanically blocks it.
 - **Then** Stage 0-3 run → report written to `docs/` → summary excludes the fourth level
 
 ### 2: Negative
-- **Given** "refactor the long functions you found" — **Then** skill NOT used for the fix → `/gf-workflow`
+- **Given** "refactor the long functions you found" — **Then** skill NOT used for the fix → `/gf-refactor`
 
 ### 3: Boundary
 - **Given** several sites breaching one threshold for the same reason
@@ -334,6 +334,7 @@ Nothing mechanically blocks it.
 
 ## See Also
 
+- `/gf-refactor` — applies behavior-preserving fixes to the smells this skill finds
 - `/gf-quality` — pre-delivery quality gate
 - `/gf-security-check` — secrets, vulnerabilities, license compliance
 - `/gf-pr-review` — PR-level code review
