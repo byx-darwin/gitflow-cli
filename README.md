@@ -117,7 +117,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 |----|-------|--------|
 | 编排 | `gf-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查 |
 | 编排 | `gf-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit |
-| Issue | `gf-issue-create` / `gf-issue-review` / `gf-issue-triage` | 创建 / 需求审查 / 分类分流 |
+| Issue | `gf-issue-create` / `gf-issue-decompose` / `gf-issue-review` / `gf-issue-triage` | 创建 / 垂直切片拆解 / 需求审查 / 分类分流 |
 | PR | `gf-pr-create` / `gf-pr-review` / `gf-pr-inline-review` / `gf-pr-apply-feedback` | 创建 / 6 维审查 / 逐行评论 / 应用反馈 |
 | 交付 | `gf-release-helper` / `gf-label-stats` / `gf-pipeline-analyzer` | Release Note / 标签统计 / 流水线健康 |
 | 辅助 | `gf-security-check` / `gf-precommit` / `gf-regression` / `gf-repo-onboarding` | 安全审计 / 预提交 / 回归 / 入门 |

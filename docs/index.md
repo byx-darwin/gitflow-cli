@@ -13,6 +13,7 @@
 - [Gitflow Workflow Guide](./gf-workflow-guide.md) — complete four-phase gated workflow (clarify → plan → execute → deliver) with examples.
 - [gf-workflow-batch Skill](../skills/gf-workflow-batch/SKILL.md) — serial outer driver batch-processing multiple open Issues through gf-workflow (Issue #280).
 - [gf-walkthrough Skill](../skills/gf-walkthrough/SKILL.md) — produces an offline delivery walkthrough (narrative, diff summary, evidence graded `Measured`/`Inferred`/`Unverified`, review-gate blast radius) anchored on a `<base>...<head>` diff; issues no verdict (Issue #329). Example: [walkthrough-feat-329-gf-walkthrough-2026-09-16.md](./walkthrough-feat-329-gf-walkthrough-2026-09-16.md) — the skill's own dogfooding pass on the change that built it.
+- [gf-issue-decompose Skill](../skills/gf-issue-decompose/SKILL.md) — decomposes a requirement document into vertically sliced tickets with falsifiable, red-at-base acceptance criteria and explicit `Blocked by` edges, created in dependency order (Issue #330).
 - [TDD Guide](./tdd.md) — test-driven development workflow with `make test-watch`.
 - [Pre-commit Usage](./pre-commit-usage.md) — how to install and run repository pre-commit hooks.
 - [Release](./release.md) — release checklist, changelog, and distribution packaging.

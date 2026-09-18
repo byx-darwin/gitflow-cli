@@ -186,5 +186,6 @@ rm -f /tmp/issue-analysis.md
 
 - `/gf-issue-create` — create new Issues
 - `/gf-issue-triage` — classify and tag Issues
+- `/gf-issue-decompose` — batch decomposition into dependency-ordered Issues
 - `/gf-issue` — CRUD reference
 - `docs/superpowers/templates/skill-conventions.md` — skill conventions

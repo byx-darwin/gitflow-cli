@@ -19,7 +19,7 @@ Rationale: Claude loads `SKILL.md` in full into context. At 26 skills, a single 
 
 ```bash
 # Count words excluding fenced code blocks and frontmatter:
-perl -0 -ne 's/^---\n.*?^---\n//ms; s/```.*?```//gs; s/`[^`]+`//g; print scalar(/\p{L}+/g), "\n"' SKILL.md
+perl -0 -ne 's/^---\n.*?^---\n//ms; s/```.*?```//gs; s/`[^`]+`//g; print scalar(()=/\p{L}+/g), "\n"' SKILL.md
 ```
 
 Gray-area elements excluded from the count:
