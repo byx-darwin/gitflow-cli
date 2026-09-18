@@ -56,22 +56,41 @@ impl From<ReleaseUserApi> for UserSummary {
 ///
 /// 线上字段名为 snake_case，与 [`ReleaseData`] 的 camelCase
 /// （`tagName` / `createdAt` / `publishedAt`）不同，故必须经由本类型转换。
-/// 每个字段都标注 `#[serde(default)]`：Gitee 血统的 release 对象未必带
-/// `draft` / `prerelease` 概念，形状不匹配时应可预期地退化而非半途失败。
+///
+/// # 容错边界（务必精确，不要泛化这句话）
+///
+/// `#[serde(default)]` 只在字段**缺失**时生效；字段存在但类型不对（例如数字
+/// 位置来了字符串）或值为 `null`，serde 依然会报错并使整条记录、进而整个
+/// `releases` 数组反序列化失败（这正是本类型早期文档的错误断言，已在 F1
+/// 修复中更正）。本类型目前实际容忍的三类情况：
+///
+/// 1. **字段缺失**：`#[serde(default)]` 覆盖，退化为对应默认值。
+/// 2. **`id` 为字符串或数字**：`id` 用 [`deserialize_u64_or_string_to_string`] 转成 `String` 再在
+///    `From` 里 `.parse().unwrap_or(0)`，与 [`ReleaseUserApi::id`] 同构——gitcode 的 release id 和
+///    author id 一样，观测到过两种线上形态。
+/// 3. **`tag_name` / `draft` / `prerelease` 为 `null`**：三者是 `Option<T>`，`null` 会被 serde
+///    正常反序列化为 `None`，再在 `From` 里 `unwrap_or_default()` 退化，而不会报错。Gitee 血统的
+///    API 常用 `null` 表示「这个概念在当前对象里不存在」。
+///
+/// **仍然不容忍、会使整个 `list` 失败的情况**：`created_at` /
+/// `published_at` 是 `Option<DateTime<Utc>>`，`null` 或字段缺失没问题，
+/// 但字段**存在且不是合法 RFC3339**（例如 `"2026-01-01 00:00:00"`）时，
+/// chrono 的解析仍会报错并让整条记录失败——这不属于本次修复范围，未来若
+/// 要容忍需单独实现并补测试，不要想当然地认为已经覆盖。
 #[derive(Debug, Clone, Deserialize)]
 struct ReleaseApiResponse {
+    #[serde(default, deserialize_with = "deserialize_u64_or_string_to_string")]
+    id: String,
     #[serde(default)]
-    id: u64,
-    #[serde(default)]
-    tag_name: String,
+    tag_name: Option<String>,
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
     body: Option<String>,
     #[serde(default)]
-    draft: bool,
+    draft: Option<bool>,
     #[serde(default)]
-    prerelease: bool,
+    prerelease: Option<bool>,
     #[serde(default)]
     author: Option<ReleaseUserApi>,
     #[serde(default)]
@@ -90,12 +109,12 @@ struct ReleaseApiResponse {
 impl From<ReleaseApiResponse> for ReleaseData {
     fn from(api: ReleaseApiResponse) -> Self {
         Self {
-            id: api.id,
-            tag_name: api.tag_name,
+            id: api.id.parse().unwrap_or(0),
+            tag_name: api.tag_name.unwrap_or_default(),
             name: api.name,
             body: api.body,
-            draft: api.draft,
-            prerelease: api.prerelease,
+            draft: api.draft.unwrap_or_default(),
+            prerelease: api.prerelease.unwrap_or_default(),
             author: api.author.map(UserSummary::from),
             created_at: api.created_at.unwrap_or_else(Utc::now),
             published_at: api.published_at,
@@ -910,6 +929,67 @@ mod tests {
         let paged = provider.list(None).await.expect("list should succeed");
 
         assert_eq!(paged.items[0].author.as_ref().expect("author").id, "42");
+    }
+
+    #[tokio::test]
+    async fn test_should_accept_string_release_id_from_api() {
+        // gitcode 的 release id 与 author id 同源，同样可能是字符串。F1: id
+        // 之前是裸 u64，字符串形态会让整个 list 反序列化失败。
+        let json = r#"[{
+            "id": "12",
+            "tag_name": "v1.0.0"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(paged.items[0].id, 12);
+    }
+
+    #[tokio::test]
+    async fn test_should_degrade_release_flags_when_null_in_api_response() {
+        // Gitee 血统的 API 常用 null 表示「此概念在这里不存在」，而非省略字段。
+        // F1: tag_name/draft/prerelease 之前是裸类型，null 会让整个 list 失败。
+        let json = r#"[{
+            "id": 1,
+            "tag_name": null,
+            "draft": null,
+            "prerelease": null
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        let release = &paged.items[0];
+        assert_eq!(release.tag_name, "");
+        assert!(!release.draft);
+        assert!(!release.prerelease);
+    }
+
+    #[tokio::test]
+    async fn test_should_fail_list_when_created_at_is_not_rfc3339() {
+        // 钉住容错边界：null/缺失可以退化，但格式错误的字符串（非 RFC3339）
+        // 仍然必须整体失败——这不是本次修复要处理的场景，文档不得声称已覆盖。
+        let json = r#"[{
+            "id": 1,
+            "tag_name": "v1.0.0",
+            "created_at": "2026-01-01 00:00:00"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let err = provider
+            .list(None)
+            .await
+            .expect_err("malformed created_at must still fail the whole list");
+        // chrono 对非 RFC3339 时间戳给出的错误信息，经 serde_json 透传上来；
+        // 钉住这条信息防止「null/缺失容错」被误扩展成「任意格式都容错」。
+        assert!(
+            err.to_string().contains("premature end of input"),
+            "实际错误: {err}"
+        );
     }
 
     #[tokio::test]

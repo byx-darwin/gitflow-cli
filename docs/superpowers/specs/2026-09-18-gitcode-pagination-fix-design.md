@@ -202,9 +202,24 @@ gitcode 的 `SequencedMockCommandRunner`（`crates/gitcode/src/runner.rs:210`）
 ## 7. 已知遗留
 
 1. `release list` 的 api 非空响应字段形状未经真实服务端确认 —— 见 §3.2，
-   由 fixture 单测覆盖，本机无带 release 的 gitcode 仓库可验。`ReleaseApiResponse`
-   每个字段都标注了 `#[serde(default)]`，因此即便字段形状与假设有出入，也只是
-   该字段退化为默认值，不会导致整个响应反序列化失败
+   由 fixture 单测覆盖，本机无带 release 的 gitcode 仓库可验。**订正（F1，
+   2026-09-18 交付后代码审查发现）**：早先这里断言「每个字段都标注了
+   `#[serde(default)]`，因此形状不匹配时只会退化，不会导致整个响应反序列化
+   失败」——这个说法是错的。`#[serde(default)]` 只在字段**缺失**时生效；
+   字段存在但类型不对（例如 `id` 来了字符串，而当时声明的是裸 `u64`）或值
+   为 `null`，serde 依然会报错并让整条记录、进而整个 `releases` 数组反序列化
+   失败，`gf release list` 直接报错退出。而这并非纸上谈兵：gitcode 已知会把
+   数字 id 编码成 JSON 字符串（`IssueApiResponse.number`、`ReleaseUserApi.id`
+   都为此专门做了容错），`ReleaseApiResponse.id` 当时却被漏掉了。修复后
+   （`crates/gitcode/src/release.rs`）实际容忍的三类情况：字段缺失（原有
+   `#[serde(default)]` 不变）；`id` 为字符串或数字（复用
+   `gitflow_core::types::deserialize_u64_or_string_to_string`，与
+   `ReleaseUserApi::id` 同构）；`tag_name`/`draft`/`prerelease` 为 `null`
+   （改为 `Option<T>` + `unwrap_or_default()`）。**仍然不容忍**：
+   `created_at`/`published_at` 字段存在但不是合法 RFC3339 字符串（例如
+   `"2026-01-01 00:00:00"`）时，chrono 解析仍会报错并让整个 `list` 失败——
+   `null` 或字段缺失没问题，但格式错误的时间戳不在本次修复范围内，见
+   `test_should_fail_list_when_created_at_is_not_rfc3339`
 2. `ReleaseApiResponse` → `ReleaseData` 的 `created_at` 在 api 未返回该字段时
    回退 `Utc::now()`（仅用于展示，做法照搬自 gitlab 侧同构实现）。诚实的修法是把
    core 层 `ReleaseData::created_at` 改成 `Option<DateTime<Utc>>`，并在 github /
