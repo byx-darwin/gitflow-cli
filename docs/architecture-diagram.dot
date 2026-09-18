@@ -1,13 +1,13 @@
 digraph gitflow_architecture {
     rankdir=TB;
     fontname="Helvetica";
-    node [fontname="Helvetica", fontsize=10];
+    node [fontname="Helvetica", fontsize=10, shape=box, margin="0.36,0.10"];
     edge [fontname="Helvetica", fontsize=8];
-    label="gitflow-cli (gf) Architecture Overview";
+    label="gitflow-cli (gf) Architecture Overview — dependency-derived (cargo metadata)";
     labelloc=t;
     fontsize=14;
     nodesep=0.5;
-    ranksep=0.8;
+    ranksep=0.9;
     pad=0.4;
 
     // ── CLI Layer ──
@@ -15,18 +15,37 @@ digraph gitflow_architecture {
         label="apps/cli (gf binary)";
         style=filled;
         color="#dae8fc";
-        main_rs [label="main.rs\nentrypoint\nSIGPIPE disabled"];
-        router [label="router()\ncommand dispatch"];
-        prereqs [label="prerequisites\ncheck"];
-        platform_detect [label="resolve_platform\nURL detection", style=filled, fillcolor="#fff2cc"];
-        commands [label="commands::*\n14 subcommands"];
-        output_fmt [label="OutputFormat\njson|text|toon|auto"];
+        "gitflow-cli" [fillcolor="#dae8fc", style=filled];
+    }
 
-        main_rs -> router;
-        main_rs -> platform_detect;
-        main_rs -> prereqs;
-        router -> commands;
-        commands -> output_fmt;
+    // ── Core Layer ──
+    subgraph cluster_core {
+        label="crates/core (gitflow-core)";
+        style=filled;
+        color="#e1d5e7";
+        "gitflow-core" [fillcolor="#e1d5e7", style=filled];
+    }
+
+    // ── Adapter Layer ──
+    subgraph cluster_adapters {
+        label="Platform Adapters";
+        style=filled;
+        color="#f5f5f5";
+        "gitflow-github" [fillcolor="#f5f5f5", style=filled];
+        "gitflow-gitlab" [fillcolor="#f5f5f5", style=filled];
+        "gitflow-gitcode" [fillcolor="#f5f5f5", style=filled];
+        "gitflow-cli-adapter-utils" [fillcolor="#f5f5f5", style=filled];
+    }
+
+    // ── E2E Test Harness ──
+    subgraph cluster_e2e {
+        label="E2E Test Harness (e2e-*)";
+        style=filled;
+        color="#fff2cc";
+        "e2e-core" [fillcolor="#fff2cc", style=filled];
+        "e2e-github" [fillcolor="#fff2cc", style=filled];
+        "e2e-gitlab" [fillcolor="#fff2cc", style=filled];
+        "e2e-gitcode" [fillcolor="#fff2cc", style=filled];
     }
 
     // ── Ecosystem ──
@@ -37,58 +56,21 @@ digraph gitflow_architecture {
         skills [label="26+ AI Skills\n(gf-*)", shape=component];
         hooks [label="Hooks\npre-commit", shape=component];
         self_update [label="self_update\nEd25519 verify", shape=component];
+        "release-signer" [shape=box, fillcolor="#fff2cc", style=filled];
     }
 
-    // ─ Core Layer ──
-    subgraph cluster_core {
-        label="crates/core (gitflow-core)";
-        style=filled;
-        color="#e1d5e7";
-        traits [label="Provider Traits\nIssueProvider\nPrProvider\nReleaseProvider\nReviewProvider\nAuthProvider\nLabelProvider\nCommitProvider\nPipelineProvider"];
-        domain [label="Domain Types\nIssueData, PrData\nReleaseData, ReviewData\nCommentData, MergeResult"];
-        errors [label="CoreError\nPlatformCliError\nSafePath"];
-        toon [label="TOON output\n(LLM format)"];
-
-        traits -> domain;
-        traits -> errors;
-    }
-
-    // ─ Adapter Layer ──
-    subgraph cluster_adapters {
-        label="Platform Adapters";
-        style=filled;
-        color="#f5f5f5";
-        github_adapter [label="gitflow-github\nGitHubPrProvider\nGitHubIssueProvider\n..."];
-        gitlab_adapter [label="gitflow-gitlab\nGitLabMrProvider\nGitLabIssueProvider\n..."];
-        gitcode_adapter [label="gitflow-gitcode\nGitCodePrProvider\nGitCodeIssueProvider\n..."];
-        runner_trait [label="CommandRunner trait\nRealCommandRunner\nMockCommandRunner"];
-    }
-
-    // ── External Dependencies ──
-    subgraph cluster_external {
-        label="External Dependencies";
-        style=dashed;
-        color=gray;
-        gh [label="gh CLI\n(GitHub)", shape=box3d, style=filled, fillcolor="#d5e8d4"];
-        glab [label="glab CLI\n(GitLab)", shape=box3d, style=filled, fillcolor="#d5e8d4"];
-        gitcode_cli [label="gitcode CLI\n(GitCode)", shape=box3d, style=filled, fillcolor="#d5e8d4"];
-        git_bin [label="git binary", shape=box3d, style=filled, fillcolor="#d5e8d4"];
-    }
-
-    // ── Main Dependency Edges ──
-    commands -> traits [label="Box<dyn Trait>"];
-    commands -> toon;
-    github_adapter -> traits [label="impl"];
-    gitlab_adapter -> traits [label="impl"];
-    gitcode_adapter -> traits [label="impl"];
-    github_adapter -> runner_trait;
-    gitlab_adapter -> runner_trait;
-    gitcode_adapter -> runner_trait;
-    github_adapter -> gh;
-    gitlab_adapter -> glab;
-    gitcode_adapter -> gitcode_cli;
-    platform_detect -> git_bin [label="sync call", style=bold, color="#cc0000"];
-    skills -> commands [label="invoke via\nshell", style=dashed];
-    hooks -> commands [style=dashed];
-    main_rs -> self_update;
+    // ── Real dependency edges (cargo metadata --no-deps) ──
+    "gitflow-cli" -> "gitflow-core";
+    "gitflow-cli" -> "gitflow-gitcode";
+    "gitflow-cli" -> "gitflow-github";
+    "gitflow-cli" -> "gitflow-gitlab";
+    "gitflow-gitcode" -> "gitflow-cli-adapter-utils";
+    "gitflow-gitcode" -> "gitflow-core";
+    "gitflow-github" -> "gitflow-cli-adapter-utils";
+    "gitflow-github" -> "gitflow-core";
+    "gitflow-gitlab" -> "gitflow-cli-adapter-utils";
+    "gitflow-gitlab" -> "gitflow-core";
+    "e2e-gitcode" -> "e2e-core";
+    "e2e-github" -> "e2e-core";
+    "e2e-gitlab" -> "e2e-core";
 }
