@@ -139,6 +139,17 @@ gitcode 侧沿用其既有的 `--limit` / `api` 形态，可正常参与 N+1 探
 允许的范围内（否则本就会报错），本分支不改变这一事实。`label list` / `milestone
 list`（见 §4.3）继续不传 `--limit`，不受影响；github、gitlab 不受影响。
 
+**残留风险（已知、已评估、有意不消除）**：N+1 探测必然发送 `cap + 1`，因此默认调用
+实际传出的是 `--limit 101` —— 仍然比本设计假定的 gitcode 单页上限 100 **多 1**。
+若 `gc issue/pr/release list` 的 `--limit` 与其 `api` 的 `per_page` 共用同一个 100
+上限，这三个命令在默认调用下**依然会报错**，而本分支之前它们在用户未指定 limit 时
+根本不发 `--limit` 旗标。
+
+风险因此是从「1001，几乎必然越界」降到「101，越界 1」，**未归零**。把默认值取 99
+（探测恰好发出 100）可以在同一假设下彻底消除它，但那个上限本身也只是推断，99 不过是
+另一个猜测。经评估决定：保留 100，把风险如实记录于此，待 gitcode CLI 可获得时优先
+实测其 `--limit` 真实上限，再一次性校准默认值。
+
 ## 5. 输出契约
 
 ### 5.0 两个类型，两个边界
@@ -163,8 +174,8 @@ pub struct Paged<T> {
 
 ```rust
 let paged = provider.list(args).await?;
-let meta = PaginationMeta::from(&paged);
-let output = CliOutput::success_paged(paged.items, meta, platform, "issue list");
+let (items, meta) = paged.into_parts();
+let output = CliOutput::success_paged(items, meta, platform, "issue list");
 ```
 
 `paged.items`（纯数组）落到 `data`，元数据落到信封的 `pagination`。
