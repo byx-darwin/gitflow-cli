@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, FetchStrategy, Paged, Result, Session, fetch_capped,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -224,43 +224,54 @@ impl<R: CommandRunner> GitCodePrProvider<R> {
     async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
         let binary = crate::gitcode_binary();
         let binary = &binary;
-        let cap = args.limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let repo = &self.repo;
         let runner = &self.runner;
         let state = args.state;
+        // 见 issue.rs 同处注释：`--per-page` 优先于 `--limit` 且被 API 封顶 100。
+        // 不用 gitcode 的 `--paginate`：那会让 CLI 自行取完全部页，本适配器
+        // 需要的是受控翻页以便 N+1 探测。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        debug!(repo = %self.repo, cap, "spawning `gitcode pr list`");
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode pr list`");
 
-        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
-            let limit_str = limit.to_string();
-            let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", repo, "--json"];
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", repo, "--json"];
 
-            if let Some(state) = &state {
-                cmd_args.push("--state");
-                cmd_args.push(match state {
-                    State::Open => "open",
-                    State::Closed => "closed",
-                    State::All => "all",
-                });
-            }
+                if let Some(state) = &state {
+                    cmd_args.push("--state");
+                    cmd_args.push(match state {
+                        State::Open => "open",
+                        State::Closed => "closed",
+                        State::All => "all",
+                    });
+                }
 
-            cmd_args.push("--limit");
-            cmd_args.push(&limit_str);
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
 
-            let output = runner
-                .run(binary, &cmd_args)
-                .await
-                .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
+                let output = runner
+                    .run(binary, &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
 
-            if !output.status.success() {
-                return Err(parse_gitcode_error(&output.stderr).into());
-            }
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
 
-            let apis: Vec<PrApiResponse> =
-                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                let apis: Vec<PrApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-            Ok(apis.into_iter().map(PrData::from).collect())
-        })
+                Ok(apis.into_iter().map(PrData::from).collect())
+            },
+        )
         .await
     }
 }
@@ -716,7 +727,7 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     /// gitcode CLI v0.6.1 `pr list/view --json` 的真实输出结构（2026-07-31 实测捕获，已精简）。
     fn real_gitcode_pr_json() -> &'static str {
@@ -997,18 +1008,55 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_should_request_default_cap_plus_one_for_gitcode_pr_list() {
-        let runner = MockCommandRunner::success("[]");
+    async fn test_should_page_through_gitcode_pr_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=100，want=101。首页满 100 条 ⇒ 必然发出第二页。
+        // cap 必须 ≥ 100：更小的 cap 会让 per_page 恰为 cap+1，首页一次满足
+        // want，循环只发一次调用，页号递增无从观测。
+        let one = real_gitcode_pr_json();
+        let page = format!("[{}]", vec![one; 100].join(","));
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page), (true, &page)]);
         let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
-        provider
-            .list(ListPrArgs::default())
+
+        let paged = provider
+            .list(ListPrArgs {
+                state: Some(State::Open),
+                limit: Some(100),
+            })
             .await
             .expect("list should succeed");
-        let recorded = &runner.recorded_calls()[0].1;
+
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        let first = &calls[0].1;
         assert!(
-            recorded
+            first
                 .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "101")
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {first:?}"
+        );
+        assert!(
+            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {first:?}"
+        );
+        assert!(
+            !first.iter().any(|a| a == "--limit"),
+            "实际 argv: {first:?}"
+        );
+        assert!(
+            calls[1]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
         );
     }
 
@@ -1031,8 +1079,10 @@ mod tests {
                 "--json",
                 "--state",
                 "open",
-                "--limit",
-                "101",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
             ]
         );
     }
@@ -1277,7 +1327,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_should_pass_limit_flag_to_pr_list() {
+    async fn test_should_pass_user_limit_to_pr_list_via_per_page() {
         let runner = RecordingMockRunner::success(&format!("[{}]", real_gitcode_pr_json()));
         let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
 
@@ -1291,9 +1341,9 @@ mod tests {
 
         assert_eq!(prs.items.len(), 1);
         let args = &runner.calls()[0];
-        assert!(args.contains(&"--limit".to_string()));
-        // N+1 探测：cap=5 时实际请求 6 条，以便区分"恰好 5 条"与"还有更多"。
-        assert!(args.contains(&"6".to_string()));
+        // N+1 探测：cap=5 时页大小为 6，以便区分"恰好 5 条"与"还有更多"。
+        assert!(args.windows(2).any(|w| w[0] == "--per-page" && w[1] == "6"));
+        assert!(args.windows(2).any(|w| w[0] == "--page" && w[1] == "1"));
         assert!(args.contains(&"--state".to_string()));
         assert!(args.contains(&"open".to_string()));
     }
