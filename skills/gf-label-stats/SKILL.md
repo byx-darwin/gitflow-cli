@@ -50,8 +50,8 @@ See [full label taxonomy](../../docs/references/gf-label-stats-taxonomy.md) for 
 
 ```bash
 gf label list
-gf issue list --label "<l>" --state open --limit 1000
-gf issue list --state open --limit 1000
+gf issue list --label "<l>" --state open
+gf issue list --state open
 ```
 
 ## Quick Reference
@@ -59,8 +59,8 @@ gf issue list --state open --limit 1000
 | Goal | Command |
 |------|------|
 | All labels | `gf label list` |
-| Filter by label | `gf issue list --label "<l>" --state open [--limit 1000]` |
-| All open Issues | `gf issue list --state open --limit 1000` |
+| Filter by label | `gf issue list --label "<l>" --state open` |
+| All open Issues | `gf issue list --state open` |
 
 ## Implementation
 
@@ -69,12 +69,16 @@ gf issue list --state open --limit 1000
 - `gf` authenticated
 - Read-only; no Issue/label mutation
 
-### Step 1–6 Summary
+### Step 1–7 Summary
 
 1. Load labels via `label list`; capture name/color/description.
-2. Per label: `issue list --label "<l>" --state open --limit 1000`; record open + closed; share = total/Σ.
-3. Priority health: `issue list --label "priority:<p>" --state open` — thresholds: <10% urgent 🟢 · 10–20% 🟡 · >20% 🔴.
-4. Unclassified: load all open; compare labels vs taxonomy.
+2. Per label: `issue list --label "<l>" --state open`; record open + closed; share = total/Σ.
+3. Verify coverage — read `pagination.truncated` from the response. If `truncated` is
+   `true`, the fetch hit the limit and more Issues exist. Re-run with a higher `--limit`, or
+   state the partial coverage explicitly in the report. Never present a truncated fetch as a
+   complete count.
+4. Priority health: `issue list --label "priority:<p>" --state open` — thresholds: <10% urgent 🟢 · 10–20% 🟡 · >20% 🔴.
+5. Unclassified: load all open; compare labels vs taxonomy.
 
 | Category | Action |
 |----------|--------|
@@ -82,8 +86,8 @@ gf issue list --state open --limit 1000
 | Missing type | add type |
 | Missing priority | add priority |
 
-5. Report: priority-ranked, with suggested actions.
-6. Propose (never mutate):
+6. Report: priority-ranked, with suggested actions.
+7. Propose (never mutate):
 
 | Finding | Recommendation |
 |---------|----------------|
@@ -97,7 +101,7 @@ gf issue list --state open --limit 1000
 |-------|----------|
 | Auth failure | Stop. `auth login`. |
 | Label API failure | Skip label; continue. |
-| >1000 Issues | Paginate with `--limit` + `--page`. |
+| >1000 Issues | `gf issue list` 默认取至 1000 条上限。触顶时输出 `pagination.truncated: true`，此时必须用 `--limit <N>` 提高上限重取，并在报告中声明本次覆盖范围。 |
 
 ## Responsibility
 

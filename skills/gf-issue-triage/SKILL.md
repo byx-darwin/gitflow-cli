@@ -43,6 +43,10 @@ Batch classification of all open Issues — assigns one `type:*` label and one `
 | Creating a new Issue | This skill classifies existing Issues only | `/gf-issue-create` for Issue creation |
 | Editing Issue body text | This skill only adds labels, never modifies Issue content | `/gf-issue` for edit operations |
 
+> **Historical note:** before the pagination fix (Issue #360), `gf issue list --state open`
+> silently returned only the first 30 Issues. Triage reports generated before that fix may
+> have classified an incomplete set. Re-run triage rather than trusting an older report.
+
 ## Core Pattern
 
 ```bash
@@ -70,6 +74,12 @@ gf issue add-label <n> --label "type:<t>" --label "priority:<p>" --label "triage
 - Single type label per Issue; single priority label per Issue
 
 ### Step 1: Fetch all open Issues — `issue list --state open [--since <date>]`. Skip those already with `triage:done` (idempotent).
+
+### Step 1b: Verify coverage — read `pagination.truncated` from the response.
+
+If `truncated` is `true`, the fetch hit the limit and more Issues exist. Re-run with a
+higher `--limit`, or state the partial coverage explicitly in the report. Never present
+a truncated fetch as a complete classification.
 
 ### Step 2: Classify each Issue by title + description body
 
