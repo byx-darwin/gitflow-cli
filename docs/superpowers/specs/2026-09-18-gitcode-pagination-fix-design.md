@@ -203,23 +203,34 @@ gitcode 的 `SequencedMockCommandRunner`（`crates/gitcode/src/runner.rs:210`）
 
 1. `release list` 的 api 非空响应字段形状未经真实服务端确认 —— 见 §3.2，
    由 fixture 单测覆盖，本机无带 release 的 gitcode 仓库可验。**订正（F1，
-   2026-09-18 交付后代码审查发现）**：早先这里断言「每个字段都标注了
-   `#[serde(default)]`，因此形状不匹配时只会退化，不会导致整个响应反序列化
-   失败」——这个说法是错的。`#[serde(default)]` 只在字段**缺失**时生效；
-   字段存在但类型不对（例如 `id` 来了字符串，而当时声明的是裸 `u64`）或值
-   为 `null`，serde 依然会报错并让整条记录、进而整个 `releases` 数组反序列化
-   失败，`gf release list` 直接报错退出。而这并非纸上谈兵：gitcode 已知会把
-   数字 id 编码成 JSON 字符串（`IssueApiResponse.number`、`ReleaseUserApi.id`
-   都为此专门做了容错），`ReleaseApiResponse.id` 当时却被漏掉了。修复后
-   （`crates/gitcode/src/release.rs`）实际容忍的三类情况：字段缺失（原有
-   `#[serde(default)]` 不变）；`id` 为字符串或数字（复用
-   `gitflow_core::types::deserialize_u64_or_string_to_string`，与
-   `ReleaseUserApi::id` 同构）；`tag_name`/`draft`/`prerelease` 为 `null`
-   （改为 `Option<T>` + `unwrap_or_default()`）。**仍然不容忍**：
-   `created_at`/`published_at` 字段存在但不是合法 RFC3339 字符串（例如
-   `"2026-01-01 00:00:00"`）时，chrono 解析仍会报错并让整个 `list` 失败——
-   `null` 或字段缺失没问题，但格式错误的时间戳不在本次修复范围内，见
-   `test_should_fail_list_when_created_at_is_not_rfc3339`
+   2026-09-18 交付后代码审查发现，2026-09-18 第二轮复核再订正）**：早先这里
+   断言「每个字段都标注了 `#[serde(default)]`，因此形状不匹配时只会退化，
+   不会导致整个响应反序列化失败」——这个说法是错的。`#[serde(default)]`
+   只在字段**缺失**时生效；字段存在但类型不对，serde 依然会报错并让整条
+   记录、进而整个 `releases` 数组反序列化失败，`gf release list` 直接报错
+   退出。而这并非纸上谈兵：gitcode 已知会把数字 id 编码成 JSON 字符串
+   （`IssueApiResponse.number`、`ReleaseUserApi.id` 都为此专门做了容错），
+   `ReleaseApiResponse.id` 当时却被漏掉了；`ReleaseUserApi.login` 在「账号
+   已注销」等场景下也可能是 `null`。第一轮修复后本节仍然过度收窄——把
+   `null` 容忍写成了只覆盖 `tag_name`/`draft`/`prerelease` 三个字段的封闭
+   列表，而实际上 `ReleaseApiResponse` 的每个字段类型都是 `Option<T>`，本就
+   全部容忍 `null`；这轮复核额外为 `id`（用本地
+   `deserialize_u64_or_string_or_null_to_string`，因为
+   `gitflow_core::types::deserialize_u64_or_string_to_string` 没有
+   `visit_unit`，遇 `null` 仍会报错）和 `author.login` 补上了 `null` 容忍。
+   现状（`crates/gitcode/src/release.rs`）：
+
+   - **容忍**：`ReleaseApiResponse` 全部字段（`id`/`tag_name`/`name`/`body`/
+     `draft`/`prerelease`/`author`/`created_at`/`published_at`/`html_url`/
+     `url`）以及 `ReleaseUserApi.login` 的缺失与 `null`；`id`（顶层）和
+     `ReleaseUserApi.id` 额外容忍数字/字符串两种线上编码。
+   - **仍不容忍**：字段存在但类型错误（如 `"tag_name": 5`、
+     `"author": "dev"`）；`ReleaseUserApi.id` 为 `null`（核心库的
+     `deserialize_u64_or_string_to_string` 未改动，没有 `visit_unit`，本轮
+     修复范围只扩展到 `release.id` 与 `author.login`）；`created_at` /
+     `published_at` 存在但不是合法 RFC3339（例如
+     `"2026-01-01 00:00:00"`），钉在
+     `test_should_fail_list_when_created_at_is_not_rfc3339`
 2. `ReleaseApiResponse` → `ReleaseData` 的 `created_at` 在 api 未返回该字段时
    回退 `Utc::now()`（仅用于展示，做法照搬自 gitlab 侧同构实现）。诚实的修法是把
    core 层 `ReleaseData::created_at` 改成 `Option<DateTime<Utc>>`，并在 github /
