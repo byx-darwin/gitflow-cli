@@ -6,7 +6,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     label::{
         CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
         MilestoneProvider,
@@ -79,6 +79,9 @@ impl<R: CommandRunner> GitHubLabelProvider<R> {
 /// `gh label list/create` 请求的 JSON 字段列表。
 const LABEL_FIELDS: &str = "name,color,description";
 
+/// `gh api` 端点单页最大条目数（GitHub REST API 硬约束）。
+const GITHUB_API_MAX_PER_PAGE: u32 = 100;
+
 #[async_trait]
 impl<R: CommandRunner + 'static> LabelProvider for GitHubLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
@@ -121,35 +124,41 @@ impl<R: CommandRunner + 'static> LabelProvider for GitHubLabelProvider<R> {
         })
     }
 
-    async fn list(&self) -> Result<Vec<LabelData>> {
-        debug!(repo = %self.repo, "spawning `gh label list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<LabelData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = self
-            .runner
-            .run(
-                "gh",
-                &[
-                    "label",
-                    "list",
-                    "--repo",
-                    &self.repo,
-                    "--json",
-                    LABEL_FIELDS,
-                    "--limit",
-                    "100",
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label list: {e}")))?;
+        debug!(repo = %self.repo, cap, "spawning `gh label list`");
 
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, want| async move {
+            let want_str = want.to_string();
+            let output = runner
+                .run(
+                    "gh",
+                    &[
+                        "label",
+                        "list",
+                        "--repo",
+                        repo,
+                        "--json",
+                        LABEL_FIELDS,
+                        "--limit",
+                        &want_str,
+                    ],
+                )
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gh label list: {e}")))?;
 
-        let labels: Vec<LabelData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            if !output.status.success() {
+                return Err(parse_gh_error(&output.stderr).into());
+            }
 
-        Ok(labels)
+            let labels: Vec<LabelData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(labels)
+        })
+        .await
     }
 
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
@@ -266,18 +275,23 @@ fn encode_path_segment(value: &str) -> String {
 /// let provider = GitHubMilestoneProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitHubMilestoneProvider {
+pub struct GitHubMilestoneProvider<R: CommandRunner = RealCommandRunner> {
     /// GitHub `owner/repo`。
     repo: String,
+    /// 用于执行 `gh` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitHubMilestoneProvider {
+impl GitHubMilestoneProvider<RealCommandRunner> {
     /// 创建新的 GitHub Milestone 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
     }
 
     /// Create a new provider from a shared [`Session`].
@@ -287,6 +301,21 @@ impl GitHubMilestoneProvider {
     pub fn with_session(session: &gitflow_core::Session) -> Self {
         Self {
             repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitHubMilestoneProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gh` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
         }
     }
 }
@@ -329,7 +358,7 @@ impl From<MilestoneApiResponse> for MilestoneData {
 }
 
 #[async_trait]
-impl MilestoneProvider for GitHubMilestoneProvider {
+impl<R: CommandRunner + 'static> MilestoneProvider for GitHubMilestoneProvider<R> {
     async fn create(&self, args: CreateMilestoneArgs) -> Result<MilestoneData> {
         debug!(repo = %self.repo, title = %args.title, "spawning `gh api milestones POST`");
 
@@ -363,25 +392,37 @@ impl MilestoneProvider for GitHubMilestoneProvider {
         Ok(api_response.into())
     }
 
-    async fn list(&self) -> Result<Vec<MilestoneData>> {
-        debug!(repo = %self.repo, "spawning `gh api milestones list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<MilestoneData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let api_path = format!("repos/{repo}/milestones", repo = self.repo);
+        debug!(repo = %self.repo, cap, "spawning `gh api` GET milestones");
 
-        let output = tokio::process::Command::new("gh")
-            .args(["api", &api_path])
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api milestones: {e}")))?;
+        fetch_capped(
+            FetchStrategy::Paged {
+                per_page: cap.saturating_add(1).min(GITHUB_API_MAX_PER_PAGE),
+            },
+            cap,
+            |page, per_page| async move {
+                // gh api 直接接受 per_page / page 查询参数（已实测），
+                // 因此无需 --paginate，且截断可被探测。
+                let api_path = format!("repos/{repo}/milestones?per_page={per_page}&page={page}");
 
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
+                let output = runner.run("gh", &["api", &api_path]).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gh api milestones: {e}"))
+                })?;
 
-        let milestones: Vec<MilestoneApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gh_error(&output.stderr).into());
+                }
 
-        Ok(milestones.into_iter().map(MilestoneData::from).collect())
+                let milestones: Vec<MilestoneApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(milestones.into_iter().map(MilestoneData::from).collect())
+            },
+        )
+        .await
     }
 
     async fn edit(&self, number: u64, args: CreateMilestoneArgs) -> Result<MilestoneData> {
@@ -595,9 +636,9 @@ mod tests {
         let runner = MockCommandRunner::success("[]");
         let provider = GitHubLabelProvider::with_runner("owner/repo", runner.clone());
 
-        let labels = provider.list().await.expect("should list");
+        let paged = provider.list(None).await.expect("should list");
 
-        assert!(labels.is_empty());
+        assert!(paged.items.is_empty());
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
@@ -608,7 +649,7 @@ mod tests {
                 "--json",
                 "name,color,description",
                 "--limit",
-                "100"
+                "1001"
             ]
         );
     }
@@ -651,6 +692,36 @@ mod tests {
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec!["label", "delete", "bug", "--yes", "--repo", "owner/repo"]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_route_milestone_list_through_runner() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, "gh");
+        assert_eq!(calls[0].1[0], "api");
+        assert!(calls[0].1[1].contains("per_page=100"));
+        assert!(calls[0].1[1].contains("page=1"));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_milestone_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["api", "repos/owner/repo/milestones?per_page=100&page=1"]
         );
     }
 

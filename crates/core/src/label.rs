@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Result, types::State};
+use crate::{Result, paging::Paged, types::State};
 
 /// A standalone label resource definition.
 ///
@@ -96,10 +96,12 @@ pub trait LabelProvider: std::fmt::Debug + Send + Sync {
 
     /// List all labels in the repository.
     ///
+    /// `limit` 为 `None` 时取至 [`crate::paging::DEFAULT_LIST_LIMIT`]。
+    ///
     /// # Errors
     ///
     /// Returns an error if the platform API call fails.
-    async fn list(&self) -> Result<Vec<LabelData>>;
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<LabelData>>;
 
     /// Edit an existing label by name.
     ///
@@ -136,10 +138,12 @@ pub trait MilestoneProvider: std::fmt::Debug + Send + Sync {
 
     /// List all milestones in the repository.
     ///
+    /// `limit` 为 `None` 时取至 [`crate::paging::DEFAULT_LIST_LIMIT`]。
+    ///
     /// # Errors
     ///
     /// Returns an error if the platform API call fails.
-    async fn list(&self) -> Result<Vec<MilestoneData>>;
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<MilestoneData>>;
 
     /// Edit an existing milestone by number.
     ///

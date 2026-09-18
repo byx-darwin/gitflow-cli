@@ -13,7 +13,10 @@ use gitflow_gitcode::{GitCodeLabelProvider, GitCodeMilestoneProvider};
 use gitflow_github::{GitHubLabelProvider, GitHubMilestoneProvider};
 use gitflow_gitlab::{GitLabLabelProvider, GitLabMilestoneProvider};
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// 标签（Label）管理子命令集合。
 ///
@@ -35,7 +38,11 @@ pub enum LabelCommand {
     },
 
     /// 列出仓库中的所有标签。
-    List,
+    List {
+        /// 返回数量上限（可选）。
+        #[arg(long)]
+        limit: Option<u32>,
+    },
 
     /// 编辑一个已有的标签。
     Edit {
@@ -83,7 +90,11 @@ pub enum MilestoneCommand {
     },
 
     /// 列出仓库中的所有里程碑。
-    List,
+    List {
+        /// 返回数量上限（可选）。
+        #[arg(long)]
+        limit: Option<u32>,
+    },
 
     /// 编辑一个已有的里程碑。
     Edit {
@@ -174,13 +185,14 @@ pub async fn handle_label(
             let output = CliOutput::success(label, platform, "label create");
             print_output(&output, &output_format)?;
         }
-        LabelCommand::List => {
-            let labels = provider
-                .list()
+        LabelCommand::List { limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list(limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list labels: {e}"))?;
-            let output = CliOutput::success(labels, platform, "label list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "label list", &output_format)?;
         }
         LabelCommand::Edit {
             name,
@@ -193,9 +205,10 @@ pub async fn handle_label(
                 (None, Some(d)) => {
                     // 仅更新描述，需要先获取当前标签的 color
                     let current = provider
-                        .list()
+                        .list(None)
                         .await
-                        .map_err(|e| miette::miette!("Failed to list labels for edit: {e}"))?;
+                        .map_err(|e| miette::miette!("Failed to list labels for edit: {e}"))?
+                        .items;
                     let existing = current
                         .iter()
                         .find(|l| l.name == name)
@@ -313,13 +326,14 @@ pub async fn handle_milestone(
             let output = CliOutput::success(milestone, platform, "milestone create");
             print_output(&output, &output_format)?;
         }
-        MilestoneCommand::List => {
-            let milestones = provider
-                .list()
+        MilestoneCommand::List { limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list(limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list milestones: {e}"))?;
-            let output = CliOutput::success(milestones, platform, "milestone list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "milestone list", &output_format)?;
         }
         MilestoneCommand::Edit {
             number,
@@ -335,9 +349,10 @@ pub async fn handle_milestone(
 
             // 获取当前里程碑信息作为默认值
             let current_milestones = provider
-                .list()
+                .list(None)
                 .await
-                .map_err(|e| miette::miette!("Failed to list milestones for edit: {e}"))?;
+                .map_err(|e| miette::miette!("Failed to list milestones for edit: {e}"))?
+                .items;
             let existing = current_milestones
                 .iter()
                 .find(|m| m.number == number)
@@ -442,9 +457,24 @@ mod tests {
     #[test]
     fn test_should_parse_label_list() {
         use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "label", "list", "--limit", "10"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Label(LabelCommand::List { limit }) => {
+                assert_eq!(limit, Some(10));
+            }
+            _ => panic!("Expected LabelCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_label_list_without_limit() {
+        use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "label", "list"]).expect("parse");
         match cli.command {
-            crate::Commands::Label(LabelCommand::List) => {}
+            crate::Commands::Label(LabelCommand::List { limit }) => {
+                assert!(limit.is_none());
+            }
             _ => panic!("Expected LabelCommand::List"),
         }
     }
@@ -515,9 +545,24 @@ mod tests {
     #[test]
     fn test_should_parse_milestone_list() {
         use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "milestone", "list", "--limit", "10"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Milestone(MilestoneCommand::List { limit }) => {
+                assert_eq!(limit, Some(10));
+            }
+            _ => panic!("Expected MilestoneCommand::List"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_milestone_list_without_limit() {
+        use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "milestone", "list"]).expect("parse");
         match cli.command {
-            crate::Commands::Milestone(MilestoneCommand::List) => {}
+            crate::Commands::Milestone(MilestoneCommand::List { limit }) => {
+                assert!(limit.is_none());
+            }
             _ => panic!("Expected MilestoneCommand::List"),
         }
     }

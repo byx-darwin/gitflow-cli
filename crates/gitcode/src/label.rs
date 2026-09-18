@@ -6,7 +6,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     label::{
         CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
         MilestoneProvider,
@@ -16,7 +16,10 @@ use gitflow_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gitcode_error;
+use crate::{
+    error::parse_gitcode_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitCode Label 提供者，通过 `gitcode` CLI 管理仓库标签。
 ///
@@ -28,18 +31,23 @@ use crate::error::parse_gitcode_error;
 /// let provider = GitCodeLabelProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeLabelProvider {
+pub struct GitCodeLabelProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodeLabelProvider {
+impl GitCodeLabelProvider<RealCommandRunner> {
     /// 创建新的 GitCode Label 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
     }
 
     /// Create a new provider from a shared [`Session`].
@@ -49,6 +57,21 @@ impl GitCodeLabelProvider {
     pub fn with_session(session: &Session) -> Self {
         Self {
             repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodeLabelProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
         }
     }
 }
@@ -57,7 +80,7 @@ impl GitCodeLabelProvider {
 const LABEL_FIELDS: &str = "name,color,description";
 
 #[async_trait]
-impl LabelProvider for GitCodeLabelProvider {
+impl<R: CommandRunner + 'static> LabelProvider for GitCodeLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(
             repo = %self.repo,
@@ -93,27 +116,41 @@ impl LabelProvider for GitCodeLabelProvider {
         Ok(label)
     }
 
-    async fn list(&self) -> Result<Vec<LabelData>> {
-        debug!(repo = %self.repo, "spawning `gc label list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<LabelData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["label", "list"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(LABEL_FIELDS)
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label list: {e}")))?;
+        debug!(repo = %self.repo, cap, "spawning `gc label list`");
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+        // gitcode CLI 在开发环境不可获得，其 label 列表是否有服务端默认上限
+        // 无从实测，故不传 `--limit` 旗标（与 issue/pr/release list 不同，
+        // 那些已实测支持该旗标）。后果：若确有默认上限，本实现无法探测也
+        // 无法向调用方报告其截断——`FetchStrategy::SingleShot` 请求
+        // `cap + 1` 条时若服务端本身先行截断，我们会误以为未截断。
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, _limit| async move {
+            let output = runner
+                .run(
+                    binary,
+                    &["label", "list", "-R", repo, "--json", LABEL_FIELDS],
+                )
+                .await
+                .map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode label list: {e}"))
+                })?;
 
-        let labels: Vec<LabelData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            if !output.status.success() {
+                return Err(parse_gitcode_error(&output.stderr).into());
+            }
 
-        Ok(labels)
+            let labels: Vec<LabelData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+            Ok(labels)
+        })
+        .await
     }
 
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
@@ -172,7 +209,7 @@ impl LabelProvider for GitCodeLabelProvider {
     }
 }
 
-impl GitCodeLabelProvider {
+impl<R: CommandRunner> GitCodeLabelProvider<R> {
     /// 获取指定名称的标签数据（内部辅助方法）。
     async fn fetch_label(&self, name: &str) -> Result<LabelData> {
         let output = tokio::process::Command::new(crate::gitcode_binary())
@@ -207,18 +244,23 @@ impl GitCodeLabelProvider {
 /// let provider = GitCodeMilestoneProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeMilestoneProvider {
+pub struct GitCodeMilestoneProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodeMilestoneProvider {
+impl GitCodeMilestoneProvider<RealCommandRunner> {
     /// 创建新的 GitCode Milestone 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
     }
 
     /// Create a new provider from a shared [`Session`].
@@ -228,6 +270,21 @@ impl GitCodeMilestoneProvider {
     pub fn with_session(session: &Session) -> Self {
         Self {
             repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodeMilestoneProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
         }
     }
 }
@@ -270,7 +327,7 @@ impl From<MilestoneApiResponse> for MilestoneData {
 }
 
 #[async_trait]
-impl MilestoneProvider for GitCodeMilestoneProvider {
+impl<R: CommandRunner + 'static> MilestoneProvider for GitCodeMilestoneProvider<R> {
     async fn create(&self, args: CreateMilestoneArgs) -> Result<MilestoneData> {
         debug!(repo = %self.repo, title = %args.title, "spawning `gc milestone create`");
 
@@ -304,28 +361,38 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
         Ok(api_response.into())
     }
 
-    async fn list(&self) -> Result<Vec<MilestoneData>> {
-        debug!(repo = %self.repo, "spawning `gc milestone list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<MilestoneData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["milestone", "list"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .output()
-            .await
-            .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
-            })?;
+        debug!(repo = %self.repo, cap, "spawning `gc milestone list`");
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+        // gitcode CLI 在开发环境不可获得，其 milestone 列表是否有服务端默认
+        // 上限无从实测，故不传 `--limit` 旗标（与 issue/pr/release list 不同，
+        // 那些已实测支持该旗标）。后果：若确有默认上限，本实现无法探测也
+        // 无法向调用方报告其截断——`FetchStrategy::SingleShot` 请求
+        // `cap + 1` 条时若服务端本身先行截断，我们会误以为未截断。
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, _limit| async move {
+            let output = runner
+                .run(binary, &["milestone", "list", "-R", repo, "--json"])
+                .await
+                .map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
+                })?;
 
-        let milestones: Vec<MilestoneApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            if !output.status.success() {
+                return Err(parse_gitcode_error(&output.stderr).into());
+            }
 
-        Ok(milestones.into_iter().map(MilestoneData::from).collect())
+            let milestones: Vec<MilestoneApiResponse> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+            Ok(milestones.into_iter().map(MilestoneData::from).collect())
+        })
+        .await
     }
 
     async fn edit(&self, number: u64, args: CreateMilestoneArgs) -> Result<MilestoneData> {
@@ -582,5 +649,80 @@ mod tests {
         let data: MilestoneData = api.clone().into();
         assert_eq!(data.number, api.number);
         assert_eq!(data.title, api.title);
+    }
+
+    // --- Runner-routing regression tests ---
+    //
+    // `list` 曾直接 `tokio::process::Command::new(...)`，绕过可注入的
+    // `CommandRunner`，导致其 argv 无法被测试观测。以下测试确认两者
+    // 均已改为通过 `self.runner` 派发。
+
+    use crate::runner::MockCommandRunner;
+
+    #[tokio::test]
+    async fn test_should_route_label_list_through_runner() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 1);
+        assert!(!calls[0].1.iter().any(|a| a == "--limit"));
+    }
+
+    #[tokio::test]
+    async fn test_should_route_milestone_list_through_runner() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 1);
+        assert!(!calls[0].1.iter().any(|a| a == "--limit"));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitcode_label_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "label",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                "name,color,description"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitcode_milestone_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec!["milestone", "list", "-R", "owner/repo", "--json"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        );
     }
 }

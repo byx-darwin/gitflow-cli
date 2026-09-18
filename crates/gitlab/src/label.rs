@@ -6,7 +6,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     label::{
         CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
         MilestoneProvider,
@@ -17,6 +17,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITLAB_MAX_PER_PAGE,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -110,33 +111,50 @@ impl<R: CommandRunner> GitLabLabelProvider<R> {
             runner,
         }
     }
+}
 
-    /// 通过 `glab label list --output json` 获取原始 label API 响应。
-    ///
-    /// # Errors
-    ///
-    /// 当 `glab` CLI 调用失败或响应解析失败时返回错误。
-    async fn list_api(&self) -> Result<Vec<LabelApiResponse>> {
-        let output = self
-            .runner
-            .run(
-                "glab",
-                &[
-                    "label",
-                    "list",
-                    "--repo",
-                    &self.repo_target,
-                    "--output",
-                    "json",
-                ],
-            )
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label list: {e}")))?;
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-        serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)
+/// 拉取一页 `glab label list --output json` 的原始 API 响应。
+///
+/// 提取为自由函数（而非 `&self` 方法），以便在 [`fetch_capped`] 的闭包中
+/// 通过借用的 `runner`/`repo_target` 调用，避免闭包捕获 `self` 触发
+/// `async_trait` 装箱后的 `Send` 推导问题。
+///
+/// # Errors
+///
+/// 当 `glab` CLI 调用失败或响应解析失败时返回错误。
+async fn fetch_label_page<R: CommandRunner>(
+    runner: &R,
+    repo_target: &str,
+    page: u32,
+    per_page: u32,
+) -> Result<Vec<LabelApiResponse>> {
+    let page_str = page.to_string();
+    let per_page_str = per_page.to_string();
+
+    let output = runner
+        .run(
+            "glab",
+            &[
+                "label",
+                "list",
+                "--repo",
+                repo_target,
+                "--output",
+                "json",
+                "--per-page",
+                &per_page_str,
+                "--page",
+                &page_str,
+            ],
+        )
+        .await
+        .map_err(|e| CoreError::Platform(format!("Failed to spawn glab label list: {e}")))?;
+
+    if !output.status.success() {
+        return Err(parse_glab_error(&output.stderr).into());
     }
+
+    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)
 }
 
 /// `glab label --output json` 返回的 JSON 结构。
@@ -197,7 +215,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let labels = self.list().await?;
+        let labels = self.list(None).await?.items;
         labels
             .into_iter()
             .find(|l| l.name == args.name)
@@ -206,14 +224,53 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             })
     }
 
-    async fn list(&self) -> Result<Vec<LabelData>> {
-        let api_responses = self.list_api().await?;
-        Ok(api_responses.into_iter().map(LabelData::from).collect())
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<LabelData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
+
+        debug!(repo = %self.repo, cap, "spawning `glab label list`");
+
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_responses = fetch_label_page(runner, repo_target, page, per_page).await?;
+                Ok(api_responses.into_iter().map(LabelData::from).collect())
+            },
+        )
+        .await
     }
 
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
-        let api_labels = self.list_api().await?;
-        let label_id = api_labels
+        // 名称 → id 解析必须看到完整标签集合，否则截断会导致把"存在但不在
+        // 前 N 条内"的标签误判为不存在。因此这里固定请求
+        // `DEFAULT_LIST_LIMIT` 的完整上限，而不是转发调用方的分页 `limit`，
+        // 并在被截断时报错而非静默使用不完整集合。
+        let cap = DEFAULT_LIST_LIMIT;
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
+
+        let paged =
+            fetch_capped(
+                FetchStrategy::Paged { per_page },
+                cap,
+                |page, per_page| async move {
+                    fetch_label_page(runner, repo_target, page, per_page).await
+                },
+            )
+            .await?;
+
+        if paged.truncated {
+            return Err(CoreError::Platform(
+                "label lookup truncated; too many labels to resolve by name".into(),
+            ));
+        }
+
+        let label_id = paged
+            .items
             .iter()
             .find(|l| l.name == name)
             .map(|l| l.id)
@@ -252,7 +309,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let labels = self.list().await?;
+        let labels = self.list(None).await?.items;
         labels
             .into_iter()
             .find(|l| l.name == args.name)
@@ -432,6 +489,48 @@ impl From<MilestoneApiResponse> for MilestoneData {
     }
 }
 
+/// 拉取一页 `glab milestone list --output json` 的原始 API 响应。
+///
+/// 与 [`fetch_label_page`] 同理提取为自由函数，避免闭包捕获 `self`。
+///
+/// # Errors
+///
+/// 当 `glab` CLI 调用失败或响应解析失败时返回错误。
+async fn fetch_milestone_page<R: CommandRunner>(
+    runner: &R,
+    project_target: &str,
+    page: u32,
+    per_page: u32,
+) -> Result<Vec<MilestoneApiResponse>> {
+    let page_str = page.to_string();
+    let per_page_str = per_page.to_string();
+
+    let output = runner
+        .run(
+            "glab",
+            &[
+                "milestone",
+                "list",
+                "--project",
+                project_target,
+                "--output",
+                "json",
+                "--per-page",
+                &per_page_str,
+                "--page",
+                &page_str,
+            ],
+        )
+        .await
+        .map_err(|e| CoreError::Platform(format!("Failed to spawn glab milestone list: {e}")))?;
+
+    if !output.status.success() {
+        return Err(parse_glab_error(&output.stderr).into());
+    }
+
+    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)
+}
+
 #[async_trait]
 impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R> {
     async fn create(&self, args: CreateMilestoneArgs) -> Result<MilestoneData> {
@@ -469,42 +568,31 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list().await?;
+        let milestones = self.list(None).await?.items;
         milestones
             .into_iter()
             .find(|m| m.title == args.title)
             .ok_or_else(|| CoreError::Platform("Milestone not found after create".into()))
     }
 
-    async fn list(&self) -> Result<Vec<MilestoneData>> {
-        debug!(repo = %self.repo, "spawning `glab milestone list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<MilestoneData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let project_target = &self.project_target;
+        let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
 
-        let output = self
-            .runner
-            .run(
-                "glab",
-                &[
-                    "milestone",
-                    "list",
-                    "--project",
-                    &self.project_target,
-                    "--output",
-                    "json",
-                ],
-            )
-            .await
-            .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn glab milestone list: {e}"))
-            })?;
+        debug!(repo = %self.repo, cap, "spawning `glab milestone list`");
 
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let api_responses: Vec<MilestoneApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_responses.into_iter().map(MilestoneData::from).collect())
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_responses =
+                    fetch_milestone_page(runner, project_target, page, per_page).await?;
+                Ok(api_responses.into_iter().map(MilestoneData::from).collect())
+            },
+        )
+        .await
     }
 
     async fn edit(&self, number: u64, args: CreateMilestoneArgs) -> Result<MilestoneData> {
@@ -544,7 +632,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list().await?;
+        let milestones = self.list(None).await?.items;
         milestones
             .into_iter()
             .find(|m| m.title == args.title || m.number == number)
@@ -582,7 +670,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list().await?;
+        let milestones = self.list(None).await?.items;
         milestones
             .into_iter()
             .find(|m| m.number == number)
@@ -620,7 +708,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list().await?;
+        let milestones = self.list(None).await?.items;
         milestones
             .into_iter()
             .find(|m| m.number == number)
@@ -1041,5 +1129,108 @@ mod tests {
         assert_eq!(milestones.len(), 2);
         assert_eq!(milestones[0].title, "v1.0");
         assert_eq!(milestones[1].title, "v0.9");
+    }
+
+    // --- Pagination tests ---
+
+    #[tokio::test]
+    async fn test_should_page_glab_label_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        let argv = &runner.recorded_calls()[0].1;
+        assert!(argv.iter().any(|a| a == "--per-page"));
+        assert!(argv.iter().any(|a| a == "100"));
+        assert!(argv.iter().any(|a| a == "--page"));
+        assert!(argv.iter().any(|a| a == "1"));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitlab_label_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "label",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitlab_milestone_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "milestone",
+                "list",
+                "--project",
+                "owner/repo",
+                "--output",
+                "json",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    /// 验证名称→id 解析在被截断时报错而非静默使用不完整集合。
+    ///
+    /// 注：任务简报原文声称此截断防护应加在 `delete` 上（"delete 需要
+    /// 全量查找以按名解析 id"），但实际代码中 `delete` 直接
+    /// `glab label delete <name>`，从不做 id 解析、也从不调用
+    /// `list_api`／分页查询；真正做名称→id 解析的是 `edit`
+    /// （见本文件 `edit` 方法）。因此本测试针对 `edit`，而非简报所述的
+    /// `delete`。
+    #[tokio::test]
+    async fn test_should_error_when_label_edit_lookup_is_truncated() {
+        let labels: Vec<String> = (0..1001)
+            .map(|i| format!(r##"{{"id":{i},"name":"label-{i}","color":"#ffffff"}}"##))
+            .collect();
+        let json = format!("[{}]", labels.join(","));
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner);
+
+        let args = CreateLabelArgs {
+            name: "renamed".to_string(),
+            color: "#ffffff".to_string(),
+            description: None,
+        };
+
+        let err = provider
+            .edit("label-999", args)
+            .await
+            .expect_err("edit should fail when lookup is truncated");
+        assert!(err.to_string().contains("truncated"));
     }
 }
