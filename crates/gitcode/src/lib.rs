@@ -55,24 +55,35 @@ use std::sync::OnceLock;
 
 use tracing::debug;
 
-/// `gitcode api` 端点单页最大条目数，与 GitHub/GitLab REST API 的惯例对齐。
+/// gitcode 分页端点的单页最大条目数。
 ///
-/// GitCode CLI 的 `api` 子命令是否真的支持 `per_page`/`page` 查询参数**未经实测**
-/// （本环境无法获取 GitCode CLI）。若该平台忽略这两个参数，首页会短于
-/// `per_page`，翻页循环在第一次调用后就因短页而终止——退化为今天「只取首页」
-/// 的行为，既不会死循环，也不会丢数据。
+/// **实测样本**（gitcode-cli 0.12.0，`openharmony/docs` 的 **issues** 端点）：
+/// `per_page` 超限不报错，而是被服务端**静默封顶**在 100 —— `per_page=101` 与
+/// `per_page=1001` 均实回 100 条；`--page` 是真实翻页，`--per-page 3 --page 1/2`
+/// 返回的编号不重叠。
+///
+/// 该上限是平台 API 层面的约定而非单个端点的特性，因此 `issue` / `pr` / `label` /
+/// `milestone` / `release` 的分页路径共用它钳住页大小：
+/// `cap.saturating_add(1).min(GITCODE_API_MAX_PER_PAGE)`。
+///
+/// 若某端点不遵守约定的分页语义，后果取决于具体是哪种偏离：
+/// - `per_page` 与 `page` **都被忽略**：首页短于请求的 `per_page` ⇒ 翻页循环因短页
+///   提前终止——不会死循环也不会丢数据。
+/// - `per_page` 被遵守但 `page` **被忽略**：每次都原样返回第一页的满页，循环判定 「拿到的条目数 <
+///   目标数」为真而不断继续，直到凑够 `cap + 1` 条为止——不会死循环；
+///   已取到的条目不会被丢弃，但第一页之后的真实条目永远取不到，返回的是同一批条目的
+///   多次重复，且会被报告为 `truncated: true`，结果具有误导性。
+/// - `page` 被遵守，但 `per_page` 被**静默调低**（例如请求 100、端点实际按 50 返回）：
+///   首页会短于请求的 `per_page`，`fetch_capped`（`crates/core/src/paging.rs`）把 「本页条目数 <
+///   per_page」直接当作「已取尽」而提前终止循环，于是只取到 实际存在数据的一小部分却报告
+///   `truncated: false`——这是**静默丢数据**，且与第一种
+///   情形（两者都被忽略）产生完全相同的「首页短于 per_page」现象，无法仅凭这一观测区分。
+///   换言之，短页本身**不能**证明数据已取尽。
+///
+/// **`/releases` 端点本身未被单独采样过非空响应**：上述几种偏离分页约定的情形均未被
+/// 实测排除，因此不能断言该端点属于第一种（安全）、第二种（重复但不丢数据）还是
+/// 第三种（静默丢数据）。
 pub(crate) const GITCODE_API_MAX_PER_PAGE: u32 = 100;
-
-/// `issue list` / `pr list` / `release list` 在未显式传 `--limit` 时使用的默认值。
-///
-/// GitCode CLI 在本环境无法获取，其 `--limit` 的真实取值范围未经实测。本 crate 的
-/// `api` 分页路径已经假定 100 是 GitCode 的单页上限
-/// （见 [`GITCODE_API_MAX_PER_PAGE`]）；在缺乏进一步证据的情况下，为
-/// `list` 子命令选用同一个保守值，既能避免用「`DEFAULT_LIST_LIMIT + 1` = 1001」这样
-/// 的探测值撞上未知的服务端上限而报错，又仍然驱动 `fetch_capped` 的 N+1 探测、
-/// 继续诚实报告截断。**用户显式传入的 `--limit` 不受此值影响**——那是调用方自己
-/// 的选择，且在本分支之前就必须落在 GitCode 允许的范围内，否则早已报错。
-pub(crate) const GITCODE_DEFAULT_LIST_LIMIT: u32 = GITCODE_API_MAX_PER_PAGE;
 
 pub mod auth;
 pub mod commit;

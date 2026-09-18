@@ -291,52 +291,60 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
     async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
         let binary = crate::gitcode_binary();
         let binary = &binary;
-        let cap = args.limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let repo = &self.repo;
         let runner = &self.runner;
         let state = args.state;
         let search = &args.search;
         let labels = &args.labels;
+        // 实测（gitcode-cli 0.12.0）：`--per-page` 优先于 `--limit`，且被 API
+        // 静默封顶在 100；`--page` 真实翻页，页间编号不重叠。页大小不必超过
+        // cap+1：N+1 探测只需多要一条即可判断截断。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        debug!(repo = %self.repo, cap, "spawning gitcode issue list");
+        debug!(repo = %self.repo, cap, per_page, "spawning gitcode issue list");
 
-        // gitcode CLI 在开发环境不可获得，其 `--limit` 语义未经实测验证，
-        // 此处按与 gh 相同的「总条数上限」处理。若实际为页大小，N+1 探测会
-        // 过度上报 truncated 而非静默丢数据——失效方向是安全的。
-        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
-            let limit_str = limit.to_string();
-            let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", repo, "--json"];
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> = vec!["issue", "list", "-R", repo, "--json"];
 
-            if let Some(state) = &state {
-                cmd_args.push("--state");
-                cmd_args.push(match state {
-                    State::Open => "open",
-                    State::Closed => "closed",
-                    State::All => "all",
-                });
-            }
-            if let Some(search) = search {
-                cmd_args.push("--search");
-                cmd_args.push(search);
-            }
-            for label in labels {
-                cmd_args.push("--label");
-                cmd_args.push(label);
-            }
-            cmd_args.push("--limit");
-            cmd_args.push(&limit_str);
+                if let Some(state) = &state {
+                    cmd_args.push("--state");
+                    cmd_args.push(match state {
+                        State::Open => "open",
+                        State::Closed => "closed",
+                        State::All => "all",
+                    });
+                }
+                if let Some(search) = search {
+                    cmd_args.push("--search");
+                    cmd_args.push(search);
+                }
+                for label in labels {
+                    cmd_args.push("--label");
+                    cmd_args.push(label);
+                }
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
 
-            let output = runner
-                .run(binary, &cmd_args)
-                .await
-                .map_err(|e| CoreError::Platform(format!("{e}")))?;
-            if !output.status.success() {
-                return Err(parse_gitcode_error(&output.stderr).into());
-            }
-            let issues: Vec<IssueApiResponse> =
-                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-            Ok(issues.into_iter().map(IssueData::from).collect())
-        })
+                let output = runner
+                    .run(binary, &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("{e}")))?;
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
+                let issues: Vec<IssueApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(issues.into_iter().map(IssueData::from).collect())
+            },
+        )
         .await
     }
 }
@@ -1084,8 +1092,13 @@ mod tests {
             1,
             "must have exactly one '&', got: {api_path}"
         );
-        assert!(api_path.contains("per_page=100"), "got: {api_path}");
-        assert!(api_path.contains("page=1"), "got: {api_path}");
+        // 整串相等，而非 `contains`：`"per_page=1001".contains("per_page=100")`
+        // 与 `"per_page=100".contains("page=1")` 都为真，子串断言无法检测出
+        // 页大小钳位失效或页号错误——正是本测试得名的那个缺陷。
+        assert_eq!(
+            api_path, "/repos/owner/repo/issues/359/comments?per_page=100&page=1",
+            "got: {api_path}"
+        );
     }
 
     #[tokio::test]
@@ -1340,20 +1353,126 @@ mod tests {
         assert_eq!(comment.author.id, "u2");
     }
 
+    /// 构造 `count` 条合法 issue JSON，编号从 `start` 递增。
+    fn issue_page_json(start: u64, count: u64) -> String {
+        let items: Vec<String> = (start..start + count)
+            .map(|n| {
+                format!(
+                    r#"{{"number":"{n}","title":"t{n}","state":"open","body":null,"labels":[],"created_at":"2026-07-30T12:00:00+08:00","updated_at":"2026-07-30T12:00:00+08:00","html_url":"https://gitcode.com/owner/repo/issues/{n}"}}"#
+                )
+            })
+            .collect();
+        format!("[{}]", items.join(","))
+    }
+
     #[tokio::test]
-    async fn test_should_request_default_cap_plus_one_on_gitcode() {
+    async fn test_should_page_through_gitcode_issue_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=min(101,100)=100，want=cap+1=101。
+        // 首页满 100 条：既非短页，又未达 want ⇒ `fetch_capped` 必然发出第二页。
+        // 这是唯一能观测到页号递增的取值区间 —— cap < 100 时 per_page 恰为
+        // cap+1，首页一次就满足 want，循环只会发出一次调用。
+        let page1 = issue_page_json(1, 100);
+        let page2 = issue_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .list(ListIssueArgs {
+                limit: Some(100),
+                ..ListIssueArgs::default()
+            })
+            .await
+            .expect("list should succeed");
+
+        assert_eq!(result.items.len(), 100, "返回条数必须被 cap 钳住");
+        assert!(result.truncated, "超过 cap 必须诚实报告截断");
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        let first = &calls[0].1;
+        assert!(
+            first
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "首次调用必须显式传 --per-page，实际 argv: {first:?}"
+        );
+        assert!(
+            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "首次调用必须显式传 --page=1，实际 argv: {first:?}"
+        );
+        assert!(
+            !first.iter().any(|a| a == "--limit"),
+            "--per-page 已决定单页大小，不得再传 --limit，实际 argv: {first:?}"
+        );
+        let second = &calls[1].1;
+        assert!(
+            second.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须在翻页中递增，实际 argv: {second:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_report_no_truncation_when_gitcode_issue_list_ends_on_short_page() {
+        // cap=150 → per_page=min(151,100)=100，want=cap+1=151。
+        // 首页满 100 条（非短页，且未达 want）⇒ 循环必须继续翻到第二页；
+        // 第二页返回 20 条（短页）⇒ 循环必须就此停止，不再探第三页。
+        // 总条目 120 < cap=150，因此必须诚实报告 truncated=false。
+        let page1 = issue_page_json(1, 100);
+        let page2 = issue_page_json(101, 20);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .list(ListIssueArgs {
+                limit: Some(150),
+                ..ListIssueArgs::default()
+            })
+            .await
+            .expect("list should succeed");
+
+        assert_eq!(result.items.len(), 120, "两页条目必须全部保留，不得丢数据");
+        assert!(!result.truncated, "总数未达 cap，必须诚实报告未截断");
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "短页应在第二页停止，不得再探第三页，实际调用数: {}",
+            calls.len()
+        );
+        let first = &calls[0].1;
+        assert!(
+            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "首次调用必须显式传 --page=1，实际 argv: {first:?}"
+        );
+        let second = &calls[1].1;
+        assert!(
+            second.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "第二次调用必须显式传 --page=2，实际 argv: {second:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_cap_gitcode_issue_per_page_at_api_maximum() {
         let runner = MockCommandRunner::success("[]");
         let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
         provider
             .list(ListIssueArgs::default())
             .await
             .expect("list should succeed");
+
         let recorded = &runner.recorded_calls()[0].1;
         assert!(
             recorded
                 .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "101"),
-            "实际 argv: {recorded:?}"
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "默认 cap=1000 时 per_page 必须被 API 上限 100 钳住，实际 argv: {recorded:?}"
         );
     }
 
@@ -1399,8 +1518,10 @@ mod tests {
                 "open",
                 "--label",
                 "bug",
-                "--limit",
-                "101"
+                "--per-page",
+                "100",
+                "--page",
+                "1"
             ]
             .into_iter()
             .map(String::from)

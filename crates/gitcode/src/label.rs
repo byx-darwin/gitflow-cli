@@ -123,33 +123,48 @@ impl<R: CommandRunner + 'static> LabelProvider for GitCodeLabelProvider<R> {
         let repo = &self.repo;
         let runner = &self.runner;
 
-        debug!(repo = %self.repo, cap, "spawning `gc label list`");
+        // 实测（gitcode-cli 0.12.0）：`label list` 支持 `--page`（默认 1）与
+        // `--per-page`，`--per-page 2 --page 1/2` 返回不重叠 —— 分页真实生效。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        // gitcode CLI 在开发环境不可获得，其 label 列表是否有服务端默认上限
-        // 无从实测，故不传 `--limit` 旗标（与 issue/pr/release list 不同，
-        // 那些已实测支持该旗标）。后果：若确有默认上限，本实现无法探测也
-        // 无法向调用方报告其截断——`FetchStrategy::SingleShot` 请求
-        // `cap + 1` 条时若服务端本身先行截断，我们会误以为未截断。
-        fetch_capped(FetchStrategy::SingleShot, cap, |_page, _limit| async move {
-            let output = runner
-                .run(
-                    binary,
-                    &["label", "list", "-R", repo, "--json", LABEL_FIELDS],
-                )
-                .await
-                .map_err(|e| {
-                    CoreError::Platform(format!("Failed to spawn gitcode label list: {e}"))
-                })?;
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode label list`");
 
-            if !output.status.success() {
-                return Err(parse_gitcode_error(&output.stderr).into());
-            }
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let output = runner
+                    .run(
+                        binary,
+                        &[
+                            "label",
+                            "list",
+                            "-R",
+                            repo,
+                            "--json",
+                            "--per-page",
+                            &per_page_str,
+                            "--page",
+                            &page_str,
+                        ],
+                    )
+                    .await
+                    .map_err(|e| {
+                        CoreError::Platform(format!("Failed to spawn gitcode label list: {e}"))
+                    })?;
 
-            let labels: Vec<LabelData> =
-                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
 
-            Ok(labels)
-        })
+                let labels: Vec<LabelData> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(labels)
+            },
+        )
         .await
     }
 
@@ -368,30 +383,47 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitCodeMilestoneProvider<
         let repo = &self.repo;
         let runner = &self.runner;
 
-        debug!(repo = %self.repo, cap, "spawning `gc milestone list`");
+        // 见 label list 同处注释：`--page` / `--per-page` 已实测可用。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        // gitcode CLI 在开发环境不可获得，其 milestone 列表是否有服务端默认
-        // 上限无从实测，故不传 `--limit` 旗标（与 issue/pr/release list 不同，
-        // 那些已实测支持该旗标）。后果：若确有默认上限，本实现无法探测也
-        // 无法向调用方报告其截断——`FetchStrategy::SingleShot` 请求
-        // `cap + 1` 条时若服务端本身先行截断，我们会误以为未截断。
-        fetch_capped(FetchStrategy::SingleShot, cap, |_page, _limit| async move {
-            let output = runner
-                .run(binary, &["milestone", "list", "-R", repo, "--json"])
-                .await
-                .map_err(|e| {
-                    CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
-                })?;
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode milestone list`");
 
-            if !output.status.success() {
-                return Err(parse_gitcode_error(&output.stderr).into());
-            }
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let output = runner
+                    .run(
+                        binary,
+                        &[
+                            "milestone",
+                            "list",
+                            "-R",
+                            repo,
+                            "--json",
+                            "--per-page",
+                            &per_page_str,
+                            "--page",
+                            &page_str,
+                        ],
+                    )
+                    .await
+                    .map_err(|e| {
+                        CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
+                    })?;
 
-            let milestones: Vec<MilestoneApiResponse> =
-                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
 
-            Ok(milestones.into_iter().map(MilestoneData::from).collect())
-        })
+                let milestones: Vec<MilestoneApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(milestones.into_iter().map(MilestoneData::from).collect())
+            },
+        )
         .await
     }
 
@@ -657,7 +689,123 @@ mod tests {
     // `CommandRunner`，导致其 argv 无法被测试观测。以下测试确认两者
     // 均已改为通过 `self.runner` 派发。
 
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
+
+    #[tokio::test]
+    #[allow(
+        clippy::similar_names,
+        reason = "page1/page2 fixtures vs paged result read clearly in test context"
+    )]
+    async fn test_should_page_through_gitcode_label_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        fn label_page_json(start: u32, count: u32) -> String {
+            let items: Vec<String> = (start..start + count)
+                .map(|n| format!(r##"{{"name":"l{n}","color":"#ffffff","description":""}}"##))
+                .collect();
+            format!("[{}]", items.join(","))
+        }
+        let page1 = label_page_json(1, 100);
+        let page2 = label_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(Some(100)).await.expect("should list");
+
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
+        );
+    }
+
+    #[tokio::test]
+    #[allow(
+        clippy::similar_names,
+        reason = "page1/page2 fixtures vs paged result read clearly in test context"
+    )]
+    async fn test_should_page_through_gitcode_milestone_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        fn milestone_page_json(start: u64, count: u64) -> String {
+            let items: Vec<String> = (start..start + count)
+                .map(|n| {
+                    format!(
+                        r#"{{"number":{n},"title":"m{n}","description":null,"state":"open","due_on":null,"closed_issues":0,"open_issues":0}}"#
+                    )
+                })
+                .collect();
+            format!("[{}]", items.join(","))
+        }
+        let page1 = milestone_page_json(1, 100);
+        let page2 = milestone_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(Some(100)).await.expect("should list");
+
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
+        );
+    }
 
     #[tokio::test]
     async fn test_should_route_label_list_through_runner() {
@@ -670,6 +818,8 @@ mod tests {
         let calls = runner.recorded_calls();
         assert_eq!(calls.len(), 1);
         assert!(!calls[0].1.iter().any(|a| a == "--limit"));
+        assert!(calls[0].1.iter().any(|a| a == "--per-page"));
+        assert!(calls[0].1.iter().any(|a| a == "--page"));
     }
 
     #[tokio::test]
@@ -683,6 +833,8 @@ mod tests {
         let calls = runner.recorded_calls();
         assert_eq!(calls.len(), 1);
         assert!(!calls[0].1.iter().any(|a| a == "--limit"));
+        assert!(calls[0].1.iter().any(|a| a == "--per-page"));
+        assert!(calls[0].1.iter().any(|a| a == "--page"));
     }
 
     #[tokio::test]
@@ -702,7 +854,10 @@ mod tests {
                 "-R",
                 "owner/repo",
                 "--json",
-                "name,color,description"
+                "--per-page",
+                "100",
+                "--page",
+                "1"
             ]
             .into_iter()
             .map(String::from)
@@ -721,10 +876,20 @@ mod tests {
         assert_eq!(runner.recorded_calls()[0].0, crate::gitcode_binary());
         assert_eq!(
             runner.recorded_calls()[0].1,
-            vec!["milestone", "list", "-R", "owner/repo", "--json"]
-                .into_iter()
-                .map(String::from)
-                .collect::<Vec<_>>()
+            vec![
+                "milestone",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
         );
     }
 }
