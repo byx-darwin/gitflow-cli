@@ -19,6 +19,10 @@
 - 生产代码禁止 `unwrap()` / `expect()`；禁止 `println!` / `dbg!`，日志用 `tracing`
 - 每个任务结束前必须跑 `cargo clippy -p gitflow-gitcode --all-targets --all-features -- -D warnings -W clippy::pedantic`
 - **提交需用户明示许可**（CLAUDE.md）。各任务的 Commit 步骤在未获许可前不得执行；执行器应把改动累积在 feature 分支工作区，由编排器统一征询
+- **分页测试的 `cap` 必须取 100**（Ruling 1）：`fetch_capped` 的 `want = cap + 1`，而
+  `per_page = min(cap+1, 100)`。当 `cap < 100` 时 `per_page` 恰为 `cap+1`，首页一次就
+  满足 `want`，循环**只发一次调用** —— 页号递增无从观测，断言 `calls[1]` 更会索引越界。
+  `cap = 100` 时 `per_page = 100 < want = 101`，首页满页后必然发出第二页
 - 任务顺序不可调换：Task 5 是 `GITCODE_DEFAULT_LIST_LIMIT` 的最后一个消费者，提前删除会让中间态出现 `dead_code` 告警而被 `-D warnings` 拒绝
 
 ## File Structure
@@ -284,27 +288,31 @@ git commit -m "test(gitcode): record argv in SequencedMockCommandRunner"
 
     #[tokio::test]
     async fn test_should_page_through_gitcode_issue_list_with_incrementing_page_numbers() {
-        // cap=3 → per_page=4；首页必须返回满 4 条，否则翻页会提前终止。
-        let page1 = issue_page_json(1, 4);
-        let page2 = issue_page_json(5, 4);
+        // cap=100 → per_page=min(101,100)=100，want=cap+1=101。
+        // 首页满 100 条：既非短页，又未达 want ⇒ `fetch_capped` 必然发出第二页。
+        // 这是唯一能观测到页号递增的取值区间 —— cap < 100 时 per_page 恰为
+        // cap+1，首页一次就满足 want，循环只会发出一次调用。
+        let page1 = issue_page_json(1, 100);
+        let page2 = issue_page_json(101, 100);
         let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
         let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
 
         let paged = provider
             .list(ListIssueArgs {
-                limit: Some(3),
+                limit: Some(100),
                 ..ListIssueArgs::default()
             })
             .await
             .expect("list should succeed");
 
-        assert_eq!(paged.items.len(), 3, "返回条数必须被 cap 钳住");
+        assert_eq!(paged.items.len(), 100, "返回条数必须被 cap 钳住");
         assert!(paged.truncated, "超过 cap 必须诚实报告截断");
 
         let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须真的翻到第二页，实际调用数: {}", calls.len());
         let first = &calls[0].1;
         assert!(
-            first.windows(2).any(|w| w[0] == "--per-page" && w[1] == "4"),
+            first.windows(2).any(|w| w[0] == "--per-page" && w[1] == "100"),
             "首次调用必须显式传 --per-page，实际 argv: {first:?}"
         );
         assert!(
@@ -314,6 +322,11 @@ git commit -m "test(gitcode): record argv in SequencedMockCommandRunner"
         assert!(
             !first.iter().any(|a| a == "--limit"),
             "--per-page 已决定单页大小，不得再传 --limit，实际 argv: {first:?}"
+        );
+        let second = &calls[1].1;
+        assert!(
+            second.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须在翻页中递增，实际 argv: {second:?}"
         );
     }
 
@@ -477,35 +490,41 @@ git commit -m "fix(gitcode): page through issue list instead of single-shot --li
 ```rust
     #[tokio::test]
     async fn test_should_page_through_gitcode_pr_list_with_incrementing_page_numbers() {
-        // cap=1 → per_page=2；首页必须满 2 条才能证明翻页真实发生。
-        let page = format!("[{},{}]", real_gitcode_pr_json(), real_gitcode_pr_json());
+        // cap=100 → per_page=100，want=101。首页满 100 条 ⇒ 必然发出第二页。
+        // cap 必须 ≥ 100：更小的 cap 会让 per_page 恰为 cap+1，首页一次满足
+        // want，循环只发一次调用，页号递增无从观测。
+        let one = real_gitcode_pr_json();
+        let page = format!("[{}]", vec![one; 100].join(","));
         let runner = SequencedMockCommandRunner::from_results(&[(true, &page), (true, &page)]);
         let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
 
         let paged = provider
             .list(ListPrArgs {
                 state: Some(State::Open),
-                limit: Some(1),
+                limit: Some(100),
             })
             .await
             .expect("list should succeed");
 
-        assert_eq!(paged.items.len(), 1);
+        assert_eq!(paged.items.len(), 100);
         assert!(paged.truncated);
 
         let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须真的翻到第二页，实际调用数: {}", calls.len());
         let first = &calls[0].1;
         assert!(
-            first.windows(2).any(|w| w[0] == "--per-page" && w[1] == "2"),
+            first.windows(2).any(|w| w[0] == "--per-page" && w[1] == "100"),
             "实际 argv: {first:?}"
         );
         assert!(
             first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
             "实际 argv: {first:?}"
         );
+        assert!(!first.iter().any(|a| a == "--limit"), "实际 argv: {first:?}");
         assert!(
-            !first.iter().any(|a| a == "--limit"),
-            "实际 argv: {first:?}"
+            calls[1].1.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
         );
     }
 ```
@@ -668,46 +687,81 @@ git commit -m "fix(gitcode): page through pr list instead of single-shot --limit
 
     #[tokio::test]
     async fn test_should_page_through_gitcode_label_list_with_incrementing_page_numbers() {
-        // cap=2 → per_page=3；首页必须满 3 条。
-        let page = r#"[{"name":"a","color":"#fff","description":""},{"name":"b","color":"#fff","description":""},{"name":"c","color":"#fff","description":""}]"#;
-        let runner = SequencedMockCommandRunner::from_results(&[(true, page), (true, page)]);
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        fn label_page_json(start: u32, count: u32) -> String {
+            let items: Vec<String> = (start..start + count)
+                .map(|n| format!(r#"{{"name":"l{n}","color":"#ffffff","description":""}}"#))
+                .collect();
+            format!("[{}]", items.join(","))
+        }
+        let page1 = label_page_json(1, 100);
+        let page2 = label_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
         let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
 
-        let paged = provider.list(Some(2)).await.expect("should list");
+        let paged = provider.list(Some(100)).await.expect("should list");
 
-        assert_eq!(paged.items.len(), 2);
+        assert_eq!(paged.items.len(), 100);
         assert!(paged.truncated);
 
-        let first = &runner.recorded_calls()[0].1;
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须真的翻到第二页，实际调用数: {}", calls.len());
         assert!(
-            first.windows(2).any(|w| w[0] == "--per-page" && w[1] == "3"),
-            "实际 argv: {first:?}"
+            calls[0].1.windows(2).any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {:?}",
+            calls[0].1
         );
         assert!(
-            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
-            "实际 argv: {first:?}"
+            calls[0].1.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1].1.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
         );
     }
 
     #[tokio::test]
     async fn test_should_page_through_gitcode_milestone_list_with_incrementing_page_numbers() {
-        let page = r#"[{"number":1,"title":"m1","description":null,"state":"open","due_on":null,"closed_issues":0,"open_issues":0},{"number":2,"title":"m2","description":null,"state":"open","due_on":null,"closed_issues":0,"open_issues":0},{"number":3,"title":"m3","description":null,"state":"open","due_on":null,"closed_issues":0,"open_issues":0}]"#;
-        let runner = SequencedMockCommandRunner::from_results(&[(true, page), (true, page)]);
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        fn milestone_page_json(start: u64, count: u64) -> String {
+            let items: Vec<String> = (start..start + count)
+                .map(|n| {
+                    format!(
+                        r#"{{"number":{n},"title":"m{n}","description":null,"state":"open","due_on":null,"closed_issues":0,"open_issues":0}}"#
+                    )
+                })
+                .collect();
+            format!("[{}]", items.join(","))
+        }
+        let page1 = milestone_page_json(1, 100);
+        let page2 = milestone_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
         let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
 
-        let paged = provider.list(Some(2)).await.expect("should list");
+        let paged = provider.list(Some(100)).await.expect("should list");
 
-        assert_eq!(paged.items.len(), 2);
+        assert_eq!(paged.items.len(), 100);
         assert!(paged.truncated);
 
-        let first = &runner.recorded_calls()[0].1;
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须真的翻到第二页，实际调用数: {}", calls.len());
         assert!(
-            first.windows(2).any(|w| w[0] == "--per-page" && w[1] == "3"),
-            "实际 argv: {first:?}"
+            calls[0].1.windows(2).any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {:?}",
+            calls[0].1
         );
         assert!(
-            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
-            "实际 argv: {first:?}"
+            calls[0].1.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1].1.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
         );
     }
 ```
@@ -924,28 +978,32 @@ git commit -m "fix(gitcode): enable pagination for label and milestone list"
 ```rust
     #[tokio::test]
     async fn test_should_fetch_gitcode_releases_via_api_with_pagination() {
-        // cap=1 → per_page=2；首页必须满 2 条才能证明翻页真实发生。
-        let page = format!("[{},{}]", valid_release_json(), valid_release_json());
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        // cap 必须 ≥ 100，否则 per_page 恰为 cap+1，循环只发一次调用，
+        // 断言 calls[1] 会直接索引越界。
+        let one = valid_release_json();
+        let page = format!("[{}]", vec![one; 100].join(","));
         let runner = SequencedMockCommandRunner::from_results(&[(true, &page), (true, &page)]);
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
 
-        let paged = provider.list(Some(1)).await.expect("list should succeed");
+        let paged = provider.list(Some(100)).await.expect("list should succeed");
 
-        assert_eq!(paged.items.len(), 1);
+        assert_eq!(paged.items.len(), 100);
         assert!(paged.truncated);
 
         let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须真的翻到第二页，实际调用数: {}", calls.len());
         assert_eq!(calls[0].1[0], "api");
         let first_path = &calls[0].1[1];
-        assert!(
-            first_path.contains("per_page=2"),
-            "实际 api path: {first_path}"
-        );
-        assert!(first_path.contains("page=1"), "实际 api path: {first_path}");
         assert!(
             first_path.starts_with("/repos/owner/repo/releases?"),
             "实际 api path: {first_path}"
         );
+        assert!(
+            first_path.contains("per_page=100"),
+            "实际 api path: {first_path}"
+        );
+        assert!(first_path.contains("page=1"), "实际 api path: {first_path}");
 
         let second_path = &calls[1].1[1];
         assert!(
