@@ -197,6 +197,7 @@ most recent (ordered by the Issue/PR number embedded in the filename) into
 ## See Also
 
 - `gf-issue-review` — analyze requirement depth
+- `gf-issue-decompose` — batch decomposition into dependency-ordered Issues
 - `gf-label-stats` — label distribution statistics
 - `gf-issue` — Issue CRUD reference
 - `gf-label-milestone` — label CRUD

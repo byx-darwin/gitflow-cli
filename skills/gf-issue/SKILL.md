@@ -179,6 +179,7 @@ flowchart TD
 - `gf-issue-create` — interactive creation
 - `gf-issue-review` — requirement analysis
 - `gf-issue-triage` — classification
+- `gf-issue-decompose` — batch decomposition into dependency-ordered Issues
 - `gf-label-milestone` — labels/milestones
 - `gf-workflow` — end-to-end workflow
 - `gf-pr` — PR linking

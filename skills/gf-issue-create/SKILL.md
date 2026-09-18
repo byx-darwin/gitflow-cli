@@ -163,4 +163,5 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 - `/gf-issue` — Issue CRUD operations
 - `/gf-issue-review` — Issue requirement analysis
 - `/gf-issue-triage` — Issue classification
+- `/gf-issue-decompose` — batch decomposition into dependency-ordered Issues
 - `docs/superpowers/templates/skill-conventions.md` — skill conventions

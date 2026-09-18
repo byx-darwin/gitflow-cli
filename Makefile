@@ -350,6 +350,93 @@ check-walkthrough-skill: ## Verify gf-walkthrough skill meets Issue #329 accepta
 	[ $$FAIL -eq 0 ] && echo "全部硬约束通过" || echo "存在未通过项"; \
 	exit $$FAIL
 
+# 词数上限取 600 而非 skill-conventions.md §1.1 的 500：该硬限与 §3.2（Test Scenarios
+# 必须 Given/When/Then）、§4.2（Trigger Keywords）、§7（Responsibility 三段式）、
+# §10（Success Criteria）对本 skill 不可兼得——#330 的六条验收标准各自都要在正文落字
+# 面量。仓库现状佐证该硬限已失效：28 个 skill 中 24 个超过 500，中位数 645；唯一段落
+# 齐备又达标的 gf-walkthrough（499）是靠省掉 Given/When/Then 换来的。600 仍远低于中位
+# 数，且低于同期新增的 gf-workflow-batch（712）。
+check-decompose-skill: ## Verify gf-issue-decompose skill meets Issue #330 acceptance criteria
+	@S=skills/gf-issue-decompose/SKILL.md; R=skills/gf-issue-decompose/references; FAIL=0; \
+	if [ ! -f "$$S" ]; then echo "✗ missing $$S"; exit 1; fi; \
+	for f in vertical-slice falsifiable-criteria dependency-edges; do \
+		[ -f "$$R/$$f.md" ] || { echo "✗ missing $$R/$$f.md"; FAIL=1; }; \
+	done; \
+	V=0; \
+	for H in '## Slice Test' '## Horizontal-Layering Rejects' '## Tracer Bullet'; do \
+		grep -qF "$$H" "$$R/vertical-slice.md" 2>/dev/null || { echo "✗ AC#1 vertical-slice.md missing $$H"; V=1; FAIL=1; }; \
+	done; \
+	for K in 'vertical slice' 'horizontal layer' 'default error'; do \
+		grep -qiF "$$K" "$$S" || { echo "✗ AC#1 SKILL.md missing \"$$K\""; V=1; FAIL=1; }; \
+	done; \
+	[ $$V -eq 0 ] && echo "✓ AC#1 vertical-slice test + horizontal-layering rejects present"; \
+	F=0; \
+	grep -qiF 'what observation would prove it false' "$$S" || { echo "✗ AC#2 SKILL.md does not demand a falsifying observation"; F=1; FAIL=1; }; \
+	for H in '## Falsifying Observation' '## Three Reject Shapes' '## Red-on-Base Check'; do \
+		grep -qF "$$H" "$$R/falsifiable-criteria.md" 2>/dev/null || { echo "✗ AC#2 falsifiable-criteria.md missing $$H"; F=1; FAIL=1; }; \
+	done; \
+	for K in 'already true on base' 'belongs to another ticket' 'restates the requirement'; do \
+		grep -qiF "$$K" "$$S" || { echo "✗ AC#2 reject shape missing \"$$K\""; F=1; FAIL=1; }; \
+	done; \
+	grep -qF 'is **not** Shape 2' "$$R/falsifiable-criteria.md" 2>/dev/null \
+		|| { echo "✗ AC#2 reject shape 2 is not disambiguated from a Blocked by edge"; F=1; FAIL=1; }; \
+	[ $$F -eq 0 ] && echo "✓ AC#2 falsifiable criteria + three reject shapes present"; \
+	B=0; \
+	grep -qF '**base commit**' "$$S" || { echo "✗ AC#3 the procedure does not fire criteria at the base commit"; B=1; FAIL=1; }; \
+	grep -qF '**must be red**' "$$S" || { echo "✗ AC#3 the procedure does not require red at base"; B=1; FAIL=1; }; \
+	grep -qiF 'not-found and compile errors count' "$$S" \
+		|| { echo "✗ AC#3 a not-found/compile error is not stated to count as red (tracer bullets would be wrongly rejected)"; B=1; FAIL=1; }; \
+	[ $$B -eq 0 ] && echo "✓ AC#3 red-on-base rule declared"; \
+	D=0; \
+	grep -qF 'Blocked by' "$$S" || { echo "✗ AC#4 SKILL.md does not declare edges via Blocked by"; D=1; FAIL=1; }; \
+	grep -qF '**dependency order**' "$$S" || { echo "✗ AC#4 SKILL.md does not require creation in dependency order"; D=1; FAIL=1; }; \
+	for H in '## Blocked by Declaration' '## Creation in Dependency Order' '## Wide Refactor'; do \
+		grep -qF "$$H" "$$R/dependency-edges.md" 2>/dev/null || { echo "✗ AC#4 dependency-edges.md missing $$H"; D=1; FAIL=1; }; \
+	done; \
+	for K in expand migrate contract; do \
+		grep -qF "$$K" "$$R/dependency-edges.md" 2>/dev/null || { echo "✗ AC#4 wide-refactor stage missing $$K"; D=1; FAIL=1; }; \
+	done; \
+	grep -qF 'Issue #337' "$$R/dependency-edges.md" 2>/dev/null \
+		|| { echo "✗ AC#4 the topological consumer is claimed to exist; it is Issue #337 and must be named as future"; D=1; FAIL=1; }; \
+	[ $$D -eq 0 ] && echo "✓ AC#4 Blocked by edges + dependency-order creation present"; \
+	N=0; \
+	grep -qF '**one context window**' "$$S" || { echo "✗ AC#5 SKILL.md missing the single-context-window floor"; N=1; FAIL=1; }; \
+	grep -qF '**do not split**' "$$S" || { echo "✗ AC#5 SKILL.md does not forbid splitting in that case"; N=1; FAIL=1; }; \
+	[ $$N -eq 0 ] && echo "✓ AC#5 single-context-window floor declared"; \
+	Q=0; \
+	grep -qE '^1\. \*\*granularity\*\*' "$$S" || { echo "✗ AC#6 question 1 (granularity) is not in the confirmation list"; Q=1; FAIL=1; }; \
+	grep -qE '^2\. \*\*demo path\*\*' "$$S" || { echo "✗ AC#6 question 2 (demo path) is not in the confirmation list"; Q=1; FAIL=1; }; \
+	grep -qE '^3\. \*\*edges\*\*' "$$S" || { echo "✗ AC#6 question 3 (edges) is not in the confirmation list"; Q=1; FAIL=1; }; \
+	grep -qF '**Before creating**' "$$S" || { echo "✗ AC#6 the three questions are not tied to pre-creation"; Q=1; FAIL=1; }; \
+	grep -qiF 'skip the confirmation' "$$S" || { echo "✗ AC#6 skipping the confirmation is not listed as forbidden"; Q=1; FAIL=1; }; \
+	[ $$Q -eq 0 ] && echo "✓ AC#6 pre-creation three-question gate declared"; \
+	C=0; \
+	for H in '## Preconditions' '## When to Use' '## When NOT to Use' '## Trigger Keywords' '## Error Handling' '## Responsibility' '### ✅ In Scope' '### ❌ Out of Scope' '## Rationalization Excuses' '## Red Flags' '## Test Scenarios' '## Success Criteria' '## See Also'; do \
+		grep -qF "$$H" "$$S" || { echo "✗ conventions: missing section $$H"; C=1; FAIL=1; }; \
+	done; \
+	SEE=`sed -n '/^## See Also/,$$p' "$$S" | grep -c '^- '`; \
+	[ "$$SEE" -ge 2 ] || { echo "✗ conventions: See Also has $$SEE refs, need >=2"; C=1; FAIL=1; }; \
+	SC=`sed -n '/^## Test Scenarios/,/^## Success Criteria/p' "$$S" | grep -c '^### '`; \
+	[ "$$SC" -ge 4 ] || { echo "✗ conventions: Test Scenarios has $$SC, need >=4"; C=1; FAIL=1; }; \
+	GWT=`sed -n '/^## Test Scenarios/,/^## Success Criteria/p' "$$S" | grep -c '\*\*Given\*\*.*\*\*When\*\*.*\*\*Then\*\*'`; \
+	[ "$$GWT" -ge "$$SC" ] || { echo "✗ conventions: $$SC scenarios but only $$GWT carry Given/When/Then"; C=1; FAIL=1; }; \
+	EXC=`sed -n '/^## Rationalization Excuses/,/^## Red Flags/p' "$$S" | grep -c '^| "'`; \
+	[ "$$EXC" -ge 5 ] || { echo "✗ conventions: $$EXC excuses, a remote-publishing skill needs >=5"; C=1; FAIL=1; }; \
+	A=`grep -m1 '^allowed-tools:' "$$S"`; \
+	if [ -z "$$A" ]; then echo "✗ conventions: missing allowed-tools"; C=1; FAIL=1; \
+	elif echo "$$A" | grep -qE '(Edit|Write)'; then echo "✗ conventions: allowed-tools grants Edit/Write; this skill must not modify files"; C=1; FAIL=1; fi; \
+	[ $$C -eq 0 ] && echo "✓ conventions: all required sections + structural rules satisfied"; \
+	W=`perl -0 -ne 's/^---\n.*?^---\n//ms; s/\x60\x60\x60.*?\x60\x60\x60//gs; s/\x60[^\x60]+\x60//g; print scalar(()=/\p{L}+/g)' "$$S"`; \
+	if [ "$$W" -le 600 ]; then echo "✓ conventions: word count $$W <= 600 (see rationale above target)"; \
+	else echo "✗ conventions: word count $$W exceeds 600"; FAIL=1; fi; \
+	X=0; \
+	for P in gf-issue gf-issue-create gf-issue-review gf-issue-triage; do \
+		grep -qF 'gf-issue-decompose' "skills/$$P/SKILL.md" || { echo "✗ conventions: $$P does not back-reference gf-issue-decompose"; X=1; FAIL=1; }; \
+	done; \
+	[ $$X -eq 0 ] && echo "✓ conventions: Issue-cluster cross-references are bidirectional"; \
+	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
+	echo "ALL CHECKS PASSED"
+
 smoke-test: ## Run multi-platform smoke test (auto-detect platform)
 	@bash scripts/smoke-test.sh --read-only
 
@@ -412,7 +499,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-walkthrough-skill check-skills-drift release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-walkthrough-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
