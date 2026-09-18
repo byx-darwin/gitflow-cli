@@ -467,7 +467,7 @@ pub async fn handle(
                     && !args.dry_run
                     && !confirm_cleanup(plan.targets.len(), plan.truncated)?
                 {
-                    println!("已取消，未删除任何内容。");
+                    eprintln!("已取消，未删除任何内容。");
                     return Ok(());
                 }
 
@@ -503,15 +503,16 @@ pub fn cleanup_confirmation_prompt(count: usize, truncated: bool) -> String {
 
 /// 在删除任何东西之前，为批量清理（`--merged`/`--closed`）请求用户确认。
 ///
-/// 非 TTY 环境（stderr 被重定向，如管道或 CI）下直接返回错误，
-/// 不挂起等待输入，也不默认放行。
+/// 要求 stdin 与 stderr **都**是 TTY：提示写到 stderr，答案从 stdin 读取，
+/// 只检查其中一个会被 `yes | gf pr cleanup --merged` 这类管道绕过。
+/// 任一端不是 TTY 时直接返回错误，不挂起等待输入，也不默认放行。
 ///
 /// # Errors
 ///
-/// - 非 TTY 环境下返回错误，提示改用 `--yes`。
+/// - stdin 或 stderr 不是 TTY 时返回错误，提示改用 `--yes`。
 /// - 读取 stdin 失败时返回错误。
 fn confirm_cleanup(count: usize, truncated: bool) -> miette::Result<bool> {
-    if !std::io::stderr().is_terminal() {
+    if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
         return Err(miette::miette!(
             "Refusing to prompt for confirmation in a non-interactive session; re-run with --yes \
              to skip confirmation."
@@ -522,11 +523,37 @@ fn confirm_cleanup(count: usize, truncated: bool) -> miette::Result<bool> {
     eprint!("{prompt} [y/N] ");
     let _ = std::io::Write::flush(&mut std::io::stderr());
 
-    let mut line = String::new();
-    std::io::BufRead::read_line(&mut std::io::stdin().lock(), &mut line)
-        .map_err(|e| miette::miette!("Failed to read confirmation: {e}"))?;
+    let stdin = std::io::stdin();
+    let mut reader = stdin.lock();
+    confirm_cleanup_with_reader(&mut reader)
+}
 
-    Ok(matches!(line.trim().to_lowercase().as_str(), "y" | "yes"))
+/// Testable core of [`confirm_cleanup`] — reads one line from any `BufRead`
+/// source and decides yes/no. Contains no TTY logic, so it can be exercised
+/// directly by tests without a real terminal.
+///
+/// Empty input (bare Enter) and EOF both resolve to `false`: this is a
+/// `[y/N]` prompt guarding an irreversible bulk deletion, so the default must
+/// stay "no".
+///
+/// # Errors
+///
+/// Returns an error if reading from `reader` fails.
+fn confirm_cleanup_with_reader(reader: &mut impl std::io::BufRead) -> miette::Result<bool> {
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .map_err(|e| miette::miette!("Failed to read confirmation: {e}"))?;
+    Ok(cleanup_confirm_answer(&line))
+}
+
+/// Parse one line of user input into a yes/no answer for the cleanup prompt.
+///
+/// Accepts `y`/`yes` (case-insensitive, surrounding whitespace ignored) as
+/// `true`; everything else — including an empty line — is `false`.
+#[must_use]
+fn cleanup_confirm_answer(line: &str) -> bool {
+    matches!(line.trim().to_lowercase().as_str(), "y" | "yes")
 }
 
 /// 解析 `--body` 与 `--body-file` 参数。
@@ -1154,5 +1181,61 @@ mod tests {
 
         let complete_prompt = cleanup_confirmation_prompt(3, false);
         assert!(!complete_prompt.contains("更多"));
+    }
+
+    #[test]
+    fn test_should_accept_lowercase_y_as_yes() {
+        assert!(cleanup_confirm_answer("y\n"));
+    }
+
+    #[test]
+    fn test_should_accept_uppercase_y_as_yes() {
+        assert!(cleanup_confirm_answer("Y\n"));
+    }
+
+    #[test]
+    fn test_should_accept_lowercase_yes_as_yes() {
+        assert!(cleanup_confirm_answer("yes\n"));
+    }
+
+    #[test]
+    fn test_should_accept_uppercase_yes_as_yes() {
+        assert!(cleanup_confirm_answer("YES\n"));
+    }
+
+    #[test]
+    fn test_should_accept_y_with_surrounding_whitespace_as_yes() {
+        assert!(cleanup_confirm_answer(" y \n"));
+    }
+
+    #[test]
+    fn test_should_treat_n_as_no() {
+        assert!(!cleanup_confirm_answer("n\n"));
+    }
+
+    #[test]
+    fn test_should_treat_empty_line_as_no() {
+        // Bare Enter at the prompt: `read_line` returns "\n".
+        assert!(!cleanup_confirm_answer("\n"));
+    }
+
+    #[test]
+    fn test_should_treat_eof_as_no() {
+        // `read_line` on EOF (no more input) leaves the buffer empty.
+        assert!(!cleanup_confirm_answer(""));
+    }
+
+    #[test]
+    fn test_should_treat_eof_as_no_through_reader() {
+        let mut reader: &[u8] = b"";
+        let answer = confirm_cleanup_with_reader(&mut reader).expect("EOF read should not error");
+        assert!(!answer);
+    }
+
+    #[test]
+    fn test_should_accept_yes_through_reader() {
+        let mut reader: &[u8] = b"yes\n";
+        let answer = confirm_cleanup_with_reader(&mut reader).expect("read should not error");
+        assert!(answer);
     }
 }

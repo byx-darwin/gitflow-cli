@@ -967,8 +967,20 @@ mod tests {
         let staged_numbers: Vec<u64> = staged.iter().map(|r| r.pr_number).collect();
         assert_eq!(combined_numbers, staged_numbers);
 
-        let combined_dry_run: Vec<bool> = combined.iter().map(|r| r.dry_run).collect();
-        let staged_dry_run: Vec<bool> = staged.iter().map(|r| r.dry_run).collect();
-        assert_eq!(combined_dry_run, staged_dry_run);
+        // Compare the fuller result shape, not just `pr_number`/`dry_run` (the
+        // latter is `args.dry_run` on both paths and proves nothing). This is
+        // the evidence that the plan/execute split preserved behaviour.
+        let result_tuple = |r: &CleanupResult| {
+            (
+                r.pr_number,
+                r.error.clone(),
+                r.remote_deleted,
+                r.local_deleted,
+                r.worktree_removed,
+            )
+        };
+        let combined_tuples: Vec<_> = combined.iter().map(result_tuple).collect();
+        let staged_tuples: Vec<_> = staged.iter().map(result_tuple).collect();
+        assert_eq!(combined_tuples, staged_tuples);
     }
 }
