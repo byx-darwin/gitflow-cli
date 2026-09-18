@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Result, types::UserSummary};
+use crate::{Result, paging::Paged, types::UserSummary};
 
 /// Release 数据。
 ///
@@ -85,12 +85,15 @@ pub trait ReleaseProvider: std::fmt::Debug + Send + Sync {
     /// 当平台 API 调用失败或参数非法时返回错误。
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData>;
 
-    /// 列出仓库的 Release 列表。
+    /// 列出仓库的 Release。
+    ///
+    /// `limit` 为 `None` 时取至 [`crate::paging::DEFAULT_LIST_LIMIT`]。
+    /// 返回的 [`Paged`] 携带截断标志。
     ///
     /// # Errors
     ///
     /// 当平台 API 调用失败时返回错误。
-    async fn list(&self) -> Result<Vec<ReleaseData>>;
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>>;
 
     /// 查看指定 tag 的 Release 详情。
     ///
