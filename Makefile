@@ -291,6 +291,83 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "ALL CHECKS PASSED"
 
+check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets Issue #331 acceptance criteria
+	@S=skills/gf-architecture-diagram/SKILL.md; R=skills/gf-architecture-diagram/references; \
+	E=skills/gf-architecture-diagram/examples; SC=skills/gf-architecture-diagram/scripts/review_svg.py; FAIL=0; \
+	if [ ! -f "$$S" ]; then echo "✗ missing $$S"; exit 1; fi; \
+	if grep -nEi '\bCargo\.toml\b|\bgo\.mod\b|\bgo\.work\b|\bpackage\.json\b|\bpyproject\.toml\b|\bsetup\.py\b|\bpom\.xml\b|\bbuild\.gradle\b|\bGemfile\b|\bcargo\b|\bnpm\b|\byarn\b|\bpnpm\b|\bpip\b|\bpoetry\b|\bmaven\b|\bgradle\b|\bbundler\b' "$$S"; then \
+		echo "✗ AC#1 SKILL.md 正文含单一语言的清单文件名或包管理器名"; FAIL=1; \
+	else echo "✓ AC#1 正文无语言专属标识"; fi; \
+	if [ ! -f "$$R/rust.md" ]; then echo "✗ AC#2 缺少 $$R/rust.md"; FAIL=1; \
+	else echo "✓ AC#2 references/rust.md 存在"; fi; \
+	if [ -f "$$R/rust.md" ]; then \
+		for H in '## 提取命令' '## 模块判定' '## 边过滤规则' '## 工具缺失降级'; do \
+			grep -qF "$$H" "$$R/rust.md" || { echo "✗ 契约 rust.md 缺少 $$H"; FAIL=1; }; \
+		done; \
+	fi; \
+	grep -qF 'gf-quality/references/detector.md' "$$S" \
+		&& echo "✓ AC#3 复用既有语言探测" \
+		|| { echo "✗ AC#3 未引用 detector.md"; FAIL=1; }; \
+	if [ -f "$$R/rust.md" ]; then \
+		grep -qF 'cargo metadata --no-deps --format-version=1' "$$R/rust.md" \
+			&& echo "✓ AC#4/5 提取命令为结构化解析（非语义推断）" \
+			|| { echo "✗ AC#4/5 未使用 cargo metadata 结构化提取"; FAIL=1; }; \
+	fi; \
+	grep -qF 'examples/' "$$S" && grep -qF 'gold sample' "$$S" \
+		&& echo "✓ AC#6 声明生成前读取金标样例" \
+		|| { echo "✗ AC#6 未声明读取 examples/ 金标样例"; FAIL=1; }; \
+	if [ ! -f "$$E/rust.svg" ]; then echo "✗ AC#6 缺少 $$E/rust.svg 金标样例"; FAIL=1; \
+	else echo "✓ AC#6 金标样例已落盘"; fi; \
+	if [ ! -f "$$SC" ]; then echo "✗ AC#7 缺少 $$SC"; FAIL=1; \
+	else \
+		python3 -c "import ast; ast.parse(open('$$SC').read())" \
+			&& echo "✓ AC#7 review_svg.py 语法有效" \
+			|| { echo "✗ AC#7 review_svg.py 语法错误"; FAIL=1; }; \
+	fi; \
+	grep -qF 'Geometric Review' "$$S" \
+		&& echo "✓ AC#7 声明生成后几何回验" \
+		|| { echo "✗ AC#7 未声明生成后几何回验"; FAIL=1; }; \
+	if grep -nEi '\.png\b' "$$S" | grep -viF 'svg'; then \
+		echo "✗ AC#8 SKILL.md 提及 PNG 输出"; FAIL=1; \
+	else echo "✓ AC#8 未提及 PNG 输出"; fi; \
+	grep -qF 'SVG' "$$S" \
+		&& echo "✓ AC#8 声明输出为 SVG" \
+		|| { echo "✗ AC#8 未声明 SVG 输出格式"; FAIL=1; }; \
+	grep -qF 'Determinism' "$$S" && grep -qF 'regenerating the same input twice' "$$S" \
+		&& echo "✓ AC#9 声明确定性检查（regenerating the same input twice）" \
+		|| { echo "✗ AC#9 未声明确定性检查"; FAIL=1; }; \
+	if [ -f "$$SC" ]; then \
+		GOOD=$$(mktemp /tmp/gf-arch-good.XXXXXX.svg); \
+		BAD=$$(mktemp /tmp/gf-arch-bad.XXXXXX.svg); \
+		OVERFLOW_ONLY=$$(mktemp /tmp/gf-arch-overflow-only.XXXXXX.svg); \
+		printf '%s\n' \
+			'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">' \
+			'<g class="node"><title>a</title><polygon points="10,10 90,10 90,50 10,50"/><text x="50" y="30" font-size="10">a</text></g>' \
+			'<g class="node"><title>b</title><polygon points="110,10 190,10 190,50 110,50"/><text x="150" y="30" font-size="10">b</text></g>' \
+			'</svg>' > "$$GOOD"; \
+		printf '%s\n' \
+			'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">' \
+			'<g class="node"><title>a</title><polygon points="10,10 90,10 90,50 10,50"/><text x="50" y="30" font-size="10">a</text></g>' \
+			'<g class="node"><title>b</title><polygon points="70,10 150,10 150,50 70,50"/><text x="110" y="30" font-size="10">this label is far too long to fit</text></g>' \
+			'</svg>' > "$$BAD"; \
+		printf '%s\n' \
+			'<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100">' \
+			'<g class="node"><title>a</title><polygon points="10,10 90,10 90,50 10,50"/><text x="50" y="30" font-size="10">a</text></g>' \
+			'<g class="node"><title>b</title><polygon points="150,10 230,10 230,50 150,50"/><text x="190" y="30" font-size="10">this label is far too long to fit</text></g>' \
+			'</svg>' > "$$OVERFLOW_ONLY"; \
+		python3 "$$SC" "$$GOOD" >/dev/null 2>&1; GOOD_RC=$$?; \
+		python3 "$$SC" "$$BAD" >/dev/null 2>&1; BAD_RC=$$?; \
+		python3 "$$SC" "$$OVERFLOW_ONLY" >/dev/null 2>&1; OVERFLOW_RC=$$?; \
+		rm -f "$$GOOD" "$$BAD" "$$OVERFLOW_ONLY"; \
+		if [ "$$GOOD_RC" -eq 0 ] && [ "$$BAD_RC" -ne 0 ] && [ "$$OVERFLOW_RC" -ne 0 ]; then \
+			echo "✓ AC#7 review_svg.py 正确区分干净样例、越界/重叠样例与仅越界（无重叠）样例"; \
+		else \
+			echo "✗ AC#7 review_svg.py 未正确判定（good_rc=$$GOOD_RC bad_rc=$$BAD_RC overflow_rc=$$OVERFLOW_RC）"; FAIL=1; \
+		fi; \
+	fi; \
+	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
+	echo "ALL CHECKS PASSED"
+
 check-walkthrough-skill: ## Verify gf-walkthrough skill meets Issue #329 acceptance criteria
 	@S=skills/gf-walkthrough/SKILL.md; \
 	T=docs/superpowers/templates/walkthrough-report-template.md; FAIL=0; \
@@ -499,7 +576,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-walkthrough-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-architecture-diagram-skill check-walkthrough-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
