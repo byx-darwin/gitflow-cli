@@ -20,8 +20,8 @@
 
 ## 建议（条件等价 / 可能变更，未自动应用）
 ### RF-101 · Extract Function 提炼函数 · 条件等价
-- 位置：apps/cli/src/commands/pr.rs:214、issue.rs:175、release.rs:138、label.rs:264
-- 证据强度：Observed（阅读 pr.rs:214 完整函数体已确认 4 个内联分支的具体位置）
+- 位置：apps/cli/src/commands/pr.rs:218、issue.rs:182、release.rs:141、label.rs:325（`handle_milestone`）
+- 证据强度：Inferred（转引自 docs/smell-report-gitflow-cli-2026-09-16.md 的既有观察，本次未重新阅读这四处代码，行号已按当前 HEAD 校正）
 - 置信度：Medium
 - 严重度：Medium
 - 风险说明：这 4 处 `match` 臂内联了参数解析与三路分支逻辑，提炼前需逐臂确认

@@ -102,7 +102,7 @@ lands on and a concrete pitfall for this language's 条件等价/可能变更 ro
 | Extract Variable 提炼变量 | 等价 | 命名中间结果，不改变求值 |
 | Inline Variable 内联变量 | 等价 | Extract Variable 的逆操作 |
 | Change Function Declaration 改变函数声明 | 条件等价 | 若为 public API，需同步全部调用点 |
-| Encapsulate Variable 封装变量 | 等价 | 访问路径改变，值不变 |
+| Encapsulate Variable 封装变量 | 条件等价 | 若字段原本是 pub，封装后所有外部直接访问点都需改用 getter，属签名变化；仅原本已是私有字段时才等价 |
 | Rename Variable 变量改名 | 等价 | 纯标识符替换 |
 | Introduce Parameter Object 引入参数对象 | 条件等价 | 新类型的构造/默认值语义需核对 |
 | Combine Functions into Class 函数组合成类 | 条件等价 | 引入共享状态，生命周期语义变化 |
@@ -115,9 +115,9 @@ lands on and a concrete pitfall for this language's 条件等价/可能变更 ro
 |---|---|---|
 | Move Function 搬移函数 | 条件等价 | 跨模块可见性与依赖方向变化 |
 | Move Field 搬移字段 | 条件等价 | 跨对象生命周期/所有权可能变化 |
-| Move Statements into Function 搬移语句进入函数 | 等价 | 纯粹搬移，无新分支 |
+| Move Statements into Function 搬移语句进入函数 | 条件等价 | 若目标函数存在其它调用方，它们会被动执行新搬入的语句，需确认这对它们同样安全 |
 | Move Statements to Callers 搬移语句到调用方 | 条件等价 | 多调用点时需逐一核对执行时机 |
-| Replace Inline Code with Function Call 以函数调用取代内联代码 | 等价 | 已存在等价函数的替换 |
+| Replace Inline Code with Function Call 以函数调用取代内联代码 | 条件等价 | 需先确认目标函数与内联代码行为确实等价，而非仅签名相似 |
 | Slide Statements 移动语句 | 条件等价 | 语句间隐含顺序依赖会被打破 |
 | Split Loop 拆分循环 | 条件等价 | 提前 return/break 或跨迭代累积状态会改变结果 |
 | Replace Loop with Pipeline 以管道取代循环 | 条件等价 | 惰性求值/提前返回/异常传播路径可能改变 |
@@ -149,7 +149,7 @@ lands on and a concrete pitfall for this language's 条件等价/可能变更 ro
 | 手法 | 语义风险 | 说明 |
 |---|---|---|
 | Separate Query from Modifier 分离查询函数与修改函数 | 条件等价 | 若共享同一次昂贵计算，拆分后出现重复计算 |
-| Parameterize Function 令函数携带参数 | 等价 | 合并同构函数，行为由参数值决定 |
+| Parameterize Function 令函数携带参数 | 条件等价 | 合并后调用方签名变化，需同步全部调用点 |
 | Remove Flag Argument 移除标记参数 | 条件等价 | 调用方签名变化，需同步全部调用点 |
 | Preserve Whole Object 保持对象完整 | 条件等价 | 需确认被调函数不会读取额外字段产生副作用 |
 | Replace Parameter with Query 以查询取代参数 | 条件等价 | 查询时机变化可能取到不同值 |
@@ -170,7 +170,7 @@ lands on and a concrete pitfall for this language's 条件等价/可能变更 ro
 | Push Down Field 字段下移 | 条件等价 | 其它子类若仍依赖该字段即被破坏 |
 | Replace Type Code with Subclasses 以子类取代类型码 | 可能变更 | 类型码运行时可变的场景无法直接迁移 |
 | Remove Subclass 移除子类 | 条件等价 | 若被用作 instanceof/is 判断依据需同步改写 |
-| Extract Superclass 提炼超类 | 等价 | 抽出共同行为，各子类行为不变 |
+| Extract Superclass 提炼超类 | 条件等价 | 实质是 Pull Up Method/Field 的复合，且新增超类改变多态派发面，子类若有覆盖差异需逐一核对 |
 | Collapse Hierarchy 折叠继承体系 | 等价 | 合并等价的父子类 |
 | Replace Subclass with Delegate 以委托取代子类 | 可能变更 | 多态派发改为显式委托，动态绑定行为改变 |
 | Replace Superclass with Delegate 以委托取代超类 | 可能变更 | 里氏替换关系丢失，依赖它的调用点会失败 |
