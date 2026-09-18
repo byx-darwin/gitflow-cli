@@ -313,7 +313,7 @@ check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets 
 			&& echo "✓ AC#4/5 提取命令为结构化解析（非语义推断）" \
 			|| { echo "✗ AC#4/5 未使用 cargo metadata 结构化提取"; FAIL=1; }; \
 	fi; \
-	grep -qF 'examples/' "$$S" && grep -qF '金标样例' "$$S" \
+	grep -qF 'examples/' "$$S" && grep -qF 'gold sample' "$$S" \
 		&& echo "✓ AC#6 声明生成前读取金标样例" \
 		|| { echo "✗ AC#6 未声明读取 examples/ 金标样例"; FAIL=1; }; \
 	if [ ! -f "$$E/rust.svg" ]; then echo "✗ AC#6 缺少 $$E/rust.svg 金标样例"; FAIL=1; \
@@ -324,7 +324,7 @@ check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets 
 			&& echo "✓ AC#7 review_svg.py 语法有效" \
 			|| { echo "✗ AC#7 review_svg.py 语法错误"; FAIL=1; }; \
 	fi; \
-	grep -qF '几何回验' "$$S" \
+	grep -qF 'Geometric Review' "$$S" \
 		&& echo "✓ AC#7 声明生成后几何回验" \
 		|| { echo "✗ AC#7 未声明生成后几何回验"; FAIL=1; }; \
 	if grep -nEi '\.png\b' "$$S" | grep -viF 'svg'; then \
@@ -333,7 +333,7 @@ check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets 
 	grep -qF 'SVG' "$$S" \
 		&& echo "✓ AC#8 声明输出为 SVG" \
 		|| { echo "✗ AC#8 未声明 SVG 输出格式"; FAIL=1; }; \
-	grep -qF '确定性' "$$S" && grep -qF '重新生成两次' "$$S" \
+	grep -qF 'Determinism' "$$S" && grep -qF '重新生成两次' "$$S" \
 		&& echo "✓ AC#9 声明确定性检查（重新生成两次）" \
 		|| { echo "✗ AC#9 未声明确定性检查"; FAIL=1; }; \
 	if [ -f "$$SC" ]; then \
