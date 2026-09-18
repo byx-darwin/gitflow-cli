@@ -1417,6 +1417,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_report_no_truncation_when_gitcode_issue_list_ends_on_short_page() {
+        // cap=150 → per_page=min(151,100)=100，want=cap+1=151。
+        // 首页满 100 条（非短页，且未达 want）⇒ 循环必须继续翻到第二页；
+        // 第二页返回 20 条（短页）⇒ 循环必须就此停止，不再探第三页。
+        // 总条目 120 < cap=150，因此必须诚实报告 truncated=false。
+        let page1 = issue_page_json(1, 100);
+        let page2 = issue_page_json(101, 20);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .list(ListIssueArgs {
+                limit: Some(150),
+                ..ListIssueArgs::default()
+            })
+            .await
+            .expect("list should succeed");
+
+        assert_eq!(result.items.len(), 120, "两页条目必须全部保留，不得丢数据");
+        assert!(!result.truncated, "总数未达 cap，必须诚实报告未截断");
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "短页应在第二页停止，不得再探第三页，实际调用数: {}",
+            calls.len()
+        );
+        let first = &calls[0].1;
+        assert!(
+            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "首次调用必须显式传 --page=1，实际 argv: {first:?}"
+        );
+        let second = &calls[1].1;
+        assert!(
+            second.windows(2).any(|w| w[0] == "--page" && w[1] == "2"),
+            "第二次调用必须显式传 --page=2，实际 argv: {second:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_cap_gitcode_issue_per_page_at_api_maximum() {
         let runner = MockCommandRunner::success("[]");
         let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
