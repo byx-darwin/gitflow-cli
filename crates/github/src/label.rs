@@ -507,7 +507,7 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitHubMilestoneProvider<R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     // --- GitHubLabelProvider tests ---
 
@@ -639,6 +639,7 @@ mod tests {
         let paged = provider.list(None).await.expect("should list");
 
         assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, "gh");
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
@@ -722,6 +723,66 @@ mod tests {
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec!["api", "repos/owner/repo/milestones?per_page=100&page=1"]
+        );
+    }
+
+    /// 证明分页确实会递增页码，而不仅仅是原语层面的假设。
+    ///
+    /// 之前所有 argv 测试都用 `MockCommandRunner::success("[]")`，空数组
+    /// 在第 1 页就短页，从未真正观察到 `page=2` 出现在 argv 里。这里用
+    /// `cap=150` 强制 `per_page` 封顶在 100（`GITHUB_API_MAX_PER_PAGE`），
+    /// 第一页给满 100 条（不短页、也不够 N+1 探测所需的 151 条），逼出
+    /// 第二页请求；第二页给 51 条（短页）以终止循环。
+    #[tokio::test]
+    async fn test_should_increment_page_across_calls_for_milestone_list() {
+        let full_page: Vec<String> = (0..100)
+            .map(|i| {
+                format!(
+                    r#"{{"number":{i},"title":"v{i}","state":"open","closed_issues":0,"open_issues":0}}"#
+                )
+            })
+            .collect();
+        let full_page_json = format!("[{}]", full_page.join(","));
+
+        let short_page: Vec<String> = (100..151)
+            .map(|i| {
+                format!(
+                    r#"{{"number":{i},"title":"v{i}","state":"open","closed_issues":0,"open_issues":0}}"#
+                )
+            })
+            .collect();
+        let short_page_json = format!("[{}]", short_page.join(","));
+
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &full_page_json),
+            (true, &short_page_json),
+        ]);
+        let provider = GitHubMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list(Some(150))
+            .await
+            .expect("should list across two pages");
+
+        assert_eq!(paged.items.len(), 150);
+        assert!(
+            paged.truncated,
+            "100 + 51 = 151 条超出 cap=150，N+1 探测必须报告截断"
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须恰好翻两页");
+        assert_eq!(calls[0].0, "gh");
+        assert_eq!(calls[1].0, "gh");
+        assert!(
+            calls[0].1[1].contains("page=1"),
+            "第一次调用必须请求 page=1，实际: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1].1[1].contains("page=2"),
+            "第二次调用必须请求 page=2，实际: {:?}",
+            calls[1].1
         );
     }
 

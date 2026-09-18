@@ -693,6 +693,7 @@ mod tests {
         let paged = provider.list(None).await.expect("should list");
 
         assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, crate::gitcode_binary());
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
@@ -717,6 +718,7 @@ mod tests {
         let paged = provider.list(None).await.expect("should list");
 
         assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, crate::gitcode_binary());
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec!["milestone", "list", "-R", "owner/repo", "--json"]

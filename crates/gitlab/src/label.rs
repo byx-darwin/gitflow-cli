@@ -22,6 +22,33 @@ use crate::{
     runner::{CommandRunner, RealCommandRunner},
 };
 
+/// 在写操作后的读回分页结果中按 `predicate` 定位刚写入的条目。
+///
+/// 写操作（create/edit/close/reopen）已经成功执行，紧接着的读回只是为了
+/// 把写回的完整数据返回给调用方。若读回被截断，说明该条目**很可能已经
+/// 写入成功**，只是不在读回抓到的前 N 条内——此时必须报告"截断"而不是
+/// "未找到"，否则会让用户以为已经成功的写操作失败了。
+///
+/// # Errors
+///
+/// 读回被截断时返回 `truncated_msg`；未截断但 `predicate` 未命中任何条目
+/// 时返回 `not_found_msg`（理论上不应发生，除非平台侧的读回与写回不一致）。
+fn resolve_after_mutation<T>(
+    paged: Paged<T>,
+    predicate: impl Fn(&T) -> bool,
+    truncated_msg: &str,
+    not_found_msg: String,
+) -> Result<T> {
+    if paged.truncated {
+        return Err(CoreError::Platform(truncated_msg.to_string()));
+    }
+    paged
+        .items
+        .into_iter()
+        .find(predicate)
+        .ok_or(CoreError::Platform(not_found_msg))
+}
+
 /// GitLab Label 提供者，通过 `glab` CLI 管理仓库标签。
 ///
 /// # Examples
@@ -215,13 +242,13 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let labels = self.list(None).await?.items;
-        labels
-            .into_iter()
-            .find(|l| l.name == args.name)
-            .ok_or_else(|| {
-                CoreError::Platform(format!("Label '{}' not found after create", args.name))
-            })
+        let paged = self.list(None).await?;
+        resolve_after_mutation(
+            paged,
+            |l| l.name == args.name,
+            "label lookup truncated after create; too many labels to confirm the write landed",
+            format!("Label '{}' not found after create", args.name),
+        )
     }
 
     async fn list(&self, limit: Option<u32>) -> Result<Paged<LabelData>> {
@@ -309,13 +336,13 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let labels = self.list(None).await?.items;
-        labels
-            .into_iter()
-            .find(|l| l.name == args.name)
-            .ok_or_else(|| {
-                CoreError::Platform(format!("Label '{}' not found after edit", args.name))
-            })
+        let paged = self.list(None).await?;
+        resolve_after_mutation(
+            paged,
+            |l| l.name == args.name,
+            "label lookup truncated after edit; too many labels to confirm the write landed",
+            format!("Label '{}' not found after edit", args.name),
+        )
     }
 
     async fn delete(&self, name: &str) -> Result<()> {
@@ -568,11 +595,14 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list(None).await?.items;
-        milestones
-            .into_iter()
-            .find(|m| m.title == args.title)
-            .ok_or_else(|| CoreError::Platform("Milestone not found after create".into()))
+        let paged = self.list(None).await?;
+        resolve_after_mutation(
+            paged,
+            |m| m.title == args.title,
+            "milestone lookup truncated after create; too many milestones to confirm the write \
+             landed",
+            "Milestone not found after create".into(),
+        )
     }
 
     async fn list(&self, limit: Option<u32>) -> Result<Paged<MilestoneData>> {
@@ -632,11 +662,14 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list(None).await?.items;
-        milestones
-            .into_iter()
-            .find(|m| m.title == args.title || m.number == number)
-            .ok_or_else(|| CoreError::Platform("Milestone not found after edit".into()))
+        let paged = self.list(None).await?;
+        resolve_after_mutation(
+            paged,
+            |m| m.title == args.title || m.number == number,
+            "milestone lookup truncated after edit; too many milestones to confirm the write \
+             landed",
+            "Milestone not found after edit".into(),
+        )
     }
 
     async fn close(&self, number: u64) -> Result<MilestoneData> {
@@ -670,11 +703,14 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list(None).await?.items;
-        milestones
-            .into_iter()
-            .find(|m| m.number == number)
-            .ok_or_else(|| CoreError::Platform("Milestone not found after close".into()))
+        let paged = self.list(None).await?;
+        resolve_after_mutation(
+            paged,
+            |m| m.number == number,
+            "milestone lookup truncated after close; too many milestones to confirm the write \
+             landed",
+            "Milestone not found after close".into(),
+        )
     }
 
     async fn reopen(&self, number: u64) -> Result<MilestoneData> {
@@ -708,11 +744,14 @@ impl<R: CommandRunner + 'static> MilestoneProvider for GitLabMilestoneProvider<R
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        let milestones = self.list(None).await?.items;
-        milestones
-            .into_iter()
-            .find(|m| m.number == number)
-            .ok_or_else(|| CoreError::Platform("Milestone not found after reopen".into()))
+        let paged = self.list(None).await?;
+        resolve_after_mutation(
+            paged,
+            |m| m.number == number,
+            "milestone lookup truncated after reopen; too many milestones to confirm the write \
+             landed",
+            "Milestone not found after reopen".into(),
+        )
     }
 }
 
@@ -1134,21 +1173,6 @@ mod tests {
     // --- Pagination tests ---
 
     #[tokio::test]
-    async fn test_should_page_glab_label_list() {
-        let runner = MockCommandRunner::success("[]");
-        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
-
-        let paged = provider.list(None).await.expect("should list");
-
-        assert!(paged.items.is_empty());
-        let argv = &runner.recorded_calls()[0].1;
-        assert!(argv.iter().any(|a| a == "--per-page"));
-        assert!(argv.iter().any(|a| a == "100"));
-        assert!(argv.iter().any(|a| a == "--page"));
-        assert!(argv.iter().any(|a| a == "1"));
-    }
-
-    #[tokio::test]
     async fn test_should_produce_complete_argv_for_gitlab_label_list_with_default_limit() {
         let runner = MockCommandRunner::success("[]");
         let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
@@ -1156,6 +1180,7 @@ mod tests {
         let paged = provider.list(None).await.expect("should list");
 
         assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, "glab");
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
@@ -1184,6 +1209,7 @@ mod tests {
         let paged = provider.list(None).await.expect("should list");
 
         assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, "glab");
         assert_eq!(
             runner.recorded_calls()[0].1,
             vec![
@@ -1232,5 +1258,41 @@ mod tests {
             .await
             .expect_err("edit should fail when lookup is truncated");
         assert!(err.to_string().contains("truncated"));
+    }
+
+    /// 验证写操作（`create`）成功后，若读回被截断，报告的是"截断"而非
+    /// "未找到"——写操作本身已经成功，不能让用户误以为写入失败了。
+    #[tokio::test]
+    async fn test_should_report_truncation_not_missing_when_create_readback_is_truncated() {
+        let labels: Vec<String> = (0..1001)
+            .map(|i| format!(r##"{{"id":{i},"name":"label-{i}","color":"#ffffff"}}"##))
+            .collect();
+        let json = format!("[{}]", labels.join(","));
+        // 同一份固定响应既充当 `label create` 的（被忽略的）输出，也充当
+        // 紧接着 `list()` 读回的响应；mock 无视 page/per-page 参数，总是
+        // 返回整个数组，因此读回一次即触发 N+1 探测下的截断。
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner);
+
+        let args = CreateLabelArgs {
+            name: "brand-new-label".to_string(),
+            color: "#00ff00".to_string(),
+            description: None,
+        };
+
+        let err = provider.create(args).await.expect_err(
+            "create should report truncated read-back rather than silently claiming success or \
+             lying about not-found",
+        );
+        let msg = err.to_string();
+        assert!(
+            msg.contains("truncated"),
+            "expected a truncation error, got: {msg}"
+        );
+        assert!(
+            !msg.contains("not found after create"),
+            "must not report the just-created label as missing when the read-back was merely \
+             truncated: {msg}"
+        );
     }
 }
