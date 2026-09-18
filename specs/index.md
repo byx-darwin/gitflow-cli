@@ -17,6 +17,7 @@
 - [gf-workflow Mode ① 移除实施计划](../docs/superpowers/plans/2026-09-06-gf-workflow-mode1-removal.md) — Issue #325，纯文档改动，3 个文件
 - [gf-smell 实施计划](../docs/superpowers/plans/2026-09-16-gf-smell.md) — Issue #327，5 个 Task：验收断言（RED）→ SKILL.md → rust.md → 其余四语言层 → dogfooding 实跑
 - [EnvSource 注入实施计划](../docs/superpowers/plans/2026-09-17-envsource-injection.md) — Issue #359，5 个 Task：EnvSource 抽象（adapter-utils）→ gitlab/github/gitcode 三个 provider 注入 env → 移除 temp-env 死依赖 + 全量验收。
+- [gf-refactor 实施计划](../docs/superpowers/plans/2026-09-18-gf-refactor.md) — Issue #332，4 个 Task：验收断言（RED）→ SKILL.md（Fowler 52 手法目录 + 语义安全边界）→ rust.md → dogfooding 实跑（paging.rs Extract Function，原定 label.rs 因零测试覆盖按 When NOT to Refactor 改判）。
 
 ## 集成指南
 

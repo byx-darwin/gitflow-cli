@@ -291,6 +291,56 @@ check-smell-skill: ## Verify gf-smell skill meets Issue #327 acceptance criteria
 	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
 	echo "ALL CHECKS PASSED"
 
+check-refactor-skill: ## Verify gf-refactor skill meets Issue #332 acceptance criteria
+	@S=skills/gf-refactor/SKILL.md; R=skills/gf-refactor/references; FAIL=0; \
+	if [ ! -f "$$S" ]; then echo "✗ missing $$S"; exit 1; fi; \
+	if grep -nE 'cargo|rustc|go build|go test|golang|npm run|npm test|node_modules|pytest|python3|mvn |gradle|Cargo\.toml|go\.mod|package\.json|pyproject\.toml|pom\.xml|make check|make test|make build|make fmt|make clippy' "$$S"; then \
+		echo "✗ AC#1 SKILL.md 正文含单一语言的构建命令或惯用法"; FAIL=1; \
+	else echo "✓ AC#1 正文无语言专属标识"; fi; \
+	if [ -f "$$R/rust.md" ]; then echo "✓ AC#2 references/rust.md 存在"; else echo "✗ AC#2 缺少 $$R/rust.md"; FAIL=1; fi; \
+	grep -qF 'gf-quality/references/detector.md' "$$S" \
+		&& echo "✓ AC#3 复用既有语言探测" \
+		|| { echo "✗ AC#3 未引用 detector.md"; FAIL=1; }; \
+	grep -qF '一次只做一个手法' "$$S" \
+		&& echo "✓ AC#4 声明单次一手法规则" \
+		|| { echo "✗ AC#4 缺少单次一手法规则"; FAIL=1; }; \
+	grep -qF '必须编译干净' "$$S" && grep -qF '全部测试通过' "$$S" \
+		&& echo "✓ AC#5 声明每手法后校验且失败即停止" \
+		|| { echo "✗ AC#5 缺少编译/测试校验规则"; FAIL=1; }; \
+	grep -qF '行为变更与重构不能混在同一次改动里' "$$S" \
+		&& echo "✓ AC#6 声明行为变更与重构分离" \
+		|| { echo "✗ AC#6 缺少行为变更与重构分离规则"; FAIL=1; }; \
+	grep -qF '## When NOT to Refactor' "$$S" && grep -qF '无测试覆盖' "$$S" \
+		&& echo "✓ AC#7 含 When NOT to Refactor 且排除无测试覆盖" \
+		|| { echo "✗ AC#7 缺少 When NOT to Refactor 或未排除无测试覆盖"; FAIL=1; }; \
+	VOCAB=0; \
+	for K in Measured Observed Inferred 证据强度 严重度; do \
+		grep -qF "$$K" "$$S" || { echo "✗ AC#8 缺少词汇 $$K"; VOCAB=1; FAIL=1; }; \
+		grep -qF "$$K" skills/gf-smell/SKILL.md || { echo "✗ AC#8 gf-smell 中未找到对照词汇 $$K"; VOCAB=1; FAIL=1; }; \
+	done; \
+	[ $$VOCAB -eq 0 ] && echo "✓ AC#8 与 gf-smell 共享严重度与证据强度词汇"; \
+	grep -qF '语义变更一律降级为建议' "$$S" \
+		&& echo "✓ AC#9 含语义变更降级原则" \
+		|| { echo "✗ AC#9 缺少「语义变更一律降级为建议」原则"; FAIL=1; }; \
+	TOTAL=$$(grep -cE '^\| [A-Z][A-Za-z ]+ [^ -~]+[^|]*\|[^|]*\|[^|]*\|$$' "$$S"); \
+	TAGGED=$$(grep -cE '^\| [A-Z][A-Za-z ]+ [^ -~]+[^|]*\| (等价|条件等价|可能变更) \|[^|]*\|$$' "$$S"); \
+	if [ "$${TOTAL:-0}" -ge 40 ] 2>/dev/null && [ "$$TOTAL" = "$$TAGGED" ]; then \
+		echo "✓ AC#10 技术目录 $$TOTAL 条手法均已标注语义风险"; \
+	else echo "✗ AC#10 手法总数($$TOTAL)与已标注数($$TAGGED)不一致，或总数<40"; FAIL=1; fi; \
+	grep -qF '条件等价' "$$S" && grep -qF '可能变更' "$$S" && grep -qF '不得自动应用' "$$S" \
+		&& echo "✓ AC#11 声明条件等价/可能变更不得自动应用" \
+		|| { echo "✗ AC#11 缺少不得自动应用声明"; FAIL=1; }; \
+	if [ -f "$$R/rust.md" ]; then \
+		for H in '## 校验命令' '## 惯用法映射' '## 语义陷阱判例'; do \
+			grep -qF "$$H" "$$R/rust.md" || { echo "✗ 契约 rust.md 缺少 $$H"; FAIL=1; }; \
+		done; \
+		PIT=$$(grep -cE '^### 陷阱' "$$R/rust.md"); \
+		if [ "$${PIT:-0}" -ge 2 ] 2>/dev/null; then echo "✓ AC#12 rust.md 含 $$PIT 条语义陷阱判例"; \
+		else echo "✗ AC#12 rust.md 语义陷阱判例不足 2 条（当前 $$PIT）"; FAIL=1; fi; \
+	fi; \
+	if [ $$FAIL -ne 0 ]; then echo "FAILED"; exit 1; fi; \
+	echo "ALL CHECKS PASSED"
+
 check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets Issue #331 acceptance criteria
 	@S=skills/gf-architecture-diagram/SKILL.md; R=skills/gf-architecture-diagram/references; \
 	E=skills/gf-architecture-diagram/examples; SC=skills/gf-architecture-diagram/scripts/review_svg.py; FAIL=0; \
@@ -576,7 +626,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-architecture-diagram-skill check-walkthrough-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix

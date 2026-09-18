@@ -48,6 +48,49 @@ pub enum FetchStrategy {
     },
 }
 
+/// 按 [`FetchStrategy::Paged`] 逐页抓取，直到取够 `want` 条或页面取尽。
+///
+/// 只负责翻页循环本身：不做上限截断（由调用方 `fetch_capped` 统一处理），
+/// 输入输出与被提炼前的 `match` 分支完全一致（`per_page`/`want`/`fetch` →
+/// 收集到的条目）。
+///
+/// # Errors
+///
+/// - `per_page` 为 0 时返回 [`CoreError::Platform`]：该取值会导致翻页永不前进。
+/// - `fetch` 返回的错误原样透传。
+/// - 页号溢出 `u32` 时返回 [`CoreError::Platform`]。
+async fn fetch_all_pages<T, F, Fut>(per_page: u32, want: usize, fetch: &F) -> Result<Vec<T>>
+where
+    F: Fn(u32, u32) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<T>>>,
+{
+    if per_page == 0 {
+        return Err(CoreError::Platform(
+            "pagination per_page must be greater than zero".to_string(),
+        ));
+    }
+    let mut items: Vec<T> = Vec::new();
+    let mut page: u32 = 1;
+    loop {
+        let batch = fetch(page, per_page).await?;
+        let batch_len = batch.len();
+        items.extend(batch);
+
+        // Lossless on all supported 32/64-bit platforms: u32::MAX always fits in usize.
+        let per_page_usize = usize::try_from(per_page).unwrap_or(usize::MAX);
+        if batch_len < per_page_usize {
+            break; // 短页 ⇒ 已取尽
+        }
+        if items.len() >= want {
+            break; // 已够 N+1 探测所需
+        }
+        page = page
+            .checked_add(1)
+            .ok_or_else(|| CoreError::Platform("pagination page number overflowed".to_string()))?;
+    }
+    Ok(items)
+}
+
 /// 按 `strategy` 抓取至多 `cap` 条，并诚实报告是否还有更多。
 ///
 /// 内部向下游请求 `cap + 1` 条（N+1 探测）：只要 `cap` 条时无法区分
@@ -116,39 +159,14 @@ where
 {
     // Lossless on all supported 32/64-bit platforms: u32::MAX always fits in usize there.
     let want = usize::try_from(cap.saturating_add(1)).unwrap_or(usize::MAX);
-    let mut items: Vec<T> = Vec::new();
 
-    match strategy {
+    let mut items: Vec<T> = match strategy {
         FetchStrategy::SingleShot => {
             let limit = cap.saturating_add(1);
-            items = fetch(1, limit).await?;
+            fetch(1, limit).await?
         }
-        FetchStrategy::Paged { per_page } => {
-            if per_page == 0 {
-                return Err(CoreError::Platform(
-                    "pagination per_page must be greater than zero".to_string(),
-                ));
-            }
-            let mut page: u32 = 1;
-            loop {
-                let batch = fetch(page, per_page).await?;
-                let batch_len = batch.len();
-                items.extend(batch);
-
-                // Lossless on all supported 32/64-bit platforms: u32::MAX always fits in usize.
-                let per_page_usize = usize::try_from(per_page).unwrap_or(usize::MAX);
-                if batch_len < per_page_usize {
-                    break; // 短页 ⇒ 已取尽
-                }
-                if items.len() >= want {
-                    break; // 已够 N+1 探测所需
-                }
-                page = page.checked_add(1).ok_or_else(|| {
-                    CoreError::Platform("pagination page number overflowed".to_string())
-                })?;
-            }
-        }
-    }
+        FetchStrategy::Paged { per_page } => fetch_all_pages(per_page, want, &fetch).await?,
+    };
 
     // Lossless on all supported 32/64-bit platforms: u32::MAX always fits in usize there.
     let cap_usize = usize::try_from(cap).unwrap_or(usize::MAX);
