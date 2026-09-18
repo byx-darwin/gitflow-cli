@@ -55,24 +55,16 @@ use std::sync::OnceLock;
 
 use tracing::debug;
 
-/// `gitcode api` 端点单页最大条目数，与 GitHub/GitLab REST API 的惯例对齐。
+/// gitcode 分页端点的单页最大条目数。
 ///
-/// GitCode CLI 的 `api` 子命令是否真的支持 `per_page`/`page` 查询参数**未经实测**
-/// （本环境无法获取 GitCode CLI）。若该平台忽略这两个参数，首页会短于
-/// `per_page`，翻页循环在第一次调用后就因短页而终止——退化为今天「只取首页」
-/// 的行为，既不会死循环，也不会丢数据。
+/// **已实测**（gitcode-cli 0.12.0，样本 `openharmony/docs`）：`per_page` 不报错，
+/// 而是被服务端**静默封顶**在 100 —— `per_page=101` 与 `per_page=1001` 均实回
+/// 100 条。`--page` 真实翻页，`--per-page 3 --page 1/2` 返回的编号不重叠。
+///
+/// `issue` / `pr` / `label` / `milestone` 的 list 子命令与 `api` 端点共用这一上限，
+/// 因此本 crate 的所有分页路径都用它钳住页大小：
+/// `cap.saturating_add(1).min(GITCODE_API_MAX_PER_PAGE)`。
 pub(crate) const GITCODE_API_MAX_PER_PAGE: u32 = 100;
-
-/// `issue list` / `pr list` / `release list` 在未显式传 `--limit` 时使用的默认值。
-///
-/// GitCode CLI 在本环境无法获取，其 `--limit` 的真实取值范围未经实测。本 crate 的
-/// `api` 分页路径已经假定 100 是 GitCode 的单页上限
-/// （见 [`GITCODE_API_MAX_PER_PAGE`]）；在缺乏进一步证据的情况下，为
-/// `list` 子命令选用同一个保守值，既能避免用「`DEFAULT_LIST_LIMIT + 1` = 1001」这样
-/// 的探测值撞上未知的服务端上限而报错，又仍然驱动 `fetch_capped` 的 N+1 探测、
-/// 继续诚实报告截断。**用户显式传入的 `--limit` 不受此值影响**——那是调用方自己
-/// 的选择，且在本分支之前就必须落在 GitCode 允许的范围内，否则早已报错。
-pub(crate) const GITCODE_DEFAULT_LIST_LIMIT: u32 = GITCODE_API_MAX_PER_PAGE;
 
 pub mod auth;
 pub mod commit;

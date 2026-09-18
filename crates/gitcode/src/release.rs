@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, FetchStrategy, Paged, Result, Session, fetch_capped,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     release::{CreateReleaseArgs, ReleaseData, ReleaseProvider},
 };
 use tracing::debug;
@@ -142,42 +142,47 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
         }
     }
 
+    /// 列出 Release，按页抓取至多 `limit` 条。
+    ///
+    /// 走 `gitcode api` 而非 `release list` 子命令：实测（gitcode-cli 0.12.0）
+    /// `release list` **没有任何分页旗标**（只有 `-L/--limit`），而其 API 层的
+    /// `per_page` 被静默封顶在 100，因此 CLI 路径无法诚实报告截断。api 路径与
+    /// 本 crate 的 `issue comments`（`issue.rs`）同构。
+    ///
+    /// `create` / `view` 等其余方法仍走 CLI 子命令，不受影响。
+    ///
+    /// # Errors
+    ///
+    /// 当 `gitcode` CLI 调用失败或响应无法反序列化时返回错误。
     async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>> {
         let binary = crate::gitcode_binary();
         let binary = &binary;
-        let cap = limit.unwrap_or(crate::GITCODE_DEFAULT_LIST_LIMIT);
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
         let repo = &self.repo;
         let runner = &self.runner;
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        debug!(repo = %self.repo, cap, "spawning `gc release list`");
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode api` GET releases");
 
-        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
-            let limit_str = limit.to_string();
-            let output = runner
-                .run(
-                    binary,
-                    &[
-                        "release",
-                        "list",
-                        "-R",
-                        repo,
-                        "--json",
-                        RELEASE_FIELDS,
-                        "--limit",
-                        &limit_str,
-                    ],
-                )
-                .await
-                .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!("/repos/{repo}/releases?per_page={per_page}&page={page}");
 
-            if !output.status.success() {
-                return Err(parse_gitcode_error(&output.stderr).into());
-            }
+                let output = runner.run(binary, &["api", &api_path]).await.map_err(|e| {
+                    CoreError::Platform(format!("Failed to spawn gitcode api: {e}"))
+                })?;
 
-            let releases: Vec<ReleaseData> =
-                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-            Ok(releases)
-        })
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
+
+                let releases: Vec<ReleaseData> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(releases)
+            },
+        )
         .await
     }
 
@@ -344,7 +349,7 @@ impl<R: CommandRunner + 'static> ReleaseProvider for GitCodeReleaseProvider<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_gitcode_release_provider() {
@@ -645,50 +650,70 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_should_request_default_cap_plus_one_for_release_list() {
-        let runner = MockCommandRunner::success("[]");
+    async fn test_should_fetch_gitcode_releases_via_api_with_pagination() {
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        // cap 必须 ≥ 100，否则 per_page 恰为 cap+1，循环只发一次调用，
+        // 断言 calls[1] 会直接索引越界。
+        let one = valid_release_json();
+        let page = format!("[{}]", vec![one; 100].join(","));
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page), (true, &page)]);
         let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
-        provider.list(None).await.expect("list should succeed");
-        let recorded = &runner.recorded_calls()[0].1;
-        assert!(
-            recorded
-                .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "101"),
-            "实际 argv: {recorded:?}"
-        );
-    }
 
-    #[tokio::test]
-    async fn test_should_honour_user_release_limit() {
-        let runner = MockCommandRunner::success("[]");
-        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
-        provider.list(Some(10)).await.expect("list should succeed");
-        let recorded = &runner.recorded_calls()[0].1;
-        assert!(
-            recorded
-                .windows(2)
-                .any(|w| w[0] == "--limit" && w[1] == "11"),
-            "用户 limit 必须真正抵达底层 CLI，实际 argv: {recorded:?}"
-        );
-    }
+        let paged = provider.list(Some(100)).await.expect("list should succeed");
 
-    #[tokio::test]
-    async fn test_should_produce_complete_argv_for_release_list_with_default_limit() {
-        let runner = MockCommandRunner::success("[]");
-        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
-        provider.list(None).await.expect("list should succeed");
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
         assert_eq!(
-            runner.recorded_calls()[0].1,
-            vec![
-                "release",
-                "list",
-                "-R",
-                "owner/repo",
-                "--json",
-                RELEASE_FIELDS,
-                "--limit",
-                "101",
-            ]
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        assert_eq!(calls[0].1[0], "api");
+        let first_path = &calls[0].1[1];
+        assert!(
+            first_path.starts_with("/repos/owner/repo/releases?"),
+            "实际 api path: {first_path}"
+        );
+        assert!(
+            first_path.contains("per_page=100"),
+            "实际 api path: {first_path}"
+        );
+        assert!(first_path.contains("page=1"), "实际 api path: {first_path}");
+
+        let second_path = &calls[1].1[1];
+        assert!(
+            second_path.contains("page=2"),
+            "页号必须递增，实际 api path: {second_path}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_deserialize_release_from_gitcode_api_response() {
+        // 钉住 api 响应 → ReleaseData 的字段映射（本机无带 release 的公开
+        // gitcode 仓库可验，故以 fixture 覆盖）。
+        let runner = MockCommandRunner::success(&format!("[{}]", valid_release_json()));
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(paged.items.len(), 1);
+        assert_eq!(paged.items[0].tag_name, "v1.0.0");
+    }
+
+    #[tokio::test]
+    async fn test_should_cap_gitcode_release_per_page_at_api_maximum() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner.clone());
+
+        provider.list(None).await.expect("list should succeed");
+
+        let path = &runner.recorded_calls()[0].1[1];
+        assert!(
+            path.contains("per_page=100"),
+            "默认 cap=1000 时 per_page 必须被 API 上限 100 钳住，实际: {path}"
         );
     }
 
