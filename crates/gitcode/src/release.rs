@@ -30,15 +30,59 @@ const RELEASE_FIELDS: &str =
 
 // ── 中间 API 响应类型 ──────────────────────────────────────────────
 
+/// 反序列化「u64 / 字符串 / `null`」三种形态为 `Option<String>`。
+///
+/// 本地小助手，专用于本文件；不放进 `crates/core` 是因为它只多做一件
+/// `gitflow_core::types::deserialize_u64_or_string_to_string` 没做的事——
+/// 容忍 `null`（该函数没有 `visit_unit`，遇到 `null` 会硬报
+/// `invalid type: null`）。Gitee 血统的 API 常用 `null` 表示「这个 id 此刻
+/// 不存在」（例如作者账号已注销），而不是省略字段。
+fn deserialize_u64_or_string_or_null_to_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    struct U64OrStringOrNullToString;
+    impl de::Visitor<'_> for U64OrStringOrNullToString {
+        type Value = Option<String>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a u64 integer, a string, or null")
+        }
+
+        fn visit_u64<E: de::Error>(self, v: u64) -> std::result::Result<Option<String>, E> {
+            Ok(Some(v.to_string()))
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> std::result::Result<Option<String>, E> {
+            Ok(Some(v.to_string()))
+        }
+
+        fn visit_unit<E: de::Error>(self) -> std::result::Result<Option<String>, E> {
+            Ok(None)
+        }
+
+        fn visit_none<E: de::Error>(self) -> std::result::Result<Option<String>, E> {
+            Ok(None)
+        }
+    }
+
+    deserializer.deserialize_any(U64OrStringOrNullToString)
+}
+
 /// `gitcode api` release 响应中的作者对象。
 ///
 /// 独立于 [`UserSummary`] 的原因：gitcode api 的 `id` 可能是数字也可能是字符串，
 /// 而 `UserSummary::id` 是 `String` 且未挂 `deserialize_u64_or_string_to_string`，
-/// 直接反序列化数字 id 会硬报 `invalid type: integer`。
+/// 直接反序列化数字 id 会硬报 `invalid type: integer`。`login` 为 `Option<String>`：
+/// 账号已注销等场景下 gitcode 会把 `login` 置为 `null`（F1 第二轮修复）。
 #[derive(Debug, Clone, Deserialize)]
 struct ReleaseUserApi {
     #[serde(default)]
-    login: String,
+    login: Option<String>,
     #[serde(default, deserialize_with = "deserialize_u64_or_string_to_string")]
     id: String,
 }
@@ -46,7 +90,7 @@ struct ReleaseUserApi {
 impl From<ReleaseUserApi> for UserSummary {
     fn from(u: ReleaseUserApi) -> Self {
         Self {
-            login: u.login,
+            login: u.login.unwrap_or_default(),
             id: u.id,
         }
     }
@@ -56,22 +100,58 @@ impl From<ReleaseUserApi> for UserSummary {
 ///
 /// 线上字段名为 snake_case，与 [`ReleaseData`] 的 camelCase
 /// （`tagName` / `createdAt` / `publishedAt`）不同，故必须经由本类型转换。
-/// 每个字段都标注 `#[serde(default)]`：Gitee 血统的 release 对象未必带
-/// `draft` / `prerelease` 概念，形状不匹配时应可预期地退化而非半途失败。
+///
+/// # 容错边界（务必精确，不要泛化这句话——本节已两次因过度概括而失实）
+///
+/// `#[serde(default)]` 只在字段**缺失**时生效；字段存在但类型不对，serde
+/// 依然会报错并使整条记录、进而整个 `releases` 数组反序列化失败。
+///
+/// ## 实际容忍 `null` 的字段
+///
+/// [`ReleaseApiResponse`] 的每个字段类型都是 `Option<T>`（`id` 的字段类型是
+/// `Option<String>`，见下），[`ReleaseUserApi::login`] 也是 `Option<String>`——
+/// 因此这些字段本身缺失、或值显式为 `null`，都会退化为默认值，不会让 `list`
+/// 失败：`id`（退化为 `0`）、`tag_name`（退化为空字符串）、`name`、`body`、
+/// `draft`（退化为 `false`）、`prerelease`（退化为 `false`）、`author`
+/// （退化为 `None`）、`author.login`（退化为空字符串，F1 第二轮修复——
+/// Gitee 血统 API 常用「账号已注销」→ `login: null` 这一形状）、
+/// `created_at`、`published_at`、`html_url`、`url`。
+///
+/// `id` 额外用本文件的 [`deserialize_u64_or_string_or_null_to_string`]（而非
+/// `gitflow_core::types::deserialize_u64_or_string_to_string`，后者没有
+/// `visit_unit`、遇 `null` 仍会报错）容忍数字、字符串、`null` 三种形态，
+/// 与 [`ReleaseUserApi::id`] 的字符串/数字容忍同源，都是因为 gitcode 的 id
+/// 观测到过两种线上编码。
+///
+/// ## 仍然不容忍、会使整个 `list` 失败的情况
+///
+/// - **字段存在但类型错误**（例如 `"tag_name": 5`、`"author": "dev"`）： `Option<T>`
+///   的默认/自定义反序列化只特殊处理 `null`，其余类型不匹配 仍会报 `invalid type`。
+/// - **`author.id` 为 `null`**：`ReleaseUserApi::id` 用的是
+///   `gitflow_core::types::deserialize_u64_or_string_to_string`（核心库，
+///   本次修复未改动），该函数没有 `visit_unit`，`null` 会报 `invalid type: null, expected a u64
+///   integer or string`。本次只扩展了 `release.id`（顶层）与 `author.login` 的 `null`
+///   容忍，`author.id` 未 纳入范围。
+/// - **`created_at` / `published_at` 存在且不是合法 RFC3339**（例如 `"2026-01-01
+///   00:00:00"`）：`null` 或字段缺失没问题，但格式错误的字符串 仍会被 chrono
+///   拒绝并让整条记录失败——这不属于本次修复范围。
 #[derive(Debug, Clone, Deserialize)]
 struct ReleaseApiResponse {
+    #[serde(
+        default,
+        deserialize_with = "deserialize_u64_or_string_or_null_to_string"
+    )]
+    id: Option<String>,
     #[serde(default)]
-    id: u64,
-    #[serde(default)]
-    tag_name: String,
+    tag_name: Option<String>,
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
     body: Option<String>,
     #[serde(default)]
-    draft: bool,
+    draft: Option<bool>,
     #[serde(default)]
-    prerelease: bool,
+    prerelease: Option<bool>,
     #[serde(default)]
     author: Option<ReleaseUserApi>,
     #[serde(default)]
@@ -90,12 +170,12 @@ struct ReleaseApiResponse {
 impl From<ReleaseApiResponse> for ReleaseData {
     fn from(api: ReleaseApiResponse) -> Self {
         Self {
-            id: api.id,
-            tag_name: api.tag_name,
+            id: api.id.and_then(|s| s.parse().ok()).unwrap_or(0),
+            tag_name: api.tag_name.unwrap_or_default(),
             name: api.name,
             body: api.body,
-            draft: api.draft,
-            prerelease: api.prerelease,
+            draft: api.draft.unwrap_or_default(),
+            prerelease: api.prerelease.unwrap_or_default(),
             author: api.author.map(UserSummary::from),
             created_at: api.created_at.unwrap_or_else(Utc::now),
             published_at: api.published_at,
@@ -910,6 +990,102 @@ mod tests {
         let paged = provider.list(None).await.expect("list should succeed");
 
         assert_eq!(paged.items[0].author.as_ref().expect("author").id, "42");
+    }
+
+    #[tokio::test]
+    async fn test_should_accept_string_release_id_from_api() {
+        // gitcode 的 release id 与 author id 同源，同样可能是字符串。F1: id
+        // 之前是裸 u64，字符串形态会让整个 list 反序列化失败。
+        let json = r#"[{
+            "id": "12",
+            "tag_name": "v1.0.0"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(paged.items[0].id, 12);
+    }
+
+    #[tokio::test]
+    async fn test_should_degrade_release_flags_when_null_in_api_response() {
+        // Gitee 血统的 API 常用 null 表示「此概念在这里不存在」，而非省略字段。
+        // F1: tag_name/draft/prerelease 之前是裸类型，null 会让整个 list 失败。
+        let json = r#"[{
+            "id": 1,
+            "tag_name": null,
+            "draft": null,
+            "prerelease": null
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        let release = &paged.items[0];
+        assert_eq!(release.tag_name, "");
+        assert!(!release.draft);
+        assert!(!release.prerelease);
+    }
+
+    #[tokio::test]
+    async fn test_should_degrade_release_id_to_zero_when_null_in_api_response() {
+        // F1 第二轮：id 此前用 deserialize_u64_or_string_to_string，该函数没有
+        // visit_unit，null 会硬报 `invalid type: null`。补上本地 null 容忍。
+        let json = r#"[{
+            "id": null,
+            "tag_name": "v1.0.0"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        assert_eq!(paged.items[0].id, 0);
+    }
+
+    #[tokio::test]
+    async fn test_should_degrade_author_login_to_empty_when_null_in_api_response() {
+        // F1 第二轮：Gitee 血统 API 常用「作者已注销」→ login: null 这一形状，
+        // ReleaseUserApi.login 此前是裸 String，null 会让整个 list 失败。
+        let json = r#"[{
+            "id": 1,
+            "tag_name": "v1.0.0",
+            "author": {"login": null, "id": 42}
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider.list(None).await.expect("list should succeed");
+
+        let author = paged.items[0].author.as_ref().expect("author");
+        assert_eq!(author.login, "");
+        assert_eq!(author.id, "42");
+    }
+
+    #[tokio::test]
+    async fn test_should_fail_list_when_created_at_is_not_rfc3339() {
+        // 钉住容错边界：null/缺失可以退化，但格式错误的字符串（非 RFC3339）
+        // 仍然必须整体失败——这不是本次修复要处理的场景，文档不得声称已覆盖。
+        let json = r#"[{
+            "id": 1,
+            "tag_name": "v1.0.0",
+            "created_at": "2026-01-01 00:00:00"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let err = provider
+            .list(None)
+            .await
+            .expect_err("malformed created_at must still fail the whole list");
+        // chrono 对非 RFC3339 时间戳给出的错误信息，经 serde_json 透传上来；
+        // 钉住这条信息防止「null/缺失容错」被误扩展成「任意格式都容错」。
+        assert!(
+            err.to_string().contains("premature end of input"),
+            "实际错误: {err}"
+        );
     }
 
     #[tokio::test]
