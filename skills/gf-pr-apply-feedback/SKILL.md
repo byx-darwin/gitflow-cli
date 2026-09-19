@@ -56,6 +56,18 @@ git checkout <pr-branch>                                       # confirmed PR br
 # Note: resolve comments via platform web UI (GitHub/GitLab)
 git push origin <pr-branch>                                    # ONLY after explicit confirmation
 gf pr comment <pr> --body "<summary>"                 # notify
+
+# Round loop: round starts at 1 on the first push above, caps at 3
+DIFF_KIND=$(git diff --stat <last-round-sha>..HEAD)
+if [[ only comments/docs changed in "$DIFF_KIND" ]]; then
+  : # short-circuit — no re-review, DONE
+else
+  gf pr view <pr>                             # re-fetch verdict via gf-pr-review
+  # gf-pr-review assesses 6 dimensions, submits via `gf review approve|request-changes <n>`
+  # request-changes findings are filtered against this session's in-memory rejected list
+  # (dimension + path:line fingerprint) before being re-confirmed with the user
+  # if round == 3 and actionable findings remain: escalate to user, stop looping
+fi
 ```
 
 ## Preconditions
@@ -69,7 +81,7 @@ git rev-parse --abbrev-ref HEAD == <pr-branch>
 
 ## Responsibility
 
-**In:** prioritize · apply fixes (confirmed) · test · resolve · push (confirmed) · notify.
+**In:** prioritize · apply fixes (confirmed) · test · resolve · push (confirmed) · notify · bounce back to `gf-pr-review` · escalate to user at round cap.
 **Out:** initial review · inline review · approve/merge.
 
 ### 🚫 Do Not
@@ -106,6 +118,7 @@ git rev-parse --abbrev-ref HEAD == <pr-branch>
 | `git push` conflict | Stop; print conflict files; ask user to resolve |
 | User rejects a comment | Skip; record as "rejected — user decision" |
 | Ambiguous reviewer location (no line) | Ask user to disambiguate or skip |
+| Test exit code captured after `\|\| true` (e.g. `wait ... \|\| true; EXIT=$?`) | `EXIT` is always 0 — capture immediately after the command, never after a `\|\| true` guard |
 
 ## Flowchart
 
@@ -129,7 +142,18 @@ flowchart TD
   K -->|no| L{Push confirmed by user?}
   L -->|no| DONE
   L -->|yes| M[git push + pr comment summary]
-  M --> DONE
+  M --> N{Diff since last round: comment/docs only?}
+  N -->|yes| DONE
+  N -->|no| O[Bounce back: gf-pr-review]
+  O --> P{Verdict: approve?}
+  P -->|yes| DONE
+  P -->|no, request-changes| Q[Filter out session-rejected findings]
+  Q --> R{Any actionable findings remain?}
+  R -->|no| DONE
+  R -->|yes| S{Round count == 3?}
+  S -->|no, increment round| E
+  S -->|yes| T[Escalate: show remaining findings + round count, hand back to user]
+  T --> END
   DONE --> END
 ```
 
@@ -147,6 +171,18 @@ flowchart TD
 ### 4: Error
 - **Given** edit fails test · **Then** No commit/resolve; continue to next
 
+### 5: Loop Continues
+- **Given** post-push `gf-pr-review` returns `request-changes` with 2 unresolved findings · **When** round < 3 · **Then** filter session-rejected findings, re-confirm remaining with user, loop back to fix step
+
+### 6: Rejected Finding Not Repeated
+- **Given** user rejected a finding at `path:line` in round 1 · **When** round 2 re-review flags the same `path:line` again · **Then** filtered out silently, not re-shown to user
+
+### 7: Comment-Only Diff Short-Circuits
+- **Given** round's diff is entirely comment/doc changes (`git diff --stat` shows no code lines) · **When** push completes · **Then** skip `gf-pr-review` bounce-back entirely, go straight to DONE
+
+### 8: Round Cap Escalation
+- **Given** round 3 push completes and `gf-pr-review` still returns `request-changes` with actionable findings · **When** loop would continue · **Then** stop automatic looping, show remaining findings + round count, hand decision back to user
+
 ## Success Criteria
 
 - [ ] Each modification confirmed before commit
@@ -154,6 +190,9 @@ flowchart TD
 - [ ] Push only after user confirmation
 - [ ] Reviewer notified via `gf pr comment <pr>`
 - [ ] No out-of-scope commands
+- [ ] Loop terminates on findings reaching zero, not on comment list exhaustion
+- [ ] Round cap is 3; exceeding it escalates to the user instead of retrying silently
+- [ ] Test exit codes are captured immediately after the command, never after `|| true`
 
 ## Common Mistakes
 
