@@ -196,7 +196,8 @@ check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-o
 	done; \
 	for p in skills/*/; do \
 		n=`basename "$$p"`; \
-		if [ ! -d "$$D/$$n" ]; then echo "✗ 缺失  $$n —— 仓库中存在，尚未安装"; DRIFT=1; fi; \
+		if [ ! -d "$$D/$$n" ]; then echo "✗ 缺失  $$n —— 仓库中存在，尚未安装"; DRIFT=1; \
+		elif ! diff -rq "$$p" "$$D/$$n" >/dev/null 2>&1; then echo "✗ 内容不一致  $$n —— 已安装但内容与 skills/ 不同"; DRIFT=1; fi; \
 	done; \
 	if [ $$DRIFT -eq 0 ]; then echo "✓ 无漂移：$$D 与 skills/ 一致"; \
 	else echo "运行 'make install-skills' 同步"; fi; \
