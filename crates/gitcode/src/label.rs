@@ -306,7 +306,6 @@ impl<R: CommandRunner> GitCodeMilestoneProvider<R> {
 
 /// `gc api milestones` 返回的 JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct MilestoneApiResponse {
     number: u64,
     title: String,
@@ -613,9 +612,9 @@ mod tests {
             "title": "v1.0 Release",
             "description": "First stable release",
             "state": "open",
-            "dueOn": "2026-06-01T00:00:00Z",
-            "closedIssues": 10,
-            "openIssues": 5
+            "due_on": "2026-06-01T00:00:00Z",
+            "closed_issues": 10,
+            "open_issues": 5
         }"#;
 
         let api: MilestoneApiResponse =
@@ -638,9 +637,9 @@ mod tests {
             "title": "v0.9 Beta",
             "description": null,
             "state": "closed",
-            "dueOn": null,
-            "closedIssues": 20,
-            "openIssues": 0
+            "due_on": null,
+            "closed_issues": 20,
+            "open_issues": 0
         }"#;
 
         let api: MilestoneApiResponse =
@@ -655,8 +654,8 @@ mod tests {
     #[test]
     fn test_should_deserialize_milestone_list() {
         let json = br#"[
-            {"number": 1, "title": "v1.0", "description": null, "state": "open", "dueOn": null, "closedIssues": 0, "openIssues": 3},
-            {"number": 2, "title": "v0.9", "description": "Beta", "state": "closed", "dueOn": "2026-01-01T00:00:00Z", "closedIssues": 15, "openIssues": 0}
+            {"number": 1, "title": "v1.0", "description": null, "state": "open", "due_on": null, "closed_issues": 0, "open_issues": 3},
+            {"number": 2, "title": "v0.9", "description": "Beta", "state": "closed", "due_on": "2026-01-01T00:00:00Z", "closed_issues": 15, "open_issues": 0}
         ]"#;
 
         let milestones: Vec<MilestoneApiResponse> =
@@ -664,6 +663,36 @@ mod tests {
         assert_eq!(milestones.len(), 2);
         assert_eq!(milestones[0].title, "v1.0");
         assert_eq!(milestones[1].title, "v0.9");
+    }
+
+    #[test]
+    fn test_should_default_issue_counts_when_absent_from_real_list_response() {
+        // 真实响应形状（2026-09-19 对 gitcode milestone list --repo openharmony/docs
+        // 的实测）：closed_issues/open_issues 键完全不存在，不是"值为 0"。
+        //
+        // 注：该真实响应的 due_on 是纯日期格式（"2026-08-31"，无时间/时区部分），
+        // 而 due_on 转换用的是 DateTime::parse_from_rfc3339，无法解析纯日期，会
+        // 静默落到 None——这是本次 #364 命名方向修复范围之外的另一个独立缺陷
+        // （日期格式而非字段命名），本测试不对其断言，留待后续单独开 Issue。
+        let json = br#"{
+            "id": null,
+            "number": 733070,
+            "title": "IT26_OpenHarmony 7.0(Release)",
+            "description": "",
+            "state": "active",
+            "due_on": "2026-08-31"
+        }"#;
+
+        let api: MilestoneApiResponse =
+            serde_json::from_slice(json).expect("valid MilestoneApiResponse");
+        let data: MilestoneData = api.into();
+
+        assert_eq!(data.number, 733_070);
+        assert_eq!(
+            data.closed_issues, 0,
+            "键缺失时应靠 #[serde(default)] 落到 0，而不是反序列化失败"
+        );
+        assert_eq!(data.open_issues, 0);
     }
 
     #[test]
