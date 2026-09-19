@@ -66,7 +66,7 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 
 ### Step 1: Title — conventional prefix + scope. Example: `fix(auth): login redirect loops on expired token`.
 
-### Step 2: Body — Markdown template.
+### Step 2: Body — Markdown template. Before filling it in, check **vertical slice**: does this ticket cover one end-to-end narrow path, or only a single layer (e.g. "only touch the data layer")? A layer-only ticket must be rejected or reshaped — see `smallnest/goal-workflow`'s `to-issues` skill for the pattern this follows.
 
 ```markdown
 ## Context
@@ -74,9 +74,11 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 ## Goal
 
 ## Acceptance Criteria
-- [ ] …
+- [ ] … (state what observation would prove this false)
 - [ ] …
 ```
+
+Each Acceptance Criteria line must name the observation that would prove it false — never restate the Goal. Reject a criterion that is already true on the base commit (it constrains nothing), depends on another ticket to become checkable, or merely repeats the Goal in checklist form.
 
 ### Step 3: Labels — optional. Common: `bug`, `enhancement`, `documentation`, `high-priority`, `good-first-issue`. Omit flag if none.
 
@@ -152,6 +154,8 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 - [ ] Title has conventional prefix
 - [ ] CLI invoked only after confirmation
 - [ ] Out-of-scope requests redirected
+- [ ] Body covers a vertical, end-to-end slice — a ticket that only touches one layer (e.g. "data layer only") is rejected or reshaped
+- [ ] Every Acceptance Criteria line names a falsifiable observation, not a restated Goal
 
 ## Common Mistakes
 
