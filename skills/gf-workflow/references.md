@@ -467,6 +467,45 @@ See `specs/gf-workflow-mode1-removal-design.md` for the investigation.
 Quality compensation: `executing-plans` (light path) lacks per-task review → gates
 compensate (`make test` before PR + Phase 4 `gf-review`). SDD carries per-task review built in.
 
+### Phase 3 Execution Error Classification (Issue #336)
+
+`skills/gf-workflow/SKILL.md`'s top-level Error Handling table covers orchestrator-level
+failures (missing contract, gate check failed). It does not cover failures that occur
+**during Phase 3 execution** (the implementation engine actually running build/test/lint
+commands, merging, or queuing a merge). This table fills that gap.
+
+**Two categories were adapted, not ported verbatim, from `smallnest/goal-workflow`'s
+`loop-it` skill** — this repo's semantics differ:
+
+- `merge_conflict`: Phase 3 Step 3's local-merge path already aborts and hands back to the
+  user on conflict (`git merge --abort`, branch/worktree untouched). The table below keeps
+  that behavior — zero automatic retries — rather than inventing a new auto-resolve loop.
+- `ci`: Phase 3 Step 5 queues the merge (`gf pr merge --auto`) against a specific SHA that
+  has already passed checks. Pushing a new commit to that branch after queuing does **not**
+  get carried into the queued check (verified empirically) — so `ci` failures can never be
+  "fixed" by pushing more commits onto the queued branch. A fix requires a fresh commit and
+  a fresh queue entry, which restarts at Step 2, not a retry of Step 5.
+
+| Category | Trigger | Recovery | Retry Cap |
+|---|---|---|---|
+| `build` | Compile/build failure | Fix code, rebuild | 3 |
+| `test` | Test failure | Fix code or test, rerun | 3 |
+| `lint` | `cargo clippy` / `cargo fmt` (or per-language equivalent) failure | Fix, rerun `make lint` | 3 |
+| `merge_conflict` | `git merge` conflict (Phase 3 Step 3, local-merge path) | `git merge --abort`; leave `branch`/worktree untouched; escalate to user immediately — no automatic retry. User resolves manually, then Step 3 is re-run as a fresh attempt (not counted against this cap) | 0 |
+| `ci` | Required check fails after the merge queue (Phase 3 Step 5, PR path) | Never push a new commit to the already-queued branch. `gf` has no re-run command for an existing pipeline run — ✋ PAUSE and ask the user to rule out flakiness via the platform's own re-run action (e.g. GitHub Actions "Re-run failed jobs", or that platform's native CLI); if it still fails, a real fix requires a new commit + a fresh queue entry — that restarts at Step 2, it is not a retry of Step 5 | 1 (one user-triggered same-SHA re-run only) |
+| `auth` | `gf auth status` failure / API 401/403 | No retry — escalate to user immediately (`auth login` is a human action) | 0 |
+| `rate_limit` | API 429 / platform throttling | No retry — escalate to user immediately (waiting or rotating credentials is a human decision) | 0 |
+| `network` | Transient network error (timeout, connection reset) | Retry with backoff | 3 |
+| `issue_unclear` | Execution engine hits a requirement ambiguity it cannot resolve | Not a retryable error — pause and ask the user for clarification; never guess. Each clarification round is a fresh attempt, not counted against a retry cap | 0 |
+| `unknown` | Uncategorized error | Capture the full error, retry once conservatively; escalate if it recurs | 1 |
+
+**Escalation contract.** When a category's retry cap is reached (or immediately, for the
+four 0-cap categories — `merge_conflict`, `auth`, `rate_limit`, `issue_unclear`): stop
+retrying automatically, show the user the error category, every recovery attempt tried so
+far with its outcome, and the retry count, then wait for the user's decision (continue /
+change strategy / abort the task). Never silently give up and never silently switch
+delivery mode (e.g. falling back from local-merge to PR) as a substitute for asking.
+
 ### Worktree Location Convention (Issue #146)
 
 All gf-workflow worktrees are created at a **fixed path**: `.worktree/<branch-name>`.
