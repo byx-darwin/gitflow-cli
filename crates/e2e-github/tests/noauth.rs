@@ -1,4 +1,5 @@
-//! 未认证错误路径 E2E 测试(无需凭据,任何环境均可运行)
+//! 未认证错误路径 E2E 测试(无需凭据,前提是运行环境已安装 `gh` CLI；未安装时 skip
+//! 而非 fail，见下方 skip 逻辑)
 //!
 //! 通过 `env_remove` 清除继承的令牌、`GH_CONFIG_DIR` 指向空目录
 //! 屏蔽 `gh` 的 hosts.yml,构造确定性的未认证环境。
@@ -30,11 +31,16 @@ async fn test_should_fail_with_login_guidance_when_status_checked_unauthenticate
         .await
         .unwrap();
 
+    let combined = format!("{}{}", output.stdout, output.stderr);
+    if combined.contains("未检测到 gh") {
+        eprintln!("skipped: gh CLI not installed in this environment");
+        return;
+    }
+
     assert!(
         !output.status.success(),
         "unauthenticated auth status must exit non-zero"
     );
-    let combined = format!("{}{}", output.stdout, output.stderr);
     assert!(
         combined.contains("gh auth login"),
         "expected login guidance in output, got: {combined}"
@@ -49,11 +55,16 @@ async fn test_should_fail_with_login_guidance_when_listing_issues_unauthenticate
         .await
         .unwrap();
 
+    let combined = format!("{}{}", output.stdout, output.stderr);
+    if combined.contains("未检测到 gh") {
+        eprintln!("skipped: gh CLI not installed in this environment");
+        return;
+    }
+
     assert!(
         !output.status.success(),
         "unauthenticated issue list must exit non-zero"
     );
-    let combined = format!("{}{}", output.stdout, output.stderr);
     assert!(
         combined.contains("gh auth login"),
         "expected login guidance in output, got: {combined}"
