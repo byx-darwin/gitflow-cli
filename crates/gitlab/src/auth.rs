@@ -158,6 +158,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitLab
                     logged_in: false,
                     user: None,
                     scopes: vec![],
+                    hosts: vec![],
                 });
             }
 
@@ -172,6 +173,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitLab
             logged_in: user.is_some(),
             user,
             scopes: vec![],
+            hosts: vec![],
         })
     }
 

@@ -193,6 +193,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider
                     logged_in: false,
                     user: None,
                     scopes: vec![],
+                    hosts: vec![],
                 });
             }
 
@@ -206,6 +207,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider
             logged_in: user.is_some(),
             user,
             scopes: vec![], // gitcode auth status 不直接返回 scopes 列表
+            hosts: vec![],
         })
     }
 
