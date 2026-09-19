@@ -184,10 +184,8 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 Never write "unrelated" / "与本次改动无关" without the commit hash and
 ancestry check below (reused from `gf-walkthrough`):
 
-```bash
 H=$(git log -1 --format=%H -- "<test file>")
 git merge-base --is-ancestor "$H" "$BASE" && echo "先于本次交付存在" || echo "本次引入"
-```
 
 ### Result
 - [ ] ALL CHECKS PASSED — ready for PR
