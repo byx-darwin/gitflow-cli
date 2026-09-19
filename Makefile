@@ -477,6 +477,41 @@ check-walkthrough-skill: ## Verify gf-walkthrough skill meets Issue #329 accepta
 	[ $$FAIL -eq 0 ] && echo "全部硬约束通过" || echo "存在未通过项"; \
 	exit $$FAIL
 
+check-quality-review-evidence-skill: ## Verify gf-quality/gf-pr-review evidence grading meets Issue #333 acceptance criteria
+	@QS=skills/gf-quality/SKILL.md; PS=skills/gf-pr-review/SKILL.md; WS=skills/gf-walkthrough/SKILL.md; FAIL=0; \
+	if [ ! -f "$$QS" ]; then echo "✗ missing $$QS"; exit 1; fi; \
+	if [ ! -f "$$PS" ]; then echo "✗ missing $$PS"; exit 1; fi; \
+	for F in "$$QS" "$$PS"; do \
+		TIER=0; \
+		for K in Measured Inferred Unverified; do \
+			grep -qF "$$K" "$$F" || { echo "✗ #1 $$F 缺少证据档位 $$K"; TIER=1; FAIL=1; }; \
+		done; \
+		[ $$TIER -eq 0 ] && echo "✓ #1 $$F 三档标记齐备"; \
+	done; \
+	HEADER=0; \
+	for H in '失败用例' '最后修改 commit' '是否 base 祖先'; do \
+		grep -qF "$$H" "$$QS" || { echo "✗ #3 gf-quality 缺少失败测试列「$$H」"; HEADER=1; FAIL=1; }; \
+	done; \
+	[ $$HEADER -eq 0 ] && echo "✓ #3 gf-quality 失败测试三列齐备"; \
+	grep -qF 'unrelated' "$$QS" \
+		&& echo "✓ #4 gf-quality 禁用词规则已声明" \
+		|| { echo "✗ #4 gf-quality 未声明禁止写 unrelated"; FAIL=1; }; \
+	for F in "$$QS" "$$PS"; do \
+		grep -qF 'gf-walkthrough' "$$F" \
+			&& echo "✓ #5 $$F 声明复用 gf-walkthrough 词汇" \
+			|| { echo "✗ #5 $$F 未声明复用词汇（术语可能与 #329 不一致）"; FAIL=1; }; \
+	done; \
+	for T in Measured Inferred Unverified; do \
+		QLINE=`grep -m1 "| \\\`$$T\\\`" "$$QS" | tr -d '[:space:]'`; \
+		WLINE=`grep -m1 "| \\\`$$T\\\`" "$$WS" | tr -d '[:space:]'`; \
+		if [ "$$QLINE" != "$$WLINE" ]; then echo "✗ #5 gf-quality 的 $$T 行与 gf-walkthrough 不逐字一致"; FAIL=1; fi; \
+	done; \
+	grep -qE 'Evidence Tier|证据等级' "$$PS" \
+		&& echo "✓ #1 gf-pr-review 逐维度声明证据等级" \
+		|| { echo "✗ #1 gf-pr-review 未在维度评估中声明证据等级"; FAIL=1; }; \
+	[ $$FAIL -eq 0 ] && echo "全部硬约束通过" || echo "存在未通过项"; \
+	exit $$FAIL
+
 # 词数上限取 600 而非 skill-conventions.md §1.1 的 500：该硬限与 §3.2（Test Scenarios
 # 必须 Given/When/Then）、§4.2（Trigger Keywords）、§7（Responsibility 三段式）、
 # §10（Success Criteria）对本 skill 不可兼得——#330 的六条验收标准各自都要在正文落字
@@ -626,7 +661,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
