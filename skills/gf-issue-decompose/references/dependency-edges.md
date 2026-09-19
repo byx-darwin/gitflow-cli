@@ -27,11 +27,10 @@ Rules:
 - **A tracer bullet has no inbound edges.** If the first ticket is blocked, it is not a
   tracer bullet.
 
-`Blocked by: #N` is the literal a topological sorter will parse. No such consumer exists
-in this repository yet — `gf-workflow-batch` still takes the first pending Issue in list
-order, and sorting it by dependency edges is tracked as Issue #337. Writing the edge as
-prose ("depends on the schema work") produces data that sorter cannot read, so keep the
-literal even though nothing consumes it today.
+`Blocked by: #N` is the literal `gf-workflow-batch`'s dependency resolution stage parses
+(`skills/gf-workflow-batch/references.md` § Dependency Resolution, Issue #337). Writing
+the edge as prose ("depends on the schema work") produces data that parser cannot read,
+so keep the literal — a prose edge is silently treated as no dependency at all.
 
 ## Creation in Dependency Order
 
