@@ -18,6 +18,7 @@
 - [gf-smell 实施计划](../docs/superpowers/plans/2026-09-16-gf-smell.md) — Issue #327，5 个 Task：验收断言（RED）→ SKILL.md → rust.md → 其余四语言层 → dogfooding 实跑
 - [EnvSource 注入实施计划](../docs/superpowers/plans/2026-09-17-envsource-injection.md) — Issue #359，5 个 Task：EnvSource 抽象（adapter-utils）→ gitlab/github/gitcode 三个 provider 注入 env → 移除 temp-env 死依赖 + 全量验收。
 - [gf-refactor 实施计划](../docs/superpowers/plans/2026-09-18-gf-refactor.md) — Issue #332，4 个 Task：验收断言（RED）→ SKILL.md（Fowler 52 手法目录 + 语义安全边界）→ rust.md → dogfooding 实跑（paging.rs Extract Function，原定 label.rs 因零测试覆盖按 When NOT to Refactor 改判）。
+- [gf-quality/gf-pr-review 证据分级实施计划](../docs/superpowers/plans/2026-09-19-quality-review-evidence-grading.md) — Issue #333，4 个 Task：验收断言（RED）→ gf-quality SKILL.md（逐 Gate 证据等级 + 失败测试溯源表）→ gf-pr-review SKILL.md（逐维度证据等级）→ 校验 GREEN + gf-quality 实跑 dogfooding。
 
 ## 集成指南
 
