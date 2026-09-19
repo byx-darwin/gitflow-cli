@@ -181,16 +181,18 @@ After detection, load the matching `references/<lang>.md` and execute its gate c
 | 失败用例 | 最后修改 commit | 是否 base 祖先 |
 |---|---|---|
 
-Never write "unrelated" / "与本次改动无关" without the commit hash and
-ancestry check below (reused from `gf-walkthrough`):
-
-H=$(git log -1 --format=%H -- "<test file>")
-git merge-base --is-ancestor "$H" "$BASE" && echo "先于本次交付存在" || echo "本次引入"
-
 ### Result
 - [ ] ALL CHECKS PASSED — ready for PR
 - [ ] WARNINGS — recommend fixing before PR
 - [ ] ERRORS — must fix before PR
+```
+
+Never write "unrelated" / "与本次改动无关" in the Failing Tests table without
+the commit hash and ancestry check below (reused from `gf-walkthrough`):
+
+```bash
+H=$(git log -1 --format=%H -- "<test file>")
+git merge-base --is-ancestor "$H" "$BASE" && echo "先于本次交付存在" || echo "本次引入"
 ```
 
 ### Multi-Language Aggregate Report
@@ -238,9 +240,6 @@ git merge-base --is-ancestor "$H" "$BASE" && echo "先于本次交付存在" || 
 |---|---|---|
 | `test_add` | `<hash>` | `先于本次交付存在` / `本次引入` |
 
-Never write "unrelated" without the commit hash and ancestry check (see
-Single-Language Report → Failing Tests above for the command).
-
 ### Summary
 
 - ✅ Rust (workspace): ALL CHECKS PASSED
@@ -254,6 +253,9 @@ Single-Language Report → Failing Tests above for the command).
 
 ❌ **QUALITY GATE FAILED** — 1 language has failures
 ```
+
+Same ancestry-check rule and command as the Single-Language Report's Failing
+Tests section above applies to every per-language Failed Tests table here.
 
 **Report only. No auto-fix. No source modifications.**
 
