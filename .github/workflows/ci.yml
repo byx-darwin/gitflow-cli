@@ -35,6 +35,7 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +65,40 @@ jobs:
       # Same crate exclusions as above, for the same reason.
       - name: cargo test --doc
         run: cargo test --doc --all-features --workspace --exclude e2e-gitlab --exclude e2e-gitcode
+      # Issue #373: 唯一一次真实的 Windows 独立失败（2026-08-31）没有可复现路径，
+      # 也没有留下能区分"资源限制 vs 测试本身"的证据。这一步只在失败时跑，采集
+      # 当时的资源状态，供下次万一复现时判别根因。
+      - name: Collect failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "## Failure diagnostics (${{ matrix.os }})"
+            echo
+            echo "### Toolchain"
+            rustc --version
+            cargo --version
+            echo
+            echo "### Disk space"
+            df -h . || true
+            echo
+            echo "### Memory"
+            if [ "${{ runner.os }}" = "Linux" ]; then
+              free -h || true
+            elif [ "${{ runner.os }}" = "macOS" ]; then
+              vm_stat || true
+            else
+              wmic OS get FreePhysicalMemory,TotalVisibleMemorySize 2>/dev/null || \
+                systeminfo | grep -i "memory" || true
+            fi
+          } > failure-diagnostics.txt
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics-${{ matrix.os }}
+          path: failure-diagnostics.txt
+          retention-days: 7
 
   lint:
     name: Lint
