@@ -320,7 +320,6 @@ impl<R: CommandRunner> GitHubMilestoneProvider<R> {
 
 /// `gh api milestones` 返回的 JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct MilestoneApiResponse {
     number: u64,
     title: String,
@@ -850,9 +849,9 @@ mod tests {
             "title": "v1.0 Release",
             "description": "First stable release",
             "state": "open",
-            "dueOn": "2026-06-01T00:00:00Z",
-            "closedIssues": 10,
-            "openIssues": 5
+            "due_on": "2026-06-01T00:00:00Z",
+            "closed_issues": 10,
+            "open_issues": 5
         }"#;
 
         let api: MilestoneApiResponse =
@@ -875,9 +874,9 @@ mod tests {
             "title": "v0.9 Beta",
             "description": null,
             "state": "closed",
-            "dueOn": null,
-            "closedIssues": 20,
-            "openIssues": 0
+            "due_on": null,
+            "closed_issues": 20,
+            "open_issues": 0
         }"#;
 
         let api: MilestoneApiResponse =
@@ -892,8 +891,8 @@ mod tests {
     #[test]
     fn test_should_deserialize_milestone_list() {
         let json = br#"[
-            {"number": 1, "title": "v1.0", "description": null, "state": "open", "dueOn": null, "closedIssues": 0, "openIssues": 3},
-            {"number": 2, "title": "v0.9", "description": "Beta", "state": "closed", "dueOn": "2026-01-01T00:00:00Z", "closedIssues": 15, "openIssues": 0}
+            {"number": 1, "title": "v1.0", "description": null, "state": "open", "due_on": null, "closed_issues": 0, "open_issues": 3},
+            {"number": 2, "title": "v0.9", "description": "Beta", "state": "closed", "due_on": "2026-01-01T00:00:00Z", "closed_issues": 15, "open_issues": 0}
         ]"#;
 
         let milestones: Vec<MilestoneApiResponse> =
