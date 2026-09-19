@@ -209,6 +209,11 @@ becomes ready with no extra persisted state.
 
 ```
 discussion_attempted = false
+blocked_exit = false          # true only when the loop stops because `ready` is
+                               # genuinely exhausted this round — not when it stops
+                               # because `--limit` was reached (that round's `pending`
+                               # is non-empty too, but for an unrelated reason: it just
+                               # hasn't been reached yet, not blocked)
 dispatched = 0                # count of Issues dispatched this run, bounds --limit
 attempted = set()             # in-memory only, scoped to this invocation, never
                                # persisted to disk — guards against re-dispatching
@@ -236,6 +241,9 @@ loop:
                                              # no dispatch this run
     candidates = [i for i in ready if i.number not in attempted]
     if candidates is empty:
+        blocked_exit = true   # this round genuinely ran out of dispatchable
+                               # candidates, as opposed to `--limit` cutting the
+                               # loop short before `pending` was even re-derived
         break           # ready set exhausted, or all remaining candidates already
                          # attempted this run — normal stop, not an error: pending
                          # may still hold Issues waiting on a blocker to close
@@ -247,9 +255,12 @@ loop:
                      delivery: result.pr_url or result.merge_commit,
                      outcome: result.outcome})   # success | failed | rejected
 print_summary_table(summary)
-if pending:   # loop exited via `candidates is empty` with unmet-dependency
-              # Issues still sitting in `pending` — distinguish this from a
-              # clean run where nothing was left to do
+if blocked_exit and pending:   # loop exited via `candidates is empty` with
+                                # unmet-dependency Issues still in `pending` —
+                                # distinguish this from a `--limit` cutoff, where
+                                # `pending` is also non-empty but for an unrelated
+                                # reason (not reached yet, not blocked), and from a
+                                # clean run where nothing was left to do
     print(f"⏸ {len(pending)} Issue(s) still blocked on unmet dependencies: "
           + ", ".join(f"#{i.number}" for i in pending))
     print("Re-run /gf-workflow-batch after their blockers close.")
