@@ -1,7 +1,11 @@
 # Phase 4 Dogfooding Checklist
 
 **适用版本:** v0.6.x+
-**最后更新:** 2026-07-10
+**最后更新:** 2026-09-20（本次已逐条实测下方命令，验证所用 CLI 版本见 `gf --version`）
+
+> **命令随 CLI 版本升级可能漂移**：本清单里的每条命令在"最后更新"日期当天都用
+> `gf <子命令> --help` 逐一核对过参数形式。CLI 版本升级后如果某条命令报参数错误，
+> 先用 `--help` 核对最新参数形式再更新本清单，而不是照抄旧命令排查半天。
 
 > 每次发布前执行此 checklist，用真实 workflow 场景验证核心命令。
 > 发现 bug 时通过 `gf issue create` 手动创建 Issue，所有检查项通过后才能发布。
@@ -20,9 +24,9 @@
 
 > GitHub release 命令涉及版本标签创建和远程操作，历史上有过非交互模式兼容性问题。
 
-- [ ] 创建 release：`gf release create v0.x.x --notes "test release"`
+- [ ] 创建 release：`gf release create --tag-name v0.x.x --body "test release"`
 - [ ] 删除 release：`gf release delete v0.x.x --yes`
-- [ ] 非交互模式验证：`echo "y" | gf release create v0.x.x --notes "test"`
+- [ ] 非交互模式验证：`echo "y" | gf release create --tag-name v0.x.x --body "test"`
 - [ ] 清理：`gf release delete v0.x.x --yes`
 
 ### 验证要点
@@ -40,7 +44,7 @@
 > GitLab API 在处理中文标签时可能出现编码问题，需验证 CRUD 操作。
 
 - [ ] 创建中文标签：`gf label create "测试标签" --color "#ff0000"`
-- [ ] 创建带中文标签的 issue：`gf issue create --title "Dogfooding test" --labels "测试标签"`
+- [ ] 创建带中文标签的 issue：`gf issue create --title "Dogfooding test" --label "测试标签"`
 - [ ] 查询 issue 标签：`gf issue view <n>` 确认标签正确显示
 - [ ] 删除测试 issue：`gf issue close <n>`
 - [ ] 删除测试标签：`gf label delete "测试标签" --yes`
