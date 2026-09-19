@@ -306,6 +306,8 @@ impl<R: CommandRunner, E: EnvSource> gitflow_core::AuthChecker for GitLabAuthPro
 ///
 /// `glab` 对每个已配置 host 输出一个不含空白的裸行作为 host 标识
 /// （如 `gitlab.com`、`192.168.230.23`），紧随其后是若干缩进的状态行。
+/// 要求该裸行包含 `.`（域名或 IPv4 的共同特征），避免把单个单词的通用
+/// 错误信息（如 `unauthorized`）误判成一个"host"，从而掩盖真实的平台错误。
 /// 无法识别出任何 host 行时返回空 `Vec`，由调用方回退到旧的整段文本判断。
 fn parse_hosts_from_status(output: &str) -> Vec<HostAuthStatus> {
     let mut hosts = Vec::new();
@@ -315,7 +317,7 @@ fn parse_hosts_from_status(output: &str) -> Vec<HostAuthStatus> {
         let is_header = !line.starts_with(' ') && !line.starts_with('\t');
         let trimmed = line.trim();
 
-        if is_header && !trimmed.is_empty() && !trimmed.contains(' ') {
+        if is_header && !trimmed.is_empty() && !trimmed.contains(' ') && trimmed.contains('.') {
             if let Some(host) = current.take() {
                 hosts.push(host);
             }
@@ -630,6 +632,8 @@ mod tests {
         assert!(status.logged_in);
         assert_eq!(status.user, Some("testuser".to_string()));
         assert!(status.scopes.is_empty());
+        assert_eq!(status.hosts.len(), 1);
+        assert_eq!(status.hosts[0].host, "gitlab.com");
     }
 
     #[tokio::test]
@@ -653,6 +657,20 @@ mod tests {
         assert_eq!(status.hosts[1].host, "192.168.230.23");
         assert!(status.hosts[1].logged_in);
         assert_eq!(status.hosts[1].user, Some("baoyuexing".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_not_treat_single_word_error_line_as_host() {
+        let runner = MockCommandRunner::failure("unauthorized", 1);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let result = provider.status().await;
+
+        assert!(
+            result.is_err(),
+            "a bare single-word error line must not be parsed as a fake host (expected Err, got \
+             {result:?})"
+        );
     }
 
     #[tokio::test]
