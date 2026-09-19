@@ -163,4 +163,4 @@ CI 仍在跑（<branch>，已 N 分钟）。请选择：
 - `/gf-pr-review` — full review
 - `/gf-pr-inline-review` — line-level review
 - `/gf-pr-apply-feedback` — post-review code changes
-- Full params reference: `docs/references/gf-pr-params.md`
+- `docs/references/gf-pr-params.md` — full params reference
