@@ -66,7 +66,7 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 
 ### Step 1: Title — conventional prefix + scope. Example: `fix(auth): login redirect loops on expired token`.
 
-### Step 2: Body — Markdown template.
+### Step 2: Body — Markdown template. Before filling it in, check **vertical slice**: does this ticket cover one end-to-end narrow path, or only a single layer (e.g. "only touch the data layer")? A layer-only ticket must be rejected or reshaped — see `skills/gf-issue-decompose/references/vertical-slice.md`'s Slice Test and Horizontal-Layering Rejects table for the exact judgment this repo applies.
 
 ```markdown
 ## Context
@@ -74,9 +74,11 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 ## Goal
 
 ## Acceptance Criteria
-- [ ] …
+- [ ] … (state what observation would prove this false)
 - [ ] …
 ```
+
+Each Acceptance Criteria line must name the observation that would prove it false — never restate the Goal. Reject a criterion that is already true on the base commit (it constrains nothing) or merely repeats the Goal in checklist form. A criterion that observes *this* ticket's own behavior but cannot be checked until another ticket merges is not rejected — it stays here with a `Blocked by: #N` note (see `skills/gf-issue-decompose/references/falsifiable-criteria.md`'s Shape 2 vs. blocked-criterion distinction); only reject a criterion whose observed behavior actually belongs to another ticket's deliverable.
 
 ### Step 3: Labels — optional. Common: `bug`, `enhancement`, `documentation`, `high-priority`, `good-first-issue`. Omit flag if none.
 
@@ -152,6 +154,8 @@ gf issue create --title "<prefix>(scope): summary" --body "<md>" [--label <l>...
 - [ ] Title has conventional prefix
 - [ ] CLI invoked only after confirmation
 - [ ] Out-of-scope requests redirected
+- [ ] Body covers a vertical, end-to-end slice — a ticket that only touches one layer (e.g. "data layer only") is rejected or reshaped
+- [ ] Every Acceptance Criteria line names a falsifiable observation, not a restated Goal
 
 ## Common Mistakes
 
