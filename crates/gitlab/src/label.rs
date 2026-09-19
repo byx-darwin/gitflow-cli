@@ -210,10 +210,16 @@ impl From<LabelApiResponse> for LabelData {
 #[async_trait]
 impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
+        let color = if args.color.starts_with('#') {
+            args.color.clone()
+        } else {
+            format!("#{}", args.color)
+        };
+
         debug!(
             repo = %self.repo,
             name = %args.name,
-            color = %args.color,
+            color = %color,
             "spawning `glab label create`"
         );
 
@@ -223,7 +229,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             "--name",
             &args.name,
             "--color",
-            &args.color,
+            &color,
             "--repo",
             &self.repo_target,
         ];
@@ -960,6 +966,58 @@ mod tests {
         let label = provider.create(args).await.expect("should create");
 
         assert_eq!(label.name, "bug");
+    }
+
+    #[tokio::test]
+    async fn test_should_normalize_color_without_hash_prefix() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##),
+        ]);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "d73a4a".to_string(), // 无 # 前缀
+            description: None,
+        };
+
+        provider.create(args).await.expect("should create");
+
+        let calls = runner.recorded_calls();
+        let create_call = &calls[0];
+        let color_idx = create_call
+            .1
+            .iter()
+            .position(|a| a == "--color")
+            .expect("--color flag present");
+        assert_eq!(create_call.1[color_idx + 1], "#d73a4a");
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_through_color_that_already_has_hash_prefix() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##),
+        ]);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "#d73a4a".to_string(), // 已带 #
+            description: None,
+        };
+
+        provider.create(args).await.expect("should create");
+
+        let calls = runner.recorded_calls();
+        let create_call = &calls[0];
+        let color_idx = create_call
+            .1
+            .iter()
+            .position(|a| a == "--color")
+            .expect("--color flag present");
+        assert_eq!(create_call.1[color_idx + 1], "#d73a4a");
     }
 
     #[tokio::test]

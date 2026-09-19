@@ -31,7 +31,7 @@ pub enum LabelCommand {
         /// 标签名称（必填）。
         name: String,
 
-        /// 标签颜色（必填，十六进制格式，如 `d73a4a`）。
+        /// 标签颜色（必填，十六进制格式，如 `d73a4a` 或 `#d73a4a`，均可）。
         #[arg(long)]
         color: String,
 
