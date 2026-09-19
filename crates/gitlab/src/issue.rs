@@ -360,6 +360,7 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");
+        let description = args.body.clone().unwrap_or_default();
 
         let mut cmd_args: Vec<&str> = vec![
             "issue",
@@ -368,12 +369,9 @@ impl<R: CommandRunner + 'static> IssueProvider for GitLabIssueProvider<R> {
             &self.repo_target,
             "--title",
             &args.title,
+            "--description",
+            &description,
         ];
-
-        if let Some(body) = &args.body {
-            cmd_args.push("--description");
-            cmd_args.push(body);
-        }
 
         if !args.labels.is_empty() {
             cmd_args.push("--label");
@@ -1109,6 +1107,33 @@ mod tests {
             labels: vec!["bug".to_string()],
             assignees: vec!["alice".to_string()],
         }
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_empty_description_when_body_is_none() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, "https://gitlab.com/owner/repo/-/issues/7"),
+            (true, r#"{"iid":7,"title":"t","state":"opened"}"#),
+        ]);
+        let provider = GitLabIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateIssueArgs {
+            title: "t".to_string(),
+            body: None,
+            labels: vec![],
+            assignees: vec![],
+        };
+
+        provider.create(args).await.expect("should create");
+
+        let calls = runner.recorded_calls();
+        let create_call = &calls[0];
+        let desc_idx = create_call
+            .1
+            .iter()
+            .position(|a| a == "--description")
+            .expect("--description flag must be present even when body is None");
+        assert_eq!(create_call.1[desc_idx + 1], "");
     }
 
     #[tokio::test]
