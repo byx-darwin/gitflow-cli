@@ -20,6 +20,7 @@
 - [gf-refactor 实施计划](../docs/superpowers/plans/2026-09-18-gf-refactor.md) — Issue #332，4 个 Task：验收断言（RED）→ SKILL.md（Fowler 52 手法目录 + 语义安全边界）→ rust.md → dogfooding 实跑（paging.rs Extract Function，原定 label.rs 因零测试覆盖按 When NOT to Refactor 改判）。
 - [gf-quality/gf-pr-review 证据分级实施计划](../docs/superpowers/plans/2026-09-19-quality-review-evidence-grading.md) — Issue #333，4 个 Task：验收断言（RED）→ gf-quality SKILL.md（逐 Gate 证据等级 + 失败测试溯源表）→ gf-pr-review SKILL.md（逐维度证据等级）→ 校验 GREEN + gf-quality 实跑 dogfooding。
 - [gf-pr-apply-feedback 审查闭环契约实施计划](../docs/superpowers/plans/2026-09-19-gf-pr-apply-feedback-review-loop.md) — Issue #334，单 Task：push 后回跳 `gf-pr-review` 六维度复审判定 finding 归零、纯文档变化 diff 短路、会话内拒绝记录去重、轮次上限 3 超限升级交回用户。设计见 [../docs/superpowers/specs/2026-09-19-gf-pr-apply-feedback-review-loop-design.md](../docs/superpowers/specs/2026-09-19-gf-pr-apply-feedback-review-loop-design.md)。
+- [gf-issue-create/gf-issue-review 垂直切片与可证伪验收实施计划](../docs/superpowers/plans/2026-09-19-gf-issue-vertical-slice.md) — Issue #335，2 个 Task：gf-issue-create Body 模板加垂直切片自检 + 可证伪验收要求 → gf-issue-review 三维扩四维（新增切片方向）+ 验收标准 base-commit-red 校验。与 #330 判定标准的一致性核对留待 #330 落地后回归。设计见 [../docs/superpowers/specs/2026-09-19-gf-issue-vertical-slice-design.md](../docs/superpowers/specs/2026-09-19-gf-issue-vertical-slice-design.md)。
 
 ## 集成指南
 
