@@ -35,7 +35,7 @@ issue_unclear / unknown）——也没有任何重试上限，执行阶段遇到
 | `test` | 测试失败 | 修复代码或测试后重跑 | 3 |
 | `lint` | `cargo clippy`/`cargo fmt` 等静态检查失败 | 修复后重跑 `make lint` | 3 |
 | `merge_conflict` | `git merge` 冲突（Phase 3 Step 3 local_merge） | `git merge --abort`，branch/worktree 保持不变，**不自动重试**，交回用户手动解决后重跑本 Step | 0（自动重试为 0；用户解决冲突后重新触发算新一轮，不计入本次上限） |
-| `ci` | 排队合并后平台必需检查失败 | **不得重推 commit**（排队绑定的 SHA 不会带上新 commit）；先确认是否为已知 flaky（如 #373 类），触发平台侧同 SHA 重跑一次；仍失败则需新 commit + 重新排队，退回 Step 2 由执行引擎产出修复后回到 Step 3 起 | 1（仅限同 SHA 重跑一次） |
+| `ci` | 排队合并后平台必需检查失败 | **不得重推 commit**（排队绑定的 SHA 不会带上新 commit）；`gf` 没有针对既有流水线运行的重跑命令——✋ 暂停并请用户通过平台自身的重跑动作（如 GitHub Actions「Re-run failed jobs」或对应平台原生 CLI）确认是否为已知 flaky（如 #373 类）；仍失败则需新 commit + 重新排队，退回 Step 2 由执行引擎产出修复后回到 Step 3 起 | 1（仅限一次用户触发的同 SHA 重跑） |
 | `auth` | `gf auth status` 失败 / API 返回 401/403 | 不重试，立即升级交还用户（需要人工 `auth login`） | 0 |
 | `rate_limit` | API 返回 429 / 平台限流 | 不重试，立即升级交还用户（等待或更换凭据是人工决策） | 0 |
 | `network` | 连接超时/重置等瞬时网络错误 | 退避后重试 | 3 |
@@ -50,7 +50,7 @@ issue_unclear / unknown）——也没有任何重试上限，执行阶段遇到
 2. 向用户展示：错误类别、已尝试的恢复策略列表（含每次尝试的简要结果）、重试次数。
 3. 等待用户决策（继续/换策略/中止该 Task），不得静默放弃或静默切换交付路径。
 
-`auth`、`rate_limit`、`issue_unclear` 三类重试上限为 0，属于「一出现就升级」，不需要先尝试
+`merge_conflict`、`auth`、`rate_limit`、`issue_unclear` 四类重试上限为 0，属于「一出现就升级」，不需要先尝试
 再判定是否达到上限——这是与其余类别的关键区别，必须在 Phase 3 Step 2 的引用文字中明确写出，
 避免被误当作「先重试 0 次再升级」这种无意义的表述。
 

@@ -69,7 +69,7 @@ commands, merging, or queuing a merge). This table fills that gap.
 | `test` | Test failure | Fix code or test, rerun | 3 |
 | `lint` | `cargo clippy` / `cargo fmt` (or per-language equivalent) failure | Fix, rerun `make lint` | 3 |
 | `merge_conflict` | `git merge` conflict (Phase 3 Step 3, local-merge path) | `git merge --abort`; leave `branch`/worktree untouched; escalate to user immediately — no automatic retry. User resolves manually, then Step 3 is re-run as a fresh attempt (not counted against this cap) | 0 |
-| `ci` | Required check fails after the merge queue (Phase 3 Step 5, PR path) | Never push a new commit to the already-queued branch. First rule out flakiness with one same-SHA platform re-run; if it still fails, a real fix requires a new commit + a fresh queue entry — that restarts at Step 2, it is not a retry of Step 5 | 1 (same-SHA re-run only) |
+| `ci` | Required check fails after the merge queue (Phase 3 Step 5, PR path) | Never push a new commit to the already-queued branch. `gf` has no re-run command for an existing pipeline run — ✋ PAUSE and ask the user to rule out flakiness via the platform's own re-run action (e.g. GitHub Actions "Re-run failed jobs", or that platform's native CLI); if it still fails, a real fix requires a new commit + a fresh queue entry — that restarts at Step 2, it is not a retry of Step 5 | 1 (one user-triggered same-SHA re-run only) |
 | `auth` | `gf auth status` failure / API 401/403 | No retry — escalate to user immediately (`auth login` is a human action) | 0 |
 | `rate_limit` | API 429 / platform throttling | No retry — escalate to user immediately (waiting or rotating credentials is a human decision) | 0 |
 | `network` | Transient network error (timeout, connection reset) | Retry with backoff | 3 |
@@ -77,11 +77,11 @@ commands, merging, or queuing a merge). This table fills that gap.
 | `unknown` | Uncategorized error | Capture the full error, retry once conservatively; escalate if it recurs | 1 |
 
 **Escalation contract.** When a category's retry cap is reached (or immediately, for the
-three 0-cap categories): stop retrying automatically, show the user the error category,
-every recovery attempt tried so far with its outcome, and the retry count, then wait for
-the user's decision (continue / change strategy / abort the task). Never silently give up
-and never silently switch delivery mode (e.g. falling back from local-merge to PR) as a
-substitute for asking.
+four 0-cap categories — `merge_conflict`, `auth`, `rate_limit`, `issue_unclear`): stop
+retrying automatically, show the user the error category, every recovery attempt tried so
+far with its outcome, and the retry count, then wait for the user's decision (continue /
+change strategy / abort the task). Never silently give up and never silently switch
+delivery mode (e.g. falling back from local-merge to PR) as a substitute for asking.
 ```
 
 - [ ] **Step 3: 运行 skill 校验**
