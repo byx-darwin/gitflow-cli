@@ -118,18 +118,25 @@ done
 # Symlink Depth Is Computed, Not Hardcoded" below for the formula and
 # the empirical proof.
 segs=$(awk -F/ '{print NF}' <<< "$WORKTREE_PATH")
-ups=$((segs + 1))
-rel=$(printf '../%.0s' $(seq 1 "$ups"))
+ups_cache=$((segs + 1))   # .cache/workflows 软链文件位于 .cache/ 下，多一级
+ups_claude=$segs          # .claude 软链文件直接位于 $WORKTREE_PATH 下
+rel_cache=$(printf '../%.0s' $(seq 1 "$ups_cache"))
+rel_claude=$(printf '../%.0s' $(seq 1 "$ups_claude"))
 mkdir -p "$WORKTREE_PATH/.cache"
-ln -s "${rel}.cache/workflows" "$WORKTREE_PATH/.cache/workflows"
-ln -s "${rel}.claude" "$WORKTREE_PATH/.claude"
+ln -s "${rel_cache}.cache/workflows" "$WORKTREE_PATH/.cache/workflows"
+ln -s "${rel_claude}.claude" "$WORKTREE_PATH/.claude"
 
 # Existence self-check — a dangling symlink still passes `test -e`, so verify
 # the *resolved target* is a real directory. A failure here means the depth
 # formula or worktree_path itself is wrong, not that the contract is missing.
 test -d "$WORKTREE_PATH/.cache/workflows" || {
-  echo "ABORT: symlink depth miscalculated — worktree_path=$WORKTREE_PATH segs=$segs ups=$ups"
+  echo "ABORT: .cache/workflows symlink depth miscalculated — worktree_path=$WORKTREE_PATH segs=$segs ups_cache=$ups_cache"
   echo "Expected to resolve to repo-root .cache/workflows but did not."
+  exit 1
+}
+test -d "$WORKTREE_PATH/.claude" || {
+  echo "ABORT: .claude symlink depth miscalculated — worktree_path=$WORKTREE_PATH segs=$segs ups_claude=$ups_claude"
+  echo "Expected to resolve to repo-root .claude but did not."
   exit 1
 }
 
@@ -218,31 +225,37 @@ handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` belo
 ### Why the Symlink Depth Is Computed, Not Hardcoded
 
 A relative symlink resolves starting from the directory that *contains* the
-symlink file, not from `worktree_path` itself. The symlinks above live at
-`$WORKTREE_PATH/.cache/workflows` and `$WORKTREE_PATH/.claude`, so their
-containing directory (`$WORKTREE_PATH/.cache/`) is **one segment deeper**
-than `$WORKTREE_PATH`. The number of `../` needed to reach the repo root is
-therefore:
+symlink file, not from `worktree_path` itself. `$WORKTREE_PATH/.cache/workflows`
+lives inside `$WORKTREE_PATH/.cache/`, **one segment deeper** than
+`$WORKTREE_PATH` — but `$WORKTREE_PATH/.claude` lives directly at
+`$WORKTREE_PATH`, with no extra segment. The two symlinks therefore need two
+different `../` counts:
 
 ```
-ups = (number of "/"-separated segments in worktree_path) + 1
+ups_cache  = (number of "/"-separated segments in worktree_path) + 1
+ups_claude = (number of "/"-separated segments in worktree_path)
 ```
+
+An earlier version of this formula used `ups_cache`'s value for both
+symlinks, which left `.claude` dangling (it resolved one level above the
+repo root) — see Issue #353.
 
 **Verified empirically** (not inferred from documentation) with real
 `mkdir` + `ln -s`:
 
-| `worktree_path` | segments | `ups` | Hardcoded `../../` resolves to |
+| `worktree_path` | segments | `ups_cache` | `ups_claude` |
 |---|---|---|---|
-| `.worktree/foo` (single-segment — the case the old hardcoded value was written for) | 2 | 3 | `.worktree/` — **not the repo root** |
-| `.worktree/feat/89-desc` (branch name contains `/`, per the `feat/<issue-number>-<short-description>` convention) | 3 | 4 | `.worktree/feat/` — **not the repo root** |
+| `.worktree/foo` (single-segment) | 2 | 3 | 2 |
+| `.worktree/feat/89-desc` (branch name contains `/`, per the `feat/<issue-number>-<short-description>` convention) | 3 | 4 | 3 |
 
 The old hardcoded `../../` (2 levels) was wrong even for the single-segment
 case it was presumably written for — it only reaches `.worktree/`, one level
 short of the repo root, in every case. A branch name containing `/` (the
 routine case, not an edge case — see the naming convention above) simply
-made the shortfall larger and easier to hit. The `segs + 1` formula is
-correct for both, and the post-creation `test -d "$WORKTREE_PATH/.cache/workflows"`
-check catches any future regression of this formula by refusing to proceed
+made the shortfall larger and easier to hit. The `ups_cache`/`ups_claude`
+split is correct for both symlinks, and the post-creation
+`test -d "$WORKTREE_PATH/.cache/workflows"` / `test -d "$WORKTREE_PATH/.claude"`
+checks catch any future regression of either formula by refusing to proceed
 silently — a dangling symlink otherwise looks identical to a missing
 contract to every downstream reader (see Issue #322's real-world report:
 this exact ambiguity cost significant debugging time downstream).
@@ -250,7 +263,8 @@ this exact ambiguity cost significant debugging time downstream).
 ### Why These Symlinks Must Never Reach the Main Branch
 
 `.cache/workflows` and `.claude` inside a worktree are relative symlinks
-(`../../.cache/workflows`, `../../.claude`). If either is ever committed, `git ls-files -s`
+(e.g. `../../../.cache/workflows`, `../../.claude` for a two-segment
+`worktree_path` — see `ups_cache`/`ups_claude` above). If either is ever committed, `git ls-files -s`
 shows a `120000` (symlink) mode entry for that path. A clone made from a commit carrying
 that entry re-creates the symlink pointing at `../../<name>` **relative to that clone's own
 location** — which, outside the original working tree that produced it, resolves to a

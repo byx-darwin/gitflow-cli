@@ -196,7 +196,8 @@ check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-o
 	done; \
 	for p in skills/*/; do \
 		n=`basename "$$p"`; \
-		if [ ! -d "$$D/$$n" ]; then echo "✗ 缺失  $$n —— 仓库中存在，尚未安装"; DRIFT=1; fi; \
+		if [ ! -d "$$D/$$n" ]; then echo "✗ 缺失  $$n —— 仓库中存在，尚未安装"; DRIFT=1; \
+		elif ! diff -rq "$$p" "$$D/$$n" >/dev/null 2>&1; then echo "✗ 内容不一致  $$n —— 已安装但内容与 skills/ 不同"; DRIFT=1; fi; \
 	done; \
 	if [ $$DRIFT -eq 0 ]; then echo "✓ 无漂移：$$D 与 skills/ 一致"; \
 	else echo "运行 'make install-skills' 同步"; fi; \
@@ -461,7 +462,7 @@ check-walkthrough-skill: ## Verify gf-walkthrough skill meets Issue #329 accepta
 		echo "— #3 跳过（无报告）"; echo "— #6 跳过（无报告）"; echo "— #7 跳过（无报告）"; \
 	else \
 		MCNT=`grep -c '^- \[Measured\]' "$$REP"`; \
-		FCNT=`awk '/^- \[Measured\]/{f=0; for(i=1;i<=3;i++){if((getline line)>0){if(line ~ /^ *\x60\x60\x60/) f=1}}; if(!f) c++} END{print c+0}' "$$REP"`; \
+		FCNT=`awk '{lines[NR]=$$0} END{total=NR; c=0; for(i=1;i<=total;i++){if(lines[i] ~ /^- \[Measured\]/){f=0; for(j=i+1;j<=i+3 && j<=total;j++){if(lines[j] ~ /^ *\x60\x60\x60/) f=1}; if(!f) c++}} print c+0}' "$$REP"`; \
 		if [ "$$MCNT" -eq 0 ]; then echo "✗ #3 报告中无 [Measured] 条目"; FAIL=1; \
 		elif [ "$$FCNT" -eq 0 ]; then echo "✓ #3 全部 $$MCNT 条 [Measured] 均附输出块"; \
 		else echo "✗ #3 有 $$FCNT 条 [Measured] 未附输出块"; FAIL=1; fi; \
