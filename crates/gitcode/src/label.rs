@@ -687,7 +687,7 @@ mod tests {
             serde_json::from_slice(json).expect("valid MilestoneApiResponse");
         let data: MilestoneData = api.into();
 
-        assert_eq!(data.number, 733070);
+        assert_eq!(data.number, 733_070);
         assert_eq!(
             data.closed_issues, 0,
             "键缺失时应靠 #[serde(default)] 落到 0，而不是反序列化失败"
