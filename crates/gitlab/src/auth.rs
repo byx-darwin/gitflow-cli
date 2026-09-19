@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use gitflow_cli_adapter_utils::{EnvSource, RealEnv};
 use gitflow_core::{
     CoreError, Result,
-    auth::{AuthProvider, AuthStatus},
+    auth::{AuthProvider, AuthStatus, HostAuthStatus},
 };
 use tracing::debug;
 
@@ -147,9 +147,27 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitLab
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = format!("{stdout}{stderr}");
+
+        let hosts = parse_hosts_from_status(&combined);
+
+        if !hosts.is_empty() {
+            let logged_in = hosts.iter().any(|h| h.logged_in);
+            let user = hosts
+                .iter()
+                .find(|h| h.logged_in)
+                .and_then(|h| h.user.clone());
+
+            return Ok(AuthStatus {
+                logged_in,
+                user,
+                scopes: vec![],
+                hosts,
+            });
+        }
 
         if !output.status.success() {
-            let text = format!("{stdout}{stderr}").to_lowercase();
+            let text = combined.to_lowercase();
             if text.contains("not logged in")
                 || text.contains("no active account")
                 || text.contains("not authenticated")
@@ -165,13 +183,9 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitLab
             return Err(parse_glab_error(&output.stderr).into());
         }
 
-        // glab auth status outputs to stderr, not stdout
-        let combined = format!("{stdout}{stderr}");
-        let user = parse_user_from_status(&combined);
-
         Ok(AuthStatus {
-            logged_in: user.is_some(),
-            user,
+            logged_in: false,
+            user: None,
             scopes: vec![],
             hosts: vec![],
         })
@@ -286,6 +300,46 @@ impl<R: CommandRunner, E: EnvSource> gitflow_core::AuthChecker for GitLabAuthPro
             }
         }
     }
+}
+
+/// 把 `glab auth status` 的 stdout+stderr 合并文本解析为按 host 分组的状态。
+///
+/// `glab` 对每个已配置 host 输出一个不含空白的裸行作为 host 标识
+/// （如 `gitlab.com`、`192.168.230.23`），紧随其后是若干缩进的状态行。
+/// 无法识别出任何 host 行时返回空 `Vec`，由调用方回退到旧的整段文本判断。
+fn parse_hosts_from_status(output: &str) -> Vec<HostAuthStatus> {
+    let mut hosts = Vec::new();
+    let mut current: Option<HostAuthStatus> = None;
+
+    for line in output.lines() {
+        let is_header = !line.starts_with(' ') && !line.starts_with('\t');
+        let trimmed = line.trim();
+
+        if is_header && !trimmed.is_empty() && !trimmed.contains(' ') {
+            if let Some(host) = current.take() {
+                hosts.push(host);
+            }
+            current = Some(HostAuthStatus {
+                host: trimmed.to_string(),
+                logged_in: false,
+                user: None,
+            });
+            continue;
+        }
+
+        if let Some(ref mut host) = current
+            && trimmed.contains("Logged in to")
+        {
+            host.logged_in = true;
+            host.user = parse_user_from_status(trimmed);
+        }
+    }
+
+    if let Some(host) = current.take() {
+        hosts.push(host);
+    }
+
+    hosts
 }
 
 fn parse_user_from_status(output: &str) -> Option<String> {
@@ -576,6 +630,29 @@ mod tests {
         assert!(status.logged_in);
         assert_eq!(status.user, Some("testuser".to_string()));
         assert!(status.scopes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_report_authenticated_when_any_host_logged_in_in_mixed_status() {
+        let combined = "gitlab.com\n  ! No token found (checked config file, keyring, and \
+                        environment variables).\n192.168.230.23\n  ✓ Logged in to 192.168.230.23 \
+                        as baoyuexing (keyring)\n";
+        let runner = MockCommandRunner::failure(combined, 1);
+        let provider = GitLabAuthProvider::with_runner(runner);
+
+        let status = provider
+            .status()
+            .await
+            .expect("should not error on mixed host status");
+
+        assert!(status.logged_in);
+        assert_eq!(status.user, Some("baoyuexing".to_string()));
+        assert_eq!(status.hosts.len(), 2);
+        assert_eq!(status.hosts[0].host, "gitlab.com");
+        assert!(!status.hosts[0].logged_in);
+        assert_eq!(status.hosts[1].host, "192.168.230.23");
+        assert!(status.hosts[1].logged_in);
+        assert_eq!(status.hosts[1].user, Some("baoyuexing".to_string()));
     }
 
     #[tokio::test]

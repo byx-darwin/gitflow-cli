@@ -654,6 +654,7 @@ mod tests {
         assert!(status.logged_in);
         assert_eq!(status.user, Some("testuser".to_string()));
         assert_eq!(status.scopes, vec!["repo", "read:org"]);
+        assert!(status.hosts.is_empty());
     }
 
     #[tokio::test]

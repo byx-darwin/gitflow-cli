@@ -575,6 +575,7 @@ mod tests {
 
         assert!(status.logged_in);
         assert_eq!(status.user, Some("octocat".to_string()));
+        assert!(status.hosts.is_empty());
     }
 
     #[tokio::test]
