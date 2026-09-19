@@ -45,7 +45,7 @@ dispatch and failure, neither match fires and the Issue may be dispatched
 again on the next round. The larger case: this design has no in-run failure
 memory at all — if the abort happens *before* `phases["1"].evidence.issue_url`
 is ever written (e.g. before `gf-issue-create` runs in Phase 1), the Issue
-stays uncovered on disk entirely, so it becomes `pending[0]` again next
+stays uncovered on disk entirely, so it becomes `ready[0]` again next
 round and can be re-dispatched repeatedly. Accepted per the design spec
 (`specs/gf-workflow-batch-design.md` → Issue 覆盖判定 → 已知局限); mitigated
 within a single invocation by the in-run `attempted` set in the Serial
@@ -116,12 +116,13 @@ for blocked, blockers in list(edges.items()):
             raise WorkflowBatchError(
                 f"Issue #{blocked} 的 Blocked by 引用了不存在的 #{b}"
             )
-        # view.state == "closed" — satisfied, drop the edge
+        if view.state != "closed":
+            continue          # not closed after all — keep the edge, stay blocked
         blockers.discard(b)
 ```
 
 `WorkflowBatchError` here means: **stop before dispatching anything this
-round**, surface the message to the user, do not enter Discussion Mode, do
+run**, surface the message to the user, do not enter Discussion Mode, do
 not fall back to a partial dispatch.
 
 ### Cycle detection
@@ -197,9 +198,10 @@ attempted = set()             # in-memory only, scoped to this invocation, never
 loop:
     if limit is set and dispatched >= limit: break
     pending = derive_pending()   # recomputed every iteration, see above
-    ready = resolve_dependencies(pending, open_issues)   # see Dependency Resolution above;
-                                                          # raises WorkflowBatchError → abort the
-                                                          # whole command, no dispatch this run
+    ready = resolve_dependencies(pending)   # re-lists open Issues itself, every round;
+                                             # see Dependency Resolution above; raises
+                                             # WorkflowBatchError → abort the whole run,
+                                             # no dispatch this run
     if pending is empty:
         if not discussion_attempted:
             run_discussion_mode()
@@ -209,8 +211,9 @@ loop:
             break       # nothing left even after discussion mode
     candidates = [i for i in ready if i.number not in attempted]
     if candidates is empty:
-        break           # ready 集合已耗尽，或全部候选本轮已尝试过——正常停止，
-                         # 不是错误：pending 里可能还有 Issue 在等前置关闭
+        break           # ready set exhausted, or all remaining candidates already
+                         # attempted this run — normal stop, not an error: pending
+                         # may still hold Issues waiting on a blocker to close
     issue = candidates[0]
     result = Agent(subagent_type: default, prompt: f"/gf-workflow #{issue.number}")
     attempted.add(issue.number)   # add regardless of outcome, before next iteration

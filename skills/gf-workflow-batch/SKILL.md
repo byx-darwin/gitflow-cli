@@ -154,6 +154,15 @@ algorithm: see `references.md`.
 ### 12: Boundary
 - **Given** Issue A declares `Blocked by: #B`; round 1 has `#B` open (A stays pending, not dispatched); round 2 runs after `#B` is closed — **When** `/gf-workflow-batch` re-derives — **Then** A appears in `ready` and is dispatched, with no state persisted between the two rounds beyond Issue state itself.
 
+### 13: Boundary
+- **Given** two pending Issues: A declares `Blocked by: #B` with `#B` still open, and Issue C has no `Blocked by` declaration — **When** `/gf-workflow-batch` runs a round — **Then** `ready` contains only C (not A, not empty), C is dispatched normally this round while A stays in `pending` for a future round — the loop does not stop just because A is blocked.
+
+### 14: Boundary
+- **Given** Issue A declares `Blocked by: #B`; `#B` is still open but is already covered by an active `gf-workflow` contract (so `#B` does not appear in `pending`) — **When** `/gf-workflow-batch` resolves dependencies — **Then** A is excluded from `ready` because `#B` is open, even though `#B` never appears in `pending` — confirming Dependency Resolution scans all open Issues, not just `pending`.
+
+### 15: Boundary
+- **Given** Issue A declares `Blocked by: #B, #C`; `#B` is closed, `#C` is still open — **When** `/gf-workflow-batch` resolves dependencies — **Then** A's edge to `#B` is dropped but the edge to `#C` remains, so A stays out of `ready` (not all blockers satisfied).
+
 ## See Also
 
 - `/gf-workflow` — the four-phase engine this driver dispatches, once per Issue
