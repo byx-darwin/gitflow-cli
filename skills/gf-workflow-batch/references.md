@@ -80,8 +80,13 @@ pending Issue's blocker, or a cycle member, and would be missed if only
 ```python
 import re
 
-open_issues = gf_issue_list_open()                     # existing, unchanged
-bodies = {i.number: gf_issue_view(i.number).body for i in open_issues}
+open_issues = gf_issue_list_open()                     # existing, unchanged;
+                                                         # already includes `body`
+                                                         # (gh/glab/gc issue list shares
+                                                         # the same field set as `view`,
+                                                         # see crates/github/src/issue.rs
+                                                         # ISSUE_FIELDS)
+bodies = {i.number: i.body for i in open_issues}        # reuse — no extra `gf issue view` calls
 
 def extract_edges(body: str) -> set[int]:
     edges = set()
@@ -98,6 +103,16 @@ Multiple `Blocked by:` lines in one body union their references (see
 `skills/gf-issue-decompose/references/dependency-edges.md` for the
 declaration format this parses — one edge per referenced number, declared
 on the blocked ticket only).
+
+The regex intentionally matches only the canonical `Blocked by: #N[, #M...]`
+form documented there — case-sensitive `Blocked by:`, colon required,
+comma-separated. Variants (`Blocked By:`, `Blocked by #12` without a colon,
+space-separated `#12 #14`) are **not** recognized and are silently treated
+as no dependency at all, same as a body with no `Blocked by` line at all.
+This is intentional, not an oversight: the producing skill
+(`gf-issue-decompose`) always emits the canonical form, so loosening the
+regex would only widen the ambiguity surface for hand-edited bodies without
+a corresponding real need — YAGNI.
 
 ### Resolving blocker completion
 
@@ -134,28 +149,31 @@ Only edges where both ends are still open can participate in a cycle
 WHITE, GRAY, BLACK = 0, 1, 2
 
 def find_cycle(edges: dict[int, set[int]]) -> list[int] | None:
+    # Explicit-stack DFS, not recursive: an unbounded dependency chain must
+    # raise WorkflowBatchError (a real cycle) or return None, never an
+    # uncaught RecursionError from a deep-but-acyclic chain.
     color = {}
-    path = []
-    result = {"cycle": None}
 
-    def dfs(n):
-        color[n] = GRAY
-        path.append(n)
-        for b in edges.get(n, []):
+    for start in list(edges):
+        if color.get(start, WHITE) != WHITE:
+            continue
+        stack = [(start, iter(edges.get(start, ())))]
+        path = [start]
+        color[start] = GRAY
+        while stack:
+            node, neighbors = stack[-1]
+            b = next(neighbors, None)
+            if b is None:
+                color[node] = BLACK
+                path.pop()
+                stack.pop()
+                continue
             if color.get(b, WHITE) == GRAY:
-                result["cycle"] = path[path.index(b):] + [b]
-                return True
+                return path[path.index(b):] + [b]
             if color.get(b, WHITE) == WHITE:
-                if dfs(b):
-                    return True
-        path.pop()
-        color[n] = BLACK
-        return False
-
-    for n in list(edges):
-        if color.get(n, WHITE) == WHITE:
-            if dfs(n):
-                return result["cycle"]
+                color[b] = GRAY
+                path.append(b)
+                stack.append((b, iter(edges.get(b, ()))))
     return None
 
 cycle = find_cycle(edges)
@@ -191,6 +209,11 @@ becomes ready with no extra persisted state.
 
 ```
 discussion_attempted = false
+blocked_exit = false          # true only when the loop stops because `ready` is
+                               # genuinely exhausted this round — not when it stops
+                               # because `--limit` was reached (that round's `pending`
+                               # is non-empty too, but for an unrelated reason: it just
+                               # hasn't been reached yet, not blocked)
 dispatched = 0                # count of Issues dispatched this run, bounds --limit
 attempted = set()             # in-memory only, scoped to this invocation, never
                                # persisted to disk — guards against re-dispatching
@@ -198,10 +221,6 @@ attempted = set()             # in-memory only, scoped to this invocation, never
 loop:
     if limit is set and dispatched >= limit: break
     pending = derive_pending()   # recomputed every iteration, see above
-    ready = resolve_dependencies(pending)   # re-lists open Issues itself, every round;
-                                             # see Dependency Resolution above; raises
-                                             # WorkflowBatchError → abort the whole run,
-                                             # no dispatch this run
     if pending is empty:
         if not discussion_attempted:
             run_discussion_mode()
@@ -209,8 +228,22 @@ loop:
             continue   # recompute pending, which now includes new Issues
         else:
             break       # nothing left even after discussion mode
+    ready = resolve_dependencies(pending)   # only runs when there's something to
+                                             # dispatch this round — an empty `pending`
+                                             # means every open Issue is already
+                                             # covered by some contract, so a cycle or
+                                             # bad reference among them is irrelevant
+                                             # to this round and must not block
+                                             # Discussion Mode above. Re-lists open
+                                             # Issues itself, every round; see
+                                             # Dependency Resolution above; raises
+                                             # WorkflowBatchError → abort the whole run,
+                                             # no dispatch this run
     candidates = [i for i in ready if i.number not in attempted]
     if candidates is empty:
+        blocked_exit = true   # this round genuinely ran out of dispatchable
+                               # candidates, as opposed to `--limit` cutting the
+                               # loop short before `pending` was even re-derived
         break           # ready set exhausted, or all remaining candidates already
                          # attempted this run — normal stop, not an error: pending
                          # may still hold Issues waiting on a blocker to close
@@ -222,6 +255,15 @@ loop:
                      delivery: result.pr_url or result.merge_commit,
                      outcome: result.outcome})   # success | failed | rejected
 print_summary_table(summary)
+if blocked_exit and pending:   # loop exited via `candidates is empty` with
+                                # unmet-dependency Issues still in `pending` —
+                                # distinguish this from a `--limit` cutoff, where
+                                # `pending` is also non-empty but for an unrelated
+                                # reason (not reached yet, not blocked), and from a
+                                # clean run where nothing was left to do
+    print(f"⏸ {len(pending)} Issue(s) still blocked on unmet dependencies: "
+          + ", ".join(f"#{i.number}" for i in pending))
+    print("Re-run /gf-workflow-batch after their blockers close.")
 ```
 
 ## Parameters Reference
