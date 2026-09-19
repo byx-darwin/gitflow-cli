@@ -54,18 +54,24 @@ for this project (GitHub + GitLab + GitCode); `gh` is GitHub-only.
 gf issue list --state open --output json
 # pending = open issues NOT covered by any active/*.json (status != complete)
 #           NOR by any archive/**/*.json contract
+# ready = pending Issues whose `Blocked by: #N` refs are all closed
+#         (parsed from all open Issues' bodies; missing ref or a cycle
+#         aborts the whole run — see references.md § Dependency Resolution)
 # if pending empty → Discussion Mode (see references.md)
-# else → dispatch Agent(prompt: "/gf-workflow #<n>") for pending[0], serially
+# else → dispatch Agent(prompt: "/gf-workflow #<n>") for ready[0], serially
 ```
 
 ## Implementation
 
-Each round: compute `pending`; empty triggers Discussion Mode, then
-recompute. Otherwise dispatch `pending[0]` via `Agent` (never `fork`),
-block until it returns (including Gate 2→3), append a summary line, and
-loop. Stop and print the summary table once `pending` is empty and
-Discussion Mode already ran with nothing left to create. Full algorithm:
-see `references.md`.
+Each round: compute `pending`, then resolve `Blocked by` edges across all
+open Issues to derive `ready ⊆ pending` (missing reference or a cycle
+aborts the whole run before any dispatch). Empty `pending` triggers
+Discussion Mode, then recompute. Otherwise dispatch `ready[0]` via `Agent`
+(never `fork`), block until it returns (including Gate 2→3), append a
+summary line, and loop. Stop and print the summary table once `pending`
+is empty and Discussion Mode already ran with nothing left to create, or
+once every remaining `ready` candidate has been attempted this run. Full
+algorithm: see `references.md`.
 
 ### Parameters
 
@@ -129,6 +135,24 @@ see `references.md`.
 
 ### 6: Boundary
 - **Given** 5 pending Issues, `--limit 2` — **When** `/gf-workflow-batch` runs — **Then** exactly 2 Issues are dispatched this run (not re-truncated per round), then the driver stops even though 3 Issues remain pending.
+
+### 7: Happy Path
+- **Given** 3 pending Issues, none declares `Blocked by` — **When** `/gf-workflow-batch` runs — **Then** dispatch order unchanged from plain `issue.number` ascending (identical to pre-#337 behavior).
+
+### 8: Boundary
+- **Given** Issue A declares `Blocked by: #B`, `#B` is closed — **When** `/gf-workflow-batch` runs — **Then** A's edge to `#B` is dropped, A is dispatched normally.
+
+### 9: Boundary
+- **Given** Issue A declares `Blocked by: #B`, `#B` is still open, A is the only pending Issue — **When** `/gf-workflow-batch` runs — **Then** `ready` is empty, `candidates` is empty, the loop stops without error (not a deadlock — A remains pending for a future round).
+
+### 10: Error
+- **Given** Issue A declares `Blocked by: #999`, `#999` does not exist — **When** `/gf-workflow-batch` runs — **Then** the whole run aborts before dispatching anything, error names `#999` and `#A`.
+
+### 11: Error
+- **Given** Issue A declares `Blocked by: #B`, Issue B declares `Blocked by: #A`, both open — **When** `/gf-workflow-batch` runs — **Then** the whole run aborts before dispatching anything, error prints the cycle path (e.g. `#A → #B → #A`).
+
+### 12: Boundary
+- **Given** Issue A declares `Blocked by: #B`; round 1 has `#B` open (A stays pending, not dispatched); round 2 runs after `#B` is closed — **When** `/gf-workflow-batch` re-derives — **Then** A appears in `ready` and is dispatched, with no state persisted between the two rounds beyond Issue state itself.
 
 ## See Also
 
