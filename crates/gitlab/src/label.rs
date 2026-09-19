@@ -49,6 +49,19 @@ fn resolve_after_mutation<T>(
         .ok_or(CoreError::Platform(not_found_msg))
 }
 
+/// 把标签颜色归一化为带 `#` 前缀的十六进制格式。
+///
+/// GitLab 的颜色约定要求 `#` 前缀（如 `#d73a4a`），但 CLI 允许调用方省略它。
+/// 归一化前先 trim 首尾空白，避免 `" d73a4a"` 这类输入被拼成 `"# d73a4a"`。
+fn normalize_label_color(color: &str) -> String {
+    let trimmed = color.trim();
+    if trimmed.starts_with('#') {
+        trimmed.to_string()
+    } else {
+        format!("#{trimmed}")
+    }
+}
+
 /// GitLab Label 提供者，通过 `glab` CLI 管理仓库标签。
 ///
 /// # Examples
@@ -210,10 +223,12 @@ impl From<LabelApiResponse> for LabelData {
 #[async_trait]
 impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
+        let color = normalize_label_color(&args.color);
+
         debug!(
             repo = %self.repo,
             name = %args.name,
-            color = %args.color,
+            color = %color,
             "spawning `glab label create`"
         );
 
@@ -223,7 +238,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             "--name",
             &args.name,
             "--color",
-            &args.color,
+            &color,
             "--repo",
             &self.repo_target,
         ];
@@ -312,6 +327,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
         );
 
         let id_str = label_id.to_string();
+        let color = normalize_label_color(&args.color);
         let mut cmd_args: Vec<&str> = vec![
             "label",
             "edit",
@@ -322,7 +338,7 @@ impl<R: CommandRunner + 'static> LabelProvider for GitLabLabelProvider<R> {
             "--new-name",
             &args.name,
             "--color",
-            &args.color,
+            &color,
         ];
         if let Some(ref desc) = args.description {
             cmd_args.push("--description");
@@ -963,6 +979,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_normalize_color_without_hash_prefix() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##),
+        ]);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "d73a4a".to_string(), // 无 # 前缀
+            description: None,
+        };
+
+        provider.create(args).await.expect("should create");
+
+        let calls = runner.recorded_calls();
+        let create_call = &calls[0];
+        let color_idx = create_call
+            .1
+            .iter()
+            .position(|a| a == "--color")
+            .expect("--color flag present");
+        assert_eq!(create_call.1[color_idx + 1], "#d73a4a");
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_through_color_that_already_has_hash_prefix() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##),
+        ]);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "#d73a4a".to_string(), // 已带 #
+            description: None,
+        };
+
+        provider.create(args).await.expect("should create");
+
+        let calls = runner.recorded_calls();
+        let create_call = &calls[0];
+        let color_idx = create_call
+            .1
+            .iter()
+            .position(|a| a == "--color")
+            .expect("--color flag present");
+        assert_eq!(create_call.1[color_idx + 1], "#d73a4a");
+    }
+
+    #[tokio::test]
     async fn test_should_edit_label_with_label_id() {
         let list_json = r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##;
         let edited_json = r##"[{"id":101,"name":"critical","color":"#d73a4a"}]"##;
@@ -982,6 +1050,60 @@ mod tests {
         let label = provider.edit("bug", args).await.expect("should edit");
 
         assert_eq!(label.name, "critical");
+    }
+
+    #[tokio::test]
+    async fn test_should_normalize_color_without_hash_prefix_on_edit() {
+        let list_json = r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##;
+        let edited_json = r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##;
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, list_json),
+            (true, edited_json),
+            (true, edited_json),
+        ]);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "d73a4a".to_string(), // 无 # 前缀
+            description: None,
+        };
+
+        provider.edit("bug", args).await.expect("should edit");
+
+        let calls = runner.recorded_calls();
+        let edit_call = &calls[1];
+        let color_idx = edit_call
+            .1
+            .iter()
+            .position(|a| a == "--color")
+            .expect("--color flag present");
+        assert_eq!(edit_call.1[color_idx + 1], "#d73a4a");
+    }
+
+    #[tokio::test]
+    async fn test_should_trim_whitespace_before_normalizing_color() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, ""),
+            (true, r##"[{"id":101,"name":"bug","color":"#d73a4a"}]"##),
+        ]);
+        let provider = GitLabLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let args = CreateLabelArgs {
+            name: "bug".to_string(),
+            color: "  d73a4a  ".to_string(),
+            description: None,
+        };
+
+        provider.create(args).await.expect("should create");
+
+        let calls = runner.recorded_calls();
+        let color_idx = calls[0]
+            .1
+            .iter()
+            .position(|a| a == "--color")
+            .expect("--color flag present");
+        assert_eq!(calls[0].1[color_idx + 1], "#d73a4a");
     }
 
     #[tokio::test]

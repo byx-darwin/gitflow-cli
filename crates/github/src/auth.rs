@@ -174,6 +174,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitHub
                 logged_in: false,
                 user: None,
                 scopes: vec![],
+                hosts: vec![],
             });
         };
 
@@ -192,6 +193,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitHub
                     logged_in: false,
                     user: None,
                     scopes: vec![],
+                    hosts: vec![],
                 });
             }
 
@@ -208,6 +210,7 @@ impl<R: CommandRunner + 'static, E: EnvSource + 'static> AuthProvider for GitHub
             logged_in: user.is_some(),
             user,
             scopes,
+            hosts: vec![],
         })
     }
 
@@ -651,6 +654,7 @@ mod tests {
         assert!(status.logged_in);
         assert_eq!(status.user, Some("testuser".to_string()));
         assert_eq!(status.scopes, vec!["repo", "read:org"]);
+        assert!(status.hosts.is_empty());
     }
 
     #[tokio::test]

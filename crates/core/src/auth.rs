@@ -9,6 +9,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
+/// 单个 host 的认证状态（GitLab 场景下可能同时配置多个 host）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostAuthStatus {
+    /// host 名称或地址（如 `gitlab.com`、`192.168.230.23`）。
+    pub host: String,
+    /// 该 host 是否已登录。
+    pub logged_in: bool,
+    /// 该 host 下的登录用户名（未登录时为 None）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<String>,
+}
+
 /// 当前认证状态。
 ///
 /// 由 [`AuthProvider::status`] 返回，用于判断用户是否已登录、
@@ -16,7 +29,7 @@ use crate::Result;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthStatus {
-    /// 用户是否已登录。
+    /// 用户是否已登录（任一已知 host 已登录即为 true）。
     pub logged_in: bool,
     /// 当前登录用户名（未登录时为 None）。
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,6 +37,9 @@ pub struct AuthStatus {
     /// 已授权的权限范围列表。
     #[serde(default)]
     pub scopes: Vec<String>,
+    /// 按 host 拆分的认证状态明细（单 host 平台如 GitHub/GitCode 始终为空数组）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hosts: Vec<HostAuthStatus>,
 }
 
 /// 认证操作的平台抽象。
@@ -80,6 +96,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_should_omit_empty_hosts_field_when_serializing() {
+        let status = AuthStatus {
+            logged_in: true,
+            user: Some("alice".to_string()),
+            scopes: vec![],
+            hosts: vec![],
+        };
+        let json = serde_json::to_string(&status).expect("serialize");
+        assert!(!json.contains("hosts"));
+    }
+
+    #[test]
+    fn test_should_include_hosts_field_when_non_empty() {
+        let status = AuthStatus {
+            logged_in: true,
+            user: Some("alice".to_string()),
+            scopes: vec![],
+            hosts: vec![HostAuthStatus {
+                host: "gitlab.com".to_string(),
+                logged_in: true,
+                user: Some("alice".to_string()),
+            }],
+        };
+        let json = serde_json::to_string(&status).expect("serialize");
+        assert!(json.contains("\"hosts\""));
+        assert!(json.contains("\"gitlab.com\""));
+    }
+
+    #[test]
     fn test_should_deserialize_auth_status_logged_in() {
         let json = r#"{
             "loggedIn": true,
@@ -131,6 +176,7 @@ mod tests {
             logged_in: true,
             user: Some("bob".into()),
             scopes: vec!["gist".into()],
+            hosts: vec![],
         };
         let json = serde_json::to_string(&status).expect("serialize");
         assert!(json.contains("\"loggedIn\":true"));
@@ -145,6 +191,7 @@ mod tests {
             logged_in: false,
             user: None,
             scopes: vec![],
+            hosts: vec![],
         };
         let json = serde_json::to_string(&status).expect("serialize");
         assert!(!json.contains("null"));
@@ -165,6 +212,7 @@ mod tests {
             logged_in: true,
             user: Some("test".into()),
             scopes: vec!["repo".into()],
+            hosts: vec![],
         };
         let debug = format!("{status:?}");
         assert!(debug.contains("AuthStatus"));
@@ -177,6 +225,7 @@ mod tests {
             logged_in: true,
             user: Some("alice".into()),
             scopes: vec!["repo".into(), "gist".into()],
+            hosts: vec![],
         };
         let cloned = original.clone();
 
