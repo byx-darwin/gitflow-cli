@@ -23,7 +23,7 @@ description: |
 - `gf` authenticated: `gf auth status`
 ## Overview
 
-Fetch pending review feedback · prioritize (security → logic → boundary → naming → style) · apply per-comment fix after user confirmation · mark resolved · push + notify reviewer. Does not review or merge.
+Fetch pending review feedback · prioritize (security → logic → boundary → naming → style) · apply per-comment fix after user confirmation · mark resolved · push + notify reviewer · bounce back to `gf-pr-review` for re-assessment until findings clear or the 3-round cap is hit. Does not perform the initial review or merge.
 
 ## When to Use
 
@@ -58,14 +58,17 @@ git push origin <pr-branch>                                    # ONLY after expl
 gf pr comment <pr> --body "<summary>"                 # notify
 
 # Round loop: round starts at 1 on the first push above, caps at 3
-DIFF_KIND=$(git diff --stat <last-round-sha>..HEAD)
-if [[ only comments/docs changed in "$DIFF_KIND" ]]; then
+DIFF=$(git diff <last-round-sha>..HEAD)
+# inspect DIFF content (not just --stat): only comment/doc lines changed, no logic lines?
+if [[ "$DIFF" touches only comment lines or doc/markdown files ]]; then
   : # short-circuit — no re-review, DONE
 else
   gf pr view <pr>                             # re-fetch verdict via gf-pr-review
   # gf-pr-review assesses 6 dimensions, submits via `gf review approve|request-changes <n>`
   # request-changes findings are filtered against this session's in-memory rejected list
   # (dimension + path:line fingerprint) before being re-confirmed with the user
+  # these findings carry no PR comment-id (they come from a review verdict, not a thread) —
+  # fix and commit them without a resolve-comment call; see Flowchart node J
   # if round == 3 and actionable findings remain: escalate to user, stop looping
 fi
 ```
@@ -118,6 +121,7 @@ git rev-parse --abbrev-ref HEAD == <pr-branch>
 | `git push` conflict | Stop; print conflict files; ask user to resolve |
 | User rejects a comment | Skip; record as "rejected — user decision" |
 | Ambiguous reviewer location (no line) | Ask user to disambiguate or skip |
+| `gf-pr-review` bounce-back fails (API/auth/network error) | Stop the loop; report the error; do not assume approve or request-changes; leave `branch` as-is for manual re-run |
 | Test exit code captured after `\|\| true` (e.g. `wait ... \|\| true; EXIT=$?`) | `EXIT` is always 0 — capture immediately after the command, never after a `\|\| true` guard |
 
 ## Flowchart
@@ -135,8 +139,11 @@ flowchart TD
   F --> G{Tests pass?}
   G -->|fail| H[Show output, no commit, no resolve]
   G -->|pass| I[Commit referencing reviewer + location]
-  I --> J[pr resolve-comment <pr> --comment-id <id>]
-  J --> NEXT
+  I --> J{Finding has a PR comment-id?}
+  J -->|yes| J1[pr resolve-comment <pr> --comment-id <id>]
+  J -->|no, from gf-pr-review verdict| J2[No resolve call — cleared by next round's re-review]
+  J1 --> NEXT
+  J2 --> NEXT
   NEXT --> K{More comments?}
   K -->|yes| E
   K -->|no| L{Push confirmed by user?}
@@ -178,7 +185,7 @@ flowchart TD
 - **Given** user rejected a finding at `path:line` in round 1 · **When** round 2 re-review flags the same `path:line` again · **Then** filtered out silently, not re-shown to user
 
 ### 7: Comment-Only Diff Short-Circuits
-- **Given** round's diff is entirely comment/doc changes (`git diff --stat` shows no code lines) · **When** push completes · **Then** skip `gf-pr-review` bounce-back entirely, go straight to DONE
+- **Given** round's diff content is entirely comment/doc changes (no logic lines changed, verified by reading the diff, not just `git diff --stat`) · **When** push completes · **Then** skip `gf-pr-review` bounce-back entirely, go straight to DONE
 
 ### 8: Round Cap Escalation
 - **Given** round 3 push completes and `gf-pr-review` still returns `request-changes` with actionable findings · **When** loop would continue · **Then** stop automatic looping, show remaining findings + round count, hand decision back to user
@@ -191,7 +198,7 @@ flowchart TD
 - [ ] Reviewer notified via `gf pr comment <pr>`
 - [ ] No out-of-scope commands
 - [ ] Loop terminates on findings reaching zero, not on comment list exhaustion
-- [ ] Round cap is 3; exceeding it escalates to the user instead of retrying silently
+- [ ] Round cap is 3; reaching it with findings still open escalates to the user instead of retrying silently
 - [ ] Test exit codes are captured immediately after the command, never after `|| true`
 
 ## Common Mistakes
