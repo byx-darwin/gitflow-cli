@@ -98,6 +98,9 @@ install-skills: ## Install skills to ~/.claude/skills, pruning ones this project
 		fi; \
 	done; \
 	cp -r skills/* "$$D"/; \
+	PARENT=`dirname "$$D"`; \
+	cp -r docs "$$PARENT"/; \
+	echo "已同步 docs/ 到 $$PARENT/docs（供 ../../docs/... 相对链接在安装后解析，见 #352）"; \
 	echo "Skills installed."
 
 install-hooks: ## Register hook config in .claude/settings.json
