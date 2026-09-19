@@ -46,7 +46,7 @@ Four-dimensional Issue requirement review — title clarity / description suffic
 
 ```bash
 gf issue view <n>
-# analyze 3 dimensions → write /tmp/issue-analysis.md
+# analyze 4 dimensions → write /tmp/issue-analysis.md
 gf issue comment <n> --body-file /tmp/issue-analysis.md
 rm -f /tmp/issue-analysis.md
 ```
@@ -77,7 +77,7 @@ rm -f /tmp/issue-analysis.md
 | Title | conventional prefix · scope · unambiguous · length |
 | Description | context · goal · constraints · references |
 | Acceptance | `- [ ]` format · verifiable · happy + error paths · **each line states the observation that would prove it false; a criterion already true on the base commit is flagged 🔴 (constrains nothing)** |
-| Slice Direction | ticket covers one end-to-end narrow path, not a single layer (e.g. "data layer only" is a 🔴 layer-only slice) |
+| Slice Direction | ticket covers one end-to-end narrow path, not a single layer (e.g. "data layer only" is a 🔴 layer-only slice); title/body too vague to tell → 🟡, do not guess the layers touched |
 
 ### Step 3: Draft report — scorecard table + detailed findings + improvement suggestions + proposed title (if needed) + proposed content. Write to `/tmp/issue-analysis.md`.
 
@@ -123,7 +123,7 @@ rm -f /tmp/issue-analysis.md
 
 ### ✅ In Scope
 
-- Three-dimension Analysis
+- Four-dimension Analysis
 - Draft report
 - Post as comment (after user confirm)
 
