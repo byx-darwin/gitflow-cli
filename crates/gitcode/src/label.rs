@@ -332,7 +332,16 @@ impl From<MilestoneApiResponse> for MilestoneData {
                 State::Open
             },
             due_on: api.due_on.and_then(|s| {
-                DateTime::parse_from_rfc3339(&s).map_or(None, |dt| Some(dt.with_timezone(&Utc)))
+                // GitCode returns due_on as either full RFC3339 or a pure
+                // "YYYY-MM-DD" date (issue #377); fall back to the latter,
+                // anchored at midnight UTC, before giving up.
+                if let Ok(dt) = DateTime::parse_from_rfc3339(&s) {
+                    return Some(dt.with_timezone(&Utc));
+                }
+                chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+                    .ok()
+                    .and_then(|d| d.and_hms_opt(0, 0, 0))
+                    .map(|naive_dt| DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc))
             }),
             closed_issues: api.closed_issues,
             open_issues: api.open_issues,
@@ -670,10 +679,8 @@ mod tests {
         // 真实响应形状（2026-09-19 对 gitcode milestone list --repo openharmony/docs
         // 的实测）：closed_issues/open_issues 键完全不存在，不是"值为 0"。
         //
-        // 注：该真实响应的 due_on 是纯日期格式（"2026-08-31"，无时间/时区部分），
-        // 而 due_on 转换用的是 DateTime::parse_from_rfc3339，无法解析纯日期，会
-        // 静默落到 None——这是本次 #364 命名方向修复范围之外的另一个独立缺陷
-        // （日期格式而非字段命名），本测试不对其断言，留待后续单独开 Issue。
+        // 该真实响应的 due_on 是纯日期格式（"2026-08-31"，无时间/时区部分）。见
+        // Issue #377。
         let json = br#"{
             "id": null,
             "number": 733070,
@@ -691,6 +698,15 @@ mod tests {
         assert_eq!(
             data.closed_issues, 0,
             "键缺失时应靠 #[serde(default)] 落到 0，而不是反序列化失败"
+        );
+        assert_eq!(
+            data.due_on,
+            Some(
+                chrono::DateTime::parse_from_rfc3339("2026-08-31T00:00:00Z")
+                    .expect("valid rfc3339")
+                    .with_timezone(&Utc)
+            ),
+            "纯日期格式的 due_on 应解析为当天 UTC 零点，而不是静默丢弃为 None（#377）"
         );
         assert_eq!(data.open_issues, 0);
     }
