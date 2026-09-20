@@ -177,7 +177,7 @@ impl From<ReleaseApiResponse> for ReleaseData {
             draft: api.draft.unwrap_or_default(),
             prerelease: api.prerelease.unwrap_or_default(),
             author: api.author.map(UserSummary::from),
-            created_at: api.created_at.unwrap_or_else(Utc::now),
+            created_at: api.created_at,
             published_at: api.published_at,
             url: api.html_url.or(api.url).unwrap_or_default(),
         }
@@ -891,7 +891,10 @@ mod tests {
         let author = release.author.as_ref().expect("author");
         assert_eq!(author.login, "dev");
         assert_eq!(author.id, "1");
-        assert_eq!(release.created_at.to_rfc3339(), "2026-01-01T00:00:00+00:00");
+        assert_eq!(
+            release.created_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-01-01T00:00:00+00:00".to_string())
+        );
         assert!(release.published_at.is_some());
         // html_url 优先于 API self-link。
         assert_eq!(
@@ -976,6 +979,10 @@ mod tests {
         assert!(release.author.is_none());
         assert!(release.published_at.is_none());
         assert!(release.url.is_empty());
+        assert!(
+            release.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[tokio::test]
@@ -1056,9 +1063,11 @@ mod tests {
         assert_eq!(author.login, "byx-darwin");
         assert_eq!(
             release.created_at,
-            chrono::DateTime::parse_from_rfc3339("2026-09-20T22:22:44+08:00")
-                .expect("valid rfc3339")
-                .with_timezone(&Utc)
+            Some(
+                chrono::DateTime::parse_from_rfc3339("2026-09-20T22:22:44+08:00")
+                    .expect("valid rfc3339")
+                    .with_timezone(&Utc)
+            )
         );
     }
 
