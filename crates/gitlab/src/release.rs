@@ -165,7 +165,6 @@ struct ReleaseApiResponse {
 
 impl From<ReleaseApiResponse> for ReleaseData {
     fn from(api: ReleaseApiResponse) -> Self {
-        let now = Utc::now();
         let author = api.author.as_ref().map(UserSummary::from);
 
         Self {
@@ -176,7 +175,7 @@ impl From<ReleaseApiResponse> for ReleaseData {
             draft: api.draft,
             prerelease: api.prerelease,
             author,
-            created_at: api.created_at.unwrap_or(now),
+            created_at: api.created_at,
             published_at: api.released_at,
             url: api.url.unwrap_or_default(),
         }
@@ -809,7 +808,10 @@ mod tests {
         assert!(release.author.is_none());
         assert!(release.published_at.is_none());
         assert_eq!(release.url, ""); // defaults to empty string
-        // created_at defaults to Utc::now() when None
+        assert!(
+            release.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]

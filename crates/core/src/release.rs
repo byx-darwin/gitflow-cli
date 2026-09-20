@@ -37,8 +37,9 @@ pub struct ReleaseData {
     /// Release 作者（list 命令可能不包含此字段）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<UserSummary>,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
     /// 发布时间（UTC），草稿 Release 为 None。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub published_at: Option<DateTime<Utc>>,
@@ -226,6 +227,31 @@ mod tests {
         assert!(!serialized.contains("\"name\":"));
         assert!(!serialized.contains("\"body\":"));
         assert!(!serialized.contains("\"publishedAt\":"));
+    }
+
+    #[test]
+    fn test_should_deserialize_release_with_missing_created_at_as_none() {
+        let json = r#"{
+            "id": 7,
+            "tagName": "v0.5.0",
+            "draft": false,
+            "prerelease": false,
+            "url": "https://example.com/releases/7"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert!(
+            release.created_at.is_none(),
+            "missing createdAt must deserialize to None, not error or a fabricated timestamp"
+        );
+    }
+
+    #[test]
+    fn test_should_omit_created_at_when_none_on_serialize() {
+        let json = sample_release_json();
+        let mut release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        release.created_at = None;
+        let serialized = serde_json::to_string(&release).expect("serialize");
+        assert!(!serialized.contains("\"createdAt\""));
     }
 
     #[test]

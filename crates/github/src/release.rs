@@ -525,6 +525,25 @@ mod tests {
     }
 
     #[test]
+    fn test_should_deserialize_release_with_missing_created_at_from_gh_output() {
+        // gh CLI is not known to ever omit createdAt, but ReleaseData.created_at
+        // is now Option<DateTime<Utc>> at the core level (#366) — this pins that
+        // the github path tolerates it gracefully rather than erroring, since
+        // this crate has no intermediate struct or fallback logic of its own.
+        let gh_json = br#"{
+            "id": 8,
+            "tagName": "v0.9.0",
+            "draft": false,
+            "prerelease": false,
+            "url": "https://example.com/releases/8"
+        }"#;
+
+        let release: ReleaseData =
+            serde_json::from_slice(gh_json).expect("missing createdAt must not error");
+        assert!(release.created_at.is_none());
+    }
+
+    #[test]
     fn test_should_debug_format_provider() {
         let provider = GitHubReleaseProvider::new("octocat/hello-world");
         let debug = format!("{provider:?}");
