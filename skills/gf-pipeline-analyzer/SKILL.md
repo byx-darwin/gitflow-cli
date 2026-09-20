@@ -36,6 +36,11 @@ to `docs/pipeline-analysis-report-<YYYY-MM-DD>-<context>.md`. Once
 ## Preconditions
 - `gf` installed: `command -v gf`
 - `gf` authenticated: `gf auth status`
+- `gf --version` commit sha matches the repo's current `git rev-parse --short HEAD`
+  (especially in per-Issue worktrees created by gf-workflow: the globally
+  installed `gf` binary only updates after an explicit
+  `cargo install --path apps/cli`, and a stale binary can make already-fixed
+  issues look like they still reproduce — see Issue #378)
 ## Overview
 
 Read-only analysis of three CI/CD health dimensions, with improvement suggestions sorted by priority.
