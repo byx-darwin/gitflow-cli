@@ -231,6 +231,19 @@ gitcode 的 `SequencedMockCommandRunner`（`crates/gitcode/src/runner.rs:210`）
      `published_at` 存在但不是合法 RFC3339（例如
      `"2026-01-01 00:00:00"`），钉在
      `test_should_fail_list_when_created_at_is_not_rfc3339`
+
+   **已闭合（Issue #368，2026-09-20 真实服务端验证）**：在自有测试仓库
+   `byx-darwin/NexaTrade` 上创建了两个真实 release，实测
+   `gitcode api /repos/byx-darwin/NexaTrade/releases?per_page=N&page=M`。
+   真实响应关键发现：`id`/`draft`/`html_url`/`url`/`published_at` 均**完全
+   缺失**（不是 `null`）；`author.id` 为字符串编码；`created_at` 为带时区
+   偏移的完整 RFC3339；额外未建模字段 `assets`/`release_status`/
+   `target_commitish` 被 serde 正确忽略。**结论：现有容错边界已完全覆盖
+   真实形态，无需修改映射逻辑**——钉在新增的
+   `test_should_deserialize_real_gitcode_release_api_response`（使用真实
+   捕获的 payload 做 fixture）。同时确认 `page` 参数在 `release` 端点上
+   真实生效、页间不重叠（此前只在 `issue` 端点验证过）。测试完成后已删除
+   两个临时 release。
 2. `ReleaseApiResponse` → `ReleaseData` 的 `created_at` 在 api 未返回该字段时
    回退 `Utc::now()`（仅用于展示，做法照搬自 gitlab 侧同构实现）。诚实的修法是把
    core 层 `ReleaseData::created_at` 改成 `Option<DateTime<Utc>>`，并在 github /

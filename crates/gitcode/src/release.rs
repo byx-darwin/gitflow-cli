@@ -993,6 +993,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_deserialize_real_gitcode_release_api_response() {
+        // 真实响应形状（2026-09-20 对 byx-darwin/NexaTrade 已登录 gitcode CLI 的
+        // 实测，Issue #368 F1）：`gitcode api /repos/{repo}/releases` 返回的对象
+        // 里，`id`/`draft`/`html_url`/`url`/`published_at` 全部**完全缺失**
+        // （不是 `null`），`author.id` 是字符串编码，`created_at` 带时区偏移而非
+        // `Z`。额外字段 `assets`/`release_status`/`target_commitish` 未建模，
+        // 应被 serde 静默忽略而不影响其余字段。此测试钉住这次实测结论：现有
+        // `#[serde(default)]` 容错边界已足够，无需修改映射逻辑。
+        let json = r#"[{
+            "tag_name": "v0.1.0-test-issue368",
+            "target_commitish": "223bb9d0d96331abc9d97074c0644097fd68d96f",
+            "prerelease": false,
+            "name": "Test release for Issue #368 verification",
+            "body": "临时测试 release，用于实测 gitcode release list API 响应形状（Issue #368），验证完成后会删除。",
+            "author": {
+                "id": "812276",
+                "login": "byx-darwin",
+                "name": "baoyx",
+                "avatar_url": "https://cdn-img.gitcode.com/example.png",
+                "html_url": "https://gitcode.com/byx-darwin",
+                "type": "User",
+                "url": "https://api.gitcode.com/api/v5/users/byx-darwin"
+            },
+            "created_at": "2026-09-20T22:22:44+08:00",
+            "assets": [
+                {
+                    "browser_download_url": "https://raw.gitcode.com/byx-darwin/NexaTrade/archive/refs/heads/v0.1.0-test-issue368.zip",
+                    "name": "v0.1.0-test-issue368.zip",
+                    "type": "source"
+                }
+            ],
+            "release_status": "none"
+        }]"#;
+        let runner = MockCommandRunner::success(json);
+        let provider = GitCodeReleaseProvider::with_runner("owner/repo", runner);
+
+        let paged = provider
+            .list(None)
+            .await
+            .expect("real response shape should not fail list");
+
+        let release = &paged.items[0];
+        assert_eq!(release.tag_name, "v0.1.0-test-issue368");
+        assert_eq!(release.id, 0, "缺失的 id 应退化为 0");
+        assert!(!release.draft, "缺失的 draft 应退化为 false");
+        assert!(!release.prerelease);
+        assert_eq!(
+            release.name.as_deref(),
+            Some("Test release for Issue #368 verification")
+        );
+        assert!(
+            release.url.is_empty(),
+            "缺失的 html_url/url 应退化为空字符串"
+        );
+        assert!(
+            release.published_at.is_none(),
+            "缺失的 published_at 应退化为 None"
+        );
+        let author = release.author.as_ref().expect("author present");
+        assert_eq!(author.id, "812276");
+        assert_eq!(author.login, "byx-darwin");
+        assert_eq!(
+            release.created_at,
+            chrono::DateTime::parse_from_rfc3339("2026-09-20T22:22:44+08:00")
+                .expect("valid rfc3339")
+                .with_timezone(&Utc)
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_accept_string_release_id_from_api() {
         // gitcode 的 release id 与 author id 同源，同样可能是字符串。F1: id
         // 之前是裸 u64，字符串形态会让整个 list 反序列化失败。
