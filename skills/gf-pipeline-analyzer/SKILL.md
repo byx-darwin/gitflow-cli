@@ -36,6 +36,10 @@ to `docs/pipeline-analysis-report-<YYYY-MM-DD>-<context>.md`. Once
 ## Preconditions
 - `gf` installed: `command -v gf`
 - `gf` authenticated: `gf auth status`
+- `gf --version` 的 commit sha 与仓库当前 `git rev-parse --short HEAD` 一致
+  （尤其在 gf-workflow 按 Issue 创建的独立 worktree 中：全局安装的 `gf` 二进制
+  只有显式 `cargo install --path apps/cli` 后才会更新，落后的二进制会让已经
+  修复的问题看起来仍在复现——见 Issue #378）
 ## Overview
 
 Read-only analysis of three CI/CD health dimensions, with improvement suggestions sorted by priority.
