@@ -233,6 +233,29 @@ impl From<&ApiUser> for UserSummary {
     }
 }
 
+/// `glab mr` JSON 输出中内嵌的里程碑对象。
+///
+/// GitLab 的里程碑对象同时带有全局 `id` 和项目内 `iid`；本代码库的
+/// `MilestoneRef::number` 语义上是 `iid`（与 `label.rs` 中
+/// `MilestoneData::number` 的约定一致），`iid` 缺失时才回退到 `id`。
+#[derive(Debug, Clone, Deserialize)]
+struct MilestoneRefApi {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    iid: Option<u64>,
+    title: String,
+}
+
+impl From<MilestoneRefApi> for gitflow_core::types::MilestoneRef {
+    fn from(api: MilestoneRefApi) -> Self {
+        Self {
+            number: api.iid.unwrap_or(api.id),
+            title: api.title,
+        }
+    }
+}
+
 /// `glab repo view --output json` 的响应类型（仅取需要的字段）。
 #[derive(Debug, Deserialize)]
 struct RepoViewResponse {
@@ -265,6 +288,8 @@ struct MrApiResponse {
     merged_at: Option<DateTime<Utc>>,
     #[serde(default)]
     web_url: Option<String>,
+    #[serde(default)]
+    milestone: Option<MilestoneRefApi>,
 }
 
 impl From<MrApiResponse> for PrData {
@@ -296,7 +321,7 @@ impl From<MrApiResponse> for PrData {
             updated_at: api.updated_at.unwrap_or(now),
             merged_at: api.merged_at,
             url: api.web_url.unwrap_or_default(),
-            milestone: None,
+            milestone: api.milestone.map(Into::into),
         }
     }
 }
@@ -334,7 +359,7 @@ impl From<CommentApiResponse> for CommentData {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
+impl<R: CommandRunner + Clone + 'static> PrProvider for GitLabMrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let repo = args.repo.as_deref().unwrap_or(&self.repo_target);
         let mut cmd_args: Vec<&str> = vec![
@@ -360,6 +385,18 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
 
         if args.draft {
             cmd_args.push("--draft");
+        }
+
+        let resolved_milestone_title;
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider =
+                crate::GitLabMilestoneProvider::with_runner(repo, self.runner.clone());
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_title = resolved.title;
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_title);
         }
 
         debug!(
@@ -863,6 +900,41 @@ mod tests {
         let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert_eq!(pr.author.login, "unknown");
+    }
+
+    #[test]
+    fn test_should_deserialize_mr_with_milestone() {
+        // Same GitLab REST milestone object shape as `glab issue view`
+        // (confirmed against http://192.168.230.23/iproost/iproost-docs on
+        // 2026-09-21: `glab mr list --output json` embeds a `milestone` field
+        // of the identical shape, `null` when unset).
+        let json = br#"{
+            "iid": 12,
+            "title": "Add feature",
+            "description": null,
+            "state": "opened",
+            "draft": false,
+            "author": {"username": "alice", "id": 2},
+            "source_branch": "feature/x",
+            "target_branch": "main",
+            "milestone": {
+                "id": 30,
+                "iid": 3,
+                "title": "v2.0",
+                "state": "active"
+            },
+            "web_url": "http://192.168.230.23/owner/repo/-/merge_requests/12"
+        }"#;
+
+        let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
+        let pr: PrData = api.into();
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into(),
+            })
+        );
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---
@@ -1513,5 +1585,72 @@ mod tests {
                 "1",
             ]
         );
+    }
+
+    // --- milestone wiring: create ---
+
+    /// A single-item `glab milestone list --output json` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    const MILESTONE_LIST_JSON: &str = r#"[
+        {"id": 30, "iid": 3, "title": "v2.0", "state": "active"}
+    ]"#;
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_mr_create() {
+        // Sequence:
+        // 1. milestone resolution: `glab milestone list --project ...`
+        //    (GitLabMilestoneProvider::list)
+        // 2. `glab mr create ... --milestone v2.0`
+        // 3. `glab mr view <number>` (create() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "http://192.168.230.23/owner/repo/-/merge_requests/12"),
+            (
+                true,
+                r#"{"iid":12,"title":"Add feature","state":"opened","source_branch":"feature/x","target_branch":"main","milestone":{"id":30,"iid":3,"title":"v2.0","state":"active"}}"#,
+            ),
+        ]);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string()); // resolve by number
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 3, "expected exactly 3 glab invocations");
+        assert!(
+            calls[0].1.first().map(String::as_str) == Some("milestone"),
+            "first call must resolve the milestone via `glab milestone list`, got: {:?}",
+            calls[0].1
+        );
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "mr create argv must carry the resolved milestone title, got: {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_mr_create() {
+        // Milestone list resolves to no match for "does-not-exist" → resolve_milestone_identifier
+        // returns an error before `glab mr create` is ever invoked.
+        let runner = SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON)]);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
     }
 }
