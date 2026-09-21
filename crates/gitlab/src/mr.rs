@@ -389,8 +389,14 @@ impl<R: CommandRunner + Clone + 'static> PrProvider for GitLabMrProvider<R> {
 
         let resolved_milestone_title;
         if let Some(identifier) = &args.milestone {
+            // `--project` 要裸 `namespace/project`，不能用 `repo`（上面
+            // `--repo` 用的目标，自建实例上可能是完整 remote URL 或
+            // `args.repo` 覆盖值，传给 `--project` 会 404）。`args.repo`
+            // 本身按文档就是 `owner/name` 格式的裸仓库，因此覆盖时直接复用；
+            // 未覆盖时退回 `self.repo`（而非 `self.repo_target`）。
+            let milestone_repo = args.repo.as_deref().unwrap_or(&self.repo);
             let milestone_provider =
-                crate::GitLabMilestoneProvider::with_runner(repo, self.runner.clone());
+                crate::GitLabMilestoneProvider::with_runner(milestone_repo, self.runner.clone());
             let resolved =
                 gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
                     .await?;
@@ -1652,5 +1658,45 @@ mod tests {
 
         let result = provider.create(args).await;
         assert!(result.is_err());
+    }
+
+    // --- regression: milestone resolution must use the bare repo, not repo_target ---
+    //
+    // `glab milestone ...` subcommands take `--project`, which (unlike `--repo`)
+    // rejects a full git remote URL and 404s. `repo_target` may hold that URL on
+    // self-hosted instances (see `with_remote_url`'s doc comment and
+    // <https://gitlab.com/gitlab-org/cli/-/issues/1370>); the milestone-resolution
+    // provider must always be constructed from the bare `repo` field instead.
+    #[tokio::test]
+    async fn test_should_resolve_milestone_against_bare_repo_not_repo_target_for_mr_create() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "http://192.168.230.23/owner/repo/-/merge_requests/12"),
+            (
+                true,
+                r#"{"iid":12,"title":"Feat","state":"opened","source_branch":"feat/x","target_branch":"main"}"#,
+            ),
+        ]);
+        let provider = GitLabMrProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+        provider.create(args).await.expect("create should succeed");
+
+        let resolve_call = &runner.recorded_calls()[0].1;
+        assert!(
+            resolve_call.iter().any(|a| a == "owner/repo"),
+            "milestone resolution must target the bare repo, got: {resolve_call:?}"
+        );
+        assert!(
+            !resolve_call
+                .iter()
+                .any(|a| a.contains("192.168.230.23/iproost/proxy")),
+            "milestone resolution must NOT use repo_target's remote URL, got: {resolve_call:?}"
+        );
     }
 }
