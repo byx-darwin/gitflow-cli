@@ -63,9 +63,16 @@
   - `delivery_mode == "pr"` → `phases.3.evidence.pr_url` 非空
   - `delivery_mode == "local_merge"` → `phases.3.evidence.merge_commit` 非空
 - `phases.3.evidence.tests_passed` 为 `true`（两种交付方式均必须）
+- `phases.3.evidence.security_check.status` ∈ `{passed, exempted, not_triggered}`（Issue #344；防御性检查——Phase 3 新 Step 3 已经在 `failed` 时阻断，正常情况下不会带着 `failed` 走到这里）
+- `phases.3.evidence.regression_check.status` ∈ `{passed, exempted, not_triggered}`（同上）
 
-**本闸门不证明什么:** `tests_passed` 来自 Phase 3 Step 4 的**本地** `make test` / `cargo test`，
-它是前置自检，**不是 CI 结论**。真正的合并闸门是平台的必需检查 + Step 5 的排队合并
+**已知限制:** 若某合同在本变更落地前就已进入 Phase 3（`phases.3.evidence` 里没有
+`security_check`/`regression_check` 字段），Gate 3→4 会因 `status` 缺失而永远不通过。
+本仓库是单会话/单人使用的内部工具，跨部署长期存活的 Phase-3 合同极少见；遇到时手动回到
+Phase 3 Step 3 补跑一次检测即可，不为此设计自动回填迁移逻辑。
+
+**本闸门不证明什么:** `tests_passed` 来自 Phase 3 Step 5 的**本地** `make test` / `cargo test`，
+它是前置自检，**不是 CI 结论**。真正的合并闸门是平台的必需检查 + Step 6 的排队合并
 （`gf pr merge --auto`）——平台会在检查不通过时拒绝合并，所以这里无需、也不应重复判定。
 
 `merge_queued` **不作为闸门条件**：GitCode 无排队合并能力，若强制为 `true` 会把 GitCode
@@ -111,9 +118,14 @@ def check_gate(contract, target_phase):
             delivery_ok = bool(evidence.get("merge_commit"))
         else:
             delivery_ok = bool(evidence.get("pr_url"))
+        ok_statuses = {"passed", "exempted", "not_triggered"}
+        security_ok = (evidence.get("security_check") or {}).get("status") in ok_statuses
+        regression_ok = (evidence.get("regression_check") or {}).get("status") in ok_statuses
         return contract["phases"]["3"]["status"] == "complete" \
                and delivery_ok \
-               and evidence.get("tests_passed")
+               and evidence.get("tests_passed") \
+               and security_ok \
+               and regression_ok
 
     return False
 ```

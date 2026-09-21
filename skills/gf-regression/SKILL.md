@@ -88,6 +88,16 @@ bash scripts/smoke-test.sh --platform github 2>&1
 
 Platforms: github, gitlab, gitcode. Default mode: read-only; `--write` requires explicit user confirmation.
 
+## Report Output & Archiving
+
+When invoked as the Phase 3 change-surface gate step of `gf-workflow`
+(Issue #344), the audit-trail report goes to
+`docs/regression-report-<issue-number>-<YYYY-MM-DD>.md`. Once
+`regression-report-*.md` files under `docs/` exceed 5, move all but the 5
+most recent (ordered by the issue number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
+
 ## Flowchart
 
 ```mermaid

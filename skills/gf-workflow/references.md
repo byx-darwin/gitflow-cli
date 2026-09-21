@@ -59,7 +59,7 @@ New Session Starts
 3. Load context based on mode and current_phase:
    • Phase 1: No doc needed (start fresh)
    • Phase 2: Read design_doc_path; check mode for Phase 1 exemptions
-   • Phase 3: Read spec_path (plan document); check mode for fast skip
+   • Phase 3: Read spec_path (plan document); check mode for fast skip; also reload `change_surface`/`security_check`/`regression_check` evidence (Issue #344) alongside `branch`/`worktree_path` — a session resuming mid-Phase-3 must not re-ask a change-surface question already answered before the interruption
    • Phase 4: Read pr_url + review reports; use get_phase4_steps(mode) to determine remaining steps
 4. Resume from current_phase, follow auto-trigger rules
 ```
@@ -222,6 +222,27 @@ choice 4 — the contract stays in Phase 3 for resume.
 the worktree, so the orchestrator cannot rely on having checked the tree itself — the
 handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` below.
 
+### Change-Surface Detection (Phase 3 Step 3, Issue #344)
+
+Phase 3 Step 3 决定是否阻断式运行 `gf-security-check` / `gf-regression`，判定依据是 Step 1 已经记录的 `base_branch`——**不重新猜测 base ref**，直接复用：
+
+```bash
+diff_files="$(git diff --name-only "$base_branch"...HEAD)"
+```
+
+（`gf-quality` 的 Gate 3 曾经因为用 `${BASE_REF:-origin/main}` 猜测 base ref，在 GitLab/GitCode 默认分支不是 `main` 时解析失败；这里直接吃 Phase 3 Step 1 的既有产出，不重蹈覆辙。）
+
+两条独立规则，各自判定，互不影响：
+
+| 检查 | 触发路径模式 |
+|---|---|
+| `gf-security-check` | `Cargo.toml`、`Cargo.lock`、`**/Cargo.toml`（workspace 内任意 crate）、`deny.toml` |
+| `gf-regression` | `apps/cli/src/**`、`crates/core/src/**`、`crates/github/src/**`、`crates/gitlab/src/**`、`crates/gitcode/src/**` |
+
+都不命中（例如纯文档/spec/skill 文本改动）→ `change_surface = "docs_only"`，两项检查都记 `not_triggered`，不实际调用任何一个 skill。
+
+**为什么必须在 Step 3（旧 Step 3 交付选择之前）而不是 Phase 4：** local_merge 路径下，旧的 Step 3（现 Step 4）会立刻把分支合并进 `base_branch`。如果检查放在 Phase 4（交付之后），发现问题时代码已经进了 `base_branch`，"阻断式"就名不副实了——所以必须卡在合并动作发生之前。
+
 ### Why the Symlink Depth Is Computed, Not Hardcoded
 
 A relative symlink resolves starting from the directory that *contains* the
@@ -290,7 +311,7 @@ exactly the gap that let `e7f4254` happen upstream.
 
 **Belt and suspenders.** `info/exclude` only stops *new* accidental adds; it does nothing for
 a symlink that is already staged in a commit about to leave `branch` (rebase, cherry-pick,
-`git commit -a` racing the exclude write, etc.). That is why Phase 3 Step 3 in `SKILL.md` also
+`git commit -a` racing the exclude write, etc.). That is why Phase 3 Step 4 in `SKILL.md` also
 scans the diff immediately before delivery:
 
 ```bash
@@ -491,22 +512,22 @@ commands, merging, or queuing a merge). This table fills that gap.
 **Two categories were adapted, not ported verbatim, from `smallnest/goal-workflow`'s
 `loop-it` skill** — this repo's semantics differ:
 
-- `merge_conflict`: Phase 3 Step 3's local-merge path already aborts and hands back to the
+- `merge_conflict`: Phase 3 Step 4's local-merge path already aborts and hands back to the
   user on conflict (`git merge --abort`, branch/worktree untouched). The table below keeps
   that behavior — zero automatic retries — rather than inventing a new auto-resolve loop.
-- `ci`: Phase 3 Step 5 queues the merge (`gf pr merge --auto`) against a specific SHA that
+- `ci`: Phase 3 Step 6 queues the merge (`gf pr merge --auto`) against a specific SHA that
   has already passed checks. Pushing a new commit to that branch after queuing does **not**
   get carried into the queued check (verified empirically) — so `ci` failures can never be
   "fixed" by pushing more commits onto the queued branch. A fix requires a fresh commit and
-  a fresh queue entry, which restarts at Step 2, not a retry of Step 5.
+  a fresh queue entry, which restarts at Step 2, not a retry of Step 6.
 
 | Category | Trigger | Recovery | Retry Cap |
 |---|---|---|---|
 | `build` | Compile/build failure | Fix code, rebuild | 3 |
 | `test` | Test failure | Fix code or test, rerun | 3 |
 | `lint` | `cargo clippy` / `cargo fmt` (or per-language equivalent) failure | Fix, rerun `make lint` | 3 |
-| `merge_conflict` | `git merge` conflict (Phase 3 Step 3, local-merge path) | `git merge --abort`; leave `branch`/worktree untouched; escalate to user immediately — no automatic retry. User resolves manually, then Step 3 is re-run as a fresh attempt (not counted against this cap) | 0 |
-| `ci` | Required check fails after the merge queue (Phase 3 Step 5, PR path) | Never push a new commit to the already-queued branch. `gf` has no re-run command for an existing pipeline run — ✋ PAUSE and ask the user to rule out flakiness via the platform's own re-run action (e.g. GitHub Actions "Re-run failed jobs", or that platform's native CLI); if it still fails, a real fix requires a new commit + a fresh queue entry — that restarts at Step 2, it is not a retry of Step 5 | 1 (one user-triggered same-SHA re-run only) |
+| `merge_conflict` | `git merge` conflict (Phase 3 Step 4, local-merge path) | `git merge --abort`; leave `branch`/worktree untouched; escalate to user immediately — no automatic retry. User resolves manually, then Step 4 is re-run as a fresh attempt (not counted against this cap) | 0 |
+| `ci` | Required check fails after the merge queue (Phase 3 Step 6, PR path) | Never push a new commit to the already-queued branch. `gf` has no re-run command for an existing pipeline run — ✋ PAUSE and ask the user to rule out flakiness via the platform's own re-run action (e.g. GitHub Actions "Re-run failed jobs", or that platform's native CLI); if it still fails, a real fix requires a new commit + a fresh queue entry — that restarts at Step 2, it is not a retry of Step 6 | 1 (one user-triggered same-SHA re-run only) |
 | `auth` | `gf auth status` failure / API 401/403 | No retry — escalate to user immediately (`auth login` is a human action) | 0 |
 | `rate_limit` | API 429 / platform throttling | No retry — escalate to user immediately (waiting or rotating credentials is a human decision) | 0 |
 | `network` | Transient network error (timeout, connection reset) | Retry with backoff | 3 |
