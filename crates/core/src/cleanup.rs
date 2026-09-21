@@ -536,6 +536,7 @@ mod tests {
             updated_at: chrono::Utc::now(),
             merged_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
+            milestone: None,
         };
         let result = check_safety(&pr, "main", false);
         assert!(result.is_ok());
@@ -559,6 +560,7 @@ mod tests {
             merged_at: None,
             updated_at: chrono::Utc::now(),
             url: "https://github.com/test/repo/pull/172".to_string(),
+            milestone: None,
         };
         let result = check_safety(&pr, "develop", false);
         assert!(result.is_err());
@@ -584,6 +586,7 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             url: "https://github.com/test/repo/pull/172".to_string(),
+            milestone: None,
         };
         let result = check_safety(&pr, "feature/x", false);
         assert!(result.is_err());
@@ -609,6 +612,7 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             url: "https://github.com/test/repo/pull/172".to_string(),
+            milestone: None,
         };
         let result = check_safety(&pr, "main", false);
         assert!(result.is_err());
@@ -634,6 +638,7 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             url: "https://github.com/test/repo/pull/172".to_string(),
+            milestone: None,
         };
         let result = check_safety(&pr, "main", true);
         assert!(result.is_ok());
@@ -660,6 +665,7 @@ mod tests {
                 None
             },
             url: format!("https://github.com/test/repo/pull/{number}"),
+            milestone: None,
         }
     }
 

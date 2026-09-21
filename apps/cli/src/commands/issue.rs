@@ -230,6 +230,7 @@ pub async fn handle(
                 body: resolved_body,
                 labels: label,
                 assignees: assignee,
+                milestone: None,
             };
             let issue = provider
                 .create(args)
@@ -249,6 +250,7 @@ pub async fn handle(
             let args = EditIssueArgs {
                 title,
                 body: resolved_body,
+                milestone: None,
             };
             let issue = provider
                 .edit(number, args)
@@ -281,6 +283,7 @@ pub async fn handle(
                 labels: label,
                 search,
                 limit,
+                milestone: None,
             };
             let paged = provider
                 .list(args)

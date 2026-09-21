@@ -153,6 +153,7 @@ impl From<PrApiResponse> for PrData {
             updated_at: parse_time(api.updated_at),
             merged_at: parse_opt_time(api.merged_at),
             url: api.html_url.unwrap_or_default(),
+            milestone: None,
         }
     }
 }
@@ -939,6 +940,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 

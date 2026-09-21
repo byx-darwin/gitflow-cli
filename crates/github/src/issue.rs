@@ -689,6 +689,7 @@ impl From<GitHubIssueApiResponse> for IssueData {
             created_at: parse_api_datetime(&api.created_at),
             updated_at: parse_api_datetime(&api.updated_at),
             url: api.html_url,
+            milestone: None,
         }
     }
 }
@@ -1103,6 +1104,7 @@ mod tests {
             body: Some("Steps to reproduce".to_string()),
             labels: vec!["bug".to_string()],
             assignees: vec!["octocat".to_string()],
+            milestone: None,
         }
     }
 
@@ -1490,6 +1492,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("New title".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await
@@ -1512,6 +1515,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("T".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await;
@@ -1734,6 +1738,7 @@ mod tests {
             body: Some("Description".to_string()),
             labels,
             assignees: vec![],
+            milestone: None,
         }
     }
 

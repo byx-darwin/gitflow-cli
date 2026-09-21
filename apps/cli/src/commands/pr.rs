@@ -265,6 +265,7 @@ pub async fn handle(
                 draft,
                 repo: target_repo,
                 closes_issues: closes,
+                milestone: None,
             };
             let pr = provider
                 .create(args)

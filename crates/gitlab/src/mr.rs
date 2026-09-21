@@ -296,6 +296,7 @@ impl From<MrApiResponse> for PrData {
             updated_at: api.updated_at.unwrap_or(now),
             merged_at: api.merged_at,
             url: api.web_url.unwrap_or_default(),
+            milestone: None,
         }
     }
 }
@@ -875,6 +876,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 

@@ -249,6 +249,7 @@ impl From<IssueApiResponse> for IssueData {
             created_at: api.created_at.unwrap_or(now),
             updated_at: api.updated_at.unwrap_or(now),
             url: api.web_url.unwrap_or_default(),
+            milestone: None,
         }
     }
 }
@@ -1106,6 +1107,7 @@ mod tests {
             body: Some("Steps to reproduce".to_string()),
             labels: vec!["bug".to_string()],
             assignees: vec!["alice".to_string()],
+            milestone: None,
         }
     }
 
@@ -1122,6 +1124,7 @@ mod tests {
             body: None,
             labels: vec![],
             assignees: vec![],
+            milestone: None,
         };
 
         provider.create(args).await.expect("should create");
@@ -1599,6 +1602,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("New title".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await
@@ -1619,6 +1623,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("T".to_string()),
                     body: Some("B".to_string()),
+                    milestone: None,
                 },
             )
             .await;
