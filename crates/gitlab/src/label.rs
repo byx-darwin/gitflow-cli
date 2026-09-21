@@ -430,16 +430,6 @@ impl GitLabMilestoneProvider<RealCommandRunner> {
             runner: RealCommandRunner,
         }
     }
-
-    /// 使用完整 git remote URL 作为 `glab milestone ...` 的 `--project` 目标创建提供者。
-    #[must_use]
-    pub fn with_remote_url(repo: impl Into<String>, remote_url: impl Into<String>) -> Self {
-        Self {
-            repo: repo.into(),
-            project_target: remote_url.into(),
-            runner: RealCommandRunner,
-        }
-    }
 }
 
 impl<R: CommandRunner> GitLabMilestoneProvider<R> {
@@ -1349,6 +1339,32 @@ mod tests {
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>()
+        );
+    }
+
+    /// 回归测试（Issue #396）：`glab milestone` 系列子命令用 `--project`，
+    /// 该参数无论是否自建实例都只接受裸 `namespace/project`，绝不接受完整
+    /// remote URL（这与 `--repo` 恰好相反）。`GitLabMilestoneProvider::new`
+    /// 是 `handle_milestone` 现在唯一使用的构造方式——本测试确认它构造出的
+    /// `--project` 参数值恒等于传入的裸 repo，即便该 repo 看起来像是来自
+    /// 自建实例场景（用真实自建实例 `192.168.230.23` 的 `namespace/project`
+    /// 形态举例，而不是完整 `git@192.168.230.23:...` URL）。
+    #[tokio::test]
+    async fn test_should_use_bare_repo_as_project_flag_never_full_remote_url() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMilestoneProvider::with_runner("iproost/iproost-docs", runner.clone());
+
+        provider.list(None).await.expect("should list");
+
+        let args = &runner.recorded_calls()[0].1;
+        assert!(
+            args.windows(2)
+                .any(|w| w[0] == "--project" && w[1] == "iproost/iproost-docs"),
+            "--project 必须是裸 namespace/project，实际参数: {args:?}"
+        );
+        assert!(
+            !args.iter().any(|a| a.contains("://") || a.contains('@')),
+            "--project 绝不能携带完整 remote URL，实际参数: {args:?}"
         );
     }
 

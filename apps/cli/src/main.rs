@@ -198,7 +198,7 @@ async fn router(
             commands::label::handle_label(cmd, platform, repo, remote_url, output).await
         }
         Commands::Milestone(cmd) => {
-            commands::label::handle_milestone(cmd, platform, repo, remote_url, output).await
+            commands::label::handle_milestone(cmd, platform, repo, output).await
         }
         Commands::Commit(cmd) => commands::commit::handle(cmd, platform, repo, output).await,
         Commands::Pipeline(cmd) => {

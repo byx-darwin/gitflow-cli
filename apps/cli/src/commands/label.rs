@@ -326,18 +326,15 @@ pub async fn handle_milestone(
     command: MilestoneCommand,
     platform: &str,
     repo: &str,
-    remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
     let provider: Box<dyn MilestoneProvider> = match platform {
         "github" => Box::new(GitHubMilestoneProvider::new(repo)),
-        "gitlab" => {
-            if remote_url.is_empty() {
-                Box::new(GitLabMilestoneProvider::new(repo))
-            } else {
-                Box::new(GitLabMilestoneProvider::with_remote_url(repo, remote_url))
-            }
-        }
+        // `glab milestone ...` uses `--project`, which only ever accepts a bare
+        // `namespace/project` — never a full remote URL, even on self-hosted
+        // instances (unlike `--repo`, which `GitLabLabelProvider` correctly
+        // needs the full URL for). `remote_url` is therefore never used here.
+        "gitlab" => Box::new(GitLabMilestoneProvider::new(repo)),
         "gitcode" => Box::new(GitCodeMilestoneProvider::new(repo)),
         other => {
             return Err(miette::miette!(
