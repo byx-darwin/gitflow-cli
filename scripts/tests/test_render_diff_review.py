@@ -370,6 +370,36 @@ class TestRenderHtml(unittest.TestCase):
         self.assertNotIn("<img src=x onerror=alert(2)>", out)
         self.assertIn("&lt;script&gt;", out)
 
+    def test_html_injection_in_rename_old_path_is_escaped(self):
+        malicious = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "new.py",
+                "old_path": "<script>alert('rename')</script>",
+                "status": "renamed",
+                "lines": [], "error": None, "pseudocode": None, "call_tree": None,
+            }],
+        }
+        out = render_html(malicious)
+        self.assertNotIn("<script>alert('rename')</script>", out)
+        self.assertIn("&lt;script&gt;alert(&#x27;rename&#x27;)&lt;/script&gt;", out)
+
+    def test_html_injection_in_error_message_is_escaped(self):
+        malicious = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "broken.py",
+                "old_path": None,
+                "status": "error",
+                "lines": [],
+                "error": "<script>alert('error')</script>",
+                "pseudocode": None, "call_tree": None,
+            }],
+        }
+        out = render_html(malicious)
+        self.assertNotIn("<script>alert('error')</script>", out)
+        self.assertIn("&lt;script&gt;alert(&#x27;error&#x27;)&lt;/script&gt;", out)
+
 
 class TestRunRender(unittest.TestCase):
     def test_run_render_writes_html_file(self):
