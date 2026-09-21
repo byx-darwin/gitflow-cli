@@ -62,6 +62,16 @@ grep -rn "unsafe" --include="*.rs" src/                  # 4. unsafe code
 | Find secrets | `grep -rn "password\|secret\|api_key" src/` |
 | Find unsafe | `grep -rn "unsafe" --include="*.rs" src/` |
 
+## Report Output & Archiving
+
+When invoked as the Phase 3 change-surface gate step of `gf-workflow`
+(Issue #344), the audit-trail report goes to
+`docs/security-report-<issue-number>-<YYYY-MM-DD>.md`. Once
+`security-report-*.md` files under `docs/` exceed 5, move all but the 5
+most recent (ordered by the issue number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
+
 ## Implementation
 
 ### Preconditions
