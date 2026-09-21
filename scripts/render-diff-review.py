@@ -36,7 +36,10 @@ def _parse_hunks(lines, start_idx):
     """Parse consecutive hunks starting at lines[start_idx] (a '@@' line).
 
     Returns the list of line entries. Stops at the next 'diff --git ' line
-    or end of the block.
+    or end of the block. The first line entry of each hunk carries a
+    "hunk_header" field (the raw "@@ -l,s +l,s @@" text) so the renderer can
+    insert a visible separator between non-adjacent hunks (issue #399); every
+    other line entry has "hunk_header": None.
     """
     entries = []
     i = start_idx
@@ -44,21 +47,30 @@ def _parse_hunks(lines, start_idx):
         m = HUNK_HEADER_RE.match(lines[i])
         if not m:
             raise ValueError(f"malformed hunk header: {lines[i]!r}")
+        hunk_header_text = lines[i]
         old_line = int(m.group(1))
         new_line = int(m.group(3))
         i += 1
+        is_first_line_of_hunk = True
         while i < len(lines) and not lines[i].startswith('@@') and not lines[i].startswith('diff --git '):
             line = lines[i]
+            header_for_this_line = hunk_header_text if is_first_line_of_hunk else None
             if line.startswith('+'):
-                entries.append({"old_line": None, "new_line": new_line, "type": "add", "content": line[1:]})
+                entries.append({"old_line": None, "new_line": new_line, "type": "add",
+                                 "content": line[1:], "hunk_header": header_for_this_line})
                 new_line += 1
+                is_first_line_of_hunk = False
             elif line.startswith('-'):
-                entries.append({"old_line": old_line, "new_line": None, "type": "remove", "content": line[1:]})
+                entries.append({"old_line": old_line, "new_line": None, "type": "remove",
+                                 "content": line[1:], "hunk_header": header_for_this_line})
                 old_line += 1
+                is_first_line_of_hunk = False
             elif line.startswith(' '):
-                entries.append({"old_line": old_line, "new_line": new_line, "type": "context", "content": line[1:]})
+                entries.append({"old_line": old_line, "new_line": new_line, "type": "context",
+                                 "content": line[1:], "hunk_header": header_for_this_line})
                 old_line += 1
                 new_line += 1
+                is_first_line_of_hunk = False
             elif line.startswith('\\'):
                 pass  # "\ No newline at end of file"
             else:
@@ -199,6 +211,8 @@ body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f6; }
 .diff-line.remove { background: #ffeef0; }
 .diff-line .lineno { width: 70px; color: #999; text-align: right; padding-right: 8px; user-select: none; }
 .diff-line.hover-highlight { outline: 2px solid #7cb3f5; }
+.hunk-separator { font-family: monospace; font-size: 11px; color: #6a737d; background: #f1f8ff;
+                   padding: 3px 10px; border-top: 1px solid #d1e5f7; border-bottom: 1px solid #d1e5f7; }
 .annotation-card { padding: 8px; border-bottom: 1px solid #eee; font-size: 12px; cursor: pointer; }
 .annotation-card.hover-highlight { background: #e0ecff; }
 .annotation-card .empty { color: #999; font-style: italic; }
@@ -375,6 +389,15 @@ def _render_line(file_path, line):
     )
 
 
+def _render_hunk_line(file_path, line):
+    parts = []
+    header = line.get("hunk_header")
+    if header:
+        parts.append(f'<div class="hunk-separator">{html.escape(header)}</div>')
+    parts.append(_render_line(file_path, line))
+    return "".join(parts)
+
+
 def _render_file_section(file_entry):
     path = html.escape(file_entry["path"])
     status = file_entry["status"]
@@ -383,7 +406,7 @@ def _render_file_section(file_entry):
     elif status == "error":
         body = f'<div class="file-note">⚠️ 解析失败: {html.escape(file_entry["error"] or "")}</div>'
     else:
-        body = "".join(_render_line(file_entry["path"], ln) for ln in file_entry["lines"])
+        body = "".join(_render_hunk_line(file_entry["path"], ln) for ln in file_entry["lines"])
     header_extra = ""
     if status == "renamed":
         header_extra = f' (重命名自 {html.escape(file_entry["old_path"] or "")})'
@@ -406,22 +429,29 @@ def _render_file_tree(files):
 
 
 def _render_annotation_cards(files):
+    """Render at most one annotation card per file (issue #399).
+
+    Per-line "暂无说明" cards were noisy and duplicated file-level
+    pseudocode/call_tree content once per line. A file only gets a card
+    when it actually has pseudocode and/or a call_tree; if no file across
+    the whole diff has either, show a single placeholder instead.
+    """
     cards = []
     for f in files:
-        for line in f.get("lines", []):
-            anchor_id = html.escape(_anchor_id(f["path"], line), quote=True)
-            extra_parts = []
-            if f.get("pseudocode"):
-                extra_parts.append(f'<details><summary>伪代码</summary>{html.escape(str(f["pseudocode"]))}</details>')
-            if f.get("call_tree"):
-                extra_parts.append(f'<details><summary>调用树</summary>{html.escape(str(f["call_tree"]))}</details>')
-            extra = "".join(extra_parts) or '<span class="empty">暂无说明</span>'
-            display_no = line["new_line"] if line["new_line"] is not None else line["old_line"]
-            cards.append(
-                f'<div class="annotation-card" data-anchor="{anchor_id}">'
-                f'<div class="anchor-label">{html.escape(f["path"])}:{display_no}</div>'
-                f'{extra}</div>'
-            )
+        extra_parts = []
+        if f.get("pseudocode"):
+            extra_parts.append(f'<details><summary>伪代码</summary>{html.escape(str(f["pseudocode"]))}</details>')
+        if f.get("call_tree"):
+            extra_parts.append(f'<details><summary>调用树</summary>{html.escape(str(f["call_tree"]))}</details>')
+        if not extra_parts:
+            continue
+        cards.append(
+            f'<div class="annotation-card">'
+            f'<div class="anchor-label">{html.escape(f["path"])}</div>'
+            f'{"".join(extra_parts)}</div>'
+        )
+    if not cards:
+        cards.append('<p class="empty">当前没有注释内容</p>')
     return f'<div id="annotation-pane">{"".join(cards)}</div>'
 
 
