@@ -84,6 +84,11 @@ def _parse_file_block(block_text):
         elif line.startswith("rename to "):
             entry["path"] = line[len("rename to "):]
 
+    for line in lines:
+        if line.startswith("Binary files") and line.endswith("differ"):
+            entry["status"] = "binary"
+            return entry
+
     hunk_start = None
     for idx, line in enumerate(lines):
         if line.startswith("@@"):
@@ -115,6 +120,35 @@ def parse_diff_text(diff_text):
                 "pseudocode": None,
                 "call_tree": None,
             })
+    return entries
+
+
+def scan_untracked_files():
+    """Synthesize an all-added diff entry for each untracked file.
+
+    `git diff` never includes untracked files, so this shells out to
+    `git status --porcelain` separately and, for each `??`-prefixed
+    entry, runs `git diff --no-index -- /dev/null <path>` and reuses
+    `parse_diff_text` on that output (not a separate parsing path).
+    """
+    status_result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True, text=True, check=True,
+    )
+    entries = []
+    for line in status_result.stdout.splitlines():
+        if not line.startswith("?? "):
+            continue
+        path = line[3:]
+        diff_result = subprocess.run(
+            ["git", "diff", "--no-index", "--", "/dev/null", path],
+            capture_output=True, text=True,
+        )
+        # git diff --no-index exits 1 when a difference is found — expected here.
+        for file_entry in parse_diff_text(diff_result.stdout):
+            file_entry["status"] = "untracked"
+            file_entry["path"] = path
+            entries.append(file_entry)
     return entries
 
 

@@ -138,6 +138,69 @@ index 5555555..6666666 100644
         self.assertEqual(f["path"], "new2.py")
         self.assertEqual(len(f["lines"]), 3)
 
+    def test_binary_file_marked_and_no_lines(self):
+        diff = """diff --git a/image.png b/image.png
+index 7777777..8888888 100644
+Binary files a/image.png and b/image.png differ
+"""
+        files = parse_diff_text(diff)
+        self.assertEqual(len(files), 1)
+        f = files[0]
+        self.assertEqual(f["status"], "binary")
+        self.assertEqual(f["lines"], [])
+
+
+import subprocess
+import tempfile
+
+scan_untracked_files = render_diff_review.scan_untracked_files
+
+
+class TestScanUntrackedFiles(unittest.TestCase):
+    def test_untracked_file_produces_all_added_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
+            subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=tmp, check=True)
+            subprocess.run(["git", "config", "user.name", "t"], cwd=tmp, check=True)
+            with open(os.path.join(tmp, "committed.txt"), "w") as f:
+                f.write("hello\n")
+            subprocess.run(["git", "add", "committed.txt"], cwd=tmp, check=True)
+            subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp, check=True)
+
+            with open(os.path.join(tmp, "new_file.py"), "w") as f:
+                f.write("def new():\n    return 1\n")
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                entries = scan_untracked_files()
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0]["path"], "new_file.py")
+            self.assertEqual(entries[0]["status"], "untracked")
+            self.assertTrue(any(l["type"] == "add" for l in entries[0]["lines"]))
+
+    def test_no_untracked_files_returns_empty_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
+            subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=tmp, check=True)
+            subprocess.run(["git", "config", "user.name", "t"], cwd=tmp, check=True)
+            with open(os.path.join(tmp, "committed.txt"), "w") as f:
+                f.write("hello\n")
+            subprocess.run(["git", "add", "committed.txt"], cwd=tmp, check=True)
+            subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp, check=True)
+
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                entries = scan_untracked_files()
+            finally:
+                os.chdir(cwd)
+
+            self.assertEqual(entries, [])
+
 
 if __name__ == "__main__":
     unittest.main()
