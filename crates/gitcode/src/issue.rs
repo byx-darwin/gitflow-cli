@@ -198,37 +198,13 @@ impl From<CommentApiResponse> for CommentData {
 
 /// gitcode CLI `issue close/reopen --json` 的响应类型。
 ///
-/// GitCode close/reopen 返回的字段比 list/view 少很多，
-/// `number` 为 integer，没有 `title`/`body`/`labels` 等字段。
+/// 只是一个精简确认对象——实测响应（2026-09-21，对 byx-darwin/NexaTrade 的
+/// 真实 issue #3）为 `{"number":3,"state":"closed","owner":"...","repo":"...","url":"..."}`，
+/// 没有 `title`/`body`/`created_at`/`milestone` 等字段。只需要 `number` 去调用
+/// `view()` 拿完整数据，其余字段不建模，避免死代码。
 #[derive(Debug, Clone, Deserialize)]
 struct CloseApiResponse {
     number: u64,
-    state: String,
-    url: String,
-}
-
-impl From<CloseApiResponse> for IssueData {
-    fn from(api: CloseApiResponse) -> Self {
-        Self {
-            number: api.number,
-            title: String::new(),
-            body: None,
-            state: match api.state.as_str() {
-                "closed" => State::Closed,
-                _ => State::Open,
-            },
-            labels: Vec::new(),
-            author: UserSummary {
-                login: "unknown".into(),
-                id: String::new(),
-            },
-            assignees: Vec::new(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            url: api.url,
-            milestone: None,
-        }
-    }
 }
 
 /// GitCode Issue 提供者，通过 `gitcode` CLI 操作。
@@ -587,9 +563,9 @@ impl<R: CommandRunner + Clone + 'static> IssueProvider for GitCodeIssueProvider<
         if !output.status.success() {
             return Err(parse_gitcode_error(&output.stderr).into());
         }
-        serde_json::from_slice::<CloseApiResponse>(&output.stdout)
-            .map(IssueData::from)
-            .map_err(CoreError::Serialization)
+        let close_result: CloseApiResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        self.view(close_result.number).await
     }
 
     async fn reopen(&self, number: u64) -> Result<IssueData> {
@@ -616,9 +592,9 @@ impl<R: CommandRunner + Clone + 'static> IssueProvider for GitCodeIssueProvider<
         if !output.status.success() {
             return Err(parse_gitcode_error(&output.stderr).into());
         }
-        serde_json::from_slice::<CloseApiResponse>(&output.stdout)
-            .map(IssueData::from)
-            .map_err(CoreError::Serialization)
+        let reopen_result: CloseApiResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        self.view(reopen_result.number).await
     }
 
     /// 在指定 Issue 上添加评论。
@@ -1095,6 +1071,92 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_close_then_view_to_get_full_issue_with_milestone() {
+        // 实测响应（2026-09-21，对 byx-darwin/NexaTrade 的真实 issue #3）：
+        // `gitcode issue close --json` 只返回精简确认对象（number/state/owner/repo/url），
+        // 没有 title/created_at/updated_at/milestone。close() 必须用这个精简形状拿到
+        // number，再调用 view() 取回完整、正确的 IssueData（而不是伪造 title=""、
+        // created_at=now() 并丢弃 milestone）。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":3,"state":"closed","owner":"byx-darwin","repo":"NexaTrade","url":"https://gitcode.com/byx-darwin/NexaTrade/issues/3"}"#,
+            ),
+            (
+                true,
+                r#"{"number":"3","title":"Real title","body":"real body","state":"closed","labels":[],"user":{"login":"octocat","id":"1"},"assignees":[],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","html_url":"https://gitcode.com/owner/repo/issues/3","milestone":{"number":7,"title":"v3.0"}}"#,
+            ),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider.close(3).await.expect("close should succeed");
+
+        // 标题/时间戳来自第二次（view）响应，证明确实走了 view 而非直接转换精简响应
+        assert_eq!(issue.number, 3);
+        assert_eq!(issue.title, "Real title");
+        assert_eq!(issue.body.as_deref(), Some("real body"));
+        assert_eq!(issue.created_at.to_rfc3339(), "2026-01-01T00:00:00+00:00");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 7,
+                title: "v3.0".into(),
+            })
+        );
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "close 必须先 close 再 view 两次调用");
+        assert!(calls[0].1.contains(&"close".to_string()));
+        assert!(calls[1].1.contains(&"view".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_reopen_then_view_to_get_full_issue_with_milestone() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":3,"state":"open","owner":"byx-darwin","repo":"NexaTrade","url":"https://gitcode.com/byx-darwin/NexaTrade/issues/3"}"#,
+            ),
+            (
+                true,
+                r#"{"number":"3","title":"Real title","body":null,"state":"open","labels":[],"user":{"login":"octocat","id":"1"},"assignees":[],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","html_url":"https://gitcode.com/owner/repo/issues/3","milestone":{"number":7,"title":"v3.0"}}"#,
+            ),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider.reopen(3).await.expect("reopen should succeed");
+
+        assert_eq!(issue.number, 3);
+        assert_eq!(issue.title, "Real title");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 7,
+                title: "v3.0".into(),
+            })
+        );
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "reopen 必须先 reopen 再 view 两次调用");
+        assert!(calls[0].1.contains(&"reopen".to_string()));
+        assert!(calls[1].1.contains(&"view".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_view_error_after_issue_close_succeeds() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, r#"{"number":3,"state":"closed"}"#),
+            (false, "gitcode: issue not found"),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let err = provider
+            .close(3)
+            .await
+            .expect_err("view failure must propagate");
+
+        assert!(matches!(err, gitflow_core::CoreError::Cli(_)));
     }
 
     #[tokio::test]
