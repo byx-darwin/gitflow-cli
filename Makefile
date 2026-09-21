@@ -184,6 +184,10 @@ check-agent-sync: ## Verify agent instructions exist and skill docs stay consist
 	@bash scripts/validate-skill-commands.sh
 	@bash scripts/validate-skill-links.sh
 
+render-workflow-dashboard: ## 从 .cache/workflows/active/*.json 生成派生的 HTML 进度看板（勿手编产物）
+	@python3 scripts/render-workflow-dashboard.py
+	@echo "✓ 已生成 .cache/workflows/dashboard.html"
+
 check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-only (override SKILLS_DIR)
 	@$(SKILL_FNS) \
 	D="$(SKILLS_DIR)"; DRIFT=0; \
@@ -665,7 +669,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift render-workflow-dashboard release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
