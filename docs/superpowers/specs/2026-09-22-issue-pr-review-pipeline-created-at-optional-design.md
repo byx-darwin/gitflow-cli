@@ -36,12 +36,24 @@ YyyData` 实现里，API 未返回或解析失败时一律回落 `Utc::now()`—
 | `ReviewData.submitted_at` | GitLab | `crates/gitlab/src/review.rs:141-148`（`request_changes()`）、`crates/gitlab/src/review.rs:206-215`（`submit_review()`） | 两处调用点，均为 `note.created_at.unwrap_or_else(Utc::now)`，`note.created_at: Option<DateTime<Utc>>` |
 | `PipelineStatus.created_at`/`updated_at` | GitLab | `crates/gitlab/src/pipeline.rs:170-191` | `.unwrap_or_else(Utc::now)`，`api.created_at`/`updated_at: Option<DateTime<Utc>>` |
 
-**GitHub 侧零命中**：`IssueData`/`PrData`/`ReviewData` 的 GitHub 路径要么是
-`serde_json::from_slice` 直接反序列化（缺字段直接失败，fail-loud，本来就是对
-的），要么走 `parse_api_datetime` 辅助函数（`crates/github/src/issue.rs` ~699
-行，`CommentData` 共用），后者回落 `UNIX_EPOCH` + `tracing::warn!`——这是**解析
-失败**场景（字段必填、值存在但格式不对），不是缺字段场景，与本 Issue 的缺陷
-形态不同，已拆到 #401 单独处理，不在本次改动范围内。
+**GitHub 侧零 Category A 命中，但有编译期兼容性依赖需要处理**：`PrData` 的
+GitHub 路径完全是 `serde_json::from_slice` 直接反序列化（缺字段直接失败，
+fail-loud，本来就是对的，无需改动）。但 `IssueData`（经 `GitHubIssueApiResponse`
+转换，供 `close`/`reopen` 使用，`crates/github/src/issue.rs:732-748`）、
+`CommentData`（经 `GitHubCommentApiResponse` 转换，`crates/github/src/issue.rs:699-711`）、
+`ReviewData`（经 `GitHubReviewApiResponse` 转换，`crates/github/src/review.rs:248-267`，
+是该文件 comment/approve/request_changes/submit_review 四个方法共用的唯一构造
+路径）、`PipelineStatus`（经 `GhRun::into_status`，`crates/github/src/pipeline.rs:53-69`，
+是生产路径）都是通过 `parse_api_datetime` 辅助函数或内联解析回落，产出具体的
+`DateTime<Utc>`——这是**解析失败**场景（字段必填、值存在但格式不对），不是缺
+字段场景，与本 Issue 的缺陷形态不同，回落逻辑本身（UNIX_EPOCH/`Utc::now()` +
+是否打日志）已拆到 #401 单独决策，不在本次改动范围内。
+
+**但**：一旦 §3.1 把 5 个核心类型字段改成 `Option<DateTime<Utc>>`，上述 4 处赋值
+点如果不跟着改，会直接编译失败（`DateTime<Utc>` 无法赋值给 `Option<DateTime<Utc>>`
+类型的字段）。因此本次改动范围**必须**包含这 4 处赋值点的最小 `Some(...)`
+包装——这纯粹是类型兼容性改动，不改变 Category C 兜底值本身（依然是
+`parse_api_datetime`/`Utc::now()` 的现有行为，原封不动），不与 #401 的范围冲突。
 
 ### 2.2 排除的站点（Category B，合法用法，仅加注释）
 
@@ -121,7 +133,7 @@ YyyData` 实现里，API 未返回或解析失败时一律回落 `Utc::now()`—
 | `crates/gitlab/src/pipeline.rs` | 删除转换处的 `unwrap_or_else(Utc::now)`；调整 `report()` 里 cutoff 过滤与耗时计算为"None 排除"语义；新增回归测试 |
 | `crates/gitcode/src/issue.rs` | 删除 `IssueData` 转换（85-134 行）与 `CommentData` 转换（172-197 行）里的 `Utc::now()` 回落 |
 | `crates/gitcode/src/pr.rs` | 删除 `PrData` 转换（`parse_time` 闭包）与 `CommentData` 转换里的 `Utc::now()` 回落；参照同文件已有的 `parse_opt_time` 写法 |
-| `crates/github/src/{issue,pr,review,pipeline}.rs` | 无生产代码改动；各补一条"字段变 Option 后编译通过、缺失时反序列化不报错"的验证测试 |
+| `crates/github/src/{issue,pr,review,pipeline}.rs` | `pr.rs`：无生产代码改动（纯 fail-loud 反序列化）。`issue.rs`/`review.rs`/`pipeline.rs`：**仅**在现有 Category C 赋值点包一层 `Some(...)`（IssueData/CommentData 各 1 处共 3 个字段、ReviewData 1 处、PipelineStatus 1 处共 2 个字段），不改回落逻辑本身；同步修正因此断言类型变化的现有测试；各补一条"字段变 Option 后编译通过、缺失时反序列化不报错"的验证测试 |
 | `apps/cli/` | 不改动 |
 
 ## 5. 测试策略
