@@ -13,7 +13,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 
 HUNK_HEADER_RE = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 DIFF_GIT_RE = re.compile(r'^diff --git a/(.+) b/(.+)$')
