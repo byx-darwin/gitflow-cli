@@ -8,11 +8,13 @@ Standard-library only, no third-party dependencies. No third-party
 JS/CSS either — the rendered page has no CDN links and no bundled
 libraries (in particular, no Prism.js).
 """
+import argparse
 import html
 import json
 import os
 import re
 import subprocess
+import sys
 
 HUNK_HEADER_RE = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
 DIFF_GIT_RE = re.compile(r'^diff --git a/(.+) b/(.+)$')
@@ -202,6 +204,7 @@ body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f6; }
 .annotation-card .empty { color: #999; font-style: italic; }
 .file-header { background: #f0f0f2; font-weight: bold; padding: 6px 10px; font-size: 13px; }
 .file-note { padding: 8px 10px; color: #666; font-style: italic; }
+#diff-pane > p.empty { padding: 16px; color: #666; font-style: italic; }
 .flash { outline: 2px solid #ff9800; }
 .tok-keyword { color: #a626a4; font-weight: bold; }
 .tok-string { color: #50a14f; }
@@ -424,8 +427,11 @@ def _render_annotation_cards(files):
 
 def render_html(annotations):
     files = annotations.get("files", [])
+    if not files:
+        diff_sections = '<p class="empty">当前没有改动</p>'
+    else:
+        diff_sections = "".join(_render_file_section(f) for f in files)
     file_tree = _render_file_tree(files)
-    diff_sections = "".join(_render_file_section(f) for f in files)
     annotation_pane = _render_annotation_cards(files)
     return (
         "<!DOCTYPE html>\n"
@@ -455,34 +461,48 @@ def run_render(annotations_path, output_path):
 
 
 def main():
-    import argparse
     parser = argparse.ArgumentParser(prog="render-diff-review")
     sub = parser.add_subparsers(dest="command", required=True)
 
     scan_p = sub.add_parser("scan", help="Parse a git diff range into annotations.json")
     scan_p.add_argument("diff_range", help="e.g. 'main..HEAD' or 'abc123..def456'")
-    scan_p.add_argument("--output", default=None)
+    scan_p.add_argument("--output", default=None, help="Output path (default: .cache/diff-review/<range>.json)")
 
     render_p = sub.add_parser("render", help="Render annotations.json into an HTML review page")
     render_p.add_argument("annotations_path")
-    render_p.add_argument("--output", default=None)
+    render_p.add_argument("--output", default=None, help="Output path (default: .cache/diff-review/<range>.html)")
 
     args = parser.parse_args()
 
-    if args.command == "scan":
-        output_path = args.output or os.path.join(
-            ".cache", "diff-review", f"{_sanitize_range(args.diff_range)}.json"
-        )
-        run_scan(args.diff_range, output_path)
-        print(f"✓ 已生成 {output_path}")
-    elif args.command == "render":
-        with open(args.annotations_path, encoding="utf-8") as f:
-            diff_range = json.load(f).get("diff_range", "review")
-        output_path = args.output or os.path.join(
-            ".cache", "diff-review", f"{_sanitize_range(diff_range)}.html"
-        )
-        run_render(args.annotations_path, output_path)
-        print(f"✓ 已生成 {output_path}")
+    try:
+        if args.command == "scan":
+            output_path = args.output or os.path.join(
+                ".cache", "diff-review", f"{_sanitize_range(args.diff_range)}.json"
+            )
+            run_scan(args.diff_range, output_path)
+            print(f"✓ 已生成 {output_path}")
+        elif args.command == "render":
+            with open(args.annotations_path, encoding="utf-8") as f:
+                diff_range = json.load(f).get("diff_range", "review")
+            output_path = args.output or os.path.join(
+                ".cache", "diff-review", f"{_sanitize_range(diff_range)}.html"
+            )
+            run_render(args.annotations_path, output_path)
+            print(f"✓ 已生成 {output_path}")
+    except FileNotFoundError as exc:
+        print(f"render-diff-review: file not found: {exc.filename}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        print(f"render-diff-review: invalid JSON in annotations file: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as exc:
+        cmd = " ".join(exc.cmd)
+        print(f"render-diff-review: command failed ({cmd}): {exc.stderr.strip() if exc.stderr else exc}",
+              file=sys.stderr)
+        sys.exit(1)
+    except OSError as exc:
+        print(f"render-diff-review: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -400,6 +400,14 @@ class TestRenderHtml(unittest.TestCase):
         self.assertNotIn("<script>alert('error')</script>", out)
         self.assertIn("&lt;script&gt;alert(&#x27;error&#x27;)&lt;/script&gt;", out)
 
+    def test_empty_files_shows_friendly_message_not_blank(self):
+        out = render_html({"diff_range": "x..y", "files": []})
+        self.assertIn("当前没有改动", out)
+        # the three panes must still be present (a valid, non-broken layout)
+        self.assertIn('id="file-tree"', out)
+        self.assertIn('id="diff-pane"', out)
+        self.assertIn('id="annotation-pane"', out)
+
 
 class TestRunRender(unittest.TestCase):
     def test_run_render_writes_html_file(self):
@@ -496,6 +504,38 @@ class TestJsInteractivity(unittest.TestCase):
         out = render_html(SAMPLE_ANNOTATIONS)
         for forbidden in ("accept", "reject", "approve", "apply-fix", "write-back"):
             self.assertNotIn(forbidden, out.lower())
+
+
+class TestCliErrorHandling(unittest.TestCase):
+    SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "..", "render-diff-review.py")
+
+    def _run_cli(self, *args):
+        return subprocess.run(
+            [sys.executable, self.SCRIPT_PATH, *args],
+            capture_output=True, text=True,
+        )
+
+    def test_render_missing_annotations_file_gives_readable_error(self):
+        result = self._run_cli("render", "/nonexistent/path/annotations.json")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("Traceback (most recent call last)", result.stderr)
+        self.assertIn("render-diff-review:", result.stderr)
+
+    def test_render_malformed_json_gives_readable_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bad_path = os.path.join(tmp, "bad.json")
+            with open(bad_path, "w", encoding="utf-8") as f:
+                f.write("{not valid json")
+            result = self._run_cli("render", bad_path)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("Traceback (most recent call last)", result.stderr)
+            self.assertIn("render-diff-review:", result.stderr)
+
+    def test_scan_invalid_range_gives_readable_error(self):
+        result = self._run_cli("scan", "nosuchref123..HEAD")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("Traceback (most recent call last)", result.stderr)
+        self.assertIn("render-diff-review:", result.stderr)
 
 
 if __name__ == "__main__":
