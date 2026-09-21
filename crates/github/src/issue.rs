@@ -705,7 +705,11 @@ impl From<GitHubCommentApiResponse> for CommentData {
                 login: api.user.login,
                 id: api.user.id.to_string(),
             },
-            created_at: parse_api_datetime(&api.created_at),
+            // parse_api_datetime always returns a value (falling back to
+            // UNIX_EPOCH on parse failure); wrapped in Some purely to match
+            // CommentData.created_at's new Option type (#380). Whether that
+            // fallback value itself should change is Issue #401's decision.
+            created_at: Some(parse_api_datetime(&api.created_at)),
         }
     }
 }
@@ -739,8 +743,9 @@ impl From<GitHubIssueApiResponse> for IssueData {
             labels: api.labels.into_iter().map(Label::from).collect(),
             author: api.user.into(),
             assignees: api.assignees.into_iter().map(UserSummary::from).collect(),
-            created_at: parse_api_datetime(&api.created_at),
-            updated_at: parse_api_datetime(&api.updated_at),
+            // Same Some(...) wrap as CommentData above, same reasoning.
+            created_at: Some(parse_api_datetime(&api.created_at)),
+            updated_at: Some(parse_api_datetime(&api.updated_at)),
             url: api.html_url,
             milestone: api.milestone,
         }
@@ -996,7 +1001,7 @@ mod tests {
                 login: "alice".into(),
                 id: "3".to_string(),
             },
-            created_at: "2026-05-01T00:00:00Z".parse().expect("valid date"),
+            created_at: Some("2026-05-01T00:00:00Z".parse().expect("valid date")),
         };
         let json = serde_json::to_string(&comment).expect("serialize");
         let round_tripped: CommentData = serde_json::from_str(&json).expect("deserialize");
@@ -1041,7 +1046,7 @@ mod tests {
 
         let comment_data: CommentData = api_response.into();
         // Should fall back to UNIX_EPOCH
-        assert_eq!(comment_data.created_at, chrono::DateTime::UNIX_EPOCH);
+        assert_eq!(comment_data.created_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     // --- GitHubIssueApiResponse conversion tests ---
@@ -1073,6 +1078,16 @@ mod tests {
     }
 
     #[test]
+    fn test_should_deserialize_issue_with_present_timestamps_as_some() {
+        // Sanity check that the Option type change doesn't break the normal
+        // (timestamp present) path through GitHubIssueApiResponse, only the
+        // already-covered UNIX_EPOCH fallback path.
+        let issue: IssueData = sample_rest_issue_response().into();
+        assert!(issue.created_at.is_some());
+        assert!(issue.updated_at.is_some());
+    }
+
+    #[test]
     fn test_should_fall_back_to_epoch_for_invalid_rest_issue_dates() {
         let mut api_response = sample_rest_issue_response();
         api_response.created_at = "invalid-date".to_string();
@@ -1080,8 +1095,8 @@ mod tests {
 
         let issue: IssueData = api_response.into();
 
-        assert_eq!(issue.created_at, chrono::DateTime::UNIX_EPOCH);
-        assert_eq!(issue.updated_at, chrono::DateTime::UNIX_EPOCH);
+        assert_eq!(issue.created_at, Some(chrono::DateTime::UNIX_EPOCH));
+        assert_eq!(issue.updated_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     // --- add_labels / remove_label: unit tests for provider ---
@@ -1337,7 +1352,10 @@ mod tests {
         assert_eq!(issue.labels[0].name, "upstream-drift");
         assert_eq!(issue.labels[0].description, None);
         assert_eq!(issue.url, "https://github.com/o/r/issues/107");
-        assert_eq!(issue.updated_at.to_rfc3339(), "2026-08-03T09:31:29+00:00");
+        assert_eq!(
+            issue.updated_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-08-03T09:31:29+00:00".to_string())
+        );
         assert_eq!(
             issue.milestone,
             Some(gitflow_core::types::MilestoneRef {

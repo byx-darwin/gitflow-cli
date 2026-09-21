@@ -134,14 +134,14 @@ impl From<PrCommentApiResponse> for CommentData {
                 id: u.id.unwrap_or_default(),
             },
         );
-        let created_at = api.created_at.as_deref().map_or_else(Utc::now, |s| {
+        let created_at = api.created_at.as_deref().and_then(|s| {
             DateTime::parse_from_rfc3339(s)
                 .map(|dt| dt.with_timezone(&Utc))
                 .or_else(|_| {
                     chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
                         .map(|ndt| ndt.and_utc())
                 })
-                .unwrap_or_else(|_| Utc::now())
+                .ok()
         });
         Self {
             id: api.id,
@@ -154,12 +154,9 @@ impl From<PrCommentApiResponse> for CommentData {
 
 impl From<PrApiResponse> for PrData {
     fn from(api: PrApiResponse) -> Self {
+        // A missing timestamp stays None — never filled in as "now", which
+        // would misreport an unknown creation/update/merge time (#380).
         let parse_time = |s: Option<String>| {
-            s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
-                .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
-        };
-        // 不能复用 parse_time：缺失会被填成「现在」，那等于谎报一次合并。
-        let parse_opt_time = |s: Option<String>| {
             s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
                 .map(|dt| dt.with_timezone(&Utc))
         };
@@ -186,7 +183,7 @@ impl From<PrApiResponse> for PrData {
             head_branch: api.head.map_or_else(String::new, |h| h.branch_ref),
             created_at: parse_time(api.created_at),
             updated_at: parse_time(api.updated_at),
-            merged_at: parse_opt_time(api.merged_at),
+            merged_at: parse_time(api.merged_at),
             url: api.html_url.unwrap_or_default(),
             milestone: api.milestone.map(Into::into),
         }
@@ -887,7 +884,10 @@ mod tests {
             pr.url,
             "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52"
         );
-        assert_eq!(pr.created_at.to_rfc3339(), "2026-07-30T04:40:46+00:00");
+        assert_eq!(
+            pr.created_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-07-30T04:40:46+00:00".to_string())
+        );
     }
 
     #[test]
@@ -912,6 +912,14 @@ mod tests {
         assert_eq!(pr.head_branch, "feature/x");
         assert_eq!(pr.base_branch, "main");
         assert_eq!(pr.author.login, "dev");
+        assert!(
+            pr.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            pr.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]
@@ -956,6 +964,23 @@ mod tests {
         assert_eq!(comment.body, "Approved, merging now.");
         assert_eq!(comment.author.login, "reviewer");
         assert_eq!(comment.author.id, "88");
+    }
+
+    #[test]
+    fn test_should_keep_pr_comment_created_at_none_when_gc_api_omits_it() {
+        let gc_json = br#"{
+            "id": 2003,
+            "body": "No timestamp provided.",
+            "user": {"login": "reviewer", "id": "88"}
+        }"#;
+
+        let api: PrCommentApiResponse =
+            serde_json::from_slice(gc_json).expect("valid PrCommentApiResponse");
+        let comment = CommentData::from(api);
+        assert!(
+            comment.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]
@@ -1779,7 +1804,10 @@ mod tests {
         let api: PrCommentApiResponse = serde_json::from_str(json).expect("legacy shape");
         let comment: CommentData = api.into();
         assert_eq!(comment.author.login, "alice");
-        assert_eq!(comment.created_at.to_rfc3339(), "2026-07-07T10:40:20+00:00");
+        assert_eq!(
+            comment.created_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-07-07T10:40:20+00:00".to_string())
+        );
     }
 
     // --- default_branch() tests ---

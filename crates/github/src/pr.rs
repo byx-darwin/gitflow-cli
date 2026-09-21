@@ -661,6 +661,31 @@ mod tests {
     }
 
     #[test]
+    fn test_should_deserialize_pr_with_missing_timestamps_as_none() {
+        // gh CLI is not known to ever omit createdAt/updatedAt, but PrData's
+        // fields are now Option<DateTime<Utc>> at the core level (#380) — this
+        // pins that the github path tolerates their absence gracefully rather
+        // than erroring, since this crate has no intermediate struct or
+        // fallback logic of its own for PrData.
+        let gh_json = br#"{
+            "number": 9,
+            "title": "No timestamps",
+            "state": "open",
+            "draft": false,
+            "author": {"login": "octocat", "id": "1"},
+            "baseBranch": "main",
+            "headBranch": "feature/x",
+            "mergedAt": null,
+            "url": "https://github.com/octocat/hello-world/pull/9"
+        }"#;
+
+        let pr: PrData =
+            serde_json::from_slice(gh_json).expect("missing timestamps must not error");
+        assert!(pr.created_at.is_none());
+        assert!(pr.updated_at.is_none());
+    }
+
+    #[test]
     fn test_should_distinguish_merged_from_closed_via_merged_at() {
         // gh reports both as state MERGED/CLOSED → State::Closed, so merged_at is the
         // only signal that separates a merged PR from one closed without merging.

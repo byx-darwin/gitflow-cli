@@ -532,8 +532,8 @@ mod tests {
             },
             base_branch: "main".to_string(),
             head_branch: "feature/x".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: Some(chrono::Utc::now()),
+            updated_at: Some(chrono::Utc::now()),
             merged_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
             milestone: None,
@@ -556,9 +556,9 @@ mod tests {
             },
             base_branch: "main".to_string(),
             head_branch: "main".to_string(),
-            created_at: chrono::Utc::now(),
+            created_at: Some(chrono::Utc::now()),
             merged_at: None,
-            updated_at: chrono::Utc::now(),
+            updated_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
             milestone: None,
         };
@@ -583,8 +583,8 @@ mod tests {
             base_branch: "main".to_string(),
             head_branch: "feature/x".to_string(),
             merged_at: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: Some(chrono::Utc::now()),
+            updated_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
             milestone: None,
         };
@@ -609,8 +609,8 @@ mod tests {
             base_branch: "main".to_string(),
             merged_at: None,
             head_branch: "feature/x".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: Some(chrono::Utc::now()),
+            updated_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
             milestone: None,
         };
@@ -635,8 +635,8 @@ mod tests {
             merged_at: None,
             base_branch: "main".to_string(),
             head_branch: "feature/x".to_string(),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: Some(chrono::Utc::now()),
+            updated_at: Some(chrono::Utc::now()),
             url: "https://github.com/test/repo/pull/172".to_string(),
             milestone: None,
         };
@@ -657,8 +657,8 @@ mod tests {
             },
             base_branch: "main".to_string(),
             head_branch: format!("feature/{number}"),
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
+            created_at: Some(chrono::Utc::now()),
+            updated_at: Some(chrono::Utc::now()),
             merged_at: if merged {
                 Some(chrono::Utc::now())
             } else {

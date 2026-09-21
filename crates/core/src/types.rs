@@ -143,8 +143,10 @@ pub struct CommentData {
     pub body: String,
     /// The comment author.
     pub author: UserSummary,
-    /// When the comment was created (UTC).
-    pub created_at: DateTime<Utc>,
+    /// When the comment was created (UTC). `None` when the platform API omits
+    /// it — never fabricated as the current time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
 }
 
 /// The result of a merge operation on a Pull Request.
@@ -366,6 +368,20 @@ mod tests {
     }
 
     #[test]
+    fn test_should_deserialize_comment_with_missing_created_at_as_none() {
+        let json = r#"{
+            "id": 5,
+            "body": "no timestamp",
+            "author": {"login": "u", "id": "1"}
+        }"#;
+        let comment: CommentData = serde_json::from_str(json).expect("deserialize");
+        assert!(
+            comment.created_at.is_none(),
+            "missing createdAt must deserialize to None, not error or a fabricated timestamp"
+        );
+    }
+
+    #[test]
     fn test_should_serialize_comment_data_to_camel_case_json() {
         let comment = CommentData {
             id: 1,
@@ -374,7 +390,7 @@ mod tests {
                 login: "alice".into(),
                 id: "7".to_string(),
             },
-            created_at: "2026-01-01T00:00:00Z".parse().expect("valid date"),
+            created_at: Some("2026-01-01T00:00:00Z".parse().expect("valid date")),
         };
         let json = serde_json::to_string(&comment).expect("serialize CommentData");
         assert!(json.contains("\"createdAt\""));
@@ -391,7 +407,7 @@ mod tests {
                 login: "bob".into(),
                 id: "3".to_string(),
             },
-            created_at: "2026-03-15T10:00:00Z".parse().expect("valid date"),
+            created_at: Some("2026-03-15T10:00:00Z".parse().expect("valid date")),
         };
         let json = serde_json::to_string(&comment).expect("serialize");
         let round_tripped: CommentData = serde_json::from_str(&json).expect("deserialize");
@@ -410,7 +426,7 @@ mod tests {
                 login: "u".into(),
                 id: "1".to_string(),
             },
-            created_at: "2026-01-01T00:00:00Z".parse().expect("valid date"),
+            created_at: Some("2026-01-01T00:00:00Z".parse().expect("valid date")),
         };
         let debug = format!("{comment:?}");
         assert!(debug.contains("CommentData"));

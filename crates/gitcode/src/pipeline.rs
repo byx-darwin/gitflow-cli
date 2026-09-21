@@ -60,8 +60,11 @@ impl GcRun {
             ref_name: self.head_branch,
             status: gc_status_to_enum(&self.status, self.conclusion.as_deref()),
             conclusion: self.conclusion,
-            created_at,
-            updated_at,
+            // Wrapped in Some purely for PipelineStatus's new Option type
+            // (#380). This entire function is dead code (no production
+            // caller); whether it should be fixed or deleted is #401's call.
+            created_at: Some(created_at),
+            updated_at: Some(updated_at),
             url: self.url,
         }
     }

@@ -294,7 +294,6 @@ struct MrApiResponse {
 
 impl From<MrApiResponse> for PrData {
     fn from(api: MrApiResponse) -> Self {
-        let now = Utc::now();
         let state = if api.state == "closed" || api.state == "merged" {
             State::Closed
         } else {
@@ -317,8 +316,8 @@ impl From<MrApiResponse> for PrData {
             author,
             base_branch: api.target_branch,
             head_branch: api.source_branch,
-            created_at: api.created_at.unwrap_or(now),
-            updated_at: api.updated_at.unwrap_or(now),
+            created_at: api.created_at,
+            updated_at: api.updated_at,
             merged_at: api.merged_at,
             url: api.web_url.unwrap_or_default(),
             milestone: api.milestone.map(Into::into),
@@ -351,7 +350,7 @@ impl From<CommentApiResponse> for CommentData {
             id: api.id,
             body: api.body,
             author,
-            created_at: api.created_at.unwrap_or_else(Utc::now),
+            created_at: api.created_at,
         }
     }
 }
@@ -906,6 +905,31 @@ mod tests {
         let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert_eq!(pr.author.login, "unknown");
+        assert!(
+            pr.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            pr.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
+    }
+
+    #[test]
+    fn test_should_keep_mr_comment_created_at_none_when_api_omits_it() {
+        let json = br#"{
+            "id": 1003,
+            "body": "No timestamp provided.",
+            "author": {"username": "maintainer", "id": 42}
+        }"#;
+
+        let api: CommentApiResponse =
+            serde_json::from_slice(json).expect("valid CommentApiResponse");
+        let comment: CommentData = api.into();
+        assert!(
+            comment.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]
