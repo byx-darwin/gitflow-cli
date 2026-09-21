@@ -67,18 +67,22 @@ class TestParseDiffText(unittest.TestCase):
         # context line "def foo():" -> old_line=1, new_line=1
         self.assertEqual(lines[0], {
             "old_line": 1, "new_line": 1, "type": "context", "content": "def foo():",
+            "hunk_header": "@@ -1,4 +1,5 @@",
         })
         # removed line "    return 1" -> old_line=2, new_line=None
         self.assertEqual(lines[1], {
             "old_line": 2, "new_line": None, "type": "remove", "content": "    return 1",
+            "hunk_header": None,
         })
         # added line "    # comment" -> old_line=None, new_line=2
         self.assertEqual(lines[2], {
             "old_line": None, "new_line": 2, "type": "add", "content": "    # comment",
+            "hunk_header": None,
         })
         # added line "    return 2" -> old_line=None, new_line=3
         self.assertEqual(lines[3], {
             "old_line": None, "new_line": 3, "type": "add", "content": "    return 2",
+            "hunk_header": None,
         })
 
     def test_multi_hunk_per_file_resets_counters_correctly(self):
@@ -92,6 +96,18 @@ class TestParseDiffText(unittest.TestCase):
         def_b = next(l for l in lines if l["content"] == "def b():")
         self.assertEqual(def_b["old_line"], 10)
         self.assertEqual(def_b["new_line"], 10)
+
+    def test_hunk_header_marks_only_the_first_line_of_each_hunk(self):
+        files = parse_diff_text(MULTI_HUNK_DIFF)
+        lines = files[0]["lines"]
+        # first hunk: 3 lines (context, remove, add) — only the first carries hunk_header
+        self.assertEqual(lines[0]["hunk_header"], "@@ -1,3 +1,3 @@")
+        self.assertIsNone(lines[1]["hunk_header"])
+        self.assertIsNone(lines[2]["hunk_header"])
+        # second hunk starts at index 3 — only IT carries the second header
+        self.assertEqual(lines[3]["hunk_header"], "@@ -10,3 +10,3 @@")
+        self.assertIsNone(lines[4]["hunk_header"])
+        self.assertIsNone(lines[5]["hunk_header"])
 
     def test_multi_file_diff_produces_two_entries(self):
         files = parse_diff_text(MULTI_FILE_DIFF)
@@ -407,6 +423,84 @@ class TestRenderHtml(unittest.TestCase):
         self.assertIn('id="file-tree"', out)
         self.assertIn('id="diff-pane"', out)
         self.assertIn('id="annotation-pane"', out)
+
+    def test_no_annotation_content_shows_placeholder_message(self):
+        # Issue #399: with pseudocode/call_tree both absent on every file,
+        # the annotation pane must show a placeholder, not a wall of
+        # "暂无说明" per-line cards (the old behavior).
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn("当前没有注释内容", out)
+        self.assertNotIn("暂无说明", out)
+
+    def test_pseudocode_renders_once_per_file_not_per_line(self):
+        annotations = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "src/big.py",
+                "old_path": None,
+                "status": "modified",
+                "lines": [
+                    {"old_line": 1, "new_line": 1, "type": "context", "content": "a",
+                     "hunk_header": "@@ -1,3 +1,3 @@"},
+                    {"old_line": 2, "new_line": 2, "type": "context", "content": "b",
+                     "hunk_header": None},
+                    {"old_line": 3, "new_line": 3, "type": "context", "content": "c",
+                     "hunk_header": None},
+                ],
+                "error": None,
+                "pseudocode": "def big(): ...",
+                "call_tree": "big -> helper -> util",
+            }],
+        }
+        out = render_html(annotations)
+        self.assertEqual(out.count("def big(): ..."), 1)
+        self.assertEqual(out.count("big -&gt; helper -&gt; util"), 1)
+        # the pseudocode/call_tree card must not be duplicated per diff line
+        self.assertNotEqual(out.count("def big(): ..."), 3)
+
+    def test_annotation_card_anchors_to_file_section_not_a_line(self):
+        # Issue #399 follow-up: cards are file-level now, so their
+        # data-anchor must reference the file (matching a file-section's
+        # data-file), not a per-line anchor id that no longer exists.
+        annotations = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "src/big.py",
+                "old_path": None,
+                "status": "modified",
+                "lines": [
+                    {"old_line": 1, "new_line": 1, "type": "context", "content": "a",
+                     "hunk_header": "@@ -1,1 +1,1 @@"},
+                ],
+                "error": None,
+                "pseudocode": "def big(): ...",
+                "call_tree": None,
+            }],
+        }
+        out = render_html(annotations)
+        self.assertIn('data-file="src/big.py"', out)
+        self.assertIn('class="annotation-card" data-anchor="src/big.py"', out)
+
+    def test_hunk_separator_shown_between_non_adjacent_hunks(self):
+        annotations = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "Makefile",
+                "old_path": None,
+                "status": "modified",
+                "lines": [
+                    {"old_line": 197, "new_line": 197, "type": "context", "content": "first hunk line",
+                     "hunk_header": "@@ -195,3 +195,3 @@"},
+                    {"old_line": 673, "new_line": 673, "type": "context", "content": "second hunk line",
+                     "hunk_header": "@@ -673,3 +673,3 @@"},
+                ],
+                "error": None, "pseudocode": None, "call_tree": None,
+            }],
+        }
+        out = render_html(annotations)
+        self.assertIn("@@ -195,3 +195,3 @@", out)
+        self.assertIn("@@ -673,3 +673,3 @@", out)
+        self.assertIn("hunk-separator", out)
 
 
 class TestRunRender(unittest.TestCase):
