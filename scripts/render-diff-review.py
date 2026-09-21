@@ -288,6 +288,69 @@ def _highlight_line(language, text):
     return "".join(out)
 
 
+JS_SCRIPT = """
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.file-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      var sel = document.querySelector(
+        '.file-section[data-file="' + CSS.escape(item.dataset.file) + '"]'
+      );
+      if (sel) { sel.scrollIntoView({behavior: 'smooth'}); }
+    });
+  });
+
+  function highlightAnchor(anchorId) {
+    document.querySelectorAll('.diff-line, .annotation-card').forEach(function (el) {
+      el.classList.toggle('hover-highlight', el.dataset.anchor === anchorId);
+    });
+  }
+
+  document.querySelectorAll('.diff-line').forEach(function (line) {
+    line.addEventListener('mouseenter', function () { highlightAnchor(line.dataset.anchor); });
+    line.addEventListener('mouseleave', function () { highlightAnchor(null); });
+  });
+
+  document.querySelectorAll('.annotation-card').forEach(function (card) {
+    card.addEventListener('mouseenter', function () { highlightAnchor(card.dataset.anchor); });
+    card.addEventListener('mouseleave', function () { highlightAnchor(null); });
+    card.addEventListener('click', function () {
+      var target = document.getElementById(card.dataset.anchor);
+      if (target) {
+        target.scrollIntoView({behavior: 'smooth', block: 'center'});
+        target.classList.add('flash');
+        setTimeout(function () { target.classList.remove('flash'); }, 800);
+      }
+    });
+  });
+
+  function setupResize(handleId, paneId, storageKey) {
+    var handle = document.getElementById(handleId);
+    var pane = document.getElementById(paneId);
+    if (!handle || !pane) { return; }
+    var saved = null;
+    try { saved = localStorage.getItem(storageKey); } catch (e) { saved = null; }
+    if (saved) { pane.style.width = saved + 'px'; }
+    var dragging = false;
+    handle.addEventListener('mousedown', function () { dragging = true; });
+    document.addEventListener('mouseup', function () {
+      if (dragging) {
+        try { localStorage.setItem(storageKey, pane.getBoundingClientRect().width); } catch (e) {}
+      }
+      dragging = false;
+    });
+    document.addEventListener('mousemove', function (ev) {
+      if (!dragging) { return; }
+      var rect = pane.getBoundingClientRect();
+      var newWidth = paneId === 'file-tree' ? (ev.clientX - rect.left) : (rect.right - ev.clientX);
+      pane.style.width = Math.max(120, newWidth) + 'px';
+    });
+  }
+  setupResize('resize-tree', 'file-tree', 'diff-review-tree-width');
+  setupResize('resize-annotation', 'annotation-pane', 'diff-review-annotation-width');
+});
+"""
+
+
 def _anchor_id(path, line):
     side = "new" if line["new_line"] is not None else "old"
     num = line["new_line"] if line["new_line"] is not None else line["old_line"]
@@ -377,6 +440,7 @@ def render_html(annotations):
         '<div class="resize-handle" id="resize-annotation"></div>\n'
         f'{annotation_pane}\n'
         '</div>\n'
+        f'<script>{JS_SCRIPT}</script>\n'
         "</body>\n</html>\n"
     )
 

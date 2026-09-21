@@ -482,5 +482,21 @@ class TestHighlightLine(unittest.TestCase):
         self.assertNotIn("<b>", out)
 
 
+class TestJsInteractivity(unittest.TestCase):
+    def test_script_block_present_with_expected_handlers(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn("<script>", out)
+        self.assertIn("addEventListener('click'", out)
+        self.assertIn("addEventListener('mouseenter'", out)
+        self.assertIn("addEventListener('mouseleave'", out)
+        self.assertIn("localStorage", out)
+        self.assertIn("scrollIntoView", out)
+
+    def test_no_accept_reject_writeback_controls(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        for forbidden in ("accept", "reject", "approve", "apply-fix", "write-back"):
+            self.assertNotIn(forbidden, out.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
