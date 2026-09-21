@@ -685,6 +685,8 @@ pub struct GitHubIssueApiResponse {
     pub created_at: String,
     pub updated_at: String,
     pub html_url: String,
+    #[serde(default)]
+    pub milestone: Option<gitflow_core::types::MilestoneRef>,
 }
 
 /// GitHub API 用户结构。
@@ -740,7 +742,7 @@ impl From<GitHubIssueApiResponse> for IssueData {
             created_at: parse_api_datetime(&api.created_at),
             updated_at: parse_api_datetime(&api.updated_at),
             url: api.html_url,
-            milestone: None,
+            milestone: api.milestone,
         }
     }
 }
@@ -1286,6 +1288,7 @@ mod tests {
         "created_at": "2026-07-31T02:00:00Z",
         "updated_at": "2026-08-03T09:31:29Z",
         "closed_at": "2026-08-03T09:31:29Z",
+        "milestone": {"number": 3, "title": "v2.0", "state": "open", "id": 17970779},
         "html_url": "https://github.com/o/r/issues/107"
     }"#;
 
@@ -1335,6 +1338,13 @@ mod tests {
         assert_eq!(issue.labels[0].description, None);
         assert_eq!(issue.url, "https://github.com/o/r/issues/107");
         assert_eq!(issue.updated_at.to_rfc3339(), "2026-08-03T09:31:29+00:00");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into(),
+            })
+        );
     }
 
     #[tokio::test]
@@ -1354,6 +1364,7 @@ mod tests {
         assert_eq!(issue.assignees[0].login, "octocat");
         assert_eq!(issue.assignees[0].id, "583231");
         assert_eq!(issue.url, "https://github.com/o/r/issues/108");
+        assert_eq!(issue.milestone, None);
     }
 
     #[tokio::test]
