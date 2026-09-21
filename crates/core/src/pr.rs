@@ -55,6 +55,9 @@ pub struct PrData {
     /// 才能安全删分支。`gh` 提供 `mergedAt`；GitLab/GitCode 若不返回则为 `None`，
     /// 调用方须把 `None` 当作"未知"而非"未合并"。
     pub merged_at: Option<DateTime<Utc>>,
+    /// The milestone this PR is attached to, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub milestone: Option<crate::types::MilestoneRef>,
     /// PR 的 Web URL。
     pub url: String,
 }
@@ -76,6 +79,8 @@ pub struct CreatePrArgs {
     pub repo: Option<String>,
     /// 需要在合并时自动关闭的 Issue 编号列表。
     pub closes_issues: Vec<u64>,
+    /// Milestone identifier to attach on creation (`NUMBER` or exact `TITLE`), if any.
+    pub milestone: Option<String>,
 }
 
 /// 列出 PR 的过滤参数。
@@ -506,6 +511,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![24, 23],
+            milestone: None,
         };
         assert_eq!(args.closes_issues, vec![24, 23]);
     }

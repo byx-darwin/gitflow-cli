@@ -20,7 +20,7 @@ use crate::{
 
 /// `gh issue` 请求的 JSON 字段列表。
 const ISSUE_FIELDS: &str =
-    "number,title,body,state,labels,author,assignees,createdAt,updatedAt,url";
+    "number,title,body,state,labels,author,assignees,createdAt,updatedAt,milestone,url";
 
 /// GitHub Issue 提供者，通过 `gh` CLI 操作。
 ///
@@ -114,7 +114,7 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
     }
 }
 
-impl<R: CommandRunner> GitHubIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> GitHubIssueProvider<R> {
     /// [`IssueProvider::list`] 的实际实现。
     ///
     /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
@@ -130,6 +130,7 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
         let runner = &self.runner;
         let search = &args.search;
         let labels = &args.labels;
+        let milestone = &args.milestone;
 
         debug!(repo = %self.repo, cap, "spawning `gh issue list`");
 
@@ -153,6 +154,20 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
                 cmd_args.push(label);
             }
 
+            let resolved_milestone_title;
+            if let Some(identifier) = milestone {
+                let milestone_provider =
+                    crate::GitHubMilestoneProvider::with_runner(repo.as_str(), runner.clone());
+                let resolved = gitflow_core::label::resolve_milestone_identifier(
+                    &milestone_provider,
+                    identifier,
+                )
+                .await?;
+                resolved_milestone_title = resolved.title;
+                cmd_args.push("--milestone");
+                cmd_args.push(&resolved_milestone_title);
+            }
+
             cmd_args.push("--limit");
             cmd_args.push(&limit_str);
 
@@ -174,7 +189,7 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> IssueProvider for GitHubIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");
@@ -201,6 +216,20 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         if !args.assignees.is_empty() {
             cmd_args.push("--assignee");
             cmd_args.push(&assignees_joined);
+        }
+
+        let resolved_milestone_title;
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider = crate::GitHubMilestoneProvider::with_runner(
+                self.repo.as_str(),
+                self.runner.clone(),
+            );
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_title = resolved.title;
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_title);
         }
 
         debug!(repo = %self.repo, title = %args.title, "spawning `gh issue create`");
@@ -274,6 +303,28 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         if let Some(body) = &args.body {
             cmd_args.push("--body");
             cmd_args.push(body);
+        }
+
+        let resolved_milestone_title;
+        match &args.milestone {
+            None => {}
+            Some(None) => {
+                cmd_args.push("--remove-milestone");
+            }
+            Some(Some(identifier)) => {
+                let milestone_provider = crate::GitHubMilestoneProvider::with_runner(
+                    self.repo.as_str(),
+                    self.runner.clone(),
+                );
+                let resolved = gitflow_core::label::resolve_milestone_identifier(
+                    &milestone_provider,
+                    identifier,
+                )
+                .await?;
+                resolved_milestone_title = resolved.title;
+                cmd_args.push("--milestone");
+                cmd_args.push(&resolved_milestone_title);
+            }
         }
 
         let output = self
@@ -689,6 +740,7 @@ impl From<GitHubIssueApiResponse> for IssueData {
             created_at: parse_api_datetime(&api.created_at),
             updated_at: parse_api_datetime(&api.updated_at),
             url: api.html_url,
+            milestone: None,
         }
     }
 }
@@ -810,6 +862,49 @@ mod tests {
             issue.url,
             "https://github.com/octocat/hello-world/issues/42"
         );
+    }
+
+    #[test]
+    fn test_should_deserialize_issue_with_milestone() {
+        let gh_json = br#"{
+            "number": 42,
+            "title": "Test",
+            "body": null,
+            "state": "OPEN",
+            "labels": [],
+            "author": {"login": "octocat", "id": "1"},
+            "assignees": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "milestone": {"number": 3, "title": "v2.0"},
+            "url": "https://github.com/octocat/hello-world/issues/42"
+        }"#;
+        let issue: IssueData = serde_json::from_slice(gh_json).expect("valid IssueData JSON");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+    }
+
+    #[test]
+    fn test_should_deserialize_issue_with_no_milestone() {
+        let gh_json = br#"{
+            "number": 42,
+            "title": "Test",
+            "body": null,
+            "state": "OPEN",
+            "labels": [],
+            "author": {"login": "octocat", "id": "1"},
+            "assignees": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "url": "https://github.com/octocat/hello-world/issues/42"
+        }"#;
+        let issue: IssueData = serde_json::from_slice(gh_json).expect("valid IssueData JSON");
+        assert!(issue.milestone.is_none());
     }
 
     #[test]
@@ -1103,6 +1198,7 @@ mod tests {
             body: Some("Steps to reproduce".to_string()),
             labels: vec!["bug".to_string()],
             assignees: vec!["octocat".to_string()],
+            milestone: None,
         }
     }
 
@@ -1490,6 +1586,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("New title".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await
@@ -1512,6 +1609,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("T".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await;
@@ -1734,6 +1832,7 @@ mod tests {
             body: Some("Description".to_string()),
             labels,
             assignees: vec![],
+            milestone: None,
         }
     }
 
@@ -1795,6 +1894,166 @@ mod tests {
             .await;
 
         assert!(result.is_err());
+    }
+
+    // --- milestone wiring: create/edit/list ---
+
+    /// A single-item `gh api repos/.../milestones?...` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    const MILESTONE_LIST_JSON: &str = r#"[
+        {"number": 3, "title": "v2.0", "state": "open", "description": null}
+    ]"#;
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_issue_create() {
+        // Sequence:
+        // 1. milestone resolution: `gh api repos/owner/repo/milestones?...`
+        //    (GitHubMilestoneProvider::list)
+        // 2. `gh issue create ... --milestone v2.0`
+        // 3. `gh issue view <number>` (create() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "https://github.com/owner/repo/issues/42"),
+            (
+                true,
+                r#"{"number":42,"title":"New feature","body":"Description","state":"open","labels":[],"author":{"login":"octocat","id":"1"},"assignees":[],"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","milestone":{"number":3,"title":"v2.0"},"url":"https://github.com/owner/repo/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = create_args_with_labels(vec![]);
+        args.milestone = Some("3".to_string()); // resolve by number
+
+        let issue = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 3, "expected exactly 3 gh invocations");
+        assert!(
+            calls[0].1.first().map(String::as_str) == Some("api"),
+            "first call must resolve the milestone via `gh api`, got: {:?}",
+            calls[0].1
+        );
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "issue create argv must carry the resolved milestone title, got: {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_create() {
+        // Milestone list resolves to no match for "does-not-exist" → resolve_milestone_identifier
+        // returns an error before `gh issue create` is ever invoked.
+        let runner = SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON)]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let mut args = create_args_with_labels(vec![]);
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_issue_edit() {
+        // Sequence:
+        // 1. milestone resolution
+        // 2. `gh issue edit <number> --milestone v2.0`
+        // 3. `gh issue view <number>` (edit() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, ""),
+            (
+                true,
+                r#"{"number":42,"title":"T","body":null,"state":"open","labels":[],"author":{"login":"octocat","id":"1"},"assignees":[],"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","milestone":{"number":3,"title":"v2.0"},"url":"https://github.com/owner/repo/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: None,
+                    body: None,
+                    milestone: Some(Some("v2.0".to_string())),
+                },
+            )
+            .await
+            .expect("edit should succeed");
+        assert_eq!(issue.milestone.map(|m| m.title), Some("v2.0".to_string()));
+
+        let calls = runner.recorded_calls();
+        let edit_call = &calls[1].1;
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "issue edit argv must carry the resolved milestone title, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_send_remove_milestone_flag_without_resolving() {
+        // `Some(None)` means "clear the milestone" — no cross-provider resolution call
+        // should happen; the edit call must carry `--remove-milestone` directly.
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .edit(
+                7,
+                gitflow_core::issue::EditIssueArgs {
+                    title: None,
+                    body: None,
+                    milestone: Some(None),
+                },
+            )
+            .await;
+
+        let calls = runner.recorded_calls();
+        // `edit()` always delegates to `view()` afterward — 2 calls total, neither of
+        // which is a milestone-resolution `gh api` call.
+        assert_eq!(calls.len(), 2, "no milestone resolution call expected");
+        assert!(
+            calls[0].1.iter().any(|a| a == "--remove-milestone"),
+            "edit argv must carry --remove-milestone, got: {:?}",
+            calls[0].1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_issue_list_filter() {
+        // Sequence:
+        // 1. milestone resolution
+        // 2. `gh issue list ... --milestone v2.0`
+        let runner =
+            SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON), (true, "[]")]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let args = ListIssueArgs {
+            milestone: Some("v2.0".to_string()),
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+
+        let calls = runner.recorded_calls();
+        let list_call = &calls[1].1;
+        assert!(
+            list_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "issue list argv must carry the resolved milestone title, got: {list_call:?}"
+        );
     }
 }
 

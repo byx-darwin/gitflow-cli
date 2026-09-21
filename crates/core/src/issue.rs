@@ -39,6 +39,9 @@ pub struct IssueData {
     /// 被指派的成员列表。
     #[serde(default)]
     pub assignees: Vec<UserSummary>,
+    /// The milestone this issue is attached to, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub milestone: Option<crate::types::MilestoneRef>,
     /// 创建时间（UTC）。
     pub created_at: DateTime<Utc>,
     /// 最近更新时间（UTC）。
@@ -58,6 +61,8 @@ pub struct CreateIssueArgs {
     pub labels: Vec<String>,
     /// 指派的登录名列表。
     pub assignees: Vec<String>,
+    /// Milestone identifier to attach on creation (`NUMBER` or exact `TITLE`), if any.
+    pub milestone: Option<String>,
 }
 
 /// 编辑 Issue 所需参数（部分更新）。
@@ -69,6 +74,9 @@ pub struct EditIssueArgs {
     pub title: Option<String>,
     /// 新正文（不修改时为 `None`）。
     pub body: Option<String>,
+    /// Milestone change: `None` = don't touch; `Some(None)` = unassign;
+    /// `Some(Some(identifier))` = set to this milestone (`NUMBER` or `TITLE`).
+    pub milestone: Option<Option<String>>,
 }
 
 /// 列出 Issue 的过滤参数。
@@ -84,6 +92,8 @@ pub struct ListIssueArgs {
     pub search: Option<String>,
     /// 返回数量上限。
     pub limit: Option<u32>,
+    /// Filter by milestone identifier (`NUMBER` or exact `TITLE`), if any.
+    pub milestone: Option<String>,
 }
 
 /// Issue 操作的平台抽象。

@@ -59,6 +59,10 @@ pub enum PrCommand {
         /// 合并 PR 时自动关闭的 Issue 编号（可多次指定）。
         #[arg(long = "closes", alias = "fixes")]
         closes: Vec<u64>,
+
+        /// 挂载的 milestone（编号或标题，可选）。
+        #[arg(long)]
+        milestone: Option<String>,
     },
 
     /// 列出 Pull Request。
@@ -249,6 +253,7 @@ pub async fn handle(
             draft,
             repo: target_repo,
             closes,
+            milestone,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
             let resolved_head = resolve_head(head)?;
@@ -265,6 +270,7 @@ pub async fn handle(
                 draft,
                 repo: target_repo,
                 closes_issues: closes,
+                milestone,
             };
             let pr = provider
                 .create(args)
@@ -1041,6 +1047,40 @@ mod tests {
                 assert!(base.is_none());
                 assert!(!draft);
                 assert!(repo.is_none());
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_with_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "pr",
+            "create",
+            "--title",
+            "Feature PR",
+            "--milestone",
+            "v1.0",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { milestone, .. }) => {
+                assert_eq!(milestone, Some("v1.0".to_string()));
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_without_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "create", "--title", "Feature PR"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { milestone, .. }) => {
+                assert!(milestone.is_none());
             }
             _ => panic!("Expected PrCommand::Create"),
         }

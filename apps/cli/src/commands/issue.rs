@@ -47,6 +47,10 @@ pub enum IssueCommand {
         #[arg(long = "assignee")]
         assignee: Vec<String>,
 
+        /// 挂载的 milestone（编号或标题，可选）。
+        #[arg(long)]
+        milestone: Option<String>,
+
         /// 目标仓库（可选，格式：owner/repo，覆盖从 remote 自动检测的值）。
         #[arg(long)]
         repo: Option<String>,
@@ -68,6 +72,14 @@ pub enum IssueCommand {
         /// 从文件读取新正文（可选）。
         #[arg(long = "body-file")]
         body_file: Option<String>,
+
+        /// 设置 milestone（编号或标题，可选，与 `--remove-milestone` 二选一）。
+        #[arg(long)]
+        milestone: Option<String>,
+
+        /// 取消 milestone 挂载（可选，与 `--milestone` 二选一）。
+        #[arg(long = "remove-milestone")]
+        remove_milestone: bool,
     },
 
     /// 列出 Issue。
@@ -87,6 +99,10 @@ pub enum IssueCommand {
         /// 返回数量上限。
         #[arg(long)]
         limit: Option<u32>,
+
+        /// 按 milestone 过滤（编号或标题，可选）。
+        #[arg(long)]
+        milestone: Option<String>,
     },
 
     /// 查看单个 Issue 详情。
@@ -222,6 +238,7 @@ pub async fn handle(
             body_file,
             label,
             assignee,
+            milestone,
             repo: _,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
@@ -230,6 +247,7 @@ pub async fn handle(
                 body: resolved_body,
                 labels: label,
                 assignees: assignee,
+                milestone,
             };
             let issue = provider
                 .create(args)
@@ -243,12 +261,29 @@ pub async fn handle(
             title,
             body,
             body_file,
+            milestone,
+            remove_milestone,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
-            ensure_edit_has_changes(title.as_ref(), resolved_body.as_ref())?;
+            let resolved_milestone = match (milestone, remove_milestone) {
+                (Some(_), true) => {
+                    return Err(miette::miette!(
+                        "--milestone 与 --remove-milestone 不能同时指定"
+                    ));
+                }
+                (Some(m), false) => Some(Some(m)),
+                (None, true) => Some(None),
+                (None, false) => None,
+            };
+            ensure_edit_has_changes(
+                title.as_ref(),
+                resolved_body.as_ref(),
+                resolved_milestone.as_ref(),
+            )?;
             let args = EditIssueArgs {
                 title,
                 body: resolved_body,
+                milestone: resolved_milestone,
             };
             let issue = provider
                 .edit(number, args)
@@ -262,6 +297,7 @@ pub async fn handle(
             search,
             label,
             limit,
+            milestone,
         } => {
             let parsed_state = state
                 .as_deref()
@@ -281,6 +317,7 @@ pub async fn handle(
                 labels: label,
                 search,
                 limit,
+                milestone,
             };
             let paged = provider
                 .list(args)
@@ -404,15 +441,20 @@ fn resolve_comment_body(body: Option<String>, body_file: Option<String>) -> miet
     resolved.ok_or_else(|| miette::miette!("Comment body is required. Use --body or --body-file."))
 }
 
-/// 校验编辑参数：`title` 与 `body` 至少提供一个。
+/// 校验编辑参数：`title`、`body`、`milestone` 至少提供一个。
 ///
 /// # Errors
 ///
-/// 当两者都为 `None` 时返回错误。
-fn ensure_edit_has_changes(title: Option<&String>, body: Option<&String>) -> miette::Result<()> {
-    if title.is_none() && body.is_none() {
+/// 当三者都为 `None` 时返回错误。
+fn ensure_edit_has_changes(
+    title: Option<&String>,
+    body: Option<&String>,
+    milestone: Option<&Option<String>>,
+) -> miette::Result<()> {
+    if title.is_none() && body.is_none() && milestone.is_none() {
         return Err(miette::miette!(
-            "Nothing to edit. Provide --title and/or --body/--body-file."
+            "Nothing to edit. Provide --title, --body/--body-file, --milestone, or \
+             --remove-milestone."
         ));
     }
     Ok(())
@@ -499,7 +541,7 @@ mod tests {
 
     #[test]
     fn test_should_error_when_edit_has_no_changes() {
-        let result = ensure_edit_has_changes(None, None);
+        let result = ensure_edit_has_changes(None, None, None);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Nothing to edit"));
@@ -519,6 +561,7 @@ mod tests {
             body_file: None,
             label: vec![],
             assignee: vec![],
+            milestone: None,
             repo: Some("other/repo".into()),
         };
         assert!(!should_use_remote_url_for_gitlab(&command));
@@ -532,6 +575,7 @@ mod tests {
             body_file: None,
             label: vec![],
             assignee: vec![],
+            milestone: None,
             repo: None,
         };
         assert!(should_use_remote_url_for_gitlab(&command));
@@ -540,14 +584,14 @@ mod tests {
     #[test]
     fn test_should_allow_edit_with_title_only() {
         let title = Some("T".to_string());
-        let result = ensure_edit_has_changes(title.as_ref(), None);
+        let result = ensure_edit_has_changes(title.as_ref(), None, None);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_should_allow_edit_with_body_only() {
         let body = Some("B".to_string());
-        let result = ensure_edit_has_changes(None, body.as_ref());
+        let result = ensure_edit_has_changes(None, body.as_ref(), None);
         assert!(result.is_ok());
     }
 
@@ -555,7 +599,7 @@ mod tests {
     fn test_should_allow_edit_with_both_title_and_body() {
         let title = Some("T".to_string());
         let body = Some("B".to_string());
-        let result = ensure_edit_has_changes(title.as_ref(), body.as_ref());
+        let result = ensure_edit_has_changes(title.as_ref(), body.as_ref(), None);
         assert!(result.is_ok());
     }
 
@@ -737,11 +781,15 @@ mod tests {
                 title,
                 body,
                 body_file,
+                milestone,
+                remove_milestone,
             }) => {
                 assert_eq!(number, 42);
                 assert_eq!(title, Some("New title".to_string()));
                 assert!(body.is_none());
                 assert!(body_file.is_none());
+                assert!(milestone.is_none());
+                assert!(!remove_milestone);
             }
             _ => panic!("Expected IssueCommand::Edit"),
         }
@@ -825,11 +873,13 @@ mod tests {
                 search,
                 label,
                 limit,
+                milestone,
             }) => {
                 assert_eq!(state, Some("open".into()));
                 assert_eq!(search, Some("crash".into()));
                 assert_eq!(label, vec!["bug".to_string()]);
                 assert_eq!(limit, Some(10));
+                assert!(milestone.is_none());
             }
             _ => panic!("Expected IssueCommand::List"),
         }
@@ -870,6 +920,94 @@ mod tests {
                 assert_eq!(assignee, vec!["user1".to_string(), "user2".to_string()]);
             }
             _ => panic!("Expected IssueCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_create_with_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "create",
+            "--title",
+            "With milestone",
+            "--milestone",
+            "v1.0",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Create { milestone, .. }) => {
+                assert_eq!(milestone, Some("v1.0".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_milestone() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--milestone", "v2.0"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit {
+                milestone,
+                remove_milestone,
+                ..
+            }) => {
+                assert_eq!(milestone, Some("v2.0".to_string()));
+                assert!(!remove_milestone);
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_remove_milestone() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--remove-milestone"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit {
+                milestone,
+                remove_milestone,
+                ..
+            }) => {
+                assert!(milestone.is_none());
+                assert!(remove_milestone);
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_error_when_edit_has_milestone_and_remove_milestone() {
+        let command = IssueCommand::Edit {
+            number: 42,
+            title: None,
+            body: None,
+            body_file: None,
+            milestone: Some("v2.0".to_string()),
+            remove_milestone: true,
+        };
+        let result = handle(command, "github", "owner/repo", "", OutputFormat::Json).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("不能同时指定"));
+    }
+
+    #[test]
+    fn test_should_parse_issue_list_with_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "issue", "list", "--milestone", "v1.0"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::List { milestone, .. }) => {
+                assert_eq!(milestone, Some("v1.0".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::List"),
         }
     }
 

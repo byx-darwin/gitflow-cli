@@ -20,7 +20,7 @@ use crate::{
 
 /// `gh pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str = "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,\
-                         updatedAt,mergedAt,url";
+                         updatedAt,mergedAt,milestone,url";
 
 /// `gh repo view --json defaultBranchRef` 的响应类型。
 #[derive(Debug, Deserialize)]
@@ -140,7 +140,7 @@ impl<R: CommandRunner> GitHubPrProvider<R> {
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
+impl<R: CommandRunner + Clone + 'static> PrProvider for GitHubPrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let repo = args.repo.as_deref().unwrap_or(&self.repo);
 
@@ -167,6 +167,18 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
 
         if args.draft {
             cmd_args.push("--draft");
+        }
+
+        let resolved_milestone_title;
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider =
+                crate::GitHubMilestoneProvider::with_runner(repo, self.runner.clone());
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_title = resolved.title;
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_title);
         }
 
         debug!(
@@ -605,7 +617,7 @@ fn parse_pr_number_from_url(url: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_github_pr_provider() {
@@ -937,6 +949,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 
@@ -1351,5 +1364,62 @@ mod tests {
                 "1001",
             ]
         );
+    }
+
+    // --- milestone wiring: create ---
+
+    const MILESTONE_LIST_JSON: &str = r#"[
+        {"number": 3, "title": "v2.0", "state": "open", "description": null}
+    ]"#;
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_pr_create() {
+        // Sequence:
+        // 1. milestone resolution: `gh api repos/owner/repo/milestones?...`
+        // 2. `gh pr create ... --milestone v2.0`
+        // 3. `gh pr view <number>` (create() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "https://github.com/owner/repo/pull/42"),
+            (
+                true,
+                r#"{"number":42,"title":"Add feature","body":"Detailed description","state":"open","draft":false,"author":{"login":"alice","id":"2"},"baseBranch":"main","headBranch":"feature/new","createdAt":"2026-02-20T14:00:00Z","updatedAt":"2026-02-21T10:30:00Z","milestone":{"number":3,"title":"v2.0"},"url":"https://github.com/owner/repo/pull/42"}"#,
+            ),
+        ]);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 3, "expected exactly 3 gh invocations");
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "pr create argv must carry the resolved milestone title, got: {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_pr_create() {
+        let runner = SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON)]);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
     }
 }

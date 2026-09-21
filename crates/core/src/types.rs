@@ -166,6 +166,20 @@ pub struct MergeResult {
     pub message: Option<String>,
 }
 
+/// A lightweight reference to a milestone attached to an Issue or PR.
+///
+/// Deliberately does not embed the full `MilestoneData` (due date, progress
+/// counters) — that would duplicate data already served by `gf milestone
+/// list`/`view` and cost an extra API call on every issue/PR fetch.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MilestoneRef {
+    /// The milestone's number (platform-native numbering).
+    pub number: u64,
+    /// The milestone's title.
+    pub title: String,
+}
+
 /// The strategy to use when merging a Pull Request.
 ///
 /// Controls how the platform combines commits from the head branch
@@ -184,6 +198,25 @@ pub enum MergeStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_should_serialize_milestone_ref_camel_case() {
+        let m = MilestoneRef {
+            number: 5,
+            title: "v1.0".into(),
+        };
+        let json = serde_json::to_string(&m).expect("serialize");
+        assert!(json.contains("\"number\":5"));
+        assert!(json.contains("\"title\":\"v1.0\""));
+    }
+
+    #[test]
+    fn test_should_roundtrip_milestone_ref() {
+        let json = r#"{"number": 5, "title": "v1.0"}"#;
+        let m: MilestoneRef = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(m.number, 5);
+        assert_eq!(m.title, "v1.0");
+    }
 
     #[test]
     fn test_should_serialize_state_to_snake_case() {

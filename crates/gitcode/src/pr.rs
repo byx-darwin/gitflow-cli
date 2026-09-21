@@ -52,6 +52,27 @@ struct PrApiResponse {
     merged_at: Option<String>,
     #[serde(default)]
     html_url: Option<String>,
+    #[serde(default)]
+    milestone: Option<PrMilestoneRefApi>,
+}
+
+/// gitcode CLI 嵌入在 PR 响应中的 `milestone` 对象的最小字段集。
+///
+/// 与 `issue.rs` 的 `MilestoneRefApi` 同形（同一 GitCode API 端点复用同一
+/// milestone 序列化形状），单独定义以避免跨模块耦合。
+#[derive(Debug, Clone, Deserialize)]
+struct PrMilestoneRefApi {
+    number: u64,
+    title: String,
+}
+
+impl From<PrMilestoneRefApi> for gitflow_core::types::MilestoneRef {
+    fn from(api: PrMilestoneRefApi) -> Self {
+        Self {
+            number: api.number,
+            title: api.title,
+        }
+    }
 }
 
 /// gitcode PR JSON 中 `user` 对象的最小字段集。
@@ -153,6 +174,7 @@ impl From<PrApiResponse> for PrData {
             updated_at: parse_time(api.updated_at),
             merged_at: parse_opt_time(api.merged_at),
             url: api.html_url.unwrap_or_default(),
+            milestone: api.milestone.map(Into::into),
         }
     }
 }
@@ -277,14 +299,15 @@ impl<R: CommandRunner> GitCodePrProvider<R> {
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
+impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let binary = crate::gitcode_binary();
+        let repo = args.repo.as_deref().unwrap_or(&self.repo);
         let mut cmd_args: Vec<&str> = vec![
             "pr",
             "create",
             "--repo",
-            args.repo.as_deref().unwrap_or(&self.repo),
+            repo,
             "--title",
             &args.title,
             "--head",
@@ -327,7 +350,55 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
         let api: PrApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(api.into())
+        let mut pr_data: PrData = api.into();
+
+        // `gitcode pr create` has no `--milestone` flag at all (confirmed:
+        // `gitcode pr create --help`, 2026-09-21), so milestone attachment on
+        // creation is a create-then-edit two-step. A failure in the second
+        // step must not lose the already-created PR's data.
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider =
+                crate::GitCodeMilestoneProvider::with_runner(repo, self.runner.clone());
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            let number_str = pr_data.number.to_string();
+            let milestone_number_str = resolved.number.to_string();
+
+            let edit_output = self
+                .runner
+                .run(
+                    &binary,
+                    &[
+                        "pr",
+                        "edit",
+                        &number_str,
+                        "--repo",
+                        repo,
+                        "--milestone",
+                        &milestone_number_str,
+                    ],
+                )
+                .await
+                .map_err(|e| {
+                    CoreError::Platform(format!(
+                        "PR #{} created, but attaching milestone failed to spawn: {e}",
+                        pr_data.number
+                    ))
+                })?;
+
+            if !edit_output.status.success() {
+                return Err(CoreError::Platform(format!(
+                    "PR #{} created, but attaching milestone failed: {}",
+                    pr_data.number,
+                    String::from_utf8_lossy(&edit_output.stderr)
+                )));
+            }
+
+            pr_data.milestone = Some(resolved);
+        }
+
+        Ok(pr_data)
     }
 
     async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
@@ -939,6 +1010,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 
@@ -979,6 +1051,189 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    // --- milestone wiring: create+edit two-step ---
+
+    /// A single-item `gitcode milestone list --json` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    fn pr_milestone_list_fixture() -> String {
+        r#"[{"number": 3, "title": "v2.0", "description": null, "state": "open", "due_on": null, "closed_issues": 0, "open_issues": 0}]"#.to_string()
+    }
+
+    #[tokio::test]
+    async fn test_should_attach_milestone_via_create_then_edit_two_step() {
+        // `gitcode pr create` has no `--milestone` flag, so attaching a
+        // milestone on creation is: 1. `pr create` (no milestone), 2. resolve
+        // the identifier via `gitcode milestone list`, 3. `pr edit --milestone <number>`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/owner/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (true, ""),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+
+        assert_eq!(pr.number, 52);
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            3,
+            "must call: pr create, milestone list, pr edit"
+        );
+        assert_eq!(calls[0].1[0], "pr");
+        assert_eq!(calls[0].1[1], "create");
+        assert!(
+            !calls[0].1.iter().any(|a| a == "--milestone"),
+            "pr create has no --milestone flag; must not be passed, got: {:?}",
+            calls[0].1
+        );
+        assert_eq!(
+            calls[1].1.first().map(String::as_str),
+            Some("milestone"),
+            "second call must resolve the milestone via `gitcode milestone list`, got: {:?}",
+            calls[1].1
+        );
+        let edit_call = &calls[2].1;
+        assert_eq!(edit_call[0], "pr");
+        assert_eq!(edit_call[1], "edit");
+        assert_eq!(edit_call[2], "52");
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "3"),
+            "pr edit argv must carry the resolved milestone NUMBER, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_resolve_milestone_against_overridden_repo_on_pr_create() {
+        // Regression: `args.repo` overrides the target repo for both `pr
+        // create` and `pr edit`, but milestone resolution must ALSO target
+        // that overridden repo, not the provider's default `self.repo`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/other/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (true, ""),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.repo = Some("other/repo".to_string());
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            3,
+            "must call: pr create, milestone list, pr edit"
+        );
+
+        let create_call = &calls[0].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--repo" && w[1] == "other/repo"),
+            "pr create must target the overridden repo, got: {create_call:?}"
+        );
+
+        let milestone_list_call = &calls[1].1;
+        assert!(
+            milestone_list_call
+                .windows(2)
+                .any(|w| w[0] == "-R" && w[1] == "other/repo"),
+            "milestone resolution must target the overridden repo (\"other/repo\"), not the \
+             provider default (\"owner/repo\"), got: {milestone_list_call:?}"
+        );
+
+        let edit_call = &calls[2].1;
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--repo" && w[1] == "other/repo"),
+            "pr edit must target the overridden repo, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_surface_created_pr_number_when_milestone_attach_fails_to_spawn() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/owner/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (false, "gitcode: 403 Forbidden"),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+
+        let err = provider
+            .create(args)
+            .await
+            .expect_err("milestone attach failure must surface, not be swallowed");
+
+        let msg = format!("{err}");
+        assert!(
+            matches!(err, gitflow_core::CoreError::Platform(_)),
+            "expected CoreError::Platform, got {msg}"
+        );
+        assert!(
+            msg.contains("52"),
+            "error must name the already-created PR number, got: {msg}"
+        );
+        assert!(
+            msg.contains("milestone"),
+            "error must mention milestone attachment, got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_pr_create_two_step()
+    {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/owner/repo/merge_requests/52"}"#,
+            ),
+            (true, "[]"),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]

@@ -167,6 +167,41 @@ pub trait MilestoneProvider: std::fmt::Debug + Send + Sync {
     async fn reopen(&self, number: u64) -> Result<MilestoneData>;
 }
 
+/// Resolves a user-supplied milestone identifier (`--milestone <NUMBER|TITLE>`)
+/// against the repository's milestone list, matching by number first (if the
+/// identifier parses as `u64`) then by exact title.
+///
+/// # Errors
+///
+/// Returns an error if no milestone matches by either number or exact title.
+pub async fn resolve_milestone_identifier(
+    provider: &dyn MilestoneProvider,
+    identifier: &str,
+) -> Result<crate::types::MilestoneRef> {
+    let milestones = provider.list(None).await?;
+    if let Ok(number) = identifier.parse::<u64>()
+        && let Some(m) = milestones.items.iter().find(|m| m.number == number)
+    {
+        return Ok(crate::types::MilestoneRef {
+            number: m.number,
+            title: m.title.clone(),
+        });
+    }
+    milestones
+        .items
+        .iter()
+        .find(|m| m.title == identifier)
+        .map(|m| crate::types::MilestoneRef {
+            number: m.number,
+            title: m.title.clone(),
+        })
+        .ok_or_else(|| {
+            crate::CoreError::Platform(format!(
+                "milestone '{identifier}' not found (matched by neither number nor exact title)"
+            ))
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,5 +431,106 @@ mod tests {
         assert_eq!(args.title, "Backlog");
         assert!(args.description.is_none());
         assert!(args.due_on.is_none());
+    }
+
+    // --- resolve_milestone_identifier tests ---
+
+    #[derive(Debug)]
+    struct MockMilestoneProvider {
+        milestones: Vec<MilestoneData>,
+    }
+
+    #[async_trait::async_trait]
+    impl MilestoneProvider for MockMilestoneProvider {
+        async fn create(&self, _args: CreateMilestoneArgs) -> Result<MilestoneData> {
+            unimplemented!("not used by resolver tests")
+        }
+        async fn list(&self, _limit: Option<u32>) -> Result<Paged<MilestoneData>> {
+            Ok(Paged {
+                items: self.milestones.clone(),
+                truncated: false,
+                limit: 100,
+            })
+        }
+        async fn edit(&self, _number: u64, _args: CreateMilestoneArgs) -> Result<MilestoneData> {
+            unimplemented!("not used by resolver tests")
+        }
+        async fn close(&self, _number: u64) -> Result<MilestoneData> {
+            unimplemented!("not used by resolver tests")
+        }
+        async fn reopen(&self, _number: u64) -> Result<MilestoneData> {
+            unimplemented!("not used by resolver tests")
+        }
+    }
+
+    fn sample_milestone(number: u64, title: &str) -> MilestoneData {
+        MilestoneData {
+            number,
+            title: title.to_string(),
+            description: None,
+            state: State::Open,
+            due_on: None,
+            closed_issues: 0,
+            open_issues: 0,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_resolve_milestone_by_number() {
+        let provider = MockMilestoneProvider {
+            milestones: vec![sample_milestone(1, "v1.0"), sample_milestone(2, "v2.0")],
+        };
+        let resolved = resolve_milestone_identifier(&provider, "2")
+            .await
+            .expect("resolve");
+        assert_eq!(
+            resolved,
+            crate::types::MilestoneRef {
+                number: 2,
+                title: "v2.0".into()
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_resolve_milestone_by_title() {
+        let provider = MockMilestoneProvider {
+            milestones: vec![sample_milestone(1, "v1.0"), sample_milestone(2, "v2.0")],
+        };
+        let resolved = resolve_milestone_identifier(&provider, "v1.0")
+            .await
+            .expect("resolve");
+        assert_eq!(
+            resolved,
+            crate::types::MilestoneRef {
+                number: 1,
+                title: "v1.0".into()
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_prefer_number_match_over_title_match() {
+        // Identifier "2" happens to also be a different milestone's title.
+        let provider = MockMilestoneProvider {
+            milestones: vec![sample_milestone(1, "2"), sample_milestone(2, "v2.0")],
+        };
+        let resolved = resolve_milestone_identifier(&provider, "2")
+            .await
+            .expect("resolve");
+        assert_eq!(
+            resolved.number, 2,
+            "numeric identifier must match by number first, not by a milestone whose title \
+             happens to equal the same string"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_error_when_milestone_identifier_not_found() {
+        let provider = MockMilestoneProvider {
+            milestones: vec![sample_milestone(1, "v1.0")],
+        };
+        let result = resolve_milestone_identifier(&provider, "does-not-exist").await;
+        assert!(result.is_err());
     }
 }

@@ -36,6 +36,33 @@ struct IssueApiResponse {
     created_at: Option<String>,
     updated_at: Option<String>,
     html_url: String,
+    #[serde(default)]
+    milestone: Option<MilestoneRefApi>,
+}
+
+/// gitcode CLI 嵌入在 issue/PR 响应中的 `milestone` 对象的最小字段集。
+///
+/// 真实形状（2026-09-21 对 `byx-darwin/NexaTrade` issue #1 的实测捕获，
+/// `gitcode issue view --json`）：
+/// ```json
+/// {"id": null, "number": 866493, "title": "gf-357-test-milestone",
+///  "description": "", "state": "active", "due_on": "2026-10-21"}
+/// ```
+/// 只映射 `number`/`title`：与 `gitflow_core::types::MilestoneRef` 的契约一致，
+/// `id`/`description`/`state`/`due_on` 由 `gf milestone view` 单独提供。
+#[derive(Debug, Clone, Deserialize)]
+struct MilestoneRefApi {
+    number: u64,
+    title: String,
+}
+
+impl From<MilestoneRefApi> for gitflow_core::types::MilestoneRef {
+    fn from(api: MilestoneRefApi) -> Self {
+        Self {
+            number: api.number,
+            title: api.title,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -101,6 +128,7 @@ impl From<IssueApiResponse> for IssueData {
                 })
                 .unwrap_or_else(Utc::now),
             url: api.html_url,
+            milestone: api.milestone.map(Into::into),
         }
     }
 }
@@ -198,6 +226,7 @@ impl From<CloseApiResponse> for IssueData {
             created_at: Utc::now(),
             updated_at: Utc::now(),
             url: api.url,
+            milestone: None,
         }
     }
 }
@@ -283,7 +312,7 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
     }
 }
 
-impl<R: CommandRunner> GitCodeIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> GitCodeIssueProvider<R> {
     /// [`IssueProvider::list`] 的实际实现。
     ///
     /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型异步闭包在
@@ -297,6 +326,7 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
         let state = args.state;
         let search = &args.search;
         let labels = &args.labels;
+        let milestone = &args.milestone;
         // 实测（gitcode-cli 0.12.0）：`--per-page` 优先于 `--limit`，且被 API
         // 静默封顶在 100；`--page` 真实翻页，页间编号不重叠。页大小不必超过
         // cap+1：N+1 探测只需多要一条即可判断截断。
@@ -328,6 +358,19 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
                     cmd_args.push("--label");
                     cmd_args.push(label);
                 }
+                let resolved_milestone_number_str;
+                if let Some(identifier) = milestone {
+                    let milestone_provider =
+                        crate::GitCodeMilestoneProvider::with_runner(repo.as_str(), runner.clone());
+                    let resolved = gitflow_core::label::resolve_milestone_identifier(
+                        &milestone_provider,
+                        identifier,
+                    )
+                    .await?;
+                    resolved_milestone_number_str = resolved.number.to_string();
+                    cmd_args.push("--milestone");
+                    cmd_args.push(&resolved_milestone_number_str);
+                }
                 cmd_args.push("--per-page");
                 cmd_args.push(&per_page_str);
                 cmd_args.push("--page");
@@ -350,7 +393,7 @@ impl<R: CommandRunner> GitCodeIssueProvider<R> {
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> IssueProvider for GitCodeIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let binary = crate::gitcode_binary();
         let mut cmd_args: Vec<&str> = vec![
@@ -374,6 +417,20 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         for assignee in &args.assignees {
             cmd_args.push("--assignee");
             cmd_args.push(assignee);
+        }
+
+        let resolved_milestone_number_str;
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider = crate::GitCodeMilestoneProvider::with_runner(
+                self.repo.as_str(),
+                self.runner.clone(),
+            );
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_number_str = resolved.number.to_string();
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_number_str);
         }
 
         debug!(repo = %self.repo, title = %args.title, "spawning gitcode issue create");
@@ -436,6 +493,36 @@ impl<R: CommandRunner + 'static> IssueProvider for GitCodeIssueProvider<R> {
         if let Some(body) = &args.body {
             cmd_args.push("--body");
             cmd_args.push(body);
+        }
+
+        let resolved_milestone_number_str;
+        match &args.milestone {
+            None => {}
+            Some(None) => {
+                // 实测（2026-09-21 对 byx-darwin/NexaTrade issue #1）：`gitcode
+                // issue edit --milestone 0` 被 CLI 解析层当作"未设置"直接拒绝
+                // （"at least one edit option is required"）；`--milestone -1`
+                // 会被后端静默丢弃而不是清除里程碑——`edit` 响应本身回显
+                // milestone: null，但紧随其后的 `issue view` 仍显示原里程碑未变。
+                // GitCode CLI 没有任何取消关联里程碑的手段，诚实报错而非假装成功。
+                return Err(gitflow_core::CoreError::Platform(
+                    "GitCode CLI does not support unassigning a milestone from an issue".into(),
+                ));
+            }
+            Some(Some(identifier)) => {
+                let milestone_provider = crate::GitCodeMilestoneProvider::with_runner(
+                    self.repo.as_str(),
+                    self.runner.clone(),
+                );
+                let resolved = gitflow_core::label::resolve_milestone_identifier(
+                    &milestone_provider,
+                    identifier,
+                )
+                .await?;
+                resolved_milestone_number_str = resolved.number.to_string();
+                cmd_args.push("--milestone");
+                cmd_args.push(&resolved_milestone_number_str);
+            }
         }
 
         let output = self
@@ -928,6 +1015,7 @@ mod tests {
             body: Some("Steps to reproduce".to_string()),
             labels: vec!["bug".to_string()],
             assignees: vec!["alice".to_string()],
+            milestone: None,
         }
     }
 
@@ -1146,6 +1234,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("New title".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await
@@ -1168,6 +1257,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("T".to_string()),
                     body: Some("B".to_string()),
+                    milestone: None,
                 },
             )
             .await;
@@ -1193,6 +1283,227 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    // --- milestone wiring: create/edit/list ---
+
+    #[test]
+    fn test_should_deserialize_issue_with_milestone() {
+        // Real shape captured from `gitcode issue view --json` on
+        // byx-darwin/NexaTrade issue #1 (2026-09-21), trimmed to the fields
+        // this module reads (`id`/`description`/`state`/`due_on` ignored).
+        let json = br#"{
+            "number": "1",
+            "title": "gf-357 milestone test issue",
+            "body": "temp test issue for milestone shape investigation",
+            "state": "open",
+            "html_url": "https://gitcode.com/byx-darwin/NexaTrade/issues/1",
+            "user": {"login": "byx-darwin", "id": "66767cd4096c81780c61bf07"},
+            "assignees": [],
+            "labels": [],
+            "milestone": {
+                "id": null,
+                "number": 866493,
+                "title": "gf-357-test-milestone",
+                "description": "",
+                "state": "active",
+                "due_on": "2026-10-21"
+            },
+            "created_at": "2026-09-21T10:18:16+08:00",
+            "updated_at": "2026-09-21T10:18:16+08:00"
+        }"#;
+        let api: IssueApiResponse = serde_json::from_slice(json).expect("deserialize");
+        let issue: IssueData = api.into();
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 866_493,
+                title: "gf-357-test-milestone".into()
+            })
+        );
+    }
+
+    #[test]
+    fn test_should_deserialize_issue_with_no_milestone() {
+        let json = br#"{
+            "number": "1",
+            "title": "t",
+            "body": null,
+            "state": "open",
+            "html_url": "https://gitcode.com/o/r/issues/1",
+            "user": null,
+            "assignees": [],
+            "labels": [],
+            "created_at": "2026-09-21T10:18:16+08:00",
+            "updated_at": "2026-09-21T10:18:16+08:00"
+        }"#;
+        let api: IssueApiResponse = serde_json::from_slice(json).expect("deserialize");
+        let issue: IssueData = api.into();
+        assert!(issue.milestone.is_none());
+    }
+
+    /// A single-item `gitcode milestone list --json` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    fn milestone_list_fixture() -> String {
+        r#"[{"number": 3, "title": "v2.0", "description": null, "state": "open", "due_on": null, "closed_issues": 0, "open_issues": 0}]"#.to_string()
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_number_into_issue_create() {
+        // Sequence: 1. milestone resolution: `gitcode milestone list -R owner/repo --json ...`
+        //           2. `gitcode issue create ... --milestone 3`
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &milestone_list_fixture()),
+            (
+                true,
+                r#"{"number":"42","title":"New feature","body":"Description","state":"open","labels":[],"user":{"login":"octocat","id":"1"},"assignees":[],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","html_url":"https://gitcode.com/owner/repo/issues/42","milestone":{"number":3,"title":"v2.0"}}"#,
+            ),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string()); // resolve by number
+
+        let issue = provider.create(args).await.expect("create should succeed");
+
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(
+            calls[0].1.first().map(String::as_str),
+            Some("milestone"),
+            "first call must resolve the milestone via `gitcode milestone list`, got: {:?}",
+            calls[0].1
+        );
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "3"),
+            "issue create argv must carry the resolved milestone NUMBER (not title), got: \
+             {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_issue_create() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_number_into_issue_edit() {
+        // Sequence: 1. milestone resolution
+        //           2. `gitcode issue edit <number> --milestone 3`
+        //           3. `gitcode issue view --json` (edit() re-fetches via view)
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &milestone_list_fixture()),
+            (true, ""),
+            (
+                true,
+                r#"{"number":"42","title":"T","body":null,"state":"open","labels":[],"user":{"login":"octocat","id":"1"},"assignees":[],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","html_url":"https://gitcode.com/owner/repo/issues/42","milestone":{"number":3,"title":"v2.0"}}"#,
+            ),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: None,
+                    body: None,
+                    milestone: Some(Some("3".to_string())),
+                },
+            )
+            .await
+            .expect("edit should succeed");
+
+        assert_eq!(issue.milestone.map(|m| m.number), Some(3));
+
+        let calls = runner.recorded_calls();
+        let edit_call = &calls[1].1;
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "3"),
+            "issue edit argv must carry the resolved milestone NUMBER, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_error_on_unassign_milestone_without_spawning_cli() {
+        // Confirmed 2026-09-21 against byx-darwin/NexaTrade issue #1: neither
+        // `--milestone 0` (rejected by the CLI's own flag parsing as "no edit
+        // option provided") nor `--milestone -1` (silently ignored by the
+        // backend — `issue view` right after still shows the original
+        // milestone attached) actually unassigns. GitCode's CLI has no
+        // unassign capability, so `Some(None)` must error before spawning
+        // anything, not fake success.
+        let runner = RecordingMockRunner::success("should not be called");
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let result = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: None,
+                    body: None,
+                    milestone: Some(None),
+                },
+            )
+            .await;
+
+        let err = result.expect_err("unassign must error, not silently succeed");
+        assert!(
+            matches!(err, gitflow_core::CoreError::Platform(_)),
+            "expected CoreError::Platform, got {err:?}"
+        );
+        assert!(
+            runner.calls().is_empty(),
+            "must reject before spawning the CLI, got calls: {:?}",
+            runner.calls()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_number_into_issue_list_filter() {
+        // Sequence: 1. milestone resolution
+        //           2. `gitcode issue list ... --milestone 3`
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &milestone_list_fixture()),
+            (true, "[]"),
+        ]);
+        let provider = GitCodeIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                milestone: Some("v2.0".to_string()),
+                ..ListIssueArgs::default()
+            })
+            .await;
+
+        let calls = runner.recorded_calls();
+        let list_call = &calls[1].1;
+        assert!(
+            list_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "3"),
+            "issue list argv must carry the resolved milestone NUMBER (not title), got: \
+             {list_call:?}"
+        );
     }
 
     // --- extract_missing_labels_from_error: pure-function tests ---
