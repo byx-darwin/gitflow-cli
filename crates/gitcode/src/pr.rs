@@ -302,11 +302,12 @@ impl<R: CommandRunner> GitCodePrProvider<R> {
 impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let binary = crate::gitcode_binary();
+        let repo = args.repo.as_deref().unwrap_or(&self.repo);
         let mut cmd_args: Vec<&str> = vec![
             "pr",
             "create",
             "--repo",
-            args.repo.as_deref().unwrap_or(&self.repo),
+            repo,
             "--title",
             &args.title,
             "--head",
@@ -356,10 +357,8 @@ impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
         // creation is a create-then-edit two-step. A failure in the second
         // step must not lose the already-created PR's data.
         if let Some(identifier) = &args.milestone {
-            let milestone_provider = crate::GitCodeMilestoneProvider::with_runner(
-                self.repo.as_str(),
-                self.runner.clone(),
-            );
+            let milestone_provider =
+                crate::GitCodeMilestoneProvider::with_runner(repo, self.runner.clone());
             let resolved =
                 gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
                     .await?;
@@ -375,7 +374,7 @@ impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
                         "edit",
                         &number_str,
                         "--repo",
-                        args.repo.as_deref().unwrap_or(&self.repo),
+                        repo,
                         "--milestone",
                         &milestone_number_str,
                     ],
@@ -1119,6 +1118,67 @@ mod tests {
                 .windows(2)
                 .any(|w| w[0] == "--milestone" && w[1] == "3"),
             "pr edit argv must carry the resolved milestone NUMBER, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_resolve_milestone_against_overridden_repo_on_pr_create() {
+        // Regression: `args.repo` overrides the target repo for both `pr
+        // create` and `pr edit`, but milestone resolution must ALSO target
+        // that overridden repo, not the provider's default `self.repo`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/other/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (true, ""),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.repo = Some("other/repo".to_string());
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            3,
+            "must call: pr create, milestone list, pr edit"
+        );
+
+        let create_call = &calls[0].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--repo" && w[1] == "other/repo"),
+            "pr create must target the overridden repo, got: {create_call:?}"
+        );
+
+        let milestone_list_call = &calls[1].1;
+        assert!(
+            milestone_list_call
+                .windows(2)
+                .any(|w| w[0] == "-R" && w[1] == "other/repo"),
+            "milestone resolution must target the overridden repo (\"other/repo\"), not the \
+             provider default (\"owner/repo\"), got: {milestone_list_call:?}"
+        );
+
+        let edit_call = &calls[2].1;
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--repo" && w[1] == "other/repo"),
+            "pr edit must target the overridden repo, got: {edit_call:?}"
         );
     }
 
