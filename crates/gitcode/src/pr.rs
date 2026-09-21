@@ -56,6 +56,20 @@ struct PrApiResponse {
     milestone: Option<PrMilestoneRefApi>,
 }
 
+/// 精简确认响应，`gitcode pr close --json` / `gitcode pr reopen --json` 实际返回的形状。
+///
+/// 与 `PrApiResponse`（`pr create`/`pr view` 的完整响应）不同——close/reopen
+/// 只返回一个状态确认对象，没有 `title` 等字段。实测响应（2026-09-21，对
+/// `byx-darwin/NexaTrade` 的真实 PR）：
+/// `{"number":6,"state":"closed","owner":"byx-darwin","repo":"NexaTrade","url":"..."}`。
+/// 只需要 `number` 去调用 `view()` 拿完整数据，其余字段（`state`/`owner`/`repo`/`url`）
+/// 未被消费，故不建模，避免死代码；反序列化仍容忍它们出现在响应里（`serde_json`
+/// 默认忽略结构体未声明的字段）。
+#[derive(Debug, Clone, Deserialize)]
+struct PrCloseReopenApiResponse {
+    number: u64,
+}
+
 /// gitcode CLI 嵌入在 PR 响应中的 `milestone` 对象的最小字段集。
 ///
 /// 与 `issue.rs` 的 `MilestoneRefApi` 同形（同一 GitCode API 端点复用同一
@@ -431,12 +445,14 @@ impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
 
     /// 关闭指定编号的 PR。
     ///
-    /// 调用 `gitcode pr close <number> --repo <repo> --yes --json` 关闭 PR，
-    /// 并返回更新后的完整 PR 数据。
+    /// 调用 `gitcode pr close <number> --repo <repo> --yes --json` 关闭 PR。
+    /// 该命令只返回精简确认对象（无 `title` 等字段），随后调用 [`Self::view`]
+    /// 取回更新后的完整 PR 数据。
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、已关闭或 `gitcode` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、已关闭、`gitcode` CLI 调用失败，或关闭成功后 `view()`
+    /// 失败时返回错误。
     async fn close(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
@@ -463,20 +479,22 @@ impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(parse_gitcode_error(&output.stderr).into());
         }
 
-        let api: PrApiResponse =
+        let close_result: PrCloseReopenApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(api.into())
+        self.view(close_result.number).await
     }
 
     /// 重新打开指定编号的 PR。
     ///
-    /// 调用 `gitcode pr reopen <number> --repo <repo> --yes --json` 重新打开已关闭的 PR，
-    /// 并返回更新后的完整 PR 数据。
+    /// 调用 `gitcode pr reopen <number> --repo <repo> --yes --json` 重新打开已关闭的 PR。
+    /// 该命令只返回精简确认对象（无 `title` 等字段），随后调用 [`Self::view`]
+    /// 取回更新后的完整 PR 数据。
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、未关闭或 `gitcode` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、未关闭、`gitcode` CLI 调用失败，或重新打开成功后 `view()`
+    /// 失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
@@ -503,10 +521,10 @@ impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(parse_gitcode_error(&output.stderr).into());
         }
 
-        let api: PrApiResponse =
+        let reopen_result: PrCloseReopenApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(api.into())
+        self.view(reopen_result.number).await
     }
 
     /// 在指定 PR 上添加评论。
@@ -1579,6 +1597,69 @@ mod tests {
                 .any(|w| { w[0] == "--json" && w[1] != "--yes" && !w[1].starts_with('-') }),
             "--json 后不得跟随字段列表"
         );
+    }
+
+    #[tokio::test]
+    async fn test_should_deserialize_real_gitcode_pr_close_response_via_view() {
+        // 实测响应（2026-09-21，对 byx-darwin/NexaTrade 的真实 PR #6）：
+        // `gitcode pr close --json` 只返回精简确认对象，没有 title 等字段。
+        // close() 必须用这个精简形状拿到 number，再调用 view() 取回完整 PrData。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":6,"state":"closed","owner":"byx-darwin","repo":"NexaTrade","url":"https://gitcode.com/byx-darwin/NexaTrade/merge_requests/6"}"#,
+            ),
+            (true, real_gitcode_pr_json()),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let pr = provider.close(6).await.expect("close should succeed");
+
+        assert_eq!(pr.number, 52); // real_gitcode_pr_json() 的 PR 号，证明走了 view() 而非直接转换精简响应
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "close 必须先 close 再 view 两次调用");
+        assert!(calls[0].1.contains(&"close".to_string()));
+        assert!(calls[1].1.contains(&"view".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_deserialize_real_gitcode_pr_reopen_response_via_view() {
+        // 实测响应（2026-09-21，对 byx-darwin/NexaTrade 的真实 PR #6）：
+        // `gitcode pr reopen --json` 与 close 同形，只是 state 变为 "opened"。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":6,"state":"opened","owner":"byx-darwin","repo":"NexaTrade","url":"https://gitcode.com/byx-darwin/NexaTrade/merge_requests/6"}"#,
+            ),
+            (true, real_gitcode_pr_json()),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let pr = provider.reopen(6).await.expect("reopen should succeed");
+
+        assert_eq!(pr.number, 52);
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "reopen 必须先 reopen 再 view 两次调用");
+        assert!(calls[0].1.contains(&"reopen".to_string()));
+        assert!(calls[1].1.contains(&"view".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_view_error_after_close_succeeds() {
+        // close 命令本身成功，但紧随其后的 view() 失败——错误必须原样冒泡，
+        // 不能吞掉伪造一个"成功但数据可能有误"的 PrData。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, r#"{"number":6,"state":"closed"}"#),
+            (false, "gitcode: pr not found"),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let err = provider
+            .close(6)
+            .await
+            .expect_err("view failure must propagate");
+
+        assert!(matches!(err, CoreError::Cli(_)));
     }
 
     #[tokio::test]
