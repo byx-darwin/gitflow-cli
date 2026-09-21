@@ -21,18 +21,20 @@ _spec.loader.exec_module(render_diff_review)
 parse_diff_text = render_diff_review.parse_diff_text
 
 
-SINGLE_HUNK_DIFF = """diff --git a/src/foo.py b/src/foo.py
-index 1111111..2222222 100644
---- a/src/foo.py
-+++ b/src/foo.py
-@@ -1,4 +1,5 @@
- def foo():
--    return 1
-+    # comment
-+    return 2
-
- def bar():
-"""
+SINGLE_HUNK_DIFF = "\n".join([
+    "diff --git a/src/foo.py b/src/foo.py",
+    "index 1111111..2222222 100644",
+    "--- a/src/foo.py",
+    "+++ b/src/foo.py",
+    "@@ -1,4 +1,5 @@",
+    " def foo():",
+    "-    return 1",
+    "+    # comment",
+    "+    return 2",
+    " ",  # blank context line — kept as an explicit list item so a
+          # trim-trailing-whitespace hook can't strip its leading space
+    " def bar():",
+]) + "\n"
 
 MULTI_HUNK_DIFF = """diff --git a/src/multi.py b/src/multi.py
 index 3333333..4444444 100644

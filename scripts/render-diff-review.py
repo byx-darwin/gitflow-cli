@@ -60,12 +60,6 @@ def _parse_hunks(lines, start_idx):
                 new_line += 1
             elif line.startswith('\\'):
                 pass  # "\ No newline at end of file"
-            elif line == '':
-                # A context line with no content is sometimes emitted
-                # without its leading space (trailing-whitespace-stripped).
-                entries.append({"old_line": old_line, "new_line": new_line, "type": "context", "content": ""})
-                old_line += 1
-                new_line += 1
             else:
                 raise ValueError(f"malformed diff line: {line!r}")
             i += 1
