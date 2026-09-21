@@ -115,10 +115,11 @@ def render_dashboard(input_dir, output_path):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             _validate_contract(data)
-        except (json.JSONDecodeError, ValueError, OSError) as exc:
+            card = _card_html(data)
+        except (json.JSONDecodeError, ValueError, OSError, TypeError, AttributeError) as exc:
             cards.append(_error_card_html(filename, str(exc)))
             continue
-        cards.append(_card_html(data))
+        cards.append(card)
 
     if cards:
         body = "".join(cards)

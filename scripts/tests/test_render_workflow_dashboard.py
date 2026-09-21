@@ -208,6 +208,44 @@ class TestRenderDashboard(unittest.TestCase):
 
             self.assertIn("status-unknown", html_content)
 
+    def test_malformed_nested_field_renders_error_card_not_crash(self):
+        # Regression test: a contract can pass _validate_contract() (has
+        # workflow_id and a dict "phases") but still carry a malformed
+        # nested field type — e.g. "status" as a list instead of a string.
+        # This must not crash the whole run; it must isolate to one error
+        # card, same as top-level JSON/schema failures.
+        with tempfile.TemporaryDirectory() as tmp:
+            active_dir = os.path.join(tmp, "active")
+            os.makedirs(active_dir)
+            self._write_contract(active_dir, "wf-bad-nested.json", {
+                "workflow_id": "wf-bad-nested",
+                "phases": {
+                    "1": {"status": ["complete"]},  # wrong type: list, not str
+                    "2": {"status": "pending"},
+                    "3": {"status": "pending"},
+                    "4": {"status": "pending"},
+                },
+            })
+            self._write_contract(active_dir, "wf-ok.json", {
+                "workflow_id": "wf-ok",
+                "phases": {
+                    "1": {"status": "complete"}, "2": {"status": "complete"},
+                    "3": {"status": "complete"}, "4": {"status": "complete"},
+                },
+            })
+            output_path = os.path.join(tmp, "dashboard.html")
+
+            # Must not raise, and must not abort rendering of wf-ok.
+            render_dashboard(active_dir, output_path)
+
+            with open(output_path, encoding="utf-8") as f:
+                html_content = f.read()
+
+            self.assertIn("解析失败", html_content)
+            self.assertIn("wf-bad-nested.json", html_content)
+            self.assertIn("wf-ok", html_content)
+            self.assertIn("status-complete", html_content)
+
 
 if __name__ == "__main__":
     unittest.main()
