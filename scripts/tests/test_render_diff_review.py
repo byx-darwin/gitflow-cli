@@ -458,6 +458,29 @@ class TestRenderHtml(unittest.TestCase):
         # the pseudocode/call_tree card must not be duplicated per diff line
         self.assertNotEqual(out.count("def big(): ..."), 3)
 
+    def test_annotation_card_anchors_to_file_section_not_a_line(self):
+        # Issue #399 follow-up: cards are file-level now, so their
+        # data-anchor must reference the file (matching a file-section's
+        # data-file), not a per-line anchor id that no longer exists.
+        annotations = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "src/big.py",
+                "old_path": None,
+                "status": "modified",
+                "lines": [
+                    {"old_line": 1, "new_line": 1, "type": "context", "content": "a",
+                     "hunk_header": "@@ -1,1 +1,1 @@"},
+                ],
+                "error": None,
+                "pseudocode": "def big(): ...",
+                "call_tree": None,
+            }],
+        }
+        out = render_html(annotations)
+        self.assertIn('data-file="src/big.py"', out)
+        self.assertIn('class="annotation-card" data-anchor="src/big.py"', out)
+
     def test_hunk_separator_shown_between_non_adjacent_hunks(self):
         annotations = {
             "diff_range": "x..y",

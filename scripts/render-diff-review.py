@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   function highlightAnchor(anchorId) {
-    document.querySelectorAll('.diff-line, .annotation-card').forEach(function (el) {
+    document.querySelectorAll('.diff-line').forEach(function (el) {
       el.classList.toggle('hover-highlight', el.dataset.anchor === anchorId);
     });
   }
@@ -328,15 +328,11 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.querySelectorAll('.annotation-card').forEach(function (card) {
-    card.addEventListener('mouseenter', function () { highlightAnchor(card.dataset.anchor); });
-    card.addEventListener('mouseleave', function () { highlightAnchor(null); });
     card.addEventListener('click', function () {
-      var target = document.getElementById(card.dataset.anchor);
-      if (target) {
-        target.scrollIntoView({behavior: 'smooth', block: 'center'});
-        target.classList.add('flash');
-        setTimeout(function () { target.classList.remove('flash'); }, 800);
-      }
+      var sel = document.querySelector(
+        '.file-section[data-file="' + CSS.escape(card.dataset.anchor) + '"]'
+      );
+      if (sel) { sel.scrollIntoView({behavior: 'smooth'}); }
     });
   });
 
@@ -445,8 +441,9 @@ def _render_annotation_cards(files):
             extra_parts.append(f'<details><summary>调用树</summary>{html.escape(str(f["call_tree"]))}</details>')
         if not extra_parts:
             continue
+        anchor = html.escape(f["path"], quote=True)
         cards.append(
-            f'<div class="annotation-card">'
+            f'<div class="annotation-card" data-anchor="{anchor}">'
             f'<div class="anchor-label">{html.escape(f["path"])}</div>'
             f'{"".join(extra_parts)}</div>'
         )
