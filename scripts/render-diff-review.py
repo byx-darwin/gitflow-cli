@@ -111,8 +111,10 @@ def parse_diff_text(diff_text):
             entries.append(_parse_file_block(block))
         except ValueError as exc:
             first_line = block.splitlines()[0] if block.splitlines() else "<empty>"
+            header_match = DIFF_GIT_RE.match(first_line)
+            error_path = header_match.group(2) if header_match else first_line
             entries.append({
-                "path": first_line,
+                "path": error_path,
                 "old_path": None,
                 "status": "error",
                 "lines": [],
@@ -152,6 +154,48 @@ def scan_untracked_files():
     return entries
 
 
+def build_annotations(diff_range, tracked_files, untracked_files):
+    return {
+        "diff_range": diff_range,
+        "files": tracked_files + untracked_files,
+    }
+
+
+def _sanitize_range(diff_range):
+    return diff_range.replace("/", "-")
+
+
+def run_scan(diff_range, output_path):
+    result = subprocess.run(
+        ["git", "diff", diff_range],
+        capture_output=True, text=True, check=True,
+    )
+    tracked_files = parse_diff_text(result.stdout)
+    untracked_files = scan_untracked_files()
+    annotations = build_annotations(diff_range, tracked_files, untracked_files)
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(annotations, f, indent=2, ensure_ascii=False)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(prog="render-diff-review")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    scan_p = sub.add_parser("scan", help="Parse a git diff range into annotations.json")
+    scan_p.add_argument("diff_range", help="e.g. 'main..HEAD' or 'abc123..def456'")
+    scan_p.add_argument("--output", default=None)
+
+    args = parser.parse_args()
+
+    if args.command == "scan":
+        output_path = args.output or os.path.join(
+            ".cache", "diff-review", f"{_sanitize_range(args.diff_range)}.json"
+        )
+        run_scan(args.diff_range, output_path)
+        print(f"✓ 已生成 {output_path}")
+
+
 if __name__ == "__main__":
-    print("render-diff-review.py: CLI wiring added in a later task", file=sys.stderr)
-    sys.exit(1)
+    main()

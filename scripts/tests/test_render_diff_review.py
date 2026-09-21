@@ -150,6 +150,7 @@ Binary files a/image.png and b/image.png differ
         self.assertEqual(f["lines"], [])
 
 
+import json
 import subprocess
 import tempfile
 
@@ -200,6 +201,82 @@ class TestScanUntrackedFiles(unittest.TestCase):
                 os.chdir(cwd)
 
             self.assertEqual(entries, [])
+
+
+build_annotations = render_diff_review.build_annotations
+run_scan = render_diff_review.run_scan
+
+
+class TestBuildAnnotations(unittest.TestCase):
+    def test_assembles_tracked_and_untracked_with_diff_range(self):
+        tracked = [{"path": "a.py", "old_path": None, "status": "modified",
+                    "lines": [], "error": None, "pseudocode": None, "call_tree": None}]
+        untracked = [{"path": "b.py", "old_path": None, "status": "untracked",
+                      "lines": [], "error": None, "pseudocode": None, "call_tree": None}]
+        result = build_annotations("main..HEAD", tracked, untracked)
+        self.assertEqual(result["diff_range"], "main..HEAD")
+        self.assertEqual(result["files"], tracked + untracked)
+
+
+class TestRunScan(unittest.TestCase):
+    def test_malformed_fragment_isolated_valid_files_still_parse(self):
+        # Directly exercise parse_diff_text's fault isolation (already covered
+        # indirectly by parse_diff_text's own error-entry behavior) via
+        # build_annotations + a hand-crafted mixed-validity diff text, to
+        # confirm the assembled annotations still contain both the error
+        # entry and the valid entry.
+        mixed_diff = """diff --git a/good.py b/good.py
+index 1111111..2222222 100644
+--- a/good.py
++++ b/good.py
+@@ -1,1 +1,1 @@
+-old
++new
+diff --git a/bad.py b/bad.py
+this is not a valid diff --git header continuation
+@@ not a real hunk header @@
+"""
+        tracked = render_diff_review.parse_diff_text(mixed_diff)
+        annotations = build_annotations("x..y", tracked, [])
+        statuses = {f["path"]: f["status"] for f in annotations["files"]}
+        self.assertEqual(statuses["good.py"], "modified")
+        # the second block's own diff --git header IS well-formed
+        # ("diff --git a/bad.py b/bad.py"), but its hunk line is malformed —
+        # the malformed hunk header must not crash the whole scan, and must
+        # surface as an error entry for bad.py specifically.
+        self.assertEqual(statuses["bad.py"], "error")
+        self.assertIsNotNone(
+            next(f for f in annotations["files"] if f["path"] == "bad.py")["error"]
+        )
+
+    def test_run_scan_writes_annotations_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
+            subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=tmp, check=True)
+            subprocess.run(["git", "config", "user.name", "t"], cwd=tmp, check=True)
+            with open(os.path.join(tmp, "f.txt"), "w") as f:
+                f.write("line1\n")
+            subprocess.run(["git", "add", "f.txt"], cwd=tmp, check=True)
+            subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmp, check=True)
+            with open(os.path.join(tmp, "f.txt"), "w") as f:
+                f.write("line1 changed\n")
+            subprocess.run(["git", "add", "f.txt"], cwd=tmp, check=True)
+            subprocess.run(["git", "commit", "-q", "-m", "change"], cwd=tmp, check=True)
+
+            output_path = os.path.join(tmp, "out.json")
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                run_scan("HEAD~1..HEAD", output_path)
+            finally:
+                os.chdir(cwd)
+
+            self.assertTrue(os.path.exists(output_path))
+            with open(output_path, encoding="utf-8") as f:
+                data = json.load(f)
+            self.assertEqual(data["diff_range"], "HEAD~1..HEAD")
+            self.assertEqual(len(data["files"]), 1)
+            self.assertEqual(data["files"][0]["path"], "f.txt")
 
 
 if __name__ == "__main__":
