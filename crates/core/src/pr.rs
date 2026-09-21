@@ -44,10 +44,12 @@ pub struct PrData {
     /// 来源分支。
     #[serde(alias = "headRefName")]
     pub head_branch: String,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
-    /// 最近更新时间（UTC）。
-    pub updated_at: DateTime<Utc>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    /// 最近更新时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
     /// 合并时间（UTC）；未合并时为 `None`。
     ///
     /// 存在的必要：[`State`] 把 `MERGED` alias 进 `Closed`，仅凭 `state`

@@ -64,8 +64,10 @@ impl GhRun {
             ref_name: self.head_branch,
             status: gh_status_to_enum(&self.status, self.conclusion.as_deref()),
             conclusion: self.conclusion,
-            created_at,
-            updated_at,
+            // Wrapped in Some purely for PipelineStatus's new Option type
+            // (#380). Fallback value unchanged — Issue #401's decision.
+            created_at: Some(created_at),
+            updated_at: Some(updated_at),
             url: self.url,
         }
     }
@@ -572,6 +574,22 @@ mod tests {
         assert_eq!(status.ref_name, "main");
         assert_eq!(status.status, PipelineStatusEnum::Success);
         assert_eq!(status.conclusion.as_deref(), Some("success"));
+    }
+
+    #[test]
+    fn test_should_convert_run_with_present_timestamps_to_some() {
+        let run = GhRun {
+            database_id: 1,
+            head_branch: "main".to_string(),
+            status: "completed".to_string(),
+            conclusion: Some("success".to_string()),
+            created_at: "2026-07-01T10:00:00Z".to_string(),
+            updated_at: "2026-07-01T10:05:30Z".to_string(),
+            url: "https://example.com/runs/1".to_string(),
+        };
+        let status = run.into_status();
+        assert!(status.created_at.is_some());
+        assert!(status.updated_at.is_some());
     }
 
     #[test]

@@ -59,10 +59,12 @@ pub struct PipelineStatus {
     /// 流水线结论（成功/失败原因等，可选）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conclusion: Option<String>,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
-    /// 最近更新时间（UTC）。
-    pub updated_at: DateTime<Utc>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    /// 最近更新时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
     /// 流水线的 Web URL。
     pub url: String,
 }
@@ -154,6 +156,19 @@ pub trait PipelineProvider: std::fmt::Debug + Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_should_deserialize_pipeline_status_with_missing_timestamps_as_none() {
+        let json = r#"{
+            "id": 1,
+            "refName": "main",
+            "status": "success",
+            "url": "https://example.com/pipelines/1"
+        }"#;
+        let status: PipelineStatus = serde_json::from_str(json).expect("deserialize");
+        assert!(status.created_at.is_none());
+        assert!(status.updated_at.is_none());
+    }
 
     #[test]
     fn test_should_serialize_pipeline_status_enum_to_snake_case() {

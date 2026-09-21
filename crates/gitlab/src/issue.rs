@@ -241,7 +241,6 @@ struct IssueApiResponse {
 
 impl From<IssueApiResponse> for IssueData {
     fn from(api: IssueApiResponse) -> Self {
-        let now = Utc::now();
         let labels: Vec<Label> = api
             .labels
             .into_iter()
@@ -271,8 +270,8 @@ impl From<IssueApiResponse> for IssueData {
             labels,
             author,
             assignees: api.assignees.iter().map(UserSummary::from).collect(),
-            created_at: api.created_at.unwrap_or(now),
-            updated_at: api.updated_at.unwrap_or(now),
+            created_at: api.created_at,
+            updated_at: api.updated_at,
             url: api.web_url.unwrap_or_default(),
             milestone: api.milestone.map(Into::into),
         }
@@ -304,7 +303,7 @@ impl From<CommentApiResponse> for CommentData {
             id: api.id,
             body: api.body,
             author,
-            created_at: api.created_at.unwrap_or_else(Utc::now),
+            created_at: api.created_at,
         }
     }
 }
@@ -1010,6 +1009,31 @@ mod tests {
         let issue: IssueData = api.into();
         assert_eq!(issue.author.login, "unknown");
         assert_eq!(issue.author.id, "0");
+        assert!(
+            issue.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            issue.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
+    }
+
+    #[test]
+    fn test_should_keep_comment_created_at_none_when_api_omits_it() {
+        let json = br#"{
+            "id": 1002,
+            "body": "No timestamp provided.",
+            "author": {"username": "maintainer", "id": 42}
+        }"#;
+
+        let api: CommentApiResponse =
+            serde_json::from_slice(json).expect("valid CommentApiResponse");
+        let comment: CommentData = api.into();
+        assert!(
+            comment.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]

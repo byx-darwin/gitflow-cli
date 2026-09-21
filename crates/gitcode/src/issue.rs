@@ -111,22 +111,16 @@ impl From<IssueApiResponse> for IssueData {
                 .into_iter()
                 .map(UserSummary::from)
                 .collect(),
-            created_at: api
-                .created_at
-                .and_then(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .ok()
-                        .map(|d| d.with_timezone(&Utc))
-                })
-                .unwrap_or_else(Utc::now),
-            updated_at: api
-                .updated_at
-                .and_then(|s| {
-                    DateTime::parse_from_rfc3339(&s)
-                        .ok()
-                        .map(|d| d.with_timezone(&Utc))
-                })
-                .unwrap_or_else(Utc::now),
+            created_at: api.created_at.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|d| d.with_timezone(&Utc))
+            }),
+            updated_at: api.updated_at.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|d| d.with_timezone(&Utc))
+            }),
             url: api.html_url,
             milestone: api.milestone.map(Into::into),
         }
@@ -178,14 +172,14 @@ impl From<CommentApiResponse> for CommentData {
             },
             UserSummary::from,
         );
-        let created_at = api.created_at.as_deref().map_or_else(Utc::now, |s| {
+        let created_at = api.created_at.as_deref().and_then(|s| {
             DateTime::parse_from_rfc3339(s)
                 .map(|dt| dt.with_timezone(&Utc))
                 .or_else(|_| {
                     chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
                         .map(|ndt| ndt.and_utc())
                 })
-                .unwrap_or_else(|_| Utc::now())
+                .ok()
         });
         Self {
             id: api.id,
@@ -879,6 +873,49 @@ mod tests {
     }
 
     #[test]
+    fn test_should_keep_issue_created_at_none_when_gc_api_omits_it() {
+        let gc_json = br#"{
+            "number": "15",
+            "title": "No timestamps",
+            "body": null,
+            "state": "open",
+            "labels": [],
+            "author": {"login": "dev", "id": "5"},
+            "assignees": [],
+            "html_url": "https://gitcode.com/octocat/hello-world/issues/15"
+        }"#;
+
+        let api: IssueApiResponse =
+            serde_json::from_slice(gc_json).expect("valid IssueApiResponse");
+        let issue: IssueData = api.into();
+        assert!(
+            issue.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            issue.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
+    }
+
+    #[test]
+    fn test_should_keep_comment_created_at_none_when_gc_api_omits_it() {
+        let gc_json = br#"{
+            "id": "1002",
+            "body": "No timestamp provided.",
+            "author": "maintainer"
+        }"#;
+
+        let api: CommentApiResponse =
+            serde_json::from_slice(gc_json).expect("valid CommentApiResponse");
+        let comment = CommentData::from(api);
+        assert!(
+            comment.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+    }
+
+    #[test]
     fn test_should_deserialize_empty_issue_list_from_gc_output() {
         let gc_json = b"[]";
         let issues: Vec<IssueData> = serde_json::from_slice(gc_json).expect("valid IssueData list");
@@ -959,7 +996,7 @@ mod tests {
                 login: "alice".into(),
                 id: "3".to_string(),
             },
-            created_at: "2026-05-01T00:00:00Z".parse().expect("valid date"),
+            created_at: Some("2026-05-01T00:00:00Z".parse().expect("valid date")),
         };
         let json = serde_json::to_string(&comment).expect("serialize");
         let round_tripped: CommentData = serde_json::from_str(&json).expect("deserialize");
@@ -1098,7 +1135,10 @@ mod tests {
         assert_eq!(issue.number, 3);
         assert_eq!(issue.title, "Real title");
         assert_eq!(issue.body.as_deref(), Some("real body"));
-        assert_eq!(issue.created_at.to_rfc3339(), "2026-01-01T00:00:00+00:00");
+        assert_eq!(
+            issue.created_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-01-01T00:00:00+00:00".to_string())
+        );
         assert_eq!(
             issue.milestone,
             Some(gitflow_core::types::MilestoneRef {
