@@ -188,6 +188,10 @@ render-workflow-dashboard: ## 从 .cache/workflows/active/*.json 生成派生的
 	@python3 scripts/render-workflow-dashboard.py
 	@echo "✓ 已生成 .cache/workflows/dashboard.html"
 
+render-diff-review: ## 对 dev..HEAD 的改动生成交互式 diff 审阅页（勿手编产物），可用 RANGE=<base>..<head> 覆盖
+	@python3 scripts/render-diff-review.py scan "$${RANGE:-dev..HEAD}"
+	@python3 scripts/render-diff-review.py render ".cache/diff-review/$$(echo "$${RANGE:-dev..HEAD}" | tr '/' '-').json"
+
 check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-only (override SKILLS_DIR)
 	@$(SKILL_FNS) \
 	D="$(SKILLS_DIR)"; DRIFT=0; \
@@ -669,7 +673,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift render-workflow-dashboard release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift render-workflow-dashboard render-diff-review release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
