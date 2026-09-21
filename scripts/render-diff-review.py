@@ -177,6 +177,137 @@ def run_scan(diff_range, output_path):
         json.dump(annotations, f, indent=2, ensure_ascii=False)
 
 
+BANNER_TEXT = (
+    "⚠️ 派生视图 — 请勿手工编辑，由 make render-diff-review "
+    "从 git diff 生成"
+)
+
+STYLE = """
+body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f6; }
+.banner { background: #fff3cd; border-bottom: 1px solid #ffe08a; color: #7a5b00;
+          padding: 10px 16px; font-weight: bold; }
+.layout { display: flex; height: calc(100vh - 44px); }
+#file-tree { width: 220px; overflow-y: auto; background: #fff; border-right: 1px solid #ddd; }
+#file-tree .file-item { padding: 6px 10px; cursor: pointer; font-size: 13px; }
+#diff-pane { flex: 1; overflow-y: auto; background: #fff; }
+#annotation-pane { width: 280px; overflow-y: auto; background: #fafafa; border-left: 1px solid #ddd; }
+.resize-handle { width: 4px; cursor: col-resize; background: #ddd; }
+.diff-line { display: flex; font-family: monospace; font-size: 12px; white-space: pre; }
+.diff-line.add { background: #e6ffed; }
+.diff-line.remove { background: #ffeef0; }
+.diff-line .lineno { width: 70px; color: #999; text-align: right; padding-right: 8px; user-select: none; }
+.diff-line.hover-highlight { outline: 2px solid #7cb3f5; }
+.annotation-card { padding: 8px; border-bottom: 1px solid #eee; font-size: 12px; cursor: pointer; }
+.annotation-card.hover-highlight { background: #e0ecff; }
+.annotation-card .empty { color: #999; font-style: italic; }
+.file-header { background: #f0f0f2; font-weight: bold; padding: 6px 10px; font-size: 13px; }
+.file-note { padding: 8px 10px; color: #666; font-style: italic; }
+.flash { outline: 2px solid #ff9800; }
+"""
+
+
+def _anchor_id(path, line):
+    side = "new" if line["new_line"] is not None else "old"
+    num = line["new_line"] if line["new_line"] is not None else line["old_line"]
+    return f"{path}:{side}:{num}"
+
+
+def _render_line(file_path, line):
+    old_no = line["old_line"] if line["old_line"] is not None else ""
+    new_no = line["new_line"] if line["new_line"] is not None else ""
+    css_class = {"add": "add", "remove": "remove", "context": ""}[line["type"]]
+    anchor_id = html.escape(_anchor_id(file_path, line), quote=True)
+    content_html = html.escape(line["content"])
+    return (
+        f'<div class="diff-line {css_class}" id="{anchor_id}" data-anchor="{anchor_id}">'
+        f'<span class="lineno">{html.escape(str(old_no))}</span>'
+        f'<span class="lineno">{html.escape(str(new_no))}</span>'
+        f'<span class="content">{content_html}</span>'
+        f'</div>'
+    )
+
+
+def _render_file_section(file_entry):
+    path = html.escape(file_entry["path"])
+    status = file_entry["status"]
+    if status == "binary":
+        body = '<div class="file-note">二进制文件，无法显示 diff</div>'
+    elif status == "error":
+        body = f'<div class="file-note">⚠️ 解析失败: {html.escape(file_entry["error"] or "")}</div>'
+    else:
+        body = "".join(_render_line(file_entry["path"], ln) for ln in file_entry["lines"])
+    header_extra = ""
+    if status == "renamed":
+        header_extra = f' (重命名自 {html.escape(file_entry["old_path"] or "")})'
+    elif status == "untracked":
+        header_extra = " (未跟踪)"
+    return (
+        f'<div class="file-section" data-file="{path}">'
+        f'<div class="file-header">{path}{header_extra}</div>'
+        f'{body}'
+        f'</div>'
+    )
+
+
+def _render_file_tree(files):
+    items = "".join(
+        f'<div class="file-item" data-file="{html.escape(f["path"])}">{html.escape(f["path"])}</div>'
+        for f in files
+    )
+    return f'<div id="file-tree">{items}</div>'
+
+
+def _render_annotation_cards(files):
+    cards = []
+    for f in files:
+        for line in f.get("lines", []):
+            anchor_id = html.escape(_anchor_id(f["path"], line), quote=True)
+            extra_parts = []
+            if f.get("pseudocode"):
+                extra_parts.append(f'<details><summary>伪代码</summary>{html.escape(str(f["pseudocode"]))}</details>')
+            if f.get("call_tree"):
+                extra_parts.append(f'<details><summary>调用树</summary>{html.escape(str(f["call_tree"]))}</details>')
+            extra = "".join(extra_parts) or '<span class="empty">暂无说明</span>'
+            display_no = line["new_line"] if line["new_line"] is not None else line["old_line"]
+            cards.append(
+                f'<div class="annotation-card" data-anchor="{anchor_id}">'
+                f'<div class="anchor-label">{html.escape(f["path"])}:{display_no}</div>'
+                f'{extra}</div>'
+            )
+    return f'<div id="annotation-pane">{"".join(cards)}</div>'
+
+
+def render_html(annotations):
+    files = annotations.get("files", [])
+    file_tree = _render_file_tree(files)
+    diff_sections = "".join(_render_file_section(f) for f in files)
+    annotation_pane = _render_annotation_cards(files)
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n'
+        "<title>Diff Review</title>\n"
+        f"<style>{STYLE}</style>\n</head>\n<body>\n"
+        f'<div class="banner">{html.escape(BANNER_TEXT)}</div>\n'
+        '<div class="layout">\n'
+        f'{file_tree}\n'
+        '<div class="resize-handle" id="resize-tree"></div>\n'
+        f'<div id="diff-pane">{diff_sections}</div>\n'
+        '<div class="resize-handle" id="resize-annotation"></div>\n'
+        f'{annotation_pane}\n'
+        '</div>\n'
+        "</body>\n</html>\n"
+    )
+
+
+def run_render(annotations_path, output_path):
+    with open(annotations_path, encoding="utf-8") as f:
+        annotations = json.load(f)
+    document = render_html(annotations)
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(document)
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(prog="render-diff-review")
@@ -186,6 +317,10 @@ def main():
     scan_p.add_argument("diff_range", help="e.g. 'main..HEAD' or 'abc123..def456'")
     scan_p.add_argument("--output", default=None)
 
+    render_p = sub.add_parser("render", help="Render annotations.json into an HTML review page")
+    render_p.add_argument("annotations_path")
+    render_p.add_argument("--output", default=None)
+
     args = parser.parse_args()
 
     if args.command == "scan":
@@ -193,6 +328,14 @@ def main():
             ".cache", "diff-review", f"{_sanitize_range(args.diff_range)}.json"
         )
         run_scan(args.diff_range, output_path)
+        print(f"✓ 已生成 {output_path}")
+    elif args.command == "render":
+        with open(args.annotations_path, encoding="utf-8") as f:
+            diff_range = json.load(f).get("diff_range", "review")
+        output_path = args.output or os.path.join(
+            ".cache", "diff-review", f"{_sanitize_range(diff_range)}.html"
+        )
+        run_render(args.annotations_path, output_path)
         print(f"✓ 已生成 {output_path}")
 
 

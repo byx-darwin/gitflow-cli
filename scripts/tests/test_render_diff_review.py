@@ -279,5 +279,113 @@ this is not a valid diff --git header continuation
             self.assertEqual(data["files"][0]["path"], "f.txt")
 
 
+render_html = render_diff_review.render_html
+run_render = render_diff_review.run_render
+
+
+SAMPLE_ANNOTATIONS = {
+    "diff_range": "main..HEAD",
+    "files": [
+        {
+            "path": "src/foo.py",
+            "old_path": None,
+            "status": "modified",
+            "lines": [
+                {"old_line": 1, "new_line": 1, "type": "context", "content": "def foo():"},
+                {"old_line": 2, "new_line": None, "type": "remove", "content": "    return 1"},
+                {"old_line": None, "new_line": 2, "type": "add", "content": "    return 2"},
+            ],
+            "error": None, "pseudocode": None, "call_tree": None,
+        },
+        {
+            "path": "assets/logo.png",
+            "old_path": None,
+            "status": "binary",
+            "lines": [], "error": None, "pseudocode": None, "call_tree": None,
+        },
+        {
+            "path": "broken.py",
+            "old_path": None,
+            "status": "error",
+            "lines": [], "error": "malformed hunk header", "pseudocode": None, "call_tree": None,
+        },
+    ],
+}
+
+
+class TestRenderHtml(unittest.TestCase):
+    def test_produces_three_pane_structure(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn('id="file-tree"', out)
+        self.assertIn('id="diff-pane"', out)
+        self.assertIn('id="annotation-pane"', out)
+
+    def test_diff_line_anchors_match_line_numbers(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn('src/foo.py:new:1', out)
+        self.assertIn('src/foo.py:old:2', out)
+        self.assertIn('src/foo.py:new:2', out)
+
+    def test_add_remove_css_classes_present(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn('diff-line add', out)
+        self.assertIn('diff-line remove', out)
+
+    def test_binary_file_shows_note_not_lines(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn("二进制文件", out)
+
+    def test_error_file_shows_error_message(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn("解析失败", out)
+        self.assertIn("malformed hunk header", out)
+
+    def test_banner_present_verbatim(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertIn(
+            "⚠️ 派生视图 — 请勿手工编辑，由 make render-diff-review 从 git diff 生成",
+            out,
+        )
+
+    def test_no_cdn_script_tags(self):
+        out = render_html(SAMPLE_ANNOTATIONS)
+        self.assertNotIn('src="http://', out)
+        self.assertNotIn('src="https://', out)
+        self.assertNotIn("cdn.", out.lower())
+        self.assertNotIn("prism", out.lower())
+
+    def test_html_injection_is_escaped(self):
+        malicious = {
+            "diff_range": "x..y",
+            "files": [{
+                "path": "<script>alert(1)</script>.py",
+                "old_path": None, "status": "modified",
+                "lines": [{"old_line": 1, "new_line": 1, "type": "context",
+                           "content": "<img src=x onerror=alert(2)>"}],
+                "error": None, "pseudocode": None, "call_tree": None,
+            }],
+        }
+        out = render_html(malicious)
+        self.assertNotIn("<script>alert(1)</script>", out)
+        self.assertNotIn("<img src=x onerror=alert(2)>", out)
+        self.assertIn("&lt;script&gt;", out)
+
+
+class TestRunRender(unittest.TestCase):
+    def test_run_render_writes_html_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            annotations_path = os.path.join(tmp, "annotations.json")
+            with open(annotations_path, "w", encoding="utf-8") as f:
+                json.dump(SAMPLE_ANNOTATIONS, f)
+            output_path = os.path.join(tmp, "out.html")
+
+            run_render(annotations_path, output_path)
+
+            self.assertTrue(os.path.exists(output_path))
+            with open(output_path, encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn('id="file-tree"', content)
+
+
 if __name__ == "__main__":
     unittest.main()
