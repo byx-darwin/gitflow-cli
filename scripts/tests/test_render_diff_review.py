@@ -417,5 +417,70 @@ class TestRunRender(unittest.TestCase):
             self.assertIn('id="file-tree"', content)
 
 
+_highlight_line = render_diff_review._highlight_line
+_language_for_path = render_diff_review._language_for_path
+
+
+class TestLanguageDetection(unittest.TestCase):
+    def test_known_extensions_map_to_language(self):
+        self.assertEqual(_language_for_path("src/foo.rs"), "rust")
+        self.assertEqual(_language_for_path("src/foo.py"), "python")
+        self.assertEqual(_language_for_path("scripts/foo.sh"), "shell")
+        self.assertEqual(_language_for_path("README.md"), "markdown")
+        self.assertEqual(_language_for_path("config.yaml"), "yaml")
+        self.assertEqual(_language_for_path("Cargo.toml"), "toml")
+        self.assertEqual(_language_for_path("data.json"), "json")
+
+    def test_unknown_extension_returns_none(self):
+        self.assertIsNone(_language_for_path("binary.exe"))
+
+
+class TestHighlightLine(unittest.TestCase):
+    def test_rust_keyword_string_comment(self):
+        out = _highlight_line("rust", 'fn foo() { "hi" } // comment')
+        self.assertIn('<span class="tok-keyword">fn</span>', out)
+        self.assertIn('<span class="tok-string">&quot;hi&quot;</span>', out)
+        self.assertIn('<span class="tok-comment">// comment</span>', out)
+
+    def test_python_keyword_string_comment(self):
+        out = _highlight_line("python", 'def foo(): return "hi"  # comment')
+        self.assertIn('<span class="tok-keyword">def</span>', out)
+        self.assertIn('<span class="tok-string">&quot;hi&quot;</span>', out)
+        self.assertIn('<span class="tok-comment"># comment</span>', out)
+
+    def test_shell_keyword_string_comment(self):
+        out = _highlight_line("shell", 'if [ -f x ]; then echo "hi"; fi # comment')
+        self.assertIn('<span class="tok-keyword">if</span>', out)
+        self.assertIn('<span class="tok-string">&quot;hi&quot;</span>', out)
+        self.assertIn('<span class="tok-comment"># comment</span>', out)
+
+    def test_json_string(self):
+        out = _highlight_line("json", '{"key": "value"}')
+        self.assertIn('<span class="tok-string">&quot;key&quot;</span>', out)
+
+    def test_toml_comment_and_string(self):
+        out = _highlight_line("toml", 'name = "gf" # comment')
+        self.assertIn('<span class="tok-string">&quot;gf&quot;</span>', out)
+        self.assertIn('<span class="tok-comment"># comment</span>', out)
+
+    def test_yaml_comment_and_string(self):
+        out = _highlight_line("yaml", 'key: "value" # comment')
+        self.assertIn('<span class="tok-string">&quot;value&quot;</span>', out)
+        self.assertIn('<span class="tok-comment"># comment</span>', out)
+
+    def test_markdown_heading(self):
+        out = _highlight_line("markdown", '# Heading')
+        self.assertIn('<span class="tok-keyword"># Heading</span>', out)
+
+    def test_none_language_only_escapes(self):
+        out = _highlight_line(None, '<script>alert(1)</script>')
+        self.assertEqual(out, "&lt;script&gt;alert(1)&lt;/script&gt;")
+
+    def test_html_in_string_is_escaped_not_double_escaped(self):
+        out = _highlight_line("python", '"<b>"')
+        self.assertIn("&lt;b&gt;", out)
+        self.assertNotIn("<b>", out)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -203,7 +203,89 @@ body { font-family: -apple-system, sans-serif; margin: 0; background: #f4f4f6; }
 .file-header { background: #f0f0f2; font-weight: bold; padding: 6px 10px; font-size: 13px; }
 .file-note { padding: 8px 10px; color: #666; font-style: italic; }
 .flash { outline: 2px solid #ff9800; }
+.tok-keyword { color: #a626a4; font-weight: bold; }
+.tok-string { color: #50a14f; }
+.tok-comment { color: #a0a1a7; font-style: italic; }
 """
+
+
+LANGUAGE_BY_EXT = {
+    ".rs": "rust",
+    ".py": "python",
+    ".sh": "shell", ".bash": "shell",
+    ".md": "markdown",
+    ".yml": "yaml", ".yaml": "yaml",
+    ".toml": "toml",
+    ".json": "json",
+}
+
+
+def _language_for_path(path):
+    _, ext = os.path.splitext(path)
+    return LANGUAGE_BY_EXT.get(ext)
+
+
+TOKEN_RULES = {
+    "rust": [
+        (re.compile(r'//.*$'), "tok-comment"),
+        (re.compile(r'"(?:[^"\\]|\\.)*"'), "tok-string"),
+        (re.compile(r'\b(fn|let|mut|pub|struct|enum|impl|trait|use|mod|match|if|else|for|while|loop|return|self|Self)\b'), "tok-keyword"),
+    ],
+    "python": [
+        (re.compile(r'#.*$'), "tok-comment"),
+        (re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\''), "tok-string"),
+        (re.compile(r'\b(def|class|import|from|return|if|elif|else|for|while|with|as|try|except|raise|pass|self)\b'), "tok-keyword"),
+    ],
+    "shell": [
+        (re.compile(r'#.*$'), "tok-comment"),
+        (re.compile(r'"(?:[^"\\]|\\.)*"|\'[^\']*\''), "tok-string"),
+        (re.compile(r'\b(if|then|else|fi|for|do|done|while|function|echo|local|return)\b'), "tok-keyword"),
+    ],
+    "markdown": [
+        (re.compile(r'^#+\s.*$'), "tok-keyword"),
+        (re.compile(r'`[^`]*`'), "tok-string"),
+    ],
+    "yaml": [
+        (re.compile(r'#.*$'), "tok-comment"),
+        (re.compile(r'"[^"]*"|\'[^\']*\''), "tok-string"),
+    ],
+    "toml": [
+        (re.compile(r'#.*$'), "tok-comment"),
+        (re.compile(r'"[^"]*"'), "tok-string"),
+    ],
+    "json": [
+        (re.compile(r'"(?:[^"\\]|\\.)*"'), "tok-string"),
+    ],
+}
+
+
+def _highlight_line(language, text):
+    if language not in TOKEN_RULES:
+        return html.escape(text)
+
+    spans = []
+    for pattern, css_class in TOKEN_RULES[language]:
+        for m in pattern.finditer(text):
+            spans.append((m.start(), m.end(), css_class))
+    if not spans:
+        return html.escape(text)
+
+    spans.sort(key=lambda s: s[0])
+    merged = []
+    last_end = -1
+    for start, end, css_class in spans:
+        if start >= last_end:
+            merged.append((start, end, css_class))
+            last_end = end
+
+    out = []
+    cursor = 0
+    for start, end, css_class in merged:
+        out.append(html.escape(text[cursor:start]))
+        out.append(f'<span class="{css_class}">{html.escape(text[start:end])}</span>')
+        cursor = end
+    out.append(html.escape(text[cursor:]))
+    return "".join(out)
 
 
 def _anchor_id(path, line):
@@ -217,7 +299,7 @@ def _render_line(file_path, line):
     new_no = line["new_line"] if line["new_line"] is not None else ""
     css_class = {"add": "add", "remove": "remove", "context": ""}[line["type"]]
     anchor_id = html.escape(_anchor_id(file_path, line), quote=True)
-    content_html = html.escape(line["content"])
+    content_html = _highlight_line(_language_for_path(file_path), line["content"])
     return (
         f'<div class="diff-line {css_class}" id="{anchor_id}" data-anchor="{anchor_id}">'
         f'<span class="lineno">{html.escape(str(old_no))}</span>'
