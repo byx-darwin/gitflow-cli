@@ -103,6 +103,41 @@ class TestParseDiffText(unittest.TestCase):
         self.assertEqual(parse_diff_text(""), [])
         self.assertEqual(parse_diff_text("   \n  "), [])
 
+    def test_rename_without_content_change(self):
+        diff = """diff --git a/old_name.py b/new_name.py
+similarity index 100%
+rename from old_name.py
+rename to new_name.py
+"""
+        files = parse_diff_text(diff)
+        self.assertEqual(len(files), 1)
+        f = files[0]
+        self.assertEqual(f["status"], "renamed")
+        self.assertEqual(f["old_path"], "old_name.py")
+        self.assertEqual(f["path"], "new_name.py")
+        self.assertEqual(f["lines"], [])
+
+    def test_rename_with_content_hunk(self):
+        diff = """diff --git a/old2.py b/new2.py
+similarity index 87%
+rename from old2.py
+rename to new2.py
+index 5555555..6666666 100644
+--- a/old2.py
++++ b/new2.py
+@@ -1,2 +1,2 @@
+ def f():
+-    return 1
++    return 2
+"""
+        files = parse_diff_text(diff)
+        self.assertEqual(len(files), 1)
+        f = files[0]
+        self.assertEqual(f["status"], "renamed")
+        self.assertEqual(f["old_path"], "old2.py")
+        self.assertEqual(f["path"], "new2.py")
+        self.assertEqual(len(f["lines"]), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

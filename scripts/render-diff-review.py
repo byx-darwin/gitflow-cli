@@ -77,6 +77,13 @@ def _parse_file_block(block_text):
 
     entry = _new_file_entry(b_path)
 
+    for line in lines[1:6]:
+        if line.startswith("rename from "):
+            entry["old_path"] = line[len("rename from "):]
+            entry["status"] = "renamed"
+        elif line.startswith("rename to "):
+            entry["path"] = line[len("rename to "):]
+
     hunk_start = None
     for idx, line in enumerate(lines):
         if line.startswith("@@"):
