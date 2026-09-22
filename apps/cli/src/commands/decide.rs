@@ -73,7 +73,7 @@ pub async fn handle(command: DecideCommand, output: OutputFormat) -> miette::Res
             .decide(&request)
             .await
             .map_err(|e| miette::miette!("{e}"))?;
-        super::output::print_output(&response, &output)
+        super::output::print_output(&response, &decision_output_format(output))
     }
     #[cfg(not(feature = "gitflow-jev"))]
     {
@@ -81,6 +81,15 @@ pub async fn handle(command: DecideCommand, output: OutputFormat) -> miette::Res
         Err(miette::miette!(
             "decision provider unavailable: build with feature gitflow-jev"
         ))
+    }
+}
+
+#[cfg(any(feature = "gitflow-jev", test))]
+fn decision_output_format(format: OutputFormat) -> OutputFormat {
+    if matches!(format, OutputFormat::Auto) {
+        OutputFormat::Json
+    } else {
+        format
     }
 }
 
@@ -129,5 +138,13 @@ mod tests {
         assert!(!matches_kind(&question, "choice"));
         assert!(matches_kind(&question, "noul"));
         assert!(matches_kind(&question, "batch"));
+    }
+
+    #[test]
+    fn test_should_use_json_for_default_decision_output() {
+        assert!(matches!(
+            super::decision_output_format(crate::OutputFormat::Auto),
+            crate::OutputFormat::Json
+        ));
     }
 }

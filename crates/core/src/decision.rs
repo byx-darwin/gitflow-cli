@@ -150,8 +150,19 @@ impl DecisionRequest {
         let state_len = serde_json::to_vec(&self.state)
             .map_err(|_| DecisionError::InvalidInput("state is not serializable"))?
             .len();
-        if self.state.is_null() || state_len > MAX_STATE_BYTES {
+        if !matches!(&self.state, Value::String(value) if !value.trim().is_empty())
+            && !matches!(&self.state, Value::Array(values) if !values.is_empty())
+            && !matches!(&self.state, Value::Object(values) if !values.is_empty())
+        {
+            return Err(DecisionError::InvalidInput("state is empty or invalid"));
+        }
+        if state_len > MAX_STATE_BYTES {
             return Err(DecisionError::InvalidInput("state size is out of bounds"));
+        }
+        if state_contains_obvious_credential(&self.state) {
+            return Err(DecisionError::InvalidInput(
+                "state contains a credential-like value",
+            ));
         }
         if self.questions.is_empty() || self.questions.len() > MAX_QUESTIONS {
             return Err(DecisionError::InvalidInput(
@@ -323,6 +334,53 @@ fn is_probability(value: f64) -> bool {
     value.is_finite() && (0.0..=1.0).contains(&value)
 }
 
+fn state_contains_obvious_credential(value: &Value) -> bool {
+    match value {
+        Value::String(text) => {
+            let lower = text.to_ascii_lowercase();
+            [
+                "apikey_",
+                "github_pat_",
+                "ghp_",
+                "gho_",
+                "ghu_",
+                "ghs_",
+                "ghr_",
+                "glpat-",
+                "sk-",
+            ]
+            .iter()
+            .any(|prefix| {
+                lower.match_indices(prefix).any(|(index, _)| {
+                    let rest = &lower[index + prefix.len()..];
+                    rest.bytes()
+                        .take_while(|byte| {
+                            byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')
+                        })
+                        .count()
+                        >= 20
+                })
+            })
+        }
+        Value::Array(values) => values.iter().any(state_contains_obvious_credential),
+        Value::Object(values) => values.iter().any(|(key, value)| {
+            [
+                "token",
+                "api_key",
+                "access_token",
+                "password",
+                "secret",
+                "authorization",
+                "private_key",
+            ]
+            .iter()
+            .any(|sensitive| key.eq_ignore_ascii_case(sensitive))
+                || state_contains_obvious_credential(value)
+        }),
+        _ => false,
+    }
+}
+
 fn distribution_matches<'a>(
     actual: &BTreeMap<String, f64>,
     expected: impl Iterator<Item = &'a String>,
@@ -376,6 +434,40 @@ mod tests {
             state: json!("small"),
             questions,
         };
+        assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn test_should_reject_empty_state() {
+        let mut request = DecisionRequest {
+            state: json!("   "),
+            questions: BTreeMap::from([(
+                "blocked".into(),
+                Question::Noul {
+                    instructions: "Is this blocked?".into(),
+                },
+            )]),
+        };
+        assert!(request.validate().is_err());
+        request.state = json!({});
+        assert!(request.validate().is_err());
+        request.state = json!([]);
+        assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn test_should_reject_obvious_credential_in_state() {
+        let mut request = DecisionRequest {
+            state: json!({"title": format!("credential {}{}", "apikey_", "x".repeat(40))}),
+            questions: BTreeMap::from([(
+                "blocked".into(),
+                Question::Noul {
+                    instructions: "Is this blocked?".into(),
+                },
+            )]),
+        };
+        assert!(request.validate().is_err());
+        request.state = json!({"token": "something-private"});
         assert!(request.validate().is_err());
     }
 

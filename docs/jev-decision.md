@@ -22,6 +22,9 @@ TypeSafe and emits a validated JSON response. Example:
 
 The request limit is 128 KiB at the CLI boundary, 32 KiB for serialized state,
 and 16 questions. Choice allows 2–32 options; Score allows 2–10 ordered levels.
+Empty state and several obvious credential shapes are rejected before network
+transmission. This check is a last guard; review and remove sensitive content
+from the state yourself because no pattern matcher can recognize every secret.
 Responses are limited to 128 KiB, validated against the exact question set,
 and must arrive within 10 seconds by default. `GF_JEV_TIMEOUT_MS` may be set
 from 100 to 30000. `GF_JEV_MODEL` defaults to `jev-latest`.
@@ -86,8 +89,6 @@ The adapter uses TypeSafe's documented `POST /v1/systemone` contract. See the
 ## Evaluation status
 
 Offline tests cover schema validation, valid and malformed provider responses,
-missing key, timeout, and oversized state. A repository-specific accuracy,
-coverage, confusion matrix,
-urgent false-negative, latency, and token-cost report requires a new local
-key and a reviewed labeled corpus. No synthetic score is presented as measured
-Jev accuracy.
+missing key, timeout, and oversized state. The [pilot evaluation](./jev-triage-evaluation-2026-09-22.md)
+reports a live run on 22 labeled public Issues and separates six synthetic
+boundary cases. No automatic labeling threshold has been deployed.

@@ -104,6 +104,9 @@ The `priority` Score is a graded signal, not a direct `priority:*` label. Do not
 apply any threshold until it is calibrated on labeled Issues in this repository.
 Likewise, calibrate the `type`, `security_related`, and `blocked` thresholds
 separately. Review uncertain cases manually. Never assign labels solely from Jev.
+The [pilot evaluation](../../docs/jev-triage-evaluation-2026-09-22.md) has not
+established a safe automatic acceptance threshold. Until separate thresholds
+are validated, review every Jev suggestion before proposing a label.
 If the feature is absent, the key is missing, input is too large, the request
 times out, the response is malformed, or confidence is insufficient, continue
 with the heuristics below. Do not paste the API key into chat or a file.
@@ -207,6 +210,12 @@ most recent (ordered by the Issue/PR number embedded in the filename) into
 
 ### 5: Idempotency
 - **Given** second run — **Then** `triage:done` Issues skipped.
+
+### 6: Optional Jev uncertainty
+- **Given** a missing key, provider failure, malformed answer, or low-confidence
+  Choice/Score result — **When** triage runs — **Then** continue with the manual
+  classification steps, present uncertainty, and do not assign a label solely
+  from the Jev response.
 
 ## Success Criteria
 
