@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gf.ai/schemas/semantic-regression-suite-v1.json",
+  "type": "object",
+  "required": ["schemaVersion", "suiteId", "seed", "contracts", "cases"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "suiteId": {"$ref": "#/$defs/id"},
+    "seed": {"type": "integer", "minimum": 0},
+    "contracts": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/contract"}},
+    "cases": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/case"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$"},
+    "contract": {
+      "type": "object",
+      "required": ["id", "owner", "kind", "expectedIntent", "allowedFields", "threshold", "goldenExamples"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "owner": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["help", "error", "json_explanation", "cross_platform"]},
+        "expectedIntent": {"type": "string", "minLength": 1, "maxLength": 512},
+        "allowedFields": {"type": "array", "minItems": 1, "maxItems": 5, "uniqueItems": true, "items": {"enum": ["command", "expected_intent", "output_summary", "platform", "comparison_summary"]}},
+        "threshold": {"type": "number", "minimum": 0.5, "maximum": 1},
+        "goldenExamples": {"type": "array", "minItems": 2, "maxItems": 8, "items": {"type": "object", "required": ["summary", "fulfills"], "properties": {"summary": {"type": "string", "minLength": 1, "maxLength": 512}, "fulfills": {"type": "boolean"}}, "additionalProperties": false}}
+      },
+      "additionalProperties": false
+    },
+    "case": {
+      "type": "object",
+      "required": ["id", "contractId", "command", "platform", "outputSummary", "deterministic"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "contractId": {"$ref": "#/$defs/id"},
+        "command": {"type": "string", "minLength": 1, "maxLength": 128},
+        "platform": {"enum": ["github", "gitlab", "gitcode"]},
+        "outputSummary": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "comparisonSummary": {"type": ["string", "null"], "maxLength": 4096},
+        "deterministic": {"type": "object", "required": ["exitCodePassed", "schemaPassed", "sideEffectsPassed"], "properties": {"exitCodePassed": {"type": "boolean"}, "schemaPassed": {"type": "boolean"}, "sideEffectsPassed": {"type": "boolean"}}, "additionalProperties": false},
+        "expectedFulfills": {"type": ["boolean", "null"]},
+        "adversarial": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

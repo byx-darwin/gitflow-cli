@@ -1,0 +1,310 @@
+{
+  "help_clear": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.96
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 1.0,
+            "help": 0.0,
+            "error": 0.0,
+            "json": 0.0,
+            "cross_platform": 0.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 2.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 1.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  },
+  "help_missing": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.04
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "help",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 0.0,
+            "help": 1.0,
+            "error": 0.0,
+            "json": 0.0,
+            "cross_platform": 0.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 0.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 1.0,
+            "1": 0.0,
+            "2": 0.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  },
+  "error_action": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.96
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 1.0,
+            "help": 0.0,
+            "error": 0.0,
+            "json": 0.0,
+            "cross_platform": 0.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 2.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 1.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  },
+  "error_unclear": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.04
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "error",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 0.0,
+            "help": 0.0,
+            "error": 1.0,
+            "json": 0.0,
+            "cross_platform": 0.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 0.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 1.0,
+            "1": 0.0,
+            "2": 0.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  },
+  "json_explain": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.96
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 1.0,
+            "help": 0.0,
+            "error": 0.0,
+            "json": 0.0,
+            "cross_platform": 0.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 2.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 1.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  },
+  "cross_mismatch": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.04
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "cross_platform",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 0.0,
+            "help": 0.0,
+            "error": 0.0,
+            "json": 0.0,
+            "cross_platform": 1.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 0.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 1.0,
+            "1": 0.0,
+            "2": 0.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  },
+  "adversarial": {
+    "response": {
+      "model": "synthetic-fixture",
+      "answers": {
+        "meets_contract": {
+          "type": "noul",
+          "noul": 0.04
+        },
+        "regression_type": {
+          "type": "choice",
+          "choice": "help",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 0.0,
+            "help": 1.0,
+            "error": 0.0,
+            "json": 0.0,
+            "cross_platform": 0.0,
+            "other": 0.0
+          }
+        },
+        "quality": {
+          "type": "score",
+          "score": 0.0,
+          "confidence": 0.96,
+          "legend": {
+            "0": "Poor",
+            "1": "Mixed",
+            "2": "Clear and actionable"
+          },
+          "probabilities": {
+            "0": 1.0,
+            "1": 0.0,
+            "2": 0.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 30
+      }
+    },
+    "latencyMs": 25
+  }
+}

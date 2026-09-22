@@ -18,7 +18,9 @@ SKIP_COUNT=0
 
 # 查找 gf 二进制文件
 # 优先使用本地构建的版本
-if [[ -f "./target/release/gf" ]]; then
+if [[ -n "${GF_SMOKE_BINARY:-}" ]]; then
+    GITFLOW_CLI="$GF_SMOKE_BINARY"
+elif [[ -f "./target/release/gf" ]]; then
     GITFLOW_CLI="./target/release/gf"
 elif [[ -f "./target/debug/gf" ]]; then
     GITFLOW_CLI="./target/debug/gf"
@@ -26,6 +28,10 @@ elif command -v gf &> /dev/null; then
     GITFLOW_CLI="gf"
 else
     echo "错误: gf 未找到。请先运行 'cargo build' 或 'cargo install'" >&2
+    exit 1
+fi
+if ! command -v "$GITFLOW_CLI" &> /dev/null; then
+    echo "错误: gf 二进制不可执行: $GITFLOW_CLI" >&2
     exit 1
 fi
 
@@ -138,7 +144,7 @@ test_all_resources_help() {
     log_info "测试所有资源的 --help 命令 (平台: $platform)"
 
     # 主要资源类型
-    local resources=("issue" "pr" "release" "review" "auth" "label" "milestone" "commit" "pipeline")
+    local resources=("issue" "pr" "release" "review" "auth" "label" "milestone" "commit" "pipeline" "regression")
 
     for resource in "${resources[@]}"; do
         test_help "$resource --help" --platform "$platform" "$resource"
