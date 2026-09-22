@@ -8,6 +8,7 @@
 - [`architecture-internals.dot`](./architecture-internals.dot) / [`assets/architecture-internals.svg`](./assets/architecture-internals.svg) — hand-maintained map of provider contracts, domain types, error flow, external CLIs, and the synchronous `git` lookup. Use it for design intent and runtime risks; the generated diagram above tracks crate dependencies.
 - [Diff review semantic notes](./diff-review-semantic.md) — optional Claude Code CLI enrichment of pseudocode and visible calls for the offline diff review page.
 - [Config](./config.md) — config file format, env vars, XDG directories, and `.env` loading.
+- [Optional Jev decisions](./jev-decision.md) — typed decision CLI, limits, privacy, and calibration status (Issue #382).
 - [Shell Completions](./shell-completions.md) — how to generate and install tab completions.
 
 ## Development

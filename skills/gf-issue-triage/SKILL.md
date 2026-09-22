@@ -82,6 +82,32 @@ a truncated fetch as a complete classification.
 
 ### Step 2: Classify each Issue by title + description body
 
+Optional Jev guidance: when `gf` was built with `gitflow-jev`, `GF_DECISION_PROVIDER=jev`
+is set, and `TYPESAFE_API_KEY` is available in the local environment, fetch each Issue
+through `gf issue view <n> --output json` and prepare one bounded JSON request for
+`gf decide batch --input <file>`. Include only the Issue title and a short, reviewed
+excerpt of its body. Remove credentials, tokens, personal data, private URLs, and
+unrelated fields before transmission. Never send the raw Issue JSON. The request
+must contain four independent questions over the same state:
+
+Use the concrete request shape in [Optional Jev decisions](../../docs/jev-decision.md).
+
+| ID | Type | Meaning |
+|----|------|---------|
+| `type` | Choice | `bug`, `feature`, `enhancement`, `docs`, `question`, `other` |
+| `priority` | Score | ordered descriptions of low, medium, high, urgent impact |
+| `security_related` | Noul | probability of a security issue |
+| `blocked` | Noul | probability of work being blocked |
+
+Treat the returned answers as suggestions for the existing classification steps.
+The `priority` Score is a graded signal, not a direct `priority:*` label. Do not
+apply any threshold until it is calibrated on labeled Issues in this repository.
+Likewise, calibrate the `type`, `security_related`, and `blocked` thresholds
+separately. Review uncertain cases manually. Never assign labels solely from Jev.
+If the feature is absent, the key is missing, input is too large, the request
+times out, the response is malformed, or confidence is insufficient, continue
+with the heuristics below. Do not paste the API key into chat or a file.
+
 | Type | Heuristic |
 |------|-----------|
 | `type:bug` | reports crash / error / regression |

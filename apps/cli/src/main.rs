@@ -60,6 +60,7 @@ use commands::{
     auth::AuthCommand,
     commit::CommitCommand,
     completions::CompletionsArgs,
+    decide::DecideCommand,
     issue::IssueCommand,
     label::{LabelCommand, MilestoneCommand},
     pipeline::PipelineCommand,
@@ -117,6 +118,7 @@ fn main() -> std::process::ExitCode {
     let platform_needed = !matches!(
         cli.command,
         Commands::Skills(_)
+            | Commands::Decide(_)
             | Commands::Completions(_)
             | Commands::Workflow(_)
             | Commands::Update(_)
@@ -155,6 +157,7 @@ async fn async_main(cli: Cli, platform: &str, repo: &str, remote_url: &str) -> m
     if !matches!(
         cli.command,
         Commands::Skills(_)
+            | Commands::Decide(_)
             | Commands::Completions(_)
             | Commands::Workflow(_)
             | Commands::Update(_)
@@ -207,6 +210,7 @@ async fn router(
         Commands::Workflow(cmd) => commands::workflow::handle(cmd),
         Commands::Doctor(ref args) => commands::doctor::handle(args),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd),
+        Commands::Decide(cmd) => commands::decide::handle(cmd, output).await,
         Commands::Update(cmd) => {
             // `handle_update` uses `self_update` (reqwest::blocking), which creates its own
             // tokio runtime. Running it on the async runtime thread panics on nested runtime
@@ -471,6 +475,9 @@ struct Cli {
 /// Available subcommands.
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Evaluate bounded typed questions with an optional provider.
+    #[command(subcommand)]
+    Decide(DecideCommand),
     /// Issue operations (create, list, view).
     #[command(subcommand)]
     Issue(IssueCommand),

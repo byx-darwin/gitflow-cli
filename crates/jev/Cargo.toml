@@ -1,0 +1,23 @@
+[package]
+name = "gitflow-jev"
+description = "Optional TypeSafe Jev decision adapter for gitflow-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["gitflow", "jev", "decisions"]
+categories = ["development-tools"]
+
+[dependencies]
+gitflow-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+secrecy = "0.10"
+tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread", "time"] }
+
+[lints]
+workspace = true

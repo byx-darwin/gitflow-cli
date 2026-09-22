@@ -46,6 +46,7 @@ thiserror = { workspace = true }
 self_update = { workspace = true }
 semver = { workspace = true }
 tempfile = { workspace = true }
+gitflow-jev = { version = "1.9.0", path = "../../crates/jev", optional = true }
 
 [build-dependencies]
 built = "0.7"
@@ -55,6 +56,7 @@ default = []
 ## 跳过 release binary 签名校验（开发/自建 release 用）。
 ## 启用后不会编译进公钥常量，`gf update` 不会验证 `.sig` 文件。
 skip-verify = []
+gitflow-jev = ["dep:gitflow-jev"]
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
