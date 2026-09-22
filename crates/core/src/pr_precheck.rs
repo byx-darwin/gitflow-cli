@@ -1,6 +1,9 @@
 //! Read-only, bounded PR review precheck with optional typed decisions.
 
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -180,6 +183,7 @@ impl PrPrecheckInput {
             redacted_lines: 0,
         };
         let mut excerpts = BTreeMap::new();
+        let mut seen_paths = BTreeSet::new();
         let mut remaining = MAX_EXCERPT_BYTES;
         for file in &self.files {
             if file.path.is_empty()
@@ -189,6 +193,7 @@ impl PrPrecheckInput {
                 || file.path.contains('\\')
                 || file.path.chars().any(char::is_control)
                 || sensitive(&file.path)
+                || !seen_paths.insert(&file.path)
             {
                 return Err(DecisionError::InvalidInput("PR file path is invalid"));
             }
@@ -487,9 +492,15 @@ fn report_from_prepared(prepared: Prepared, response: &DecisionResponse) -> PrPr
     }
     if let Some(TypedAnswer::Noul { noul }) = response.answers.get("security_review") {
         report.security_review_probability = Some(*noul);
+        if (0.3..0.7).contains(noul) {
+            report.status = "needs_review".into();
+        }
     }
     if let Some(TypedAnswer::Noul { noul }) = response.answers.get("compatibility_review") {
         report.compatibility_review_probability = Some(*noul);
+        if (0.3..0.7).contains(noul) {
+            report.status = "needs_review".into();
+        }
     }
     if let Some(TypedAnswer::Choice {
         choice, confidence, ..
@@ -741,5 +752,12 @@ mod tests {
             .into_keys()
             .collect();
         assert_eq!(english_keys, chinese_keys);
+    }
+
+    #[test]
+    fn duplicate_paths_cannot_create_mismatched_evidence() {
+        let mut input = fixture("@@ -1 +1 @@\n-old\n+new");
+        input.files.push(input.files[0].clone());
+        assert!(input.prepare().is_err());
     }
 }
