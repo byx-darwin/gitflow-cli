@@ -22,8 +22,9 @@ response. The input file has this exact shape:
 
 Run `gf issue precheck --input <file> --live --output json`. The provider is
 contacted only if the binary has the `gitflow-jev` feature, the command has
-`--live`, `GF_DECISION_PROVIDER=jev`, and `TYPESAFE_API_KEY` is set in the
-environment. An unavailable provider produces `status: unavailable`; continue
+`--live`, `GF_DECISION_PROVIDER=jev`, and a TypeSafe key is available through
+`TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe` Keychain item. An
+unavailable provider produces `status: unavailable`; continue
 the existing four-dimension review. Use `--response <file>` for offline replay
 of a saved typed `DecisionResponse` without contacting a provider.
 
@@ -68,7 +69,8 @@ read-only behavior; fake responses cannot establish semantic accuracy.
 | Latency | Not measured for live Jev | Median and p95 end-to-end time |
 | Cost | $0 in default tests | Provider-reported tokens multiplied by the current configured price |
 
-No live Jev key was available for this initial implementation. No production
+An initial synthetic live smoke check succeeded with `jev-1.13.0` using the
+macOS Keychain credential. No human-rated corpus was used, so no production
 threshold or semantic-quality claim is established. Live evaluation must use
 reviewed, redacted public Issues and be explicitly enabled; saved responses
 must stay outside the repository unless they have been reviewed for sensitive

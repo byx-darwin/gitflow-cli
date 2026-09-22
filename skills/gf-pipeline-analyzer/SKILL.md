@@ -100,8 +100,9 @@ sensitive content, then run:
 gf pipeline analyze-failures --input /tmp/pipeline-failures.json --live --output json
 ```
 
-Live use requires a `gitflow-jev` build, `GF_DECISION_PROVIDER=jev`, and
-`TYPESAFE_API_KEY`. Only the first three failures are sent for semantic
+Live use requires a `gitflow-jev` build, `GF_DECISION_PROVIDER=jev`, and a
+TypeSafe key from `TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe`
+Keychain item. Only the first three failures are sent for semantic
 classification; the rest remain `unknown` in deterministic telemetry.
 Without Jev, the command still returns redacted evidence positions with
 `decisionStatus: unavailable`. Check every suggested category, flaky signal,

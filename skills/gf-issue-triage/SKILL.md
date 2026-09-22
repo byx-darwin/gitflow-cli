@@ -83,7 +83,8 @@ a truncated fetch as a complete classification.
 ### Step 2: Classify each Issue by title + description body
 
 Optional Jev guidance: when `gf` was built with `gitflow-jev`, `GF_DECISION_PROVIDER=jev`
-is set, and `TYPESAFE_API_KEY` is available in the local environment, fetch each Issue
+is set, and a TypeSafe key is available from `TYPESAFE_API_KEY` or the macOS
+`gitflow-cli-typesafe` Keychain item, fetch each Issue
 through `gf issue view <n> --output json` and prepare one bounded JSON request for
 `gf decide batch --input <file>`. Include only the Issue title and a short, reviewed
 excerpt of its body. Remove credentials, tokens, personal data, private URLs, and
