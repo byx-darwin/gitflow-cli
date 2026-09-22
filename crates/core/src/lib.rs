@@ -45,6 +45,7 @@ pub mod pr;
 pub mod pr_precheck;
 pub mod release;
 pub mod review;
+pub mod semantic_regression;
 pub mod session;
 pub mod skill_suggestion;
 pub mod toon;

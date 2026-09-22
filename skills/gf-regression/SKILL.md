@@ -71,6 +71,18 @@ Do NOT use this skill in the following scenarios:
 
 ## Core Pattern
 
+### Optional semantic oracle (Issue #389)
+
+After the existing deterministic smoke/contract assertions, a reviewed,
+versioned capture suite can be evaluated with
+`gf regression semantic-eval --suite <suite.json> --responses <saved.json>`.
+The suite must record the actual exit-code, schema, and side-effect assertion
+results for each case. The CLI skips Jev for factual failures and exits nonzero
+for them; semantic findings remain advisory. `--live` is an explicit opt-in,
+with at most four concurrent requests and a 50-case limit. Without it, ordinary
+CI needs no Jev key. Never treat a semantic finding as a release verdict or file
+an Issue automatically. See `docs/semantic-regression.md`.
+
 ```bash
 test -f scripts/smoke-test.sh
 bash scripts/smoke-test.sh --platform github 2>&1

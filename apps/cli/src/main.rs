@@ -65,6 +65,7 @@ use commands::{
     label::{LabelCommand, MilestoneCommand},
     pipeline::PipelineCommand,
     pr::PrCommand,
+    regression_semantic::RegressionCommand,
     release::ReleaseCommand,
     review::ReviewCommand,
     workflow::WorkflowCommand,
@@ -119,6 +120,7 @@ fn main() -> std::process::ExitCode {
         cli.command,
         Commands::Skills(_)
             | Commands::Decide(_)
+            | Commands::Regression(_)
             | Commands::Issue(IssueCommand::Precheck { .. })
             | Commands::Pr(PrCommand::Precheck { .. })
             | Commands::Pipeline(PipelineCommand::AnalyzeFailures { .. })
@@ -161,6 +163,7 @@ async fn async_main(cli: Cli, platform: &str, repo: &str, remote_url: &str) -> m
         cli.command,
         Commands::Skills(_)
             | Commands::Decide(_)
+            | Commands::Regression(_)
             | Commands::Issue(IssueCommand::Precheck { .. })
             | Commands::Pr(PrCommand::Precheck { .. })
             | Commands::Pipeline(PipelineCommand::AnalyzeFailures { .. })
@@ -217,6 +220,7 @@ async fn router(
         Commands::Doctor(ref args) => commands::doctor::handle(args),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd, output).await,
         Commands::Decide(cmd) => commands::decide::handle(cmd, output).await,
+        Commands::Regression(cmd) => commands::regression_semantic::handle(cmd).await,
         Commands::Update(cmd) => {
             // `handle_update` uses `self_update` (reqwest::blocking), which creates its own
             // tokio runtime. Running it on the async runtime thread panics on nested runtime
@@ -484,6 +488,9 @@ enum Commands {
     /// Evaluate bounded typed questions with an optional provider.
     #[command(subcommand)]
     Decide(DecideCommand),
+    /// Evaluate captured regression cases with an optional semantic oracle.
+    #[command(subcommand)]
+    Regression(RegressionCommand),
     /// Issue operations (create, list, view).
     #[command(subcommand)]
     Issue(IssueCommand),
