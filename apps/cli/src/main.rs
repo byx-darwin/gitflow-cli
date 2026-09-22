@@ -207,7 +207,7 @@ async fn router(
         Commands::Pipeline(cmd) => {
             commands::pipeline::handle(cmd, platform, repo, remote_url, output).await
         }
-        Commands::Workflow(cmd) => commands::workflow::handle(cmd),
+        Commands::Workflow(cmd) => commands::workflow::handle(cmd).await,
         Commands::Doctor(ref args) => commands::doctor::handle(args),
         Commands::Skills(ref cmd) => commands::skills::handle(cmd),
         Commands::Decide(cmd) => commands::decide::handle(cmd, output).await,
@@ -536,6 +536,33 @@ enum Commands {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_should_parse_workflow_recommendation_without_live_provider() {
+        let parsed =
+            Cli::try_parse_from(["gf", "workflow", "recommend", "--input", "task.json"]).unwrap();
+        assert!(matches!(
+            parsed.command,
+            Commands::Workflow(WorkflowCommand::Recommend {
+                live: false,
+                response: None,
+                ..
+            })
+        ));
+        assert!(
+            Cli::try_parse_from([
+                "gf",
+                "workflow",
+                "recommend",
+                "--input",
+                "task.json",
+                "--response",
+                "saved.json",
+                "--live"
+            ])
+            .is_err()
+        );
+    }
 
     #[test]
     fn test_should_parse_offline_decision_evaluation_commands() {

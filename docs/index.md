@@ -10,6 +10,8 @@
 - [Config](./config.md) — config file format, env vars, XDG directories, and `.env` loading.
 - [Optional Jev decisions](./jev-decision.md) — typed decision CLI, limits, privacy, and calibration status (Issue #382).
 - [Decision offline evaluation](./decision-offline-evaluation.md) — versioned fixtures, saved responses, calibration, and report comparison (Issue #393).
+- [Optional workflow recommendation](./workflow-recommendation.md) — deterministic mode routing with advisory Jev signals (Issue #383).
+- [Workflow recommendation synthetic evaluation](./workflow-recommendation-evaluation-2026-09-22.md) — replayable mode, risk, coverage, latency, and cost measurements (Issue #383).
 - [Jev Issue triage pilot evaluation](./jev-triage-evaluation-2026-09-22.md) — 22 labeled public Issues, six synthetic boundary cases, accuracy, coverage, latency, and cost (Issue #382).
 - [Shell Completions](./shell-completions.md) — how to generate and install tab completions.
 

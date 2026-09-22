@@ -43,7 +43,7 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
    - Incomplete workflow exists (`status != "complete"`) → **RESUME** it: read `current_phase`, load context, continue from next step
    - Multiple exist → ask user which to resume
    - None exist → proceed to step 2
-2. Run mode auto-detection (full / standard / fast)
+2. Run mode auto-detection (full / standard / fast). For a bounded, reviewed task summary, use `gf workflow recommend --input <json>` to show the deterministic rule and any optional Jev advice together. `--live` is opt-in; see `references.md` → Workflow Recommendation. Model advice never selects the contract mode automatically.
 3. **Detect skill source** — see `## Skill Source Resolution`. Runs BEFORE the contract exists; if both sources are absent the user chooses inline-continue or abort (abort → no contract)
 4. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`), then record `skill_source` via jq immediately after creation
 5. Announce the workflow start with: workflow_id, mode, title, `skill_source`
@@ -223,7 +223,7 @@ User can override batching strategy during plan phase.
 
 **When NOT to Use:** quick fix → `gf-commit` · PR review → `gf-pr-review` · architecture discussion → the installed source's clarification skill directly (per `references.md` mapping) · user says "don't create an Issue" → do NOT invoke.
 
-**Mode auto-detection:** "fix"/"typo"/"hotfix"/"docs"/"chore" → `fast` · "refactor: small"/"fix: bug" → `standard` · "feat"/"refactor: large"/breaking → `full` · `good-first-issue` label → `fast` · unclear → `standard` (default). User can override with `--mode <mode>`.
+**Mode auto-detection:** `gf workflow recommend` implements the title/label rule summarized below and shows optional semantic advice. User can override with `--mode <mode>` when creating the contract; the recommendation does not create or edit a contract.
 
 ## Mode Comparison
 
@@ -245,6 +245,8 @@ Detection priority (highest to lowest):
    - `fix:`, `refactor:`, `perf:` (single file/module) → **standard**
    - `feat:`, `refactor:` (cross-module), `!` (breaking change) → **full**
 4. **Default** → **standard** (balanced safety vs efficiency)
+
+Before the confirmation flow, run the read-only recommendation on a reviewed summary as described in `references.md` → Workflow Recommendation. Show `ruleMode`, `suggestedMode`, `status`, and `riskFlags` if present. Preserve a user override. If Jev is unavailable, low confidence, or conflicts with the rule, keep the deterministic result until the user chooses a mode. No model output may skip Phase 1–4 contracts, permission checks, tests, or delivery gates.
 
 ### Confirmation Flow
 

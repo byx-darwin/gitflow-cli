@@ -45,6 +45,7 @@ pub mod review;
 pub mod session;
 pub mod toon;
 pub mod types;
+pub mod workflow_recommendation;
 
 // Re-export types at the crate root for convenience.
 pub use auth_checker::{AuthCheckResult, AuthChecker};

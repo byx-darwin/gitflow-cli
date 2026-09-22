@@ -234,6 +234,18 @@ impl WorkflowContract {
 /// CLI 子命令枚举。
 #[derive(Debug, Subcommand)]
 pub enum WorkflowCommand {
+    /// Read-only workflow mode advice from local rules and optional Jev.
+    Recommend {
+        /// Reviewed, bounded task summary JSON file.
+        #[arg(long)]
+        input: String,
+        /// Saved provider-neutral decision response; offline by default.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly ask the configured Jev provider for advisory signals.
+        #[arg(long)]
+        live: bool,
+    },
     /// 创建新的 workflow 合同（自动分配当日不重复的 ID）。
     Create {
         /// 工作流标题。
@@ -273,8 +285,13 @@ pub enum WorkflowCommand {
 /// - workflow 未完成时尝试归档。
 /// - 归档目标已存在（拒绝覆盖）。
 /// - 创建时标题为空或当日序号用尽。
-pub fn handle(command: WorkflowCommand) -> miette::Result<()> {
+pub async fn handle(command: WorkflowCommand) -> miette::Result<()> {
     match command {
+        WorkflowCommand::Recommend {
+            input,
+            response,
+            live,
+        } => super::workflow_recommend::handle(input, response, live).await,
         WorkflowCommand::Create { title, mode } => create_workflow(&title, mode),
         WorkflowCommand::List => list_workflows(),
         WorkflowCommand::Status { workflow_id } => show_status(&workflow_id),

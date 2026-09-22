@@ -18,3 +18,4 @@ pub mod review;
 pub mod skills;
 pub mod update;
 pub mod workflow;
+pub mod workflow_recommend;

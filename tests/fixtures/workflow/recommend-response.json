@@ -1,0 +1,20 @@
+{
+  "model": "fixture-model-1",
+  "answers": {
+    "mode": {
+      "type": "choice",
+      "choice": "full",
+      "confidence": 0.94,
+      "probabilities": { "fast": 0.02, "standard": 0.04, "full": 0.94 }
+    },
+    "complexity": {
+      "type": "score",
+      "score": 1.8,
+      "confidence": 0.8,
+      "legend": { "0": "Simple", "1": "Moderate", "2": "High" },
+      "probabilities": { "0": 0.0, "1": 0.2, "2": 0.8 }
+    },
+    "sensitive_action": { "type": "noul", "noul": 0.05 }
+  },
+  "usage": { "input_tokens": 100, "output_tokens": 20 }
+}

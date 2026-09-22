@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "workflow_routing_synthetic_v1",
+  "provider": "saved_fixture",
+  "inputPricePerMillionUsd": 0.042,
+  "outputPricePerMillionUsd": 0.3,
+  "results": [
+    {
+      "caseId": "simple_docs",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 100,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "mode": {
+              "type": "choice",
+              "choice": "fast",
+              "confidence": 0.96,
+              "probabilities": {
+                "fast": 0.96,
+                "standard": 0.020000000000000018,
+                "full": 0.020000000000000018
+              }
+            },
+            "complexity": {
+              "type": "score",
+              "score": 0.2,
+              "confidence": 0.8,
+              "legend": {
+                "0": "Simple",
+                "1": "Moderate",
+                "2": "High"
+              },
+              "probabilities": {
+                "0": 0.8,
+                "1": 0.2,
+                "2": 0.0
+              }
+            },
+            "sensitive_action": {
+              "type": "noul",
+              "noul": 0.04
+            }
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 20
+          }
+        }
+      }
+    },
+    {
+      "caseId": "cross_domain",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 130,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "mode": {
+              "type": "choice",
+              "choice": "full",
+              "confidence": 0.94,
+              "probabilities": {
+                "fast": 0.030000000000000027,
+                "standard": 0.030000000000000027,
+                "full": 0.94
+              }
+            },
+            "complexity": {
+              "type": "score",
+              "score": 1.8,
+              "confidence": 0.8,
+              "legend": {
+                "0": "Simple",
+                "1": "Moderate",
+                "2": "High"
+              },
+              "probabilities": {
+                "0": 0.0,
+                "1": 0.2,
+                "2": 0.8
+              }
+            },
+            "sensitive_action": {
+              "type": "noul",
+              "noul": 0.05
+            }
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 20
+          }
+        }
+      }
+    },
+    {
+      "caseId": "ambiguous_fix",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 160,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "mode": {
+              "type": "choice",
+              "choice": "full",
+              "confidence": 0.6,
+              "probabilities": {
+                "fast": 0.2,
+                "standard": 0.2,
+                "full": 0.6
+              }
+            },
+            "complexity": {
+              "type": "score",
+              "score": 1.0,
+              "confidence": 0.8,
+              "legend": {
+                "0": "Simple",
+                "1": "Moderate",
+                "2": "High"
+              },
+              "probabilities": {
+                "0": 0.1,
+                "1": 0.8,
+                "2": 0.1
+              }
+            },
+            "sensitive_action": {
+              "type": "noul",
+              "noul": 0.1
+            }
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 20
+          }
+        }
+      }
+    },
+    {
+      "caseId": "high_risk",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 180,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "mode": {
+              "type": "choice",
+              "choice": "full",
+              "confidence": 0.93,
+              "probabilities": {
+                "fast": 0.034999999999999976,
+                "standard": 0.034999999999999976,
+                "full": 0.93
+              }
+            },
+            "complexity": {
+              "type": "score",
+              "score": 1.8,
+              "confidence": 0.8,
+              "legend": {
+                "0": "Simple",
+                "1": "Moderate",
+                "2": "High"
+              },
+              "probabilities": {
+                "0": 0.0,
+                "1": 0.2,
+                "2": 0.8
+              }
+            },
+            "sensitive_action": {
+              "type": "noul",
+              "noul": 0.9
+            }
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 20
+          }
+        }
+      }
+    },
+    {
+      "caseId": "injection",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 120,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "mode": {
+              "type": "choice",
+              "choice": "fast",
+              "confidence": 0.91,
+              "probabilities": {
+                "fast": 0.91,
+                "standard": 0.044999999999999984,
+                "full": 0.044999999999999984
+              }
+            },
+            "complexity": {
+              "type": "score",
+              "score": 0.2,
+              "confidence": 0.8,
+              "legend": {
+                "0": "Simple",
+                "1": "Moderate",
+                "2": "High"
+              },
+              "probabilities": {
+                "0": 0.8,
+                "1": 0.2,
+                "2": 0.0
+              }
+            },
+            "sensitive_action": {
+              "type": "noul",
+              "noul": 0.05
+            }
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 20
+          }
+        }
+      }
+    },
+    {
+      "caseId": "mixed_refactor",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 220,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "mode": {
+              "type": "choice",
+              "choice": "full",
+              "confidence": 0.92,
+              "probabilities": {
+                "fast": 0.03999999999999998,
+                "standard": 0.03999999999999998,
+                "full": 0.92
+              }
+            },
+            "complexity": {
+              "type": "score",
+              "score": 1.8,
+              "confidence": 0.8,
+              "legend": {
+                "0": "Simple",
+                "1": "Moderate",
+                "2": "High"
+              },
+              "probabilities": {
+                "0": 0.0,
+                "1": 0.2,
+                "2": 0.8
+              }
+            },
+            "sensitive_action": {
+              "type": "noul",
+              "noul": 0.1
+            }
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 20
+          }
+        }
+      }
+    }
+  ]
+}

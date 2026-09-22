@@ -563,3 +563,8 @@ All gf-workflow worktrees are created at a **fixed path**: `.worktree/<branch-na
 - `.worktree/` is in `.gitignore` → worktrees are automatically excluded from version control
 - Phase 4 Branch Finish cleanup uses this predictable path for `git worktree remove`
 - New-window executors create worktrees at this same location
+## Workflow Recommendation (Issue #383)
+
+At Bootstrap, make a short, reviewed JSON input with `title`, `summary` (at most 512 bytes), `labels`, and optional `userMode`; store it under ignored `.cache/workflows/`. Include only the task description and allowed issue labels. Do not include logs, environment variables, credentials, private URLs, or full repository content. Run `gf workflow recommend --input <path>` for deterministic advice. If the user explicitly opts into Jev and `GF_DECISION_PROVIDER=jev` is configured, add `--live`; otherwise no provider call occurs. A saved typed `DecisionResponse` can be replayed with `--response <path>` without a provider. The command emits `ruleMode`, optional `suggestedMode`, `effectiveMode`, `status`, `riskFlags`, and `candidatePhases`. See `docs/workflow-recommendation.md` for the schema and examples.
+
+The command does not create a contract or change a gate. Use `effectiveMode` only as the rule or explicit user choice when creating the contract. Display model conflicts and low confidence for review; do not treat `suggestedMode`, `riskFlags`, or `suggestedSkills` as permission to run or skip steps. If the command is unavailable in an older `gf` binary, apply the deterministic Mode Auto-Detection table in `SKILL.md`.
