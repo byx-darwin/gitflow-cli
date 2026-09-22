@@ -395,9 +395,14 @@ check-architecture-diagram-skill: ## Verify gf-architecture-diagram skill meets 
 	grep -qF 'SVG' "$$S" \
 		&& echo "✓ AC#8 声明输出为 SVG" \
 		|| { echo "✗ AC#8 未声明 SVG 输出格式"; FAIL=1; }; \
-	grep -qF 'Determinism' "$$S" && grep -qF 'regenerating the same input twice' "$$S" \
-		&& echo "✓ AC#9 声明确定性检查（regenerating the same input twice）" \
-		|| { echo "✗ AC#9 未声明确定性检查"; FAIL=1; }; \
+	grep -qF 'Determinism' "$$S" \
+		&& grep -qF 'second, independent' "$$S" \
+		&& grep -qF 'normalize each node and edge collection as a set' "$$S" \
+		&& [ "$$(grep -cF 'cargo metadata --no-deps --format-version=1' "$$R/rust.md")" -ge 2 ] \
+		&& grep -qF 'gf-arch-metadata-stage1.json' "$$R/rust.md" \
+		&& grep -qF 'gf-arch-metadata-stage5.json' "$$R/rust.md" \
+		&& echo "✓ AC#9 比较两次独立提取的节点和边集合" \
+		|| { echo "✗ AC#9 未比较两次独立提取结果"; FAIL=1; }; \
 	if [ -f "$$SC" ]; then \
 		GOOD=$$(mktemp /tmp/gf-arch-good.XXXXXX.svg); \
 		BAD=$$(mktemp /tmp/gf-arch-bad.XXXXXX.svg); \

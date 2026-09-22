@@ -51,9 +51,11 @@ already defines; generate one diagram per selected language.
 
 ## Stage 1: Extract (structured parsing only)
 
-Run the language layer's `## 提取命令` **once**, capture the output, and reuse
-that capture for the rest of the run — a repeated invocation can hit a build
-cache and silently return empty output.
+Run the language layer's `## 提取命令` and retain its first output for diagram
+generation and the later determinism check. Stage 5 runs the extraction again
+into a separate capture. Check that each command succeeds and each capture
+contains the expected internal modules; do not treat an empty result as a
+successful determinism check.
 
 Apply `## 模块判定` to decide which manifest entries become diagram nodes
 (internal/workspace modules only — external dependencies never become
@@ -92,12 +94,14 @@ regeneration would silently discard the edit.
 
 ## Stage 5: Determinism Check
 
-Regenerate the same diagram a second time from the same extraction capture
-(Stage 1 output). Compare the node set and edge set (topology) between the
-two generation results — regenerating the same input twice must produce
-identical topology. Coordinate-level
-jitter from the layout engine is acceptable; a different node set, edge set,
-or cluster membership is not and means Stage 1/3 has a non-determinism bug.
+Run the language layer's `## 提取命令` **again** into a second, independent
+capture. Apply the same `## 模块判定` and `## 边过滤规则` to both captures,
+normalize each node and edge collection as a set, then compare the two
+topologies (and cluster membership if the language layer defines clusters).
+Report the differing nodes/edges and stop if they differ. Do not regenerate
+the SVG from the Stage 1 capture: that only repeats rendering of unchanged
+input and cannot detect extraction non-determinism. Coordinate-level layout
+jitter is irrelevant to this check.
 
 ## Report
 
