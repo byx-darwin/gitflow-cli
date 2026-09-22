@@ -209,7 +209,7 @@ async fn router(
         }
         Commands::Workflow(cmd) => commands::workflow::handle(cmd).await,
         Commands::Doctor(ref args) => commands::doctor::handle(args),
-        Commands::Skills(ref cmd) => commands::skills::handle(cmd),
+        Commands::Skills(ref cmd) => commands::skills::handle(cmd, output).await,
         Commands::Decide(cmd) => commands::decide::handle(cmd, output).await,
         Commands::Update(cmd) => {
             // `handle_update` uses `self_update` (reqwest::blocking), which creates its own
@@ -536,6 +536,20 @@ enum Commands {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_should_parse_skill_suggestion_without_provider() {
+        let parsed =
+            Cli::try_parse_from(["gf", "skills", "suggest", "--query", "审查这个 PR"]).unwrap();
+        assert!(matches!(
+            parsed.command,
+            Commands::Skills(commands::skills::SkillsCommand::Suggest(_))
+        ));
+        assert!(
+            Cli::try_parse_from(["gf", "skills", "suggest", "--stdin", "--query", "review PR"])
+                .is_err()
+        );
+    }
 
     #[test]
     fn test_should_parse_workflow_recommendation_without_live_provider() {

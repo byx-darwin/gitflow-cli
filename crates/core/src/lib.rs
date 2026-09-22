@@ -43,6 +43,7 @@ pub mod pr;
 pub mod release;
 pub mod review;
 pub mod session;
+pub mod skill_suggestion;
 pub mod toon;
 pub mod types;
 pub mod workflow_recommendation;

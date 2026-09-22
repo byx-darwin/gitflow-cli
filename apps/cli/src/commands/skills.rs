@@ -105,6 +105,8 @@ impl AgentPlatform {
 /// Skills 管理命令集合。
 #[derive(Debug, Subcommand)]
 pub enum SkillsCommand {
+    /// Suggest known gf skills for a task without installing or invoking them.
+    Suggest(SuggestArgs),
     /// 安装 skills（默认项目级 `.claude/skills/`，-g 切换全局）
     Install(InstallArgs),
     /// 列出已安装的 skills
@@ -113,6 +115,23 @@ pub enum SkillsCommand {
     Uninstall(UninstallArgs),
     /// 更新已安装的 skills（等价于 install --force，覆盖所有 `gf-*` skills）
     Update(SkillsUpdateArgs),
+}
+
+/// Bounded, read-only task-to-skill recommendation.
+#[derive(Debug, Args)]
+pub struct SuggestArgs {
+    /// Task description; prefer --stdin for text that should not enter shell history.
+    #[arg(long, conflicts_with = "stdin")]
+    pub query: Option<String>,
+    /// Read the task description from standard input.
+    #[arg(long)]
+    pub stdin: bool,
+    /// Offline saved typed response for replay or testing.
+    #[arg(long, conflicts_with = "live")]
+    pub response: Option<String>,
+    /// Explicitly call the configured Jev provider.
+    #[arg(long)]
+    pub live: bool,
 }
 
 /// `skills install` 参数。
@@ -388,8 +407,9 @@ fn check_skill_source_at(home: &Path) -> miette::Result<()> {
 // ---------------------------------------------------------------------------
 
 /// 处理 `gf skills` 命令。
-pub fn handle(command: &SkillsCommand) -> miette::Result<()> {
+pub async fn handle(command: &SkillsCommand, output: crate::OutputFormat) -> miette::Result<()> {
     match command {
+        SkillsCommand::Suggest(args) => super::skills_suggest::handle(args, output).await,
         SkillsCommand::Install(args) => install_skills(args),
         SkillsCommand::List(args) => list_skills(args),
         SkillsCommand::Uninstall(args) => uninstall_skills(args),

@@ -12,6 +12,8 @@
 - [Decision offline evaluation](./decision-offline-evaluation.md) — versioned fixtures, saved responses, calibration, and report comparison (Issue #393).
 - [Optional workflow recommendation](./workflow-recommendation.md) — deterministic mode routing with advisory Jev signals (Issue #383).
 - [Workflow recommendation synthetic evaluation](./workflow-recommendation-evaluation-2026-09-22.md) — replayable mode, risk, coverage, latency, and cost measurements (Issue #383).
+- [Optional gf Skill suggestion](./skill-suggestion.md) — read-only task routing over the bundled Skill catalog (Issue #384).
+- [Skill suggestion synthetic evaluation](./skill-suggestion-evaluation-2026-09-22.md) — replayable top-1, top-3, abstention, error, latency, and cost measurements (Issue #384).
 - [Jev Issue triage pilot evaluation](./jev-triage-evaluation-2026-09-22.md) — 22 labeled public Issues, six synthetic boundary cases, accuracy, coverage, latency, and cost (Issue #382).
 - [Shell Completions](./shell-completions.md) — how to generate and install tab completions.
 
