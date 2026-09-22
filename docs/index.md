@@ -26,6 +26,7 @@
 - [Shell Completions](./shell-completions.md) — how to generate and install tab completions.
 - [glab 1.118.0 compatibility verification](./glab-1.118-compatibility-2026-09-22.md) — smoke, read-only API, and adapter contract evidence (Issue #402).
 - [gh 2.98.0 compatibility verification](./gh-2.98-compatibility-2026-09-22.md) — verified release archive, GitHub smoke test, and adapter contracts (Issue #227).
+- [GitCode CLI 0.11.1 compatibility verification](./gitcode-0.11.1-compatibility-2026-09-22.md) — verified release archive, GitCode smoke test, and adapter contracts (Issue #188).
 
 ## Development
 

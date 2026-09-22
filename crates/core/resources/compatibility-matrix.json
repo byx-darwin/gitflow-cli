@@ -45,7 +45,7 @@
       "identifier": "gitcode",
       "cli_binary": "gitcode",
       "min_version": "0.6.0",
-      "tested_versions": ["0.6.1", "0.8.0", "0.10.3"],
+      "tested_versions": ["0.6.1", "0.8.0", "0.10.3", "0.11.1"],
       "install_url": "https://gitcode.com/gitcode-cli/cli",
       "doc_link": "https://gitcode.com/gitcode-cli/cli/blob/main/README.md",
       "features": {
