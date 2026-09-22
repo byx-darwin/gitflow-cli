@@ -1,5 +1,7 @@
 # Rust Refactoring Layer
 
+**Shared language profile:** `gf-quality/references/profiles/rust.md`. Read it for tools, version sources, and scan exclusions.
+
 **Detection:** `Cargo.toml` at project root (per `gf-quality/references/detector.md`).
 
 ## 校验命令

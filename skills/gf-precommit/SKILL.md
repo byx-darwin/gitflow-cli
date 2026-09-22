@@ -38,17 +38,9 @@ Run language-appropriate fmt/lint/test before commit. Report results. Optionally
 
 ## Step 1: Language Detection
 
-Same as `gf-quality`. Check marker files in project root:
-
-| Marker | Language | Reference |
-|--------|----------|-----------|
-| `Cargo.toml` | Rust | `references/rust.md` |
-| `go.mod` | Go | `references/go.md` |
-| `pom.xml` / `build.gradle` | Java | `references/java.md` |
-| `pyproject.toml` / `setup.py` | Python | `references/python.md` |
-| `package.json` | Node.js | `references/node.md` |
-
-After detection, load the matching `references/<lang>.md` for the specific commands.
+Follow `gf-quality/references/detector.md` for the sole language and workspace
+scan. Load the matching `references/<lang>.md` and shared
+`gf-quality/references/profiles/<lang>.md` for the selected language.
 
 ## Step 2: Run Checks
 

@@ -1,5 +1,7 @@
 # Python Detection Layer
 
+**Shared language profile:** `gf-quality/references/profiles/python.md`. Read it for tools, version sources, and scan exclusions.
+
 **Detection:** `pyproject.toml` / `setup.py` / `setup.cfg`
 (per `gf-quality/references/detector.md`).
 
@@ -109,8 +111,8 @@ echo "$FILES" | xargs grep -c '^from \|^import ' | sort -t: -k2 -rn | head -20
 
 | 缺失 | 降级 |
 |---|---|
-| `ruff` 未安装 | 提示 `pip install ruff`；跳过全部 Measured 类目，报告标注 |
-| `radon` 未安装 | 提示 `pip install radon`；Deep Nesting 只保留 `PLR0912` 一个来源，报告标注 |
+| `ruff` 未安装 | 参见共享 Python profile，建议用户自行安装；跳过全部 Measured 类目，报告标注 |
+| `radon` 未安装 | 参见共享 Python profile，建议用户自行安装；Deep Nesting 只保留 `PLR0912` 一个来源，报告标注 |
 | 语法错误导致解析失败 | 记录受影响文件，其余继续 |
 
 不得自行安装依赖，不得修改项目配置。

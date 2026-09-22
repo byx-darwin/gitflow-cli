@@ -1,5 +1,7 @@
 # Go Detection Layer
 
+**Shared language profile:** `gf-quality/references/profiles/go.md`. Read it for tools, version sources, and scan exclusions.
+
 **Detection:** `go.mod` or `go.work` (per `gf-quality/references/detector.md`).
 
 ## 检测命令
@@ -101,8 +103,8 @@ echo "$FILES" | xargs grep -c '^\s*import\|^\s*"' | sort -t: -k2 -rn | head -20
 
 | 缺失 | 降级 |
 |---|---|
-| `gocyclo` 未安装 | 提示 `go install github.com/fzipp/gocyclo/cmd/gocyclo@latest`；跳过圈复杂度类目，报告标注 |
-| `staticcheck` 未安装 | 提示 `go install honnef.co/go/tools/cmd/staticcheck@latest`；跳过 Dead Code 类目，报告标注 |
+| `gocyclo` 未安装 | 参见共享 Go profile，建议用户自行安装；跳过圈复杂度类目，报告标注 |
+| `staticcheck` 未安装 | 参见共享 Go profile，建议用户自行安装；跳过 Dead Code 类目，报告标注 |
 | `staticcheck` 版本不支持 `-tests` | 不发明替代做法；跳过 Dead Code 类目，报告标注「Dead Code 层未执行」，记录 `staticcheck -version` 原文 |
 | `go vet` 失败 | 记录错误，不改代码；其余类目继续 |
 

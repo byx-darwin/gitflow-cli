@@ -185,8 +185,9 @@ Every `references/<lang>.md` MUST provide exactly these three sections:
 | `## 惯用法映射` | Which native construct a 等价-tier technique lands on |
 | `## 语义陷阱判例` | Concrete case studies for this language's 条件等价/可能变更 rows — at least two `### 陷阱` subsections with real code shapes, not just technique names |
 
-Adding a language means adding one file with these three sections. Nothing
-in this document changes. Language detection reuses
+Adding a language means adding one file with these three sections and linking
+the shared `gf-quality/references/profiles/<lang>.md` for tool availability,
+version source, and scan exclusions. Language detection reuses
 `gf-quality/references/detector.md` — **do not implement a second detection
 mechanism.**
 

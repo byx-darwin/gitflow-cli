@@ -1,36 +1,37 @@
 # Ruby Quality Toolchain
 
-**Detection:** `Gemfile` in project root.
+**Shared language profile:** `gf-quality/references/profiles/ruby.md`. Read it before running these gates.
 
 ## Gate Commands
 
 | # | Gate | Command | Pass Criteria |
 |---|------|---------|---------------|
-| 1 | build | `bundle install --quiet` | exit 0 |
+| 1 | build | `bundle check` | exit 0 (declared dependencies available; no install) |
 | 2 | test | `bundle exec rspec` | all pass |
 | 3 | coverage | `bundle exec rspec` with SimpleCov `minimum_coverage ${COV_THRESHOLD:-80}` in `spec/spec_helper.rb` | exit 0 (total line coverage ≥ threshold); N/A if no `.rb` in change set |
 | 4 | format | `bundle exec rubocop --only Layout` | exit 0, no offenses |
 | 5 | static | `bundle exec rubocop` | exit 0, no offenses |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A if no `.pre-commit-config.yaml`) |
 
-## Tool Installation
+## Gate Notes
 
-| Tool | Install Command | Required By |
-|------|----------------|-------------|
-| bundler | `gem install bundler` | Gates 1–5 |
-| rspec | `bundle add rspec --group development,test` | Gates 2, 3 |
-| simplecov | `bundle add simplecov --group test` | Gate 3 (coverage) |
-| rubocop | `bundle add rubocop --group development` | Gates 4, 5 |
+- Run gates from the directory containing `Gemfile`.
+- Gate 3 requires SimpleCov in `spec_helper.rb`; report SKIPPED if absent and N/A only when the change set has no `.rb` file.
+- SimpleCov reports line coverage.
 
-If a tool is missing, **warn the user and recommend install** — do NOT auto-install.
+### Makefile-First Rule
 
-## Environment Variables
+If project root contains a `Makefile` with matching targets, prefer `make` commands over direct tool invocations:
 
-| Variable | Effect | Default |
-|----------|--------|---------|
-| `COV_THRESHOLD` / `COVERAGE_THRESHOLD` | Override coverage threshold | 80% |
-| `BUNDLE_GEMFILE` | Alternate Gemfile location | `./Gemfile` |
-| `RAILS_ENV` / `RACK_ENV` | Environment for test runs | `test` |
+| Gate | Preferred Command | Fallback |
+|------|-------------------|----------|
+| build | `make build` | `bundle check` |
+| test | `make test` | `bundle exec rspec` |
+| format | `make fmt` | `bundle exec rubocop --only Layout` |
+| static | `make lint` | `bundle exec rubocop` |
+
+Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
+
 
 ## Forbidden Actions
 
@@ -38,31 +39,9 @@ If a tool is missing, **warn the user and recommend install** — do NOT auto-in
 - ❌ Never run `bundle update` — it mutates `Gemfile.lock` outside the user's intent
 - ❌ Never modify `spec/spec_helper.rb` to lower `minimum_coverage`
 
-## Makefile-First Rule
+## Quality Gate Configuration
 
-If project root contains a `Makefile` with matching targets, prefer `make` commands over direct tool invocations:
-
-| Gate | Preferred Command | Fallback |
-|------|-------------------|----------|
-| build | `make build` | `bundle install --quiet` |
-| test | `make test` | `bundle exec rspec` |
-| format | `make fmt` | `bundle exec rubocop --only Layout` |
-| static | `make lint` | `bundle exec rubocop` |
-
-Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
-
-## Configuration
-
-### Tool Setup
-
-| Tool | Install | Config File | Required |
-|------|---------|-------------|----------|
-| bundler | `gem install bundler` | `Gemfile` | Gates 1–5 |
-| rspec | `bundle add rspec --group development,test` | `spec/spec_helper.rb` | Gates 2, 3 |
-| simplecov | `bundle add simplecov --group test` | `spec/spec_helper.rb` | Gate 3 (coverage) |
-| rubocop | `bundle add rubocop --group development` | `.rubocop.yml` | Gates 4, 5 |
-
-### Config File Examples
+### Configuration Examples
 
 #### .rubocop.yml
 
@@ -87,28 +66,13 @@ SimpleCov.start do
 end
 ```
 
-### Environment Variables
-
-| Variable | Effect | Default |
-|----------|--------|---------|
-| `COV_THRESHOLD` / `COVERAGE_THRESHOLD` | Override coverage threshold | 80% |
-| `BUNDLE_GEMFILE` | Alternate Gemfile location | `./Gemfile` |
-| `RAILS_ENV` / `RACK_ENV` | Environment for test runs | `test` |
-
-### Language-Specific Notes
-
-- Gate 3 requires `simplecov` wired into `spec_helper.rb` — if absent, mark SKIPPED
-- Gate 3 is N/A when the change set contains no `.rb` file — report N/A, not SKIPPED
-- SimpleCov reports **line** coverage, matching the other language layers
-- Run gates from the directory containing `Gemfile`
-
 ## Troubleshooting
 
 ### Common Errors
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `bundler: command not found: rspec` | rspec not in bundle | `bundle add rspec --group development,test` |
+| `bundler: command not found: rspec` | rspec not in bundle | See the shared Ruby profile |
 | `Could not locate Gemfile` | Wrong working directory | `cd` to the directory containing `Gemfile` |
 | `SimpleCov failed with exit 2` | Coverage below `minimum_coverage` | Add tests; do not lower the threshold |
 | `Gemfile.lock out of date` | Dependencies drifted | Report to user — do NOT run `bundle update` |
@@ -131,8 +95,7 @@ A: Gate 4 runs only `--only Layout`; Gate 5 runs the full rule set. Report both,
 
 ### Performance Tips
 
-- Run specs in parallel with `parallel_tests` (`bundle add parallel_tests --group test`, then `bundle exec parallel_rspec spec/`) on multi-core machines
 - Use `bundle exec rspec --fail-fast` while iterating locally to stop at the first failure instead of running the full suite
-- Avoid repeated `bundle install` on unchanged `Gemfile.lock` — check `bundle check` first; it exits 0 when dependencies are already satisfied
+- Use `bundle check` to verify installed dependencies without changing `Gemfile.lock`.
 - Narrow SimpleCov's tracked files with `add_filter` (e.g. exclude `/spec/`, `/vendor/`) so coverage instrumentation only touches application code, reducing both runtime and noise
 - Use `--only-failures` (RSpec's persistence feature, `config.example_status_persistence_file_path` in `spec_helper.rb`) to re-run just the specs that failed last time

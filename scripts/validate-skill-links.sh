@@ -7,12 +7,14 @@
 # Scope — only navigational references the skill runtime actually follows:
 #   1. Markdown link syntax `[text](path)` with a relative target
 #   2. Backticked `references/*.md` progressive-disclosure load targets
+#   3. Backticked cross-skill `gf-quality/references/*.md` load targets
 # Paths merely *mentioned* (a skill's own output path, a conditional
 # prerequisite) are not references and are deliberately out of scope.
 #
 # Resolution roots, first hit wins:
 #   1. the directory containing the referring file
 #   2. the skill root (`<root>/<skill-name>/`)
+#   3. the shared skills root (`<root>/`) for cross-skill references
 # Root 2 is required because `references/detector.md` refers to sibling
 # references as `references/<lang>.md`, i.e. relative to the skill root.
 
@@ -59,7 +61,7 @@ check_ref() {
     skill_root="$ROOT/${rel%%/*}"
 
     CHECKED=$((CHECKED + 1))
-    if [[ -f "$dir/$ref" || -f "$skill_root/$ref" ]]; then
+    if [[ -f "$dir/$ref" || -f "$skill_root/$ref" || -f "$ROOT/$ref" ]]; then
         [[ $VERBOSE -eq 1 ]] && echo "  ok   ($kind) $rel -> $ref"
         return 0
     fi
@@ -77,6 +79,11 @@ while IFS= read -r file; do
         is_skippable "$ref" && continue
         check_ref "$file" "$ref" load
     done < <(grep -oE '`references/[A-Za-z0-9_.-]+\.md`' "$file" 2>/dev/null | tr -d '`' || true)
+
+    while IFS= read -r ref; do
+        is_skippable "$ref" && continue
+        check_ref "$file" "$ref" shared-load
+    done < <(grep -oE '`gf-quality/references/[A-Za-z0-9_./-]+\.md`' "$file" 2>/dev/null | tr -d '`' || true)
 done < <(find "$ROOT" -name '*.md' -type f | sort)
 
 echo ""

@@ -1,6 +1,7 @@
 # Python Pre-commit Checks
 
-**Detection:** `pyproject.toml`, `setup.py`, or `setup.cfg` in project root.
+**Shared language profile:** `gf-quality/references/profiles/python.md`. Read it for tools, version sources, and scan exclusions.
+
 
 ## Check Commands
 

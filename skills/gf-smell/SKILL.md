@@ -204,8 +204,9 @@ Every `references/<lang>.md` MUST provide exactly these four sections:
 | `## 类目映射` | Which detection source feeds which category in the table above, and the evidence-strength ceiling for each |
 | `## 工具缺失降级` | What to skip and what to record in the report when a tool is unavailable |
 
-Adding a language means adding one file with these four sections. Nothing in
-this document changes.
+Adding a language means adding one file with these four sections and linking
+the shared `gf-quality/references/profiles/<lang>.md` for tool availability,
+version source, and scan exclusions. Do not repeat those facts here.
 
 ## Report
 
