@@ -70,6 +70,32 @@ rm -f /tmp/issue-analysis.md
 
 ### Step 1: Fetch — `issue view <n>`. Record title, body, labels, links, comments.
 
+### Optional semantic precheck (read-only)
+
+If `gf issue precheck` is available, prepare a small JSON file containing only
+`title`, reviewed/redacted `body`, relevant `labels`, optional milestone title,
+and at most three selected, redacted `comments`. Do not pass the raw Issue
+response, URLs, credentials, author metadata, or unrelated comments. Then run:
+
+```bash
+gf issue precheck --input /tmp/issue-precheck.json --live --output json
+```
+
+`--live` calls Jev only when `gf` has the `gitflow-jev` feature and
+`GF_DECISION_PROVIDER=jev` plus `TYPESAFE_API_KEY` are configured. Without
+them, the result is `unavailable`; continue directly to Step 2. For offline
+replay, use `--response <saved-typed-response.json>` instead of `--live`.
+
+The precheck provides five advisory scores (title, context, goal, acceptance,
+slice), four probability signals (missing acceptance, untestable acceptance,
+mixed goals, hidden dependency), a main gap, field-level evidence sources,
+and up to four ranked clarifying questions. Treat all model results as
+hypotheses. Verify the cited
+Issue fields and each question against the full Issue before including it in
+the report. `needs_review` means model confidence is low; use the existing
+four-dimension analysis without relying on that score. The precheck never
+comments, edits, labels, or closes an Issue.
+
 ### Step 2: Score each dimension 🟢/🟡/🔴
 
 | Dimension | Checks |

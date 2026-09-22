@@ -111,6 +111,19 @@ pub enum IssueCommand {
         number: u64,
     },
 
+    /// Read-only, optional semantic requirement-quality precheck.
+    Precheck {
+        /// Minimal reviewed Issue JSON, not the raw `gf issue view` envelope.
+        #[arg(long)]
+        input: String,
+        /// Saved typed decision response for offline replay.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly call the configured Jev provider.
+        #[arg(long)]
+        live: bool,
+    },
+
     /// 关闭 Issue。
     Close {
         /// Issue 编号。
@@ -202,6 +215,17 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let IssueCommand::Precheck {
+        input,
+        response,
+        live,
+    } = &command
+    {
+        let report = super::issue_precheck::handle(input.clone(), response.clone(), *live).await?;
+        let output = CliOutput::success(report, "local", "issue precheck");
+        return print_output(&output, &output_format);
+    }
+
     // Allow `--repo` on Create to override the auto-detected repo.
     let effective_repo = match &command {
         IssueCommand::Create {
@@ -334,6 +358,7 @@ pub async fn handle(
             let output = CliOutput::success(issue, platform, "issue view");
             print_output(&output, &output_format)?;
         }
+        IssueCommand::Precheck { .. } => return Err(miette::miette!("invalid precheck dispatch")),
         IssueCommand::Close { number } => {
             let issue = provider
                 .close(number)
@@ -767,6 +792,45 @@ mod tests {
             }
             _ => panic!("Expected IssueCommand::View"),
         }
+    }
+
+    #[test]
+    fn test_should_parse_read_only_issue_precheck() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "precheck",
+            "--input",
+            "/tmp/issue.json",
+            "--live",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Precheck {
+                input,
+                response,
+                live,
+            }) => {
+                assert_eq!(input, "/tmp/issue.json");
+                assert!(response.is_none());
+                assert!(live);
+            }
+            _ => panic!("Expected IssueCommand::Precheck"),
+        }
+        assert!(
+            crate::Cli::try_parse_from([
+                "gitflow",
+                "issue",
+                "precheck",
+                "--input",
+                "/tmp/issue.json",
+                "--live",
+                "--response",
+                "/tmp/answer.json",
+            ])
+            .is_err()
+        );
     }
 
     #[test]
