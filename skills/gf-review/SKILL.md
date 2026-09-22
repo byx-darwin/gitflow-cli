@@ -8,7 +8,7 @@ description: |
 
 # gf-review
 
-Submits review verdicts via `gf review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gf-pr-review` or `/gf-pr-inline-review` first to form verdict, or supply verdict explicitly.
+Submits review verdicts via `gf review`. It does not edit local files or choose verdicts, but publishing a verdict changes remote PR state, so this skill cannot use the read-only permission profile. Users must run `/gf-pr-review` or `/gf-pr-inline-review` first to form a verdict, or supply one explicitly.
 
 ## CLI Requirement
 

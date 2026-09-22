@@ -7,7 +7,7 @@ description: |
 
 # gf-regression
 
-Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, classifies real failures and surfaces them for the user to file manually via `gf issue create`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
+Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, classifies real failures and surfaces them for the user to file manually via `gf issue create`. Defaults to `--read-only`. The explicitly requested `--write` smoke-test mode is why this skill does not use the read-only permission profile. It does not fix bugs or edit scripts.
 
 ## CLI Requirement
 

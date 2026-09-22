@@ -3,11 +3,14 @@ name: gf-label-stats
 description: |
   Use when the user wants Issue label statistics — group counts by label, priority health, and unclassified Issue identification.
   当用户希望分析 Issue 标签分布（按标签分组计数、优先级分布、未分类 Issue 识别）时使用。
+allowed-tools: Read, Grep, Glob
+disallowed-tools: Write, Edit
 ---
 
 # gf-label-stats
 
 Read-only label analytics. Queries `gf label list`, then `gf issue list --label` per label and per priority. Produces a unified report: label group counts, priority distribution with health indicators, and unclassified Issue identification. Propose fixes — never mutate.
+CLI calls still follow the host's permission rules; this skill does not pre-approve Bash.
 
 See [full label taxonomy](../../docs/references/gf-label-stats-taxonomy.md) for canonical label category reference.
 

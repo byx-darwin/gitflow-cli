@@ -5,22 +5,26 @@ description: >
   failure patterns, duration bottlenecks, flaky tests, or a pipeline improvement
   report. 当用户需要分析流水线成功率、归类失败原因、识别耗时瓶颈、
   flaky test，或生成流水线优化报告时使用。
+allowed-tools: Read, Grep, Glob
+disallowed-tools: Write, Edit
 ---
 
 # gf-pipeline-analyzer — CI/CD Pipeline Health Analyzer
 
 Three-dimensional analysis: success-rate trends / failure patterns / duration distribution → report + prioritized improvement suggestions.
 Read-only: never triggers/reruns/cancels pipelines.
+CLI calls still follow the host's permission rules; this skill does not pre-approve Bash.
 Full params & report template: docs/references/gf-pipeline-analyzer-params.md
 
 ## Report Output & Archiving
 
-When persisted for audit trail (e.g. by `gf-workflow` Phase 4), save the report
-to `docs/pipeline-analysis-report-<YYYY-MM-DD>-<context>.md`. Once
-`pipeline-analysis-report-*.md` files under `docs/` exceed 5, move all but the
+When `gf-workflow` Phase 4 needs an audit trail, hand the report to the workflow
+caller to persist at `docs/pipeline-analysis-report-<YYYY-MM-DD>-<context>.md`. Once
+`pipeline-analysis-report-*.md` files under `docs/` exceed 5, the caller moves all but the
 5 most recent (ordered by the Issue/PR number embedded in the filename) into
 `docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
-`docs/index.md` → Reports Archive for the full policy.
+`docs/index.md` → Reports Archive for the full policy. This skill does not write
+or archive report files itself.
 
 ## CLI Requirement
 

@@ -20,6 +20,7 @@
 ## Development
 
 - [Superpowers Integration Guide](./integration-guide.md) — how gf skills integrate with Superpowers SDD workflow.
+- [Read-only Skill permissions](./skill-read-only-permissions.md) — Claude Code tool limits and validator behavior for analysis-only skills (Issue #343).
 - [Gitflow Workflow Guide](./gf-workflow-guide.md) — complete four-phase gated workflow (clarify → plan → execute → deliver) with examples.
 - [gf-workflow-batch Skill](../skills/gf-workflow-batch/SKILL.md) — serial outer driver batch-processing multiple open Issues through gf-workflow (Issue #280).
 - [gf-walkthrough Skill](../skills/gf-walkthrough/SKILL.md) — produces an offline delivery walkthrough (narrative, diff summary, evidence graded `Measured`/`Inferred`/`Unverified`, review-gate blast radius) anchored on a `<base>...<head>` diff; issues no verdict (Issue #329). Example: [walkthrough-feat-329-gf-walkthrough-2026-09-16.md](./walkthrough-feat-329-gf-walkthrough-2026-09-16.md) — the skill's own dogfooding pass on the change that built it.

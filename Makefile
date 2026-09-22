@@ -181,6 +181,7 @@ check-agent-sync: ## Verify agent instructions exist and skill docs stay consist
 	}
 	@echo "✓ CLAUDE.md 存在"
 	@bash scripts/verify-skills-when-not-to-use.sh
+	@python3 scripts/validate-skill-permissions.py
 	@bash scripts/validate-skill-commands.sh
 	@bash scripts/validate-skill-links.sh
 	@python3 scripts/validate-plugin-skills.py

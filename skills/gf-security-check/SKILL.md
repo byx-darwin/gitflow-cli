@@ -3,11 +3,13 @@ name: gf-security-check
 description: |
   Use when the user wants to audit the codebase for hardcoded secrets, dependency vulnerabilities, unsafe code, or license compliance.
   当用户需要检查密钥硬编码、依赖漏洞、unsafe 代码、或许可证合规时使用。
+allowed-tools: Read, Grep, Glob
+disallowed-tools: Write, Edit
 ---
 
 # gf-security-check
 
-Security audit checklist: dependency vulnerabilities, hardcoded secrets, unsafe code, license compliance. **Detection only — never auto-fix.**
+Read-only security audit: dependency vulnerabilities, hardcoded secrets, unsafe code, license compliance. **Detection only — never auto-fix.** Shell scans still follow the host's permission rules; this skill does not pre-approve Bash.
 
 ## CLI Requirement
 
@@ -65,12 +67,13 @@ grep -rn "unsafe" --include="*.rs" src/                  # 4. unsafe code
 ## Report Output & Archiving
 
 When invoked as the Phase 3 change-surface gate step of `gf-workflow`
-(Issue #344), the audit-trail report goes to
+(Issue #344), give the report to the workflow caller. The caller persists it at
 `docs/security-report-<issue-number>-<YYYY-MM-DD>.md`. Once
-`security-report-*.md` files under `docs/` exceed 5, move all but the 5
+`security-report-*.md` files under `docs/` exceed 5, the caller moves all but the 5
 most recent (ordered by the issue number embedded in the filename) into
 `docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
-`docs/index.md` → Reports Archive for the full policy.
+`docs/index.md` → Reports Archive for the full policy. This skill does not write
+or archive report files itself.
 
 ## Implementation
 

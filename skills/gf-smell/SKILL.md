@@ -11,7 +11,8 @@ allowed-tools: Read, Grep, Glob, Bash
 
 Three-stage judgement protocol: candidate → verify → confirm. Language-agnostic
 protocol in this file; language-specific detection in `references/<lang>.md`.
-**Detection only — never auto-fix.**
+**Detection only — never auto-fix.** This skill writes its report to `docs/`,
+so it does not use the read-only permission profile.
 
 ## Preconditions
 
