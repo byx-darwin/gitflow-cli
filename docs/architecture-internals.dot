@@ -1,0 +1,78 @@
+// Hand-maintained design map. The generated crate dependency graph lives in
+// architecture-diagram.dot; update this file when runtime boundaries change.
+digraph gitflow_architecture_internals {
+    graph [
+        label="gf architecture internals — runtime boundaries and external tools",
+        labelloc=t,
+        fontname="Helvetica",
+        fontsize=16,
+        rankdir=LR,
+        pad=0.3,
+        nodesep=0.45,
+        ranksep=0.8
+    ];
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+    edge [fontname="Helvetica", fontsize=9];
+
+    subgraph cluster_cli {
+        label="apps/cli — orchestration";
+        color="#9cb8dc";
+        style=filled;
+        fillcolor="#eaf2fc";
+        entry [label="main.rs\nCLI entry point", fillcolor="#dae8fc"];
+        platform_detect [label="resolve_platform\nremote URL + --platform", fillcolor="#fff2cc"];
+        dispatch [label="command handlers\nprovider selection", fillcolor="#dae8fc"];
+        output [label="JSON / text / TOON\noutput formatting", fillcolor="#dae8fc"];
+    }
+
+    subgraph cluster_core {
+        label="crates/core — platform-independent contracts";
+        color="#b69ac5";
+        style=filled;
+        fillcolor="#f1eaf5";
+        platform [label="Platform::detect_from_remote_url\nhost classification", fillcolor="#e1d5e7"];
+        traits [label="Provider traits\nIssue, Pr, Release, Review, Auth\nLabel, Milestone, Commit, Pipeline", fillcolor="#e1d5e7"];
+        domain [label="Domain types\nIssueData, PrData, ReleaseData\nReviewData, CommentData, MergeResult", fillcolor="#e1d5e7"];
+        errors [label="CoreError / PlatformCliError\nshared error boundary", fillcolor="#e1d5e7"];
+    }
+
+    subgraph cluster_adapters {
+        label="Platform adapters and process abstraction";
+        color="#c4c4c4";
+        style=filled;
+        fillcolor="#f5f5f5";
+        github [label="crates/github\nGitHub*Provider", fillcolor=white];
+        gitlab [label="crates/gitlab\nGitLab*Provider (MR → PrProvider)", fillcolor=white];
+        gitcode [label="crates/gitcode\nGitCode*Provider", fillcolor=white];
+        runner [label="crates/cli-adapter-utils\nCommandRunner / RealCommandRunner\n(mock runners in tests)", fillcolor=white];
+    }
+
+    subgraph cluster_external {
+        label="External dependencies — outside the Rust workspace";
+        color="#999999";
+        style="dashed,filled";
+        fillcolor="#fafafa";
+        gh [label="gh CLI\nGitHub", shape=box3d, fillcolor="#d5e8d4"];
+        glab [label="glab CLI\nGitLab", shape=box3d, fillcolor="#d5e8d4"];
+        gc [label="gc / gitcode CLI\nGitCode", shape=box3d, fillcolor="#d5e8d4"];
+        git_bin [label="git binary\nlocal remote lookup", shape=box3d, fillcolor="#f8cecc"];
+    }
+
+    entry -> platform_detect;
+    entry -> dispatch;
+    platform_detect -> platform [label="classifies URL"];
+    platform_detect -> git_bin [label="sync call before Tokio runtime\ngit remote get-url origin", color="#cc0000", fontcolor="#cc0000", penwidth=2];
+    dispatch -> traits [label="calls selected provider"];
+    dispatch -> output [label="formats result"];
+    traits -> domain [label="uses"];
+    traits -> errors [label="returns"];
+    github -> traits [label="implements"];
+    gitlab -> traits [label="implements"];
+    gitcode -> traits [label="implements"];
+    github -> runner [label="spawns through"];
+    gitlab -> runner [label="spawns through"];
+    gitcode -> runner [label="spawns through"];
+    runner -> gh [label="invokes", style=dashed];
+    runner -> glab [label="invokes", style=dashed];
+    runner -> gc [label="invokes", style=dashed];
+}

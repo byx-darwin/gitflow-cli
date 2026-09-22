@@ -5,6 +5,7 @@
 - [CLI Patterns](./cli-patterns.md) — argument parsing, error handling, output, and conventions for CLI tools.
 - [Architecture](./architecture.md) — workspace layout rationale and dependency flow.
 - [`architecture-diagram.dot`](./architecture-diagram.dot) / [`assets/architecture-diagram.svg`](./assets/architecture-diagram.svg) — dependency-derived architecture diagram, regenerated via `/gf-architecture-diagram` from `cargo metadata`; do not hand-edit the `.svg`.
+- [`architecture-internals.dot`](./architecture-internals.dot) / [`assets/architecture-internals.svg`](./assets/architecture-internals.svg) — hand-maintained map of provider contracts, domain types, error flow, external CLIs, and the synchronous `git` lookup. Use it for design intent and runtime risks; the generated diagram above tracks crate dependencies.
 - [Config](./config.md) — config file format, env vars, XDG directories, and `.env` loading.
 - [Shell Completions](./shell-completions.md) — how to generate and install tab completions.
 
