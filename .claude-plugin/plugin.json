@@ -1,0 +1,41 @@
+{
+  "name": "gitflow-cli",
+  "description": "Gitflow CLI workflows and repository skills for Claude Code.",
+  "author": {
+    "name": "byx-darwin"
+  },
+  "homepage": "https://github.com/byx-darwin/gitflow-cli",
+  "license": "MIT",
+  "skills": [
+    "./skills/gf-architecture-diagram",
+    "./skills/gf-auth",
+    "./skills/gf-commit",
+    "./skills/gf-issue",
+    "./skills/gf-issue-create",
+    "./skills/gf-issue-decompose",
+    "./skills/gf-issue-review",
+    "./skills/gf-issue-triage",
+    "./skills/gf-label-milestone",
+    "./skills/gf-label-stats",
+    "./skills/gf-pipeline-analyzer",
+    "./skills/gf-pr",
+    "./skills/gf-pr-apply-feedback",
+    "./skills/gf-pr-create",
+    "./skills/gf-pr-inline-review",
+    "./skills/gf-pr-review",
+    "./skills/gf-precommit",
+    "./skills/gf-quality",
+    "./skills/gf-refactor",
+    "./skills/gf-regression",
+    "./skills/gf-release",
+    "./skills/gf-release-helper",
+    "./skills/gf-repo",
+    "./skills/gf-repo-onboarding",
+    "./skills/gf-review",
+    "./skills/gf-security-check",
+    "./skills/gf-smell",
+    "./skills/gf-walkthrough",
+    "./skills/gf-workflow",
+    "./skills/gf-workflow-batch"
+  ]
+}

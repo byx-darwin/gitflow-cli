@@ -183,6 +183,7 @@ check-agent-sync: ## Verify agent instructions exist and skill docs stay consist
 	@bash scripts/verify-skills-when-not-to-use.sh
 	@bash scripts/validate-skill-commands.sh
 	@bash scripts/validate-skill-links.sh
+	@python3 scripts/validate-plugin-skills.py
 
 render-workflow-dashboard: ## 从 .cache/workflows/active/*.json 生成派生的 HTML 进度看板（勿手编产物）
 	@python3 scripts/render-workflow-dashboard.py
