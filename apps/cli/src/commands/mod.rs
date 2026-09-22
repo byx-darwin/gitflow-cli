@@ -16,6 +16,7 @@ pub mod pipeline_failure;
 pub mod pr;
 pub mod pr_precheck;
 pub mod prerequisites;
+pub mod query_search;
 pub mod regression_semantic;
 pub mod release;
 pub mod review;

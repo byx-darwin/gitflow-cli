@@ -43,6 +43,7 @@ pub mod pipeline_failure;
 pub mod platform;
 pub mod pr;
 pub mod pr_precheck;
+pub mod query_filter;
 pub mod release;
 pub mod review;
 pub mod semantic_regression;

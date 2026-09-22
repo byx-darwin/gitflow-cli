@@ -26,6 +26,8 @@ use crate::{
 /// `merge`、`checkout`、`ready`、`wip`、`sync`、`diff`、`patch` 操作。
 #[derive(Debug, Subcommand)]
 pub enum PrCommand {
+    /// Compile and run a read-only typed PR query.
+    Search(super::query_search::SearchArgs),
     /// 创建一条新的 Pull Request。
     Create {
         /// PR 标题（必填）。
@@ -242,6 +244,16 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let PrCommand::Search(args) = &command {
+        return super::query_search::handle(
+            gitflow_core::query_filter::Target::Pr,
+            args.clone(),
+            platform,
+            repo,
+            remote_url,
+        )
+        .await;
+    }
     if let PrCommand::Precheck {
         input,
         response,
@@ -273,6 +285,7 @@ pub async fn handle(
     };
 
     match command {
+        PrCommand::Search(_) => return Err(miette::miette!("invalid search dispatch")),
         PrCommand::Precheck { .. } => return Err(miette::miette!("invalid precheck dispatch")),
         PrCommand::Create {
             title,
