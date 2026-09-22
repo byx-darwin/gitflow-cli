@@ -42,7 +42,7 @@ pub async fn handle(
         .map_err(|e| miette::miette!("{e}"))
 }
 
-async fn read_json<T: DeserializeOwned>(path: String, limit: u64) -> miette::Result<T> {
+pub(super) async fn read_json<T: DeserializeOwned>(path: String, limit: u64) -> miette::Result<T> {
     let bytes = tokio::task::spawn_blocking(move || read_bounded_file(&path, limit))
         .await
         .map_err(|_| miette::miette!("Issue precheck file read failed"))??;

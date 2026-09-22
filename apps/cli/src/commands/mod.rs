@@ -13,6 +13,7 @@ pub mod list_args;
 pub mod output;
 pub mod pipeline;
 pub mod pr;
+pub mod pr_precheck;
 pub mod prerequisites;
 pub mod release;
 pub mod review;

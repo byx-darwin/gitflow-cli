@@ -82,6 +82,22 @@ pub enum PrCommand {
         number: u64,
     },
 
+    /// Read-only, optional semantic PR review precheck.
+    Precheck {
+        /// Reviewed PR JSON with bounded file patches, not the raw platform envelope.
+        #[arg(long)]
+        input: String,
+        /// Saved typed decision response for offline replay.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly call the configured Jev provider.
+        #[arg(long)]
+        live: bool,
+        /// Permit live provider use for a private or unknown-visibility repository.
+        #[arg(long, requires = "live")]
+        allow_private: bool,
+    },
+
     /// 关闭 Pull Request。
     Close {
         /// PR 编号。
@@ -226,6 +242,19 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let PrCommand::Precheck {
+        input,
+        response,
+        live,
+        allow_private,
+    } = &command
+    {
+        let report =
+            super::pr_precheck::handle(input.clone(), response.clone(), *live, *allow_private)
+                .await?;
+        let output = CliOutput::success(report, "local", "pr precheck");
+        return print_output(&output, &output_format);
+    }
     let provider: Box<dyn PrProvider> = match platform {
         "github" => Box::new(GitHubPrProvider::new(repo)),
         "gitlab" => {
@@ -244,6 +273,7 @@ pub async fn handle(
     };
 
     match command {
+        PrCommand::Precheck { .. } => return Err(miette::miette!("invalid precheck dispatch")),
         PrCommand::Create {
             title,
             head,
@@ -700,6 +730,8 @@ fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> miette
     reason = "Test code: panic is acceptable for assertion failures"
 )]
 mod tests {
+    use clap::Parser;
+
     use super::*;
 
     #[test]
@@ -795,6 +827,28 @@ mod tests {
     }
 
     // --- PrCommand 解析测试 ---
+
+    #[test]
+    fn test_should_parse_read_only_pr_precheck() {
+        let cli = crate::Cli::try_parse_from([
+            "gf",
+            "pr",
+            "precheck",
+            "--input",
+            "/tmp/pr.json",
+            "--live",
+            "--allow-private",
+        ])
+        .expect("parse");
+        assert!(matches!(
+            cli.command,
+            crate::Commands::Pr(PrCommand::Precheck {
+                live: true,
+                allow_private: true,
+                ..
+            })
+        ));
+    }
 
     #[test]
     fn test_should_parse_pr_close() {

@@ -41,6 +41,7 @@ pub mod paging;
 pub mod pipeline;
 pub mod platform;
 pub mod pr;
+pub mod pr_precheck;
 pub mod release;
 pub mod review;
 pub mod session;
