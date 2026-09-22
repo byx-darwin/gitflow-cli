@@ -150,6 +150,9 @@ pub struct WorkflowContract {
     pub current_phase: u8,
     /// 阶段映射（键 `"1"`-`"4"` 对应四个阶段，与合同 schema 保持一致）。
     pub phases: BTreeMap<String, Phase>,
+    /// Optional semantic observations; they never change phase gates.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub semantic_checks: Vec<super::workflow_semantic::AuditRecord>,
 }
 
 impl WorkflowContract {
@@ -234,6 +237,24 @@ impl WorkflowContract {
 /// CLI 子命令枚举。
 #[derive(Debug, Subcommand)]
 pub enum WorkflowCommand {
+    /// Evaluate repository allowlisted semantic rules and record an advisory audit.
+    SemanticCheck {
+        /// Existing workflow identifier.
+        #[arg(long)]
+        workflow_id: String,
+        /// Reviewed, bounded phase input JSON.
+        #[arg(long)]
+        input: String,
+        /// Versioned repository rule file.
+        #[arg(long, default_value = "config/workflow-semantic-rules.json")]
+        rules: String,
+        /// Saved typed provider response map, keyed by rule ID.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly query the configured Jev provider.
+        #[arg(long)]
+        live: bool,
+    },
     /// Read-only workflow mode advice from local rules and optional Jev.
     Recommend {
         /// Reviewed, bounded task summary JSON file.
@@ -287,6 +308,13 @@ pub enum WorkflowCommand {
 /// - 创建时标题为空或当日序号用尽。
 pub async fn handle(command: WorkflowCommand) -> miette::Result<()> {
     match command {
+        WorkflowCommand::SemanticCheck {
+            workflow_id,
+            input,
+            rules,
+            response,
+            live,
+        } => super::workflow_semantic::handle(workflow_id, input, rules, response, live).await,
         WorkflowCommand::Recommend {
             input,
             response,
@@ -301,7 +329,7 @@ pub async fn handle(command: WorkflowCommand) -> miette::Result<()> {
 }
 
 /// 获取 active workflow 目录。
-fn workflow_dir() -> PathBuf {
+pub(super) fn workflow_dir() -> PathBuf {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     cwd.join(".cache/workflows/active")
 }
@@ -316,7 +344,7 @@ fn archive_dir() -> PathBuf {
 ///
 /// `workflow_id` 会被拼接进文件路径，必须在使用前完成校验以阻止路径穿越
 /// （例如 `../../etc/passwd`）。只接受形如 `wf-2026-07-09-001` 的字符串。
-fn validate_workflow_id(workflow_id: &str) -> miette::Result<()> {
+pub(super) fn validate_workflow_id(workflow_id: &str) -> miette::Result<()> {
     let pattern = regex::Regex::new(r"^wf-\d{4}-\d{2}-\d{2}-\d{3}$")
         .map_err(|e| miette::miette!("内部错误：workflow_id 正则编译失败: {e}"))?;
     if pattern.is_match(workflow_id) {
@@ -550,6 +578,7 @@ fn new_contract(workflow_id: &str, title: &str, mode: WorkflowMode) -> WorkflowC
         updated_at: now,
         current_phase: 1,
         phases,
+        semantic_checks: Vec::new(),
     }
 }
 

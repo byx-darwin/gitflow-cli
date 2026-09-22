@@ -13,6 +13,7 @@
 - [PR review precheck](./pr-review-precheck.md) — optional read-only Jev risk triage before a full PR review (Issue #386).
 - [Pipeline failure analysis](./pipeline-failure-analysis.md) — bounded read-only Jev classification and root-cause grouping for CI failures (Issue #385).
 - [Decision offline evaluation](./decision-offline-evaluation.md) — versioned fixtures, saved responses, calibration, and report comparison (Issue #393).
+- [Workflow semantic rules](./workflow-semantic-rules.md) — optional phase checks, versioned rule allowlist, fail-open results, and contract audit (Issue #388).
 - [Optional workflow recommendation](./workflow-recommendation.md) — deterministic mode routing with advisory Jev signals (Issue #383).
 - [Workflow recommendation synthetic evaluation](./workflow-recommendation-evaluation-2026-09-22.md) — replayable mode, risk, coverage, latency, and cost measurements (Issue #383).
 - [Optional gf Skill suggestion](./skill-suggestion.md) — read-only task routing over the bundled Skill catalog (Issue #384).

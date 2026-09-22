@@ -50,6 +50,7 @@ pub mod skill_suggestion;
 pub mod toon;
 pub mod types;
 pub mod workflow_recommendation;
+pub mod workflow_semantic;
 
 // Re-export types at the crate root for convenience.
 pub use auth_checker::{AuthCheckResult, AuthChecker};
