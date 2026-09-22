@@ -10,7 +10,8 @@ This repository is a reusable Rust 2024 workspace template. These rules are mand
 - Use `CLAUDE.md` as the single project-level agent instruction file.
 - Use Ruflo for agent workflow/orchestration. Do not maintain project-local `.claude/skills` unless explicitly requested.
 - Keep Ruflo or Claude-flow runtime state out of git; persist reusable guidance in `CLAUDE.md`, `docs/`, or `specs/`.
-- Do not commit, push, merge, release, deploy, install dependencies, or change ticket state without explicit user permission.
+- Do not push, release, deploy, install dependencies, or change ticket state without explicit user permission.
+- After merging a temporary issue branch, check that its worktree has no uncommitted changes, remove that worktree, and delete the merged local branch with `git branch -d` in the same task. Keep `dev` and `main`.
 - Never run `cargo clean`; ask first if it is truly required.
 - Never write `TODO`, `todo!()`, temporary stubs, or incomplete code. If blocked, stop, reassess, and implement the complete solution.
 - Remove dead code instead of suppressing it. Do not add deprecation layers unless explicitly requested.
