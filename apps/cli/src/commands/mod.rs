@@ -25,5 +25,6 @@ pub mod skills_suggest;
 pub mod update;
 pub mod workflow;
 pub mod workflow_context;
+pub mod workflow_progress;
 pub mod workflow_recommend;
 pub mod workflow_semantic;

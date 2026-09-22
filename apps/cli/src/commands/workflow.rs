@@ -237,6 +237,12 @@ impl WorkflowContract {
 /// CLI 子命令枚举。
 #[derive(Debug, Subcommand)]
 pub enum WorkflowCommand {
+    /// Assess bounded agent trace events and store read-only progress telemetry.
+    Progress {
+        /// Progress operation.
+        #[command(subcommand)]
+        command: super::workflow_progress::ProgressCommand,
+    },
     /// Build or recover a derived active-context manifest without editing evidence.
     Context {
         /// Context operation.
@@ -314,6 +320,7 @@ pub enum WorkflowCommand {
 /// - 创建时标题为空或当日序号用尽。
 pub async fn handle(command: WorkflowCommand) -> miette::Result<()> {
     match command {
+        WorkflowCommand::Progress { command } => super::workflow_progress::handle(command).await,
         WorkflowCommand::Context { command } => super::workflow_context::handle(command).await,
         WorkflowCommand::SemanticCheck {
             workflow_id,
