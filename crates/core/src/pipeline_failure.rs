@@ -315,7 +315,11 @@ fn sensitive(text: &str) -> bool {
         "password",
         "secret",
         "api_key",
+        "apikey",
+        "accesskey",
         "private_key",
+        "export ",
+        "::add-mask::",
         "-----begin",
     ]
     .iter()
@@ -664,6 +668,17 @@ mod tests {
         assert!(!state.contains("internal.example"));
         assert!(state.contains("ordinary compile failure"));
         assert_eq!(prepared.report.failures[0].evidence[0].line, 1);
+
+        let alternate = sample(&["error: apiKey=private\nfailed export foo=bar"]);
+        let state = alternate
+            .prepare()
+            .unwrap()
+            .request
+            .unwrap()
+            .state
+            .to_string();
+        assert!(!state.contains("private"));
+        assert!(!state.contains("foo=bar"));
     }
 
     #[test]
