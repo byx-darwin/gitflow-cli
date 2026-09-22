@@ -11,6 +11,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    datetime::parse_api_datetime,
     error::parse_gh_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -52,20 +53,15 @@ struct GhRun {
 
 impl GhRun {
     fn into_status(self) -> PipelineStatus {
-        let created_at = chrono::DateTime::parse_from_rfc3339(&self.created_at)
-            .ok()
-            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
-        let updated_at = chrono::DateTime::parse_from_rfc3339(&self.updated_at)
-            .ok()
-            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
+        let created_at = parse_api_datetime(&self.created_at);
+        let updated_at = parse_api_datetime(&self.updated_at);
 
         PipelineStatus {
             id: self.database_id,
             ref_name: self.head_branch,
             status: gh_status_to_enum(&self.status, self.conclusion.as_deref()),
             conclusion: self.conclusion,
-            // Wrapped in Some purely for PipelineStatus's new Option type
-            // (#380). Fallback value unchanged — Issue #401's decision.
+            // Wrapped in Some for PipelineStatus's Option type (#380).
             created_at: Some(created_at),
             updated_at: Some(updated_at),
             url: self.url,
@@ -590,6 +586,23 @@ mod tests {
         let status = run.into_status();
         assert!(status.created_at.is_some());
         assert!(status.updated_at.is_some());
+    }
+
+    #[test]
+    fn test_should_use_epoch_for_malformed_pipeline_timestamps() {
+        let run = GhRun {
+            database_id: 1,
+            head_branch: "main".to_string(),
+            status: "completed".to_string(),
+            conclusion: Some("success".to_string()),
+            created_at: "invalid-created-at".to_string(),
+            updated_at: "invalid-updated-at".to_string(),
+            url: "https://example.com/runs/1".to_string(),
+        };
+
+        let status = run.into_status();
+        assert_eq!(status.created_at, Some(chrono::DateTime::UNIX_EPOCH));
+        assert_eq!(status.updated_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     #[test]

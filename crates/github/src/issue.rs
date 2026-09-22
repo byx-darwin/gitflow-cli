@@ -14,6 +14,7 @@ use tracing::debug;
 
 use crate::{
     GITHUB_API_MAX_PER_PAGE,
+    datetime::parse_api_datetime,
     error::parse_gh_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -750,16 +751,6 @@ impl From<GitHubIssueApiResponse> for IssueData {
             milestone: api.milestone,
         }
     }
-}
-
-/// 解析 GitHub REST API 的 RFC 3339 时间戳。
-///
-/// 格式非法时记录警告并回退到 Unix 纪元，避免时间戳异常阻断主流程。
-fn parse_api_datetime(value: &str) -> chrono::DateTime<chrono::Utc> {
-    value.parse().unwrap_or_else(|_| {
-        tracing::warn!(value, "Failed to parse GitHub API timestamp, using epoch");
-        chrono::DateTime::UNIX_EPOCH
-    })
 }
 
 /// Parse issue number from GitHub URL.

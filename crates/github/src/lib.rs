@@ -39,6 +39,7 @@ pub(crate) const GITHUB_API_MAX_PER_PAGE: u32 = 100;
 
 pub mod auth;
 pub mod commit;
+mod datetime;
 pub mod error;
 pub mod issue;
 pub mod label;
