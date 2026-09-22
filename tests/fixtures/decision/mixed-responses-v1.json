@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "synthetic_mixed_v1",
+  "provider": "saved_fixture",
+  "inputPricePerMillionUsd": 0.042,
+  "outputPricePerMillionUsd": 0.3,
+  "results": [
+    {
+      "caseId": "case_1",
+      "outcome": {
+        "status": "ok",
+        "latencyMs": 120,
+        "response": {
+          "model": "fixture-model-1",
+          "answers": {
+            "broken": { "type": "noul", "noul": 0.9 },
+            "kind": {
+              "type": "choice",
+              "choice": "bug",
+              "confidence": 0.9,
+              "probabilities": { "bug": 0.9, "feature": 0.1 }
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.8,
+              "confidence": 0.8,
+              "legend": { "0": "Low impact", "1": "Medium impact", "2": "High impact" },
+              "probabilities": { "0": 0.0, "1": 0.2, "2": 0.8 }
+            }
+          },
+          "usage": { "input_tokens": 100, "output_tokens": 20 }
+        }
+      }
+    }
+  ]
+}

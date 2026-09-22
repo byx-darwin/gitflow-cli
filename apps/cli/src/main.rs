@@ -538,6 +538,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_should_parse_offline_decision_evaluation_commands() {
+        let eval = Cli::try_parse_from([
+            "gf",
+            "decide",
+            "eval",
+            "--fixtures",
+            "cases.json",
+            "--responses",
+            "saved.json",
+        ])
+        .unwrap();
+        assert!(matches!(
+            eval.command,
+            Commands::Decide(DecideCommand::Eval(_))
+        ));
+        let calibrate = Cli::try_parse_from([
+            "gf",
+            "decide",
+            "calibrate",
+            "--report",
+            "report.json",
+            "--question",
+            "type",
+            "--target-accuracy",
+            "0.9",
+        ])
+        .unwrap();
+        assert!(matches!(
+            calibrate.command,
+            Commands::Decide(DecideCommand::Calibrate(_))
+        ));
+        let compare = Cli::try_parse_from([
+            "gf",
+            "decide",
+            "compare",
+            "--baseline",
+            "base.json",
+            "--candidate",
+            "new.json",
+        ])
+        .unwrap();
+        assert!(matches!(
+            compare.command,
+            Commands::Decide(DecideCommand::Compare(_))
+        ));
+    }
+
+    #[test]
     fn test_should_extract_repo_from_https_url() {
         let url = "https://github.com/owner/repo.git";
         assert_eq!(extract_repo_from_url(url), Some("owner/repo".to_string()));

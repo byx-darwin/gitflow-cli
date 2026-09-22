@@ -31,6 +31,7 @@ pub mod commit;
 pub mod compatibility;
 pub mod decision;
 pub mod doctor;
+pub mod evaluation;
 pub mod git_ops;
 pub mod issue;
 pub mod label;

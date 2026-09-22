@@ -334,7 +334,7 @@ fn is_probability(value: f64) -> bool {
     value.is_finite() && (0.0..=1.0).contains(&value)
 }
 
-fn state_contains_obvious_credential(value: &Value) -> bool {
+pub(crate) fn state_contains_obvious_credential(value: &Value) -> bool {
     match value {
         Value::String(text) => {
             let lower = text.to_ascii_lowercase();

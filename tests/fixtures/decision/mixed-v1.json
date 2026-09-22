@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "synthetic_mixed_v1",
+  "cases": [
+    {
+      "id": "case_1",
+      "language": "english",
+      "risk": "high",
+      "source": "synthetic",
+      "request": {
+        "state": { "title": "Existing command fails" },
+        "questions": {
+          "broken": { "type": "noul", "instructions": "Is the existing behavior broken?" },
+          "kind": {
+            "type": "choice",
+            "instructions": "Classify the issue",
+            "criteria": { "bug": "Broken behavior", "feature": "New behavior" }
+          },
+          "severity": {
+            "type": "score",
+            "instructions": "Rate impact",
+            "criteria": ["Low impact", "Medium impact", "High impact"]
+          }
+        }
+      },
+      "expected": {
+        "broken": { "type": "noul", "yes": true },
+        "kind": { "type": "choice", "choice": "bug" },
+        "severity": { "type": "score", "level": 2 }
+      }
+    }
+  ]
+}

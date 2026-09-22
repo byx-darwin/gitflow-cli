@@ -27,6 +27,66 @@ pub enum DecideCommand {
     Score(DecideArgs),
     /// Evaluate mixed questions in one provider request.
     Batch(DecideArgs),
+    /// Evaluate versioned fixtures from saved responses, or explicitly run live.
+    Eval(EvalArgs),
+    /// Suggest a question-specific confidence threshold from a saved report.
+    Calibrate(CalibrateArgs),
+    /// Compare two saved evaluation reports.
+    Compare(CompareArgs),
+}
+
+/// Offline response evaluation or explicit live evaluation.
+#[derive(Debug, Args)]
+pub struct EvalArgs {
+    /// Versioned fixture JSON file.
+    #[arg(long)]
+    pub fixtures: String,
+    /// Versioned saved-response JSON file for offline evaluation.
+    #[arg(long, conflicts_with = "live")]
+    pub responses: Option<String>,
+    /// Explicitly call the configured provider; never enabled by default.
+    #[arg(long)]
+    pub live: bool,
+    /// Save live typed responses under the ignored `.cache/decision/` directory.
+    #[arg(long, requires = "live")]
+    pub save_responses: Option<String>,
+    /// Optional input token price for estimated cost.
+    #[arg(long, requires = "live")]
+    pub input_price_per_million_usd: Option<f64>,
+    /// Optional output token price for estimated cost.
+    #[arg(long, requires = "live")]
+    pub output_price_per_million_usd: Option<f64>,
+}
+
+/// Select a conservative acceptance threshold from a saved report.
+#[derive(Debug, Args)]
+pub struct CalibrateArgs {
+    /// Evaluation report JSON file.
+    #[arg(long)]
+    pub report: String,
+    /// Question identifier to calibrate.
+    #[arg(long)]
+    pub question: String,
+    /// Target for the lower 95% accepted-accuracy confidence bound.
+    #[arg(long)]
+    pub target_accuracy: f64,
+    /// Optional language slice.
+    #[arg(long)]
+    pub language: Option<String>,
+    /// Optional risk slice.
+    #[arg(long)]
+    pub risk: Option<String>,
+}
+
+/// Compare two evaluation reports.
+#[derive(Debug, Args)]
+pub struct CompareArgs {
+    /// Baseline report JSON file.
+    #[arg(long)]
+    pub baseline: String,
+    /// Candidate report JSON file.
+    #[arg(long)]
+    pub candidate: String,
 }
 
 /// Input location. Omit `--input` to read standard input.
@@ -44,11 +104,21 @@ pub struct DecideArgs {
 /// Returns a content-free error for unavailable providers, invalid input,
 /// transport failures, and malformed responses.
 pub async fn handle(command: DecideCommand, output: OutputFormat) -> miette::Result<()> {
+    match command {
+        DecideCommand::Eval(args) => super::decide_eval::evaluate(args, output).await,
+        DecideCommand::Calibrate(args) => super::decide_eval::calibrate(args, output).await,
+        DecideCommand::Compare(args) => super::decide_eval::compare(args, output).await,
+        other => handle_inference(other, output).await,
+    }
+}
+
+async fn handle_inference(command: DecideCommand, output: OutputFormat) -> miette::Result<()> {
     let (kind, args) = match command {
         DecideCommand::Noul(args) => ("noul", args),
         DecideCommand::Choice(args) => ("choice", args),
         DecideCommand::Score(args) => ("score", args),
         DecideCommand::Batch(args) => ("batch", args),
+        _ => return Err(miette::miette!("invalid decision command")),
     };
     let bytes = tokio::task::spawn_blocking(move || read_bounded_input(args.input))
         .await
@@ -84,8 +154,7 @@ pub async fn handle(command: DecideCommand, output: OutputFormat) -> miette::Res
     }
 }
 
-#[cfg(any(feature = "gitflow-jev", test))]
-fn decision_output_format(format: OutputFormat) -> OutputFormat {
+pub(super) fn decision_output_format(format: OutputFormat) -> OutputFormat {
     if matches!(format, OutputFormat::Auto) {
         OutputFormat::Json
     } else {

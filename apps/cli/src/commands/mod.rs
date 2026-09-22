@@ -4,6 +4,7 @@ pub mod auth;
 pub mod commit;
 pub mod completions;
 pub mod decide;
+pub mod decide_eval;
 pub mod doctor;
 pub mod issue;
 pub mod label;
