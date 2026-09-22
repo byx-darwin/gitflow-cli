@@ -295,6 +295,13 @@ In standard mode, the following skills are invoked per phase:
 
 ## Gate Rules
 
+At the end of Planning, Execution, and Delivery, an orchestrator may run
+`gf workflow semantic-check --workflow-id <id> --input <reviewed-json>` with a
+bounded summary and changed paths. Use `--live` only when explicitly intended.
+Record its advisory output in the contract, including `unavailable` on provider
+failure. The check never substitutes for any gate, test, lint, security check,
+permission, or user approval. See `docs/workflow-semantic-rules.md`.
+
 Full definitions: `skills/gf-workflow/gates.md`
 
 | Enter Phase | Required evidence | fast-mode exemption |

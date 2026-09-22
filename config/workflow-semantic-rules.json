@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "2026-09-22-v1",
+  "rules": [
+    {
+      "id": "architecture_intent",
+      "phase": "plan",
+      "pathPrefixes": ["docs/", "crates/", "apps/"],
+      "instruction": "Does the reviewed summary suggest a conflict with the stated architecture intent?",
+      "question": {"type": "noul"},
+      "severity": "medium",
+      "threshold": 0.85,
+      "failurePolicy": "warn"
+    },
+    {
+      "id": "unnecessary_complexity",
+      "phase": "execute",
+      "pathPrefixes": ["crates/", "apps/"],
+      "instruction": "How well does the described change avoid unnecessary complexity?",
+      "question": {"type": "score", "levels": ["Unnecessary complexity", "Some excess", "Appropriate scope"]},
+      "severity": "low",
+      "threshold": 0.8,
+      "failurePolicy": "observe"
+    },
+    {
+      "id": "collaboration_rule",
+      "phase": "deliver",
+      "pathPrefixes": ["docs/", "skills/", "apps/", "crates/"],
+      "instruction": "What is the main apparent collaboration-rule violation, if any?",
+      "question": {"type": "choice", "categories": {"none": "No apparent violation", "approval": "Missing required approval", "evidence": "Missing documented evidence"}},
+      "severity": "medium",
+      "threshold": 0.85,
+      "failurePolicy": "warn"
+    }
+  ]
+}
