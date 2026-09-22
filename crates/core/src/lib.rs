@@ -34,6 +34,7 @@ pub mod doctor;
 pub mod evaluation;
 pub mod git_ops;
 pub mod issue;
+pub mod issue_quality;
 pub mod label;
 pub mod output;
 pub mod paging;

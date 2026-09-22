@@ -7,6 +7,7 @@ pub mod decide;
 pub mod decide_eval;
 pub mod doctor;
 pub mod issue;
+pub mod issue_precheck;
 pub mod label;
 pub mod list_args;
 pub mod output;

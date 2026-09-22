@@ -119,6 +119,7 @@ fn main() -> std::process::ExitCode {
         cli.command,
         Commands::Skills(_)
             | Commands::Decide(_)
+            | Commands::Issue(IssueCommand::Precheck { .. })
             | Commands::Completions(_)
             | Commands::Workflow(_)
             | Commands::Update(_)
@@ -158,6 +159,7 @@ async fn async_main(cli: Cli, platform: &str, repo: &str, remote_url: &str) -> m
         cli.command,
         Commands::Skills(_)
             | Commands::Decide(_)
+            | Commands::Issue(IssueCommand::Precheck { .. })
             | Commands::Completions(_)
             | Commands::Workflow(_)
             | Commands::Update(_)
