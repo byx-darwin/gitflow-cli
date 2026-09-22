@@ -44,6 +44,8 @@ inference** — every node and edge must trace back to a manifest entry.
 ## Stage 0: Detect Language
 
 Detect the project language(s) by following `gf-quality/references/detector.md`.
+Read `gf-quality/references/profiles/<lang>.md` for shared tool and version facts;
+keep the extraction procedure in this skill's own language reference.
 **Do not implement a second detection mechanism.** Consume its output
 (language · path · workspace type) and load the matching `references/<lang>.md`.
 For multi-language projects, use the selection interaction that reference

@@ -59,48 +59,10 @@ Language Detection → Gate 1 (build) → Gate 2 (test) → Gate 3 (coverage) �
 
 ## Step 1: Language Detection
 
-Run detection BEFORE any gate. See `references/detector.md` for full rules.
-
-Scan root **and 3 levels deep** for marker files (skip `node_modules/`, `target/`, `vendor/`, etc.):
-
-```bash
-find . -maxdepth 3 \( -name "Cargo.toml" -o -name "go.mod" -o -name "go.work" \
-  -o -name "pom.xml" -o -name "build.gradle" -o -name "settings.gradle" \
-  -o -name "pyproject.toml" -o -name "package.json" \) \
-  -not -path "*/node_modules/*" -not -path "*/target/*" -not -path "*/vendor/*"
-```
-
-| Detected | Load Reference |
-|----------|---------------|
-| `Cargo.toml` | `references/rust.md` |
-| `go.mod` / `go.work` | `references/go.md` |
-| `pom.xml` / `build.gradle` | `references/java.md` |
-| `pyproject.toml` / `setup.py` | `references/python.md` |
-| `package.json` | `references/node.md` |
-| None | Run Gate 6 only (pre-commit or N/A) |
-
-After detection, check for workspace configurations (see `references/detector.md` → Workspace Detection).
-
-### Single-Language Project
-
-One language detected (possibly in multiple directories) → load that reference, run gates.
-For Rust/Go workspaces: a single command at root covers all members.
-
-### Multi-Language Project
-
-Multiple languages detected → present summary to user:
-
-```
-Detected languages:
-  1. Rust       → ./ (workspace root + crates/* + apps/server)
-  2. Node.js    → ./apps/desktop/ (bun runtime)
-
-Which to check? [1/2/all]
-```
-
-- User selects one → run that language's gates
-- User selects "all" → run each independently (one failure does NOT block others)
-- Generate **aggregate report** at end (see Step 3)
+Follow `references/detector.md` for the sole marker scan, exclusions, workspace
+rules, language selection, and runtime detection. Load the matching
+`references/<lang>.md` plus `references/profiles/<lang>.md` after detection.
+Do not copy the scan command or marker table into this file.
 
 ## Step 2: Run Gates
 

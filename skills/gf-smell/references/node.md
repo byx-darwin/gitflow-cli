@@ -1,5 +1,7 @@
 # Node.js / TypeScript Detection Layer
 
+**Shared language profile:** `gf-quality/references/profiles/node.md`. Read it for tools, version sources, and scan exclusions.
+
 **Detection:** `package.json` (per `gf-quality/references/detector.md`), runtime
 resolved by lock file per that same reference.
 

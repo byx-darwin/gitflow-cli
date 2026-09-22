@@ -1,5 +1,7 @@
 # Java Detection Layer
 
+**Shared language profile:** `gf-quality/references/profiles/java.md`. Read it for tools, version sources, and scan exclusions.
+
 **Detection:** `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` /
 `settings.gradle` (Gradle), per `gf-quality/references/detector.md`.
 

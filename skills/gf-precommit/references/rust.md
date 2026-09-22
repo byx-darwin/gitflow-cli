@@ -1,6 +1,7 @@
 # Rust Pre-commit Checks
 
-**Detection:** `Cargo.toml` in project root.
+**Shared language profile:** `gf-quality/references/profiles/rust.md`. Read it for tools, version sources, and scan exclusions.
+
 
 ## Check Commands
 
