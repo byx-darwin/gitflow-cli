@@ -15,6 +15,7 @@
 - [Decision offline evaluation](./decision-offline-evaluation.md) — versioned fixtures, saved responses, calibration, and report comparison (Issue #393).
 - [Workflow semantic rules](./workflow-semantic-rules.md) — optional phase checks, versioned rule allowlist, fail-open results, and contract audit (Issue #388).
 - [Semantic regression oracle](./semantic-regression.md) — optional captured-case replay after factual assertions, with bounded live Jev and advisory findings (Issue #389).
+- [Typed Issue and PR search](./query-filter.md) — versioned read-only filter AST, hybrid parser, platform capabilities, and offline evaluation (Issue #390).
 - [Optional workflow recommendation](./workflow-recommendation.md) — deterministic mode routing with advisory Jev signals (Issue #383).
 - [Workflow recommendation synthetic evaluation](./workflow-recommendation-evaluation-2026-09-22.md) — replayable mode, risk, coverage, latency, and cost measurements (Issue #383).
 - [Optional gf Skill suggestion](./skill-suggestion.md) — read-only task routing over the bundled Skill catalog (Issue #384).

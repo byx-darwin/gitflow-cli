@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "query-synthetic-v1",
+  "cases": [
+    {
+      "id": "explicit_issue",
+      "query": "state:open label:bug",
+      "target": "issue",
+      "candidates": {
+        "labels": [
+          "bug"
+        ],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [
+        {
+          "field": "state",
+          "value": "open"
+        },
+        {
+          "field": "label",
+          "value": "bug",
+          "negated": false
+        }
+      ],
+      "expectedUnresolved": [],
+      "expectedError": false,
+      "dangerous": false
+    },
+    {
+      "id": "chinese_mixed",
+      "query": "上周 Sam 提交的未关闭高优先级 bug",
+      "target": "issue",
+      "candidates": {
+        "labels": [
+          "bug",
+          "priority:high"
+        ],
+        "users": [
+          "Sam"
+        ]
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [
+        {
+          "field": "created_after",
+          "value": "2026-09-14"
+        },
+        {
+          "field": "created_before",
+          "value": "2026-09-21"
+        },
+        {
+          "field": "author",
+          "value": "Sam"
+        },
+        {
+          "field": "state",
+          "value": "open"
+        },
+        {
+          "field": "label",
+          "value": "bug",
+          "negated": false
+        }
+      ],
+      "expectedUnresolved": [
+        "高优先级"
+      ],
+      "expectedError": false,
+      "dangerous": false
+    },
+    {
+      "id": "quoted_text",
+      "query": "text:\"build failure\"",
+      "target": "issue",
+      "candidates": {
+        "labels": [],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [
+        {
+          "field": "text",
+          "value": "build failure"
+        }
+      ],
+      "expectedUnresolved": [],
+      "expectedError": false,
+      "dangerous": false
+    },
+    {
+      "id": "negated_label",
+      "query": "state:open -label:bug",
+      "target": "issue",
+      "candidates": {
+        "labels": [
+          "bug"
+        ],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [
+        {
+          "field": "state",
+          "value": "open"
+        },
+        {
+          "field": "label",
+          "value": "bug",
+          "negated": true
+        }
+      ],
+      "expectedUnresolved": [],
+      "expectedError": false,
+      "dangerous": false
+    },
+    {
+      "id": "contradictory_state",
+      "query": "state:open state:closed",
+      "target": "issue",
+      "candidates": {
+        "labels": [],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [],
+      "expectedUnresolved": [],
+      "expectedError": true,
+      "dangerous": true
+    },
+    {
+      "id": "invalid_date",
+      "query": "after:2026-02-30",
+      "target": "issue",
+      "candidates": {
+        "labels": [],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [],
+      "expectedUnresolved": [],
+      "expectedError": true,
+      "dangerous": true
+    },
+    {
+      "id": "missing_label",
+      "query": "label:missing",
+      "target": "issue",
+      "candidates": {
+        "labels": [
+          "bug"
+        ],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [],
+      "expectedUnresolved": [],
+      "expectedError": true,
+      "dangerous": true
+    },
+    {
+      "id": "prompt_injection",
+      "query": "$(rm -rf /)",
+      "target": "issue",
+      "candidates": {
+        "labels": [],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [],
+      "expectedUnresolved": [],
+      "expectedError": true,
+      "dangerous": true
+    },
+    {
+      "id": "ambiguous_user",
+      "query": "Sam",
+      "target": "issue",
+      "candidates": {
+        "labels": [],
+        "users": [
+          "Sam"
+        ]
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [],
+      "expectedUnresolved": [
+        "Sam"
+      ],
+      "expectedError": false,
+      "dangerous": true
+    },
+    {
+      "id": "pr_draft",
+      "query": "state:open draft:true",
+      "target": "pr",
+      "candidates": {
+        "labels": [],
+        "users": []
+      },
+      "today": "2026-09-22",
+      "expectedFilters": [
+        {
+          "field": "state",
+          "value": "open"
+        },
+        {
+          "field": "draft",
+          "value": true
+        }
+      ],
+      "expectedUnresolved": [],
+      "expectedError": false,
+      "dangerous": false
+    }
+  ]
+}

@@ -25,6 +25,8 @@ use crate::{
 /// `add-label`、`remove-label` 操作，每种操作对应不同的 clap 参数。
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
+    /// Compile and run a read-only typed Issue query.
+    Search(super::query_search::SearchArgs),
     /// 创建一个新的 Issue。
     Create {
         /// Issue 标题（必填）。
@@ -215,6 +217,16 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let IssueCommand::Search(args) = &command {
+        return super::query_search::handle(
+            gitflow_core::query_filter::Target::Issue,
+            args.clone(),
+            platform,
+            repo,
+            remote_url,
+        )
+        .await;
+    }
     if let IssueCommand::Precheck {
         input,
         response,
@@ -256,6 +268,7 @@ pub async fn handle(
     };
 
     match command {
+        IssueCommand::Search(_) => return Err(miette::miette!("invalid search dispatch")),
         IssueCommand::Create {
             title,
             body,
