@@ -89,6 +89,25 @@ flowchart TD
 | Jobs | `gf pipeline jobs --pipeline-id <ID>` |
 | Logs | `gf pipeline logs --pipeline-id <ID>` |
 
+## Optional Jev failure classification
+
+After collecting jobs and logs, select at most 12 failed job/step excerpts
+and prepare the bounded JSON input described in
+[failure analysis](../../docs/pipeline-failure-analysis.md). Review and remove
+sensitive content, then run:
+
+```bash
+gf pipeline analyze-failures --input /tmp/pipeline-failures.json --live --output json
+```
+
+Live use requires a `gitflow-jev` build, `GF_DECISION_PROVIDER=jev`, and
+`TYPESAFE_API_KEY`. Only the first three failures are sent for semantic
+classification; the rest remain `unknown` in deterministic telemetry.
+Without Jev, the command still returns redacted evidence positions with
+`decisionStatus: unavailable`. Check every suggested category, flaky signal,
+and root-cause group against the original logs. Never retry, cancel, edit CI,
+or create an external report from this advice.
+
 ## Pattern Triplets
 
 | User input | Handling |

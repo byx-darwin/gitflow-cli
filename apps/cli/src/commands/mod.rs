@@ -12,6 +12,7 @@ pub mod label;
 pub mod list_args;
 pub mod output;
 pub mod pipeline;
+pub mod pipeline_failure;
 pub mod pr;
 pub mod pr_precheck;
 pub mod prerequisites;
