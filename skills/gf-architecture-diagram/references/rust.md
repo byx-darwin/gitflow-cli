@@ -4,10 +4,11 @@
 
 ## 提取命令
 
-**单次运行，捕获输出后复用。**
+Stage 1 把第一次输出留在独立文件中；Stage 5 用同一条 `cargo metadata` 查询
+再次提取，写入另一个文件。两次都要检查命令成功和 `packages[]` 非空。
 
 ```bash
-cargo metadata --no-deps --format-version=1 > /tmp/gf-arch-metadata.json
+cargo metadata --no-deps --format-version=1 > /tmp/gf-arch-metadata-stage1.json
 ```
 
 `--no-deps` 是刻意的：只需要工作区成员（`packages[]`）与它们互相之间的依赖，
@@ -22,7 +23,7 @@ cargo metadata --no-deps --format-version=1 > /tmp/gf-arch-metadata.json
 
 ```python
 import json
-data = json.load(open("/tmp/gf-arch-metadata.json"))
+data = json.load(open("/tmp/gf-arch-metadata-stage1.json"))
 modules = sorted(p["name"] for p in data["packages"])
 ```
 
@@ -44,6 +45,41 @@ edges = sorted(set(edges))
 `dep["name"] in modules` 是双重校验：`path` 非空已经意味着工作区内，但显式
 再校验一次目标名称也在 `modules` 集合里，防止 `cargo metadata` 未来版本的
 字段语义变化导致误判。
+
+## 确定性比较（Stage 5）
+
+对两份**独立提取**的元数据分别执行相同的模块和边规则，再比较集合；
+`packages[]` 或依赖列表的输出顺序不参与比较。
+
+```bash
+cargo metadata --no-deps --format-version=1 > /tmp/gf-arch-metadata-stage5.json
+```
+
+```python
+import json
+
+def topology(path):
+    with open(path, encoding="utf-8") as capture:
+        packages = json.load(capture)["packages"]
+    if not packages:
+        raise ValueError(f"no workspace packages in {path}")
+    nodes = {pkg["name"] for pkg in packages}
+    edges = {
+        (pkg["name"], dep["name"])
+        for pkg in packages
+        for dep in pkg["dependencies"]
+        if dep.get("path") and dep["name"] in nodes
+    }
+    return nodes, edges
+
+first = topology("/tmp/gf-arch-metadata-stage1.json")
+second = topology("/tmp/gf-arch-metadata-stage5.json")
+if first != second:
+    raise ValueError(
+        f"non-deterministic extraction: nodes={first[0] ^ second[0]}, "
+        f"edges={first[1] ^ second[1]}"
+    )
+```
 
 ## 工具缺失降级
 
