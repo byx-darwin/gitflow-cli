@@ -237,6 +237,12 @@ impl WorkflowContract {
 /// CLI 子命令枚举。
 #[derive(Debug, Subcommand)]
 pub enum WorkflowCommand {
+    /// Build or recover a derived active-context manifest without editing evidence.
+    Context {
+        /// Context operation.
+        #[command(subcommand)]
+        command: super::workflow_context::ContextCommand,
+    },
     /// Evaluate repository allowlisted semantic rules and record an advisory audit.
     SemanticCheck {
         /// Existing workflow identifier.
@@ -308,6 +314,7 @@ pub enum WorkflowCommand {
 /// - 创建时标题为空或当日序号用尽。
 pub async fn handle(command: WorkflowCommand) -> miette::Result<()> {
     match command {
+        WorkflowCommand::Context { command } => super::workflow_context::handle(command).await,
         WorkflowCommand::SemanticCheck {
             workflow_id,
             input,
