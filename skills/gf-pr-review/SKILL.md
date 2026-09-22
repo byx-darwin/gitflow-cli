@@ -85,6 +85,25 @@ Dimensions: correctness, security, performance, maintainability, test-coverage, 
 
 `gf pr view <n>` then `gf pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
 
+### Optional semantic precheck (read-only)
+
+For additional risk triage, prepare a reviewed JSON file with the PR title,
+short description, explicit repository visibility, test status, and changed
+file entries. See [PR precheck input](../../docs/pr-review-precheck.md) for the
+schema. Review and redact the content before running:
+
+```bash
+gf pr precheck --input /tmp/pr-precheck.json --live --output json
+```
+
+Live Jev use requires the `gitflow-jev` build feature,
+`GF_DECISION_PROVIDER=jev`, and `TYPESAFE_API_KEY`. Private or unknown
+visibility also requires `--allow-private`. Without a provider, the command
+returns deterministic facts with `status: unavailable`; continue Step 2.
+The report separates facts from model inferences and unverified hypotheses.
+Candidate source hunks are places to inspect in the full diff, not proof of a
+defect. Never turn a precheck score into a verdict or skip the full review.
+
 ### Step 2: Assess 6 Dimensions
 
 For each dimension (correctness, security, performance, maintainability, test-coverage, docs): ✅ or ⚠️ with `path:line`, plus an Evidence Tier — `Inferred` for a diff-reading judgment (the default; cites `path:line`), `Measured` when backed by a command actually run this session (command + output required), `Unverified` for an unresolved suspicion (state why, never omit). See [checklist](../../docs/references/pr-review-checklist.md).

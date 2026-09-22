@@ -10,6 +10,7 @@
 - [Config](./config.md) — config file format, env vars, XDG directories, and `.env` loading.
 - [Optional Jev decisions](./jev-decision.md) — typed decision CLI, limits, privacy, and calibration status (Issue #382).
 - [Issue quality precheck](./issue-quality-precheck.md) — optional read-only Jev advice for requirement reviews (Issue #387).
+- [PR review precheck](./pr-review-precheck.md) — optional read-only Jev risk triage before a full PR review (Issue #386).
 - [Decision offline evaluation](./decision-offline-evaluation.md) — versioned fixtures, saved responses, calibration, and report comparison (Issue #393).
 - [Optional workflow recommendation](./workflow-recommendation.md) — deterministic mode routing with advisory Jev signals (Issue #383).
 - [Workflow recommendation synthetic evaluation](./workflow-recommendation-evaluation-2026-09-22.md) — replayable mode, risk, coverage, latency, and cost measurements (Issue #383).
