@@ -99,8 +99,8 @@ When resuming an existing contract, load context based on `current_phase`:
 |-------|----------------|-------------|
 | 1 | `design_doc_path` (if exists) | Next uncompleted step in Phase 1 |
 | 2 | `design_doc_path` + `spec_path` | Gate 2→3 pause (await user approval) |
-| 3 | `spec_path` (plan doc) | Next step after last evidence |
-| 4 | `pr_url`/`merge_commit`（按 `delivery_mode`）+ review reports | Next check in Phase 4 |
+| 3 | `spec_path` (plan doc) + `diff_review_status`/`diff_review_path` when present | Next step after last evidence; rerun diff rendering before delivery on resume |
+| 4 | `pr_url`/`merge_commit`（按 `delivery_mode`）+ review reports + local `diff_review_path` when generated | Next check in Phase 4 |
 
 Full recovery procedure: see `references.md` → Cross-Session Recovery.
 `skill_source` is always loaded from the contract (never re-detected silently) and re-verified per `## Skill Source Resolution`.
@@ -358,11 +358,48 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 | 1 | **[AUTO/PAUSE]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. **Preflight is a hard precondition to `git worktree add`**: that command forks a *committed* state, so an unclassified tree leaves this workflow's own `design_doc_path` / `spec_path` behind while the contract still points at them. Classify `git status --porcelain` → bucket A (workflow artifacts: ✋ PAUSE and ask before committing — show the paths, offer 提交/中止; never auto-commit even though it's the workflow's own doc; commit goes on the **feature branch**, never `base_branch`) / bucket B (unrelated: ✋ PAUSE, four options, never auto-commit, never delete) / bucket C (gitignored: skip). Then create the worktree: path FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`), branch `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (new window) otherwise — the handoff MUST carry the preflight steps verbatim; see `references.md` → Phase 3 Execution Modes. **After worktree creation**: symlink shared directories so workflow contracts and Claude config are accessible from the worktree: `segs=$(awk -F/ '{print NF}' <<< "<worktree-path>"); ups_cache=$((segs + 1)); ups_claude=$segs; rel_cache=$(printf '../%.0s' $(seq 1 "$ups_cache")); rel_claude=$(printf '../%.0s' $(seq 1 "$ups_claude")); mkdir -p <worktree-path>/.cache && ln -s "${rel_cache}.cache/workflows" <worktree-path>/.cache/workflows && ln -s "${rel_claude}.claude" <worktree-path>/.claude; test -d <worktree-path>/.cache/workflows || { echo "ABORT: .cache/workflows symlink depth miscalculated — worktree_path=<worktree-path> segs=$segs ups_cache=$ups_cache, expected to resolve to repo-root .cache/workflows but did not."; exit 1; }; test -d <worktree-path>/.claude || { echo "ABORT: .claude symlink depth miscalculated — worktree_path=<worktree-path> segs=$segs ups_claude=$ups_claude, expected to resolve to repo-root .claude but did not."; exit 1; }`. **Immediately exclude them** so no later commit can pick them up — write to the COMMON git dir's `info/exclude` (verified: worktrees share one `info/exclude` with the main tree and all sibling worktrees, there is no per-worktree copy): `EF="$(git rev-parse --git-common-dir)/info/exclude"; grep -qxF '.cache/workflows' "$EF" || echo '.cache/workflows' >> "$EF"; grep -qxF '.claude' "$EF" || echo '.claude' >> "$EF"`. **Then assert** each contract-referenced document exists under `<worktree-path>/` — abort if missing. Remove bucket A's main-tree copies only after their commit is verified, otherwise the later merge aborts on untracked-overwrite. Full procedure and rationale (including the `info/exclude` write above): `references.md` → Worktree Preflight. | `branch`, `base_branch`, `worktree_path`, `worktree_preflight` |
 | 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR. **On execution failure:** classify against `references.md` → Phase 3 Execution Error Classification before retrying — never retry generically or escalate without first checking which category and its retry cap apply | implementation |
 | 3 | **[AUTO/PAUSE]** 改动面检测——阻断式接入 `gf-security-check` / `gf-regression`（Issue #344）。用 Step 1 已记录的 `base_branch`（不重新猜测）计算 `diff_files=$(git diff --name-only "$base_branch"...HEAD)`。按 `references.md` → Change-Surface Detection 的两条路径规则独立判定：命中 `Cargo.toml`/`Cargo.lock`/`**/Cargo.toml`/`deny.toml` → security 触发；命中 `apps/cli/src/**`、`crates/core/src/**`、`crates/github/src/**`、`crates/gitlab/src/**`、`crates/gitcode/src/**` → regression 触发。两者都未命中 → `change_surface = "docs_only"`，两项均记 `not_triggered`，跳过本 Step 其余动作，直接进入 Step 4。命中的每一项：✋ PAUSE 展示匹配文件 + 即将运行的检查名，问用户 ① 运行（默认）② 跳过（须给非空理由；理由为空或未填视为无效选择，按①处理，不得静默跳过）。① 运行 → inline 调用对应 skill（不走 Phase 4 式的并行 Agent 派发——本 Step 需要同步阻断并可能与用户交互，做法与 Phase 2 的 `gf-quality` gate 一致）：`gf-security-check` 出现 Critical/High 级发现（未修补 CVE、硬编码密钥）判 FAIL；`gf-regression` smoke test 出现非已知 flaky 的 FAIL 判 FAIL。FAIL → 阻断，不进入 Step 4；提示用户回到 Step 2 修复后重跑本 Step。PASS → 继续。② 跳过 → 记 `exemption_reason`，不运行该检查，继续。报告落盘路径与归档规则见各自 SKILL.md 的 "Report Output & Archiving" 小节。本 Step 对 full/standard/fast 三种模式统一生效，不进 Phase 4 Step Matrix（那张表管的是按模式开关的报告步骤，这里是按改动面触发的阻断步骤）。 | `change_surface`, `security_check`, `regression_check` |
-| 4 | **[AUTO]** Pre-delivery symlink guard — before offering the delivery choice, run `git diff --summary "$BASE_BRANCH"...HEAD \| grep 'create mode 120000'`; a hit means a symlink (most likely `.cache/workflows` or `.claude`) got committed onto `branch` — ✋ PAUSE, show the matched path(s), do not proceed to PR/merge until the user resolves it (drop the commit or confirm intentional). Full command + rationale: `references.md` → Worktree Preflight. Clean → continue. Delivery choice — ask user: ① 本地合并（默认）② 推送 + 建 PR. **① Local merge**: ask which git 策略（`git merge --no-ff` / `git merge --squash`，无固定默认，每次询问）; in the **main working tree** (not the worktree — it doesn't own `base_branch`), merge `branch` into `base_branch`. Success → `merge_commit = $(git rev-parse HEAD)`, `delivery_mode = "local_merge"`. Conflict → `git merge --abort`, leave `branch`/worktree untouched, tell user to resolve manually and re-run this step (no silent fallback to PR). **② PR**: `gf-pr-create`, PR body MUST include `Closes #<issue-number>`; `delivery_mode = "pr"`. | `pr_url` or (`delivery_mode`, `merge_commit`) |
+| 4 | **[AUTO]** Pre-delivery symlink guard — before offering the delivery choice, run `git diff --summary "$BASE_BRANCH"...HEAD \| grep 'create mode 120000'`; a hit means a symlink (most likely `.cache/workflows` or `.claude`) got committed onto `branch` — ✋ PAUSE, show the matched path(s), do not proceed to PR/merge until the user resolves it (drop the commit or confirm intentional). Full command + rationale: `references.md` → Worktree Preflight. Clean → run the Conditional Diff Review below, then continue. Delivery choice — ask user: ① 本地合并（默认）② 推送 + 建 PR. **① Local merge**: ask which git 策略（`git merge --no-ff` / `git merge --squash`，无固定默认，每次询问）; in the **main working tree** (not the worktree — it doesn't own `base_branch`), merge `branch` into `base_branch`. Success → `merge_commit = $(git rev-parse HEAD)`, `delivery_mode = "local_merge"`. Conflict → `git merge --abort`, leave `branch`/worktree untouched, tell user to resolve manually and re-run this step (no silent fallback to PR). **② PR**: `gf-pr-create`, PR body MUST include `Closes #<issue-number>`; `delivery_mode = "pr"`. | `diff_review_status`, optional `diff_review_path`, then `pr_url` or (`delivery_mode`, `merge_commit`) |
 | 5 | **[AUTO]** `make test` or `cargo test` — **本地前置自检**，不等于 CI 把关 | `tests_passed` |
 | 6 | **[AUTO]** 排队合并：`gf pr merge <n> --auto` —— 约 2.5 秒返回，平台在必需检查/pipeline 通过后自动完成。**不得在排队后再往该分支推 commit**：排队绑定的是已通过检查的那个 SHA，后推的 commit 不会被带上（实测踩过）。返回 `merged: false` 属正常（已排期），须原样转述 `message`，不得报"已合并"。GitCode 无此能力 → ✋ 告知用户需手动合并 | `merge_queued` |
-| 7 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, change_surface, security_check, regression_check, delivery_mode, pr_url, merge_commit, tests_passed, merge_queued }` (only the fields matching the chosen `delivery_mode` are populated; the other of `pr_url`/`merge_commit` stays absent) | — |
+| 7 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, change_surface, security_check, regression_check, diff_review_status, diff_review_path, delivery_mode, pr_url, merge_commit, tests_passed, merge_queued }` (only the fields matching the chosen `delivery_mode` are populated; the other of `pr_url`/`merge_commit` stays absent) | — |
 | 8 | **[AUTO]** Gate 3→4 — 交付证据二选一（`pr_url` 或 `merge_commit`，按 `delivery_mode`）+ `tests_passed = true` + `security_check.status`/`regression_check.status` 均不为 `failed`（见 `gates.md`） → **AUTO-ADVANCE to Phase 4**。（PR 路径下，真正的合并闸门是平台必需检查 + 排队合并，不由本 workflow 判定；local_merge 路径下合并已在本 Step 完成） | — |
+
+### Phase 3 Step 4: Conditional Diff Review (Issue #397)
+
+Run this after the symlink guard and **before** the delivery choice. A local
+merge moves `base_branch`, so a Phase 4 `base_branch...HEAD` scan could be empty.
+Use the `base_branch` recorded in Step 1 while the feature worktree is still
+checked out. This is a derived review aid, not another blocking gate or user
+confirmation.
+
+- Trigger only in `full` or `standard` mode when the changed-path list from
+  `git diff --name-only "$base_branch"...HEAD` contains source under `apps/*/src/`, `crates/*/src/`,
+  `scripts/`, `website/src/`, or `skills/*/scripts/`. Skip `fast` and changes
+  limited to docs, specs, or skill instructions. Record `not_triggered` when
+  skipped. Users can still run `make render-diff-review` manually for any diff.
+  Match paths with `rg '^(apps/[^/]+/src/|crates/[^/]+/src/|scripts/|website/src/|skills/[^/]+/scripts/)'`.
+- From the feature worktree, generate both files in the **main worktree's**
+  `.cache/diff-review/` so Branch Finish does not delete them. Use the contract's
+  `workflow_id` as the filename prefix; it is unique and safe to reuse on a
+  rerun. Do not add generated HTML or JSON to Git.
+
+```bash
+repo_root=$(dirname "$(git rev-parse --git-common-dir)")
+output_prefix="$repo_root/.cache/diff-review/$workflow_id"
+python3 scripts/render-diff-review.py scan "$base_branch...HEAD" \
+  --output "$output_prefix.json"
+python3 scripts/render-diff-review.py render "$output_prefix.json" \
+  --output "$output_prefix.html"
+```
+
+On success, record `diff_review_status = "generated"` and the absolute
+`diff_review_path = "$output_prefix.html"`; show that local path before the
+delivery choice. On failure, record `failed`, report the renderer error, and
+continue delivery; no `diff_review_path` is recorded. Phase 4 may pass a
+generated path to the local review agent and include it in the workflow's
+local summary. **Do not put a `.cache` path in an Issue/PR comment**: remote
+reviewers cannot open a file on this machine. The PR diff remains the remote
+review surface.
 
 ## Phase 4: Post-Delivery Checks
 
