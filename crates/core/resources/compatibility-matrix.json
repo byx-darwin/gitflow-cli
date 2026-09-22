@@ -7,7 +7,7 @@
       "identifier": "github",
       "cli_binary": "gh",
       "min_version": "2.0.0",
-      "tested_versions": ["2.97.0"],
+      "tested_versions": ["2.97.0", "2.98.0"],
       "install_url": "https://github.com/cli/cli#installation",
       "doc_link": "https://cli.github.com/manual/",
       "features": {

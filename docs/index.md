@@ -25,6 +25,7 @@
 - [Jev Issue triage pilot evaluation](./jev-triage-evaluation-2026-09-22.md) — 22 labeled public Issues, six synthetic boundary cases, accuracy, coverage, latency, and cost (Issue #382).
 - [Shell Completions](./shell-completions.md) — how to generate and install tab completions.
 - [glab 1.118.0 compatibility verification](./glab-1.118-compatibility-2026-09-22.md) — smoke, read-only API, and adapter contract evidence (Issue #402).
+- [gh 2.98.0 compatibility verification](./gh-2.98-compatibility-2026-09-22.md) — verified release archive, GitHub smoke test, and adapter contracts (Issue #227).
 
 ## Development
 
