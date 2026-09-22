@@ -4,7 +4,13 @@
 binary builds without the Jev adapter. Build with `cargo build -p gitflow-cli
 --features gitflow-jev` and set `GF_DECISION_PROVIDER=jev` to enable it.
 Place a newly generated TypeSafe key in the local `TYPESAFE_API_KEY` environment
-variable. Do not put it in command arguments, request files, chat, or logs.
+variable. On macOS, the adapter also reads the `gitflow-cli-typesafe` generic
+password item for the current `$USER` account from Keychain when that
+environment variable is absent or empty. The environment variable takes
+precedence. For example, `security add-generic-password -a "$USER" -s
+gitflow-cli-typesafe -U -w` stores a prompted value. Do not put the key in
+command arguments, request files, chat, or logs. `gf auth` credentials are
+separate from TypeSafe credentials.
 
 The CLI accepts a JSON `DecisionRequest` from standard input or `--input PATH`.
 `gf decide noul`, `choice`, and `score` require every question to have the named

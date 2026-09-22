@@ -31,8 +31,9 @@ hunk, size, and sensitive-line filters before constructing a provider request.
 
 Run `gf pr precheck --input <file> --output json` for deterministic facts
 without a provider. Add `--live` for an explicit Jev call. This requires a
-binary built with `gitflow-jev`, `GF_DECISION_PROVIDER=jev`, and
-`TYPESAFE_API_KEY`. `visibility` must be `public`, `private`, or `unknown`.
+binary built with `gitflow-jev`, `GF_DECISION_PROVIDER=jev`, and a TypeSafe
+key from `TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe` Keychain item.
+`visibility` must be `public`, `private`, or `unknown`.
 Private and unknown-visibility PRs require `--allow-private` as well. This
 flag allows sending only the reviewed, filtered excerpt; check the file
 before using it. `--response <file>` replays a saved typed response offline.
@@ -86,3 +87,8 @@ There is no production semantic threshold or accuracy claim. A live pilot
 requires reviewed samples and a TypeSafe credential accessible to the running
 `gf` process. Keep saved provider responses outside the repository unless
 they have been reviewed for sensitive content.
+
+A synthetic live smoke check reached `jev-1.13.0` through the macOS Keychain.
+Repeated calls also exposed one invalid Score distribution; that response
+correctly fell back to `unavailable`. The smoke check does not measure risk
+recall or calibration.

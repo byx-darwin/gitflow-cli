@@ -34,17 +34,15 @@ impl std::fmt::Debug for JevEngine {
 }
 
 impl JevEngine {
-    /// Create an engine using `TYPESAFE_API_KEY` and `GF_JEV_MODEL`.
+    /// Create an engine using `TYPESAFE_API_KEY` (or the macOS Keychain)
+    /// and `GF_JEV_MODEL`.
     ///
     /// # Errors
     ///
     /// Returns a content-free error if timeout configuration or the HTTP
     /// client cannot be initialized.
     pub fn from_env() -> Result<Self, DecisionError> {
-        let key = std::env::var("TYPESAFE_API_KEY")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .map(SecretString::from);
+        let key = select_key(std::env::var("TYPESAFE_API_KEY").ok(), keychain_key);
         let model = std::env::var("GF_JEV_MODEL").unwrap_or_else(|_| "jev-latest".to_string());
         if model.is_empty()
             || model.len() > 64
@@ -86,6 +84,53 @@ impl JevEngine {
             endpoint: ENDPOINT.to_string(),
         }
     }
+}
+
+fn select_key(
+    env_key: Option<String>,
+    keychain: impl FnOnce() -> Option<String>,
+) -> Option<SecretString> {
+    env_key
+        .filter(|value| !value.trim().is_empty())
+        .or_else(keychain)
+        .filter(|value| !value.trim().is_empty())
+        .map(SecretString::from)
+}
+
+#[cfg(target_os = "macos")]
+#[allow(
+    clippy::disallowed_types,
+    reason = "Synchronous, bounded Keychain lookup during adapter configuration"
+)]
+fn keychain_key() -> Option<String> {
+    let user = std::env::var("USER").ok()?;
+    if user.is_empty() {
+        return None;
+    }
+    let output = std::process::Command::new("/usr/bin/security")
+        .args([
+            "find-generic-password",
+            "-a",
+            &user,
+            "-s",
+            "gitflow-cli-typesafe",
+            "-w",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let mut key = String::from_utf8(output.stdout).ok()?;
+    while key.ends_with('\n') || key.ends_with('\r') {
+        key.pop();
+    }
+    (!key.trim().is_empty()).then_some(key)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn keychain_key() -> Option<String> {
+    None
 }
 
 #[async_trait]
@@ -146,13 +191,32 @@ mod tests {
     use std::{collections::BTreeMap, time::Duration};
 
     use gitflow_core::decision::{DecisionEngine, DecisionError, DecisionRequest, Question};
+    use secrecy::ExposeSecret;
     use serde_json::json;
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
     };
 
-    use super::JevEngine;
+    use super::{JevEngine, select_key};
+
+    #[test]
+    fn test_should_prefer_environment_key_without_reading_keychain() {
+        let called = std::cell::Cell::new(false);
+        let key = select_key(Some("environment-test-key".into()), || {
+            called.set(true);
+            None
+        })
+        .unwrap();
+        assert_eq!(key.expose_secret(), "environment-test-key");
+        assert!(!called.get());
+    }
+
+    #[test]
+    fn test_should_use_keychain_when_environment_key_is_empty() {
+        let key = select_key(Some(" ".into()), || Some("keychain-test-key".into())).unwrap();
+        assert_eq!(key.expose_secret(), "keychain-test-key");
+    }
 
     fn request() -> DecisionRequest {
         DecisionRequest {

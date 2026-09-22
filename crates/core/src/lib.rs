@@ -39,6 +39,7 @@ pub mod label;
 pub mod output;
 pub mod paging;
 pub mod pipeline;
+pub mod pipeline_failure;
 pub mod platform;
 pub mod pr;
 pub mod pr_precheck;

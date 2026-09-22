@@ -82,7 +82,8 @@ gf issue precheck --input /tmp/issue-precheck.json --live --output json
 ```
 
 `--live` calls Jev only when `gf` has the `gitflow-jev` feature and
-`GF_DECISION_PROVIDER=jev` plus `TYPESAFE_API_KEY` are configured. Without
+`GF_DECISION_PROVIDER=jev` plus a TypeSafe key from `TYPESAFE_API_KEY` or the
+macOS `gitflow-cli-typesafe` Keychain item are configured. Without
 them, the result is `unavailable`; continue directly to Step 2. For offline
 replay, use `--response <saved-typed-response.json>` instead of `--live`.
 
