@@ -78,9 +78,10 @@ impl IssueQualityInput {
         let state = self.state();
         let serialized = serde_json::to_string(&state)
             .map_err(|_| DecisionError::InvalidInput("Issue precheck input is invalid"))?;
+        let serialized_lowercase = serialized.to_ascii_lowercase();
         if state_contains_obvious_credential(&state)
-            || serialized.contains("http://")
-            || serialized.contains("https://")
+            || serialized_lowercase.contains("http://")
+            || serialized_lowercase.contains("https://")
         {
             return Err(DecisionError::InvalidInput(
                 "Issue precheck input is sensitive",
@@ -577,6 +578,11 @@ mod tests {
         );
         assert!(
             input("private URL", "https://internal.example/path")
+                .decision_request()
+                .is_err()
+        );
+        assert!(
+            input("private URL", "HTTPS://internal.example/path")
                 .decision_request()
                 .is_err()
         );
