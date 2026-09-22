@@ -273,6 +273,10 @@ cargo build --bin gf
 # 3.4 Code Review（subagent）
 #    必选：至少跑一次代码审查
 
+# 3.4a 条件式 diff 审阅页：full/standard 且改动含源码时，在交付选择前生成
+#      产物保存在主工作区 .cache/diff-review/<workflow_id>.html
+#      fast 或纯文档改动不触发；失败只报告，不阻断交付
+
 # 3.5 提交 + 建 PR（需用户确认）
 git checkout -b fix/issue-<N>-<short-name>
 git add <files>
@@ -293,6 +297,11 @@ gf pr create --head HEAD --base main \
 - ✅ PR URL（含 `Fixes #N` 自动关联）
 - ✅ Pre-commit hook 全过（cargo-fmt / typos / gitleaks）
 - ✅ Pre-push hook 全过（cargo-clippy / cargo-test）
+
+条件式 diff 审阅页在 Phase 3 交付前生成，因为本地合并会使 Phase 4 的
+`base_branch...HEAD` 不再代表本次改动。它是本机 `.cache` 中的派生视图，
+Phase 4 可以在本地报告中引用路径；Issue/PR 评论不引用该路径，远端审阅者
+仍通过平台 diff 查看改动。手动查看任意改动可运行 `make render-diff-review`。
 
 ### 实战案例：Issue #62
 

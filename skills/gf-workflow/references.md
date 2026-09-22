@@ -59,8 +59,8 @@ New Session Starts
 3. Load context based on mode and current_phase:
    • Phase 1: No doc needed (start fresh)
    • Phase 2: Read design_doc_path; check mode for Phase 1 exemptions
-   • Phase 3: Read spec_path (plan document); check mode for fast skip; also reload `change_surface`/`security_check`/`regression_check` evidence (Issue #344) alongside `branch`/`worktree_path` — a session resuming mid-Phase-3 must not re-ask a change-surface question already answered before the interruption
-   • Phase 4: Read pr_url + review reports; use get_phase4_steps(mode) to determine remaining steps
+   • Phase 3: Read spec_path (plan document); check mode for fast skip; also reload `change_surface`/`security_check`/`regression_check` evidence (Issue #344) and `diff_review_status`/`diff_review_path` (Issue #397) alongside `branch`/`worktree_path` — do not re-ask an answered change-surface question; rerun the cheap diff render if resuming before delivery, since HEAD may have changed
+   • Phase 4: Read pr_url + review reports and any generated local `diff_review_path`; use get_phase4_steps(mode) to determine remaining steps
 4. Resume from current_phase, follow auto-trigger rules
 ```
 
@@ -242,6 +242,17 @@ diff_files="$(git diff --name-only "$base_branch"...HEAD)"
 都不命中（例如纯文档/spec/skill 文本改动）→ `change_surface = "docs_only"`，两项检查都记 `not_triggered`，不实际调用任何一个 skill。
 
 **为什么必须在 Step 3（旧 Step 3 交付选择之前）而不是 Phase 4：** local_merge 路径下，旧的 Step 3（现 Step 4）会立刻把分支合并进 `base_branch`。如果检查放在 Phase 4（交付之后），发现问题时代码已经进了 `base_branch`，"阻断式"就名不副实了——所以必须卡在合并动作发生之前。
+
+### Conditional Diff Review (Phase 3 Step 4, Issue #397)
+
+`skills/gf-workflow/SKILL.md` → Phase 3 Step 4 defines the trigger and the
+scan/render commands. It runs before the delivery choice so both PR and local
+merge paths use the same `base_branch...HEAD` diff. The generated JSON/HTML
+live in the main worktree's ignored `.cache/diff-review/<workflow_id>.*`, which
+survives removal of the feature worktree. Record `diff_review_status` even when
+not triggered or when rendering fails; record `diff_review_path` only on
+success. This local file path belongs in the workflow summary, not in a remote
+Issue/PR comment.
 
 ### Why the Symlink Depth Is Computed, Not Hardcoded
 

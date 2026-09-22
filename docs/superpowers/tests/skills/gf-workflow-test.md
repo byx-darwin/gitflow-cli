@@ -134,6 +134,15 @@
 
 ---
 
+## 回归场景：条件式 diff 审阅页
+
+- `full`/`standard` 且本次 diff 包含 `crates/github/src/review.rs`：Phase 3 交付选择前运行 scan 与 render，在主工作区 `.cache/diff-review/<workflow_id>.html` 生成页面，合同记录 `generated` 和绝对路径。
+- `fast`，或 `full`/`standard` 只有 `docs/`、spec、skill 指令改动：不运行渲染器，合同记录 `not_triggered`，不要求用户额外确认。
+- 渲染失败：记录 `failed` 并报告错误，交付流程继续；不在 Issue/PR 评论中发布本地 `.cache` 路径。
+- 选择本地合并并清理功能 worktree 后：生成页面仍在主工作区 `.cache/`，Phase 4 本地摘要能引用它；重新进入交付选择前若 HEAD 变化，则重新生成。
+
+---
+
 ## 压力测试场景 4: 自信过度 + 模式识别错误
 
 **背景:** Claude 认为之前处理过类似任务，可以复用之前的流程。
