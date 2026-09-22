@@ -110,7 +110,7 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 | Rule | Description |
 |------|-------------|
 | **Call and Return** | After invoking a sub-skill, the orchestrator MUST resume at the next step. Sub-skills do NOT chain to other skills. |
-| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the transition to `gf-issue-create`. |
+| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the existing-Issue lookup or `gf-issue-create`. |
 | **Single Active Orchestrator** | Only this workflow's state machine drives the conversation. No other skill may claim orchestration while a contract is active. |
 | **Evidence Before Gate** | A gate check MAY NOT pass until all required evidence fields are populated. |
 | **No Implicit Completion** | A Phase is complete ONLY when the orchestrator sets `status = "complete"` in the contract. Sub-skill completion ≠ Phase completion. |
@@ -178,8 +178,10 @@ User can override batching strategy during plan phase.
 |----------|--------|
 | About to invoke `brainstorming` without a contract | **STOP** — create contract first |
 | About to create a new contract when an active one exists | **STOP** — resume the existing contract instead |
-| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, execute `gf-issue-create` |
-| About to skip `gf-issue-create` or `gf-issue-review` | **STOP** — MANDATORY in Phase 1 |
+| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, resolve the Phase 1 Issue |
+| About to enter Phase 2 without a verified open Issue | **STOP** — reuse an existing Issue or create one in Phase 1 |
+| About to skip `gf-issue-review` outside fast mode | **STOP** — MANDATORY in standard/full Phase 1 |
+| About to create a second Issue for the same task | **STOP** — reuse the verified open Issue |
 | About to advance without updating contract evidence | **STOP** — update contract first |
 | User says "just write the code" | **CHECK** — Scenario C? If no contract, refuse and start Phase 1 |
 | About to let a sub-skill chain to another | **STOP** — sub-skills return to orchestrator |
@@ -199,8 +201,8 @@ User can override batching strategy during plan phase.
 | "brainstorming will handle Issue creation" | No — brainstorming chains to `writing-plans`, not Issue creation. Orchestrator must do it. |
 | "Contract can be created later" | No — contract MUST exist before any sub-skill. It is the single source of truth. |
 | "User just wants to discuss" | If they invoked `/gf-workflow`, run the workflow. |
-| "Issue review is optional" | No — `gf-issue-review` is MANDATORY in both full and fast modes. |
-| "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Issue list/create/review are separate mandatory steps. |
+| "Issue review is optional" | `gf-issue-review` is mandatory in standard/full; fast mode may omit it. |
+| "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Resolve and verify the Issue, then run the required Issue review. |
 | "Requirement is clear, skip to Phase 3" | Scenario C. If `phases.2.evidence.spec_path` is empty, refuse and go to Phase 2. |
 | "New session, start fresh" | No — check `.cache/workflows/active/` first. If incomplete contract exists, resume it. |
 | "Different agent should start over" | No — contract is agent-agnostic. Any agent can resume from `current_phase` + evidence. |
@@ -227,7 +229,7 @@ User can override batching strategy during plan phase.
 
 | Phase | Full Mode | Standard Mode | Fast Mode |
 |-------|-----------|---------------|-----------|
-| 1 | brainstorming + issue-create + issue-review | brainstorming + issue-create + issue-review | issue-create (required), brainstorming (optional) |
+| 1 | brainstorming + verified Issue + issue-review | brainstorming + verified Issue + issue-review | verified Issue (reuse/create), brainstorming (optional) |
 | 2 | writing-plans + quality gate | writing-plans + quality gate | **skippable** |
 | 3 | subagent-driven-development (TDD + Code Review) | subagent-driven-development (TDD + Code Review) | **required** |
 | 4 | pipeline + triage + review + dogfooding | pipeline + review | pipeline + branch-finish |
@@ -261,7 +263,7 @@ User input:
 
 In fast mode, the following skills are invoked per phase:
 
-**Phase 1:** `gf-issue-create` (required), Clarification skill per `skill_source` (optional)
+**Phase 1:** verified open Issue (reuse or `gf-issue-create`), Clarification skill per `skill_source` (optional)
 
 **Phase 2:** Planning skill per `skill_source` (optional, skippable)
 
@@ -273,7 +275,7 @@ In fast mode, the following skills are invoked per phase:
 
 In standard mode, the following skills are invoked per phase:
 
-**Phase 1:** Clarification skill per `skill_source` (required), `gf-issue-create` (required), `gf-issue-review` (required)
+**Phase 1:** Clarification skill per `skill_source` (required), verified open Issue (reuse or `gf-issue-create`), `gf-issue-review` (required)
 
 **Phase 2:** Planning skill per `skill_source` (required) + `gf-quality` gate (required)
 
@@ -307,9 +309,10 @@ Full definitions: `skills/gf-workflow/gates.md`
    - Set `mode`, `title`, `current_phase = 1`, `phases.1.status = "in_progress"`
 
 2. **[AUTO] Read Open Issues**
-   - User specified an Issue → use it
-   - Otherwise → `gf issue list --state open`
-   - **Also read issue comments** → `gf issue comments <number>` to capture additional context from discussions
+   - User specified an Issue → `gf issue view <number>` in the current repository; require `state = open`. Use its returned URL and title as the task identity.
+   - Otherwise → `gf issue list --state open`; check for an existing Issue covering the same task before deciding to create one. Verify any candidate with `gf issue view <number>`; do not treat a merely similar Issue as a match.
+   - For a selected existing Issue, read `gf issue comments <number>` to capture additional context from discussions.
+   - If the specified Issue is missing, closed, or belongs to another repository, stop and report the mismatch; never create a replacement Issue silently.
 
 3. **[CALL] Clarification skill** (per `skill_source`; names in `references.md` → Dual-Source Mapping Table)
    - superpowers: `superpowers:brainstorming` (model-invoked)
@@ -319,18 +322,19 @@ Full definitions: `skills/gf-workflow/gates.md`
    - **⚠️ RETURN RULE:** Terminal state = **RETURN TO ORCHESTRATOR** (not `writing-plans`)
    - Output: `design_doc_path`
 
-4. **[AUTO] `gf-issue-create`** — **MANDATORY**
-   - Create Issue (or use existing), reference design doc in body
-   - mattpocock path: issue creation authority is UNIFIED here — `/to-spec` never publishes to the tracker
-   - Output: `issue_url`
+4. **[AUTO] Resolve Issue** — **MANDATORY**
+   - Existing matching open Issue → reuse its verified URL. Do not call `gf-issue-create`; keep the design document in the contract and use the existing Issue's acceptance criteria in the next steps.
+   - No matching open Issue → call `gf-issue-create` once and reference the design document in the new Issue body.
+   - mattpocock path: `/to-spec` remains local-only; only `gf-issue-create` may publish a new Issue.
+   - Output in both paths: `issue_url`
 
-5. **[AUTO] `gf-issue-review`** — **MANDATORY**
+5. **[AUTO] `gf-issue-review`** — mandatory in standard/full; optional in fast
    - Review Issue quality, add review comment
    - Output: `comment_id`
 
-6. **[AUTO] Update contract** — `phases.1.evidence = { issue_url, comment_id, design_doc_path }`, `status = "complete"`
+6. **[AUTO] Update contract** — `phases.1.evidence = { issue_url, comment_id, design_doc_path }`, `status = "complete"`; fast mode may omit the optional evidence fields per `gates.md`
 
-7. **[AUTO] Gate 1→2** — All evidence non-empty → **AUTO-ADVANCE to Phase 2**
+7. **[AUTO] Gate 1→2** — Required evidence for the selected mode is non-empty → **AUTO-ADVANCE to Phase 2**
 
 ## Phase 2: Planning
 
@@ -465,10 +469,10 @@ context).
 |-----------------|----------|
 | Contract not found | Create new contract (start from Bootstrap) |
 | Sub-skill did not return | Reassert: read contract, resume at next step |
-| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, execute `gf-issue-create` |
+| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, resolve and verify the Phase 1 Issue |
 | Gate check failed | Return to current Phase to complete evidence |
 | Skip gate / inline sub-skill / advance before contract update / worktree leak | Fix and re-run |
-| **Invoke sub-skill without contract** / **let sub-skill chain** / **skip Issue create/review** | **STOP** — see Red Flags |
+| **Invoke sub-skill without contract** / **let sub-skill chain** / **skip Issue resolution or required review** | **STOP** — see Red Flags |
 
 ## Reference
 

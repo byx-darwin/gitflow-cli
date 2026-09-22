@@ -432,7 +432,7 @@ jq --arg src "<superpowers|mattpocock|inline>" \
 |---|---|---|---|
 | Clarification | `brainstorming` | `grilling` | model-invoked / model-invoked |
 | Spec | (merged into brainstorming design doc) | ✋ `/to-spec` (local-only) | — / user-invoked |
-| Issue creation | `gf-issue-create` | `gf-issue-create` (unchanged; authority unified) | gf CLI |
+| Issue resolution | Reuse a verified open Issue; otherwise `gf-issue-create` | Same; `/to-spec` stays local-only | gf CLI |
 | Issue review | `gf-issue-review` | `gf-issue-review` (unchanged) | gf CLI |
 | Planning | `writing-plans` | ✋ `/to-tickets` | model-invoked / user-invoked |
 | Quality gate | `gf-quality` | `gf-quality` (unchanged) | gf CLI |
@@ -458,8 +458,10 @@ semantics, all `gf-*` steps, mandatory TDD + code review, mode matrix (full/stan
 
   Verify the local spec exists afterwards. **Fallback** (constraint failed / skill refused):
   the orchestrator writes the design doc itself from the grilling record, bypassing `to-spec`.
-  Then `gf-issue-create` creates the Issue (authority unified — no duplicate) and
-  `gf-issue-review` reviews it. Evidence: `issue_url`, `comment_id`, `design_doc_path`.
+  Then reuse the verified open Issue if one covers the task; otherwise
+  `gf-issue-create` creates one. `/to-spec` never publishes to the tracker.
+  `gf-issue-review` reviews the resolved Issue. Evidence: `issue_url`,
+  `comment_id`, `design_doc_path`.
 - **Phase 2:** ✋ PAUSE prompting `/to-tickets` with the Phase 1 spec reference.
   `to-tickets` publishes tickets per the configured tracker (local `.scratch/<feature>/issues/`
   files or real tracker issues) and includes its own breakdown quiz. Its rule "do NOT close

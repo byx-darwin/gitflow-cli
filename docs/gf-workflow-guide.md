@@ -23,7 +23,7 @@
 |---|---|---|
 | **完整模式 (full)** | 新功能 / 大重构 / 跨模块 | 全部 7 个 |
 | **标准模式 (standard)** | 中等复杂度 / 单模块改动 | 6 个（Phase 4 简化：无 triage/dogfooding） |
-| **快速模式 (fast)** | Bug fix / 小改动 / typo | 4 个（Phase 1 issue-create、Phase 3 subagent、Phase 4 pipeline + branch-finish） |
+| **快速模式 (fast)** | Bug fix / 小改动 / typo | Phase 1 绑定已有 Issue（没有才创建）、Phase 3 执行、Phase 4 交付检查 |
 
 ## 技能来源适配（Issue #141）
 
@@ -33,7 +33,7 @@ gf-workflow 支持两种外部技能来源：**superpowers** 与 **mattpocock/sk
 | | superpowers（全自动流水线） | mattpocock（人工驾驶流水线） |
 |---|---|---|
 | Phase 1 澄清 | `brainstorming` | `grilling` → ✋ `/to-spec`（只写本地） |
-| Phase 1 Issue | `gf-issue-create` | `gf-issue-create`（创建权统一，不重复建） |
+| Phase 1 Issue | 复用已核实的 open Issue；没有匹配项才用 `gf-issue-create` | 相同；`/to-spec` 只写本地 |
 | Phase 2 计划 | `writing-plans` | ✋ `/to-tickets`（票据图 + blocking edges） |
 | Phase 3 执行 | SDD / executing-plans / 后台代理（GO 闸门选择） | ✋ `/implement` 逐票据（内部 `/tdd`） |
 | Phase 4 交付 | gf-* 骨架 | 完全相同 |
@@ -73,7 +73,7 @@ gf skills install --agent claude --force
 
 ## Phase 1：需求澄清
 
-**目标**：从 Open Issues 提炼需求 → 产出结构化 Issue。
+**目标**：绑定一张与任务对应的 open Issue；已有则复用，没有才创建。
 
 ### 步骤
 
@@ -84,7 +84,11 @@ gf issue list --state open --output json
 # 1.2 讨论需求（完整模式必须调 brainstorming）
 #    快速模式：直接分析 bug 根因，可跳过 brainstorming
 
-# 1.3 创建 Issue（必选）
+# 1.3 用户给了编号时，先确认它属于当前仓库且仍为 open
+gf issue view <N> --output json
+gf issue comments <N>
+
+# 未给编号时，先在 open Issues 中查找同一任务；没有匹配项才创建
 gf issue create \
   --title "fix(skills): 项目级 install 不识别 --agent" \
   --body "$(cat <<'EOF'
@@ -115,7 +119,7 @@ EOF
 
 ### 禁止行为
 
-- ❌ 跳过 Issue 创建（快速模式也要建）
+- ❌ 未核实已有 Issue 就直接新建，或用虚构编号越过 Phase 1
 - ❌ 模糊的验收标准（"体验更好"）
 
 ## Phase 2：计划制定
@@ -371,7 +375,7 @@ git branch -d fix/issue-<N>-<short-name>
 
 | 维度 | 完整模式 (full) | 标准模式 (standard) | 快速模式 (fast) |
 |---|---|---|---|
-| Phase 1 | brainstorming ✅ + issue-create ✅ + issue-review ✅ | brainstorming ✅ + issue-create ✅ + issue-review ✅ | issue-create ✅ |
+| Phase 1 | brainstorming ✅ + 已有 Issue 复用／缺失时创建 ✅ + issue-review ✅ | brainstorming ✅ + 已有 Issue 复用／缺失时创建 ✅ + issue-review ✅ | 已有 Issue 复用／缺失时创建 ✅ |
 | Phase 2 | writing-plans ✅ + 完整 quality gate | writing-plans ✅ + 完整 quality gate | 可内联计划；quality gate 不变 |
 | Phase 3 | subagent-driven ✅ + TDD ✅ + review ✅ | subagent-driven ✅ + TDD ✅ + review ✅ | 同左 |
 | Phase 4 | pipeline ✅ + triage ✅ + review ✅ + dogfooding ✅ + branch-finish ✅ | pipeline ✅ + review ✅ + branch-finish ✅ | pipeline ✅ + branch-finish ✅ |
