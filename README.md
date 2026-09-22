@@ -57,12 +57,26 @@ npx skills@latest add mattpocock/skills   # 需 Node.js ≥ 22.20.0
 gf skills install
 
 # 2. 验证
-gf skills list     # 应看到 26 个 gf-* skills
+gf skills list     # 应看到 30 个 gf-* skills
 gf --version
 
 # 3. 在 Agent 平台中进入四阶段工作流
 /gf-workflow 我要做 X
 ```
+
+### Claude Code Plugin 安装入口
+
+只想先在 Claude Code 中发现和试用这些技能，也可以直接从本仓库安装 Plugin，无需先安装 `gf` 二进制：
+
+```text
+/plugin marketplace add byx-darwin/gitflow-cli
+/plugin install gitflow-cli@gitflow-cli-skills
+```
+
+Plugin 加载仓库 `skills/` 中同一份技能内容，调用名称带 `gitflow-cli:` 前缀，
+例如 `/gitflow-cli:gf-workflow`。技能中执行 `gf` 命令时仍需安装 `gf`；
+`gf skills install` 仍是直接安装无前缀技能到各 Agent 的主路径。
+两条路径的技能清单由 `make check-agent-sync` 校验同步。
 
 ### 仅用 CLI 路径
 
