@@ -52,6 +52,7 @@ pub mod skill_suggestion;
 pub mod toon;
 pub mod types;
 pub mod workflow_context;
+pub mod workflow_progress;
 pub mod workflow_recommendation;
 pub mod workflow_semantic;
 
