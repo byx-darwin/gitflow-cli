@@ -193,6 +193,11 @@ render-diff-review: ## 对 dev..HEAD 的改动生成交互式 diff 审阅页（�
 	@python3 scripts/render-diff-review.py scan "$${RANGE:-dev..HEAD}"
 	@python3 scripts/render-diff-review.py render ".cache/diff-review/$$(echo "$${RANGE:-dev..HEAD}" | tr '/' '-').json"
 
+render-diff-review-semantic: ## 显式调用 Claude CLI 补充伪代码/调用树后渲染，可用 RANGE 覆盖
+	@python3 scripts/render-diff-review.py scan "$${RANGE:-dev..HEAD}"
+	@python3 scripts/enrich-diff-review.py ".cache/diff-review/$$(echo "$${RANGE:-dev..HEAD}" | tr '/' '-').json"
+	@python3 scripts/render-diff-review.py render ".cache/diff-review/$$(echo "$${RANGE:-dev..HEAD}" | tr '/' '-').json"
+
 check-skills-drift: ## Report drift between skills/ and ~/.claude/skills, read-only (override SKILLS_DIR)
 	@$(SKILL_FNS) \
 	D="$(SKILLS_DIR)"; DRIFT=0; \
@@ -679,7 +684,7 @@ package: ## Build and package current platform binary into dist/
 .PHONY: help build build-release local-install check run test test-watch fmt clippy lint audit sbom install-tools install-skills install-hooks install \
         list-skills uninstall-skills completions completions-install completions-uninstall \
         watch bench bench-cli coverage docs release-dry-run \
-        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift render-workflow-dashboard render-diff-review release release-quick release-rehearse \
+        update-submodule check-agent-sync check-smell-skill check-refactor-skill check-architecture-diagram-skill check-walkthrough-skill check-quality-review-evidence-skill check-decompose-skill check-skills-drift render-workflow-dashboard render-diff-review render-diff-review-semantic release release-quick release-rehearse \
         smoke-test smoke-test-github smoke-test-gitlab smoke-test-gitcode smoke-test-write completions-install completions-uninstall changelog release-push release-publish package
 
 .PHONY: compatibility-matrix
