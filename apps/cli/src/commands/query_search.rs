@@ -14,9 +14,7 @@ use gitflow_core::{
     issue::{IssueProvider, ListIssueArgs},
     label::LabelProvider,
     pr::{ListPrArgs, PrProvider},
-    query_filter::{
-        Candidates, Filter, Origin, Plan, Target, apply_response, compile_at, decision_request,
-    },
+    query_filter::{Candidates, Filter, Origin, Plan, Target, apply_response, compile_at},
 };
 use gitflow_gitcode::{GitCodeIssueProvider, GitCodeLabelProvider, GitCodePrProvider};
 use gitflow_github::{GitHubIssueProvider, GitHubLabelProvider, GitHubPrProvider};
@@ -291,7 +289,7 @@ async fn live_response(plan: &Plan, candidates: &Candidates) -> Option<DecisionR
     if std::env::var("GF_DECISION_PROVIDER").as_deref() != Ok("jev") {
         return None;
     }
-    let request = decision_request(plan, candidates).ok()??;
+    let request = gitflow_core::query_filter::decision_request(plan, candidates).ok()??;
     let engine = gitflow_jev::JevEngine::from_env().ok()?;
     engine.decide(&request).await.ok()
 }

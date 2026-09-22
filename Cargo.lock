@@ -1191,6 +1191,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
  "tokio",
  "toon-format",
