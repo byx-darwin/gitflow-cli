@@ -1,0 +1,178 @@
+---
+import Base from "../layouts/Base.astro";
+import CopyCommand from "../components/CopyCommand.astro";
+
+const base = import.meta.env.BASE_URL;
+
+const decisionTypes = [
+  {
+    name: "Noul",
+    signal: "yes / no / unknown",
+    body: "适合阻塞、风险和合规边界判断。未知是合法答案，不强迫模型猜测。",
+  },
+  {
+    name: "Choice",
+    signal: "closed set",
+    body: "模型只能在给定候选中选择，适合 Issue 类型、工作流模式和失败分类。",
+  },
+  {
+    name: "Score",
+    signal: "ordered scale",
+    body: "在有序尺度上给出结果，适合优先级、质量和风险等级评估。",
+  },
+  {
+    name: "Batch",
+    signal: "mixed questions",
+    body: "一次提交多种问题，返回与原问题集合严格对应的类型化响应。",
+  },
+];
+
+const safeguards = [
+  ["显式启用", "默认构建不含 Jev 适配器，运行时还需设置 GF_DECISION_PROVIDER=jev。"],
+  ["只读建议", "Jev 响应不授权写操作，也不会绕过原有合同门禁和人工确认。"],
+  ["边界校验", "请求大小、问题数量、选项范围、响应结构和超时都有硬限制。"],
+  ["安全降级", "凭据缺失、超时或服务不可用时，调用方继续确定性规则或人工审查。"],
+  ["可离线复现", "保存类型化响应后可离线评估、校准阈值并比较基线。"],
+];
+
+const integrations = [
+  "Issue 需求质量预检查与分流",
+  "PR 语义预检查与审查提示",
+  "CI 失败分类与流水线分析",
+  "Issue / PR 自然语言查询补全",
+  "工作流模式、上下文与进度建议",
+  "Skill 选择与语义回归评估",
+];
+---
+
+<Base
+  title="Jev 决策层 | gf"
+  description="了解 gf 如何将 TypeSafe Jev 作为可选、只读、类型化的 AI 决策层接入工程工作流，并保留确定性门禁与人工授权。"
+>
+  <main class="landing jev-page">
+    <section class="jev-page-hero">
+      <div class="jev-page-copy">
+        <span class="hero-kicker">Optional typed decisions</span>
+        <h1 class="hero-title">AI 可以判断，<br /><span class="accent">不能越权。</span></h1>
+        <p class="hero-sub">
+          gf 用 Jev 处理语义不确定性，用确定性规则控制真实操作。
+        </p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="#setup">接入 Jev</a>
+          <a class="btn btn-ghost" href="https://docs.typesafe.ai/api">TypeSafe API</a>
+        </div>
+      </div>
+      <figure class="hero-art hero-art-compact">
+        <img
+          src={`${base}/assets/jev-decision-flow.webp`}
+          width="1600"
+          height="667"
+          alt="Jev 类型化决策信号经过多层校验后输出受约束结果"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <figcaption>Jev 提供语义信号，gf 保留授权边界。</figcaption>
+      </figure>
+    </section>
+
+    <section class="section decision-catalogue">
+      <div class="reveal">
+        <h2 class="section-heading">四种问题，四种明确边界</h2>
+        <p class="section-lede">不用自由文本猜答案。每个问题先定义类型，再验证响应。</p>
+      </div>
+      <div class="decision-catalogue-grid">
+        {
+          decisionTypes.map((type, i) => (
+            <article class="decision-catalogue-item reveal" style={`transition-delay:${i * 70}ms`}>
+              <div>
+                <h3>{type.name}</h3>
+                <code>{type.signal}</code>
+              </div>
+              <p>{type.body}</p>
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="section safeguard-section">
+      <div class="reveal safeguard-heading">
+        <h2 class="section-heading">先定义不能做什么</h2>
+        <p class="section-lede">
+          Jev 是建议层，不是权限层。工作流的安全属性在服务不可用时仍然成立。
+        </p>
+      </div>
+      <div class="safeguard-list">
+        {
+          safeguards.map(([title, body], i) => (
+            <article class="safeguard-item reveal" style={`transition-delay:${i * 60}ms`}>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="section setup-section" id="setup">
+      <div class="reveal">
+        <h2 class="section-heading">三条命令，显式接入</h2>
+        <p class="section-lede">适配器不会随默认二进制静默启用。构建、凭据和运行时开关都需要明确动作。</p>
+      </div>
+      <div class="setup-grid">
+        <article class="setup-item reveal">
+          <h3>构建适配器</h3>
+          <p>从源码启用可选的 <code>gitflow-jev</code> feature。</p>
+          <CopyCommand command="cargo build -p gitflow-cli --features gitflow-jev" />
+        </article>
+        <article class="setup-item reveal" style="transition-delay:70ms">
+          <h3>保存 TypeSafe Key</h3>
+          <p>macOS 可写入 Keychain，避免把密钥放进参数、文件或聊天。</p>
+          <CopyCommand command={'security add-generic-password -a "$USER" -s gitflow-cli-typesafe -U -w'} />
+        </article>
+        <article class="setup-item reveal" style="transition-delay:140ms">
+          <h3>显式调用</h3>
+          <p>设置 provider 后，通过标准输入或 <code>--input</code> 传入请求。</p>
+          <CopyCommand command="GF_DECISION_PROVIDER=jev gf decide batch --input decision.json" />
+        </article>
+      </div>
+    </section>
+
+    <section class="section integration-section">
+      <div class="reveal">
+        <h2 class="section-heading">Jev 已进入这些工程节点</h2>
+        <p class="section-lede">只在规则难以覆盖语义时补充信号，不改变原命令的权限模型。</p>
+      </div>
+      <div class="integration-grid">
+        {integrations.map((item) => <div class="integration-item reveal">{item}</div>)}
+      </div>
+    </section>
+
+    <section class="section offline-section">
+      <div class="offline-copy reveal">
+        <h2 class="section-heading">先离线验证，再决定是否上线</h2>
+        <p class="section-lede">
+          使用保存的响应评估准确率，按问题和数据切片校准阈值，再比较候选模型与基线。
+        </p>
+        <a class="text-link" href="https://github.com/byx-darwin/gitflow-cli/blob/dev/docs/decision-offline-evaluation.md">
+          阅读离线评估文档 →
+        </a>
+      </div>
+      <pre class="offline-code reveal" aria-label="Jev 离线评估命令"><code>gf decide eval \
+  --fixtures tests/fixtures/decision/mixed-v1.json \
+  --responses .cache/decision/saved.json
+
+gf decide calibrate \
+  --report .cache/decision/report.json \
+  --question kind \
+  --target-accuracy 0.99</code></pre>
+    </section>
+
+    <section class="section cta-band">
+      <div class="reveal">
+        <h2 class="cta-heading">把语义判断接进可审计的工程循环。</h2>
+        <a class="btn btn-primary" href={`${base}/workflow/`}>查看完整工作流</a>
+      </div>
+    </section>
+  </main>
+</Base>

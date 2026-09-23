@@ -2,8 +2,6 @@
 import Base from "../layouts/Base.astro";
 import Terminal from "../components/Terminal.astro";
 import type { TermLine } from "../components/Terminal.astro";
-import FileTree from "../components/FileTree.astro";
-import type { TreeRow } from "../components/FileTree.astro";
 import CopyCommand from "../components/CopyCommand.astro";
 import CommandTabs from "../components/CommandTabs.astro";
 import type { Tab } from "../components/CommandTabs.astro";
@@ -11,22 +9,19 @@ import type { Tab } from "../components/CommandTabs.astro";
 const base = import.meta.env.BASE_URL;
 
 const heroTerminal: TermLine[] = [
-  { type: "cmd", text: "gf skills install" },
-  { type: "success", text: "✔ 已安装 26 个 gf-* skills（.claude/skills/）" },
-  { type: "cmd", text: "gf issue list --output toon" },
-  { type: "out", text: "platform: github · 3 open issues" },
-  { type: "cmd", text: "gf --version" },
-  { type: "out", text: "gf 1.1.0" },
-  { type: "hl", text: "需求澄清 → 计划制定 → 执行 → 交付检查" },
+  { type: "cmd", text: "export GF_DECISION_PROVIDER=jev" },
+  { type: "cmd", text: "gf decide batch --input decision.json" },
+  { type: "success", text: "✔ typed response validated" },
+  { type: "out", text: "provider: jev-latest" },
+  { type: "out", text: "policy: advisory only" },
+  { type: "hl", text: "Noul | Choice | Score | Batch" },
 ];
 
-const heroTree: TreeRow[] = [
-  { text: ".claude/skills/" },
-  { text: "├── gf-workflow/", ai: true },
-  { text: "├── gf-quality/", ai: true },
-  { text: "├── gf-pr-review/" },
-  { text: "├── gf-issue-triage/" },
-  { text: "└── … 共 26 个 skills" },
+const decisionTypes = [
+  { name: "Noul", body: "用肯定、否定或未知回答边界明确的问题。" },
+  { name: "Choice", body: "只在给定候选中选择，拒绝自由发挥。" },
+  { name: "Score", body: "按有序尺度评估风险、质量与优先级。" },
+  { name: "Batch", body: "一次请求组合多种问题，返回可校验结果。" },
 ];
 
 const workflow = [
@@ -37,6 +32,14 @@ const workflow = [
 ];
 
 const commandTabs: Tab[] = [
+  {
+    label: "decide",
+    lines: [
+      { cmd: "gf decide noul --input request.json", desc: "边界判断" },
+      { cmd: "gf decide batch --input request.json", desc: "混合类型决策" },
+      { cmd: "gf decide eval --fixtures cases.json --responses saved.json", desc: "离线评估" },
+    ],
+  },
   {
     label: "issue",
     lines: [
@@ -77,6 +80,7 @@ const commandTabs: Tab[] = [
 ];
 
 const infraBadges = [
+  "TypeSafe Jev",
   "Claude Code",
   "Codex",
   "Gemini CLI",
@@ -91,26 +95,60 @@ const infraBadges = [
 ];
 ---
 
-<Base title="gf — 跨平台 Git 工程化工作流编排框架">
+<Base
+  title="gf + Jev：把类型化 AI 决策接进工程工作流"
+  description="gf 将 TypeSafe Jev 的类型化 AI 决策接入跨平台 Git 工程工作流，并用确定性规则、显式授权和人工审查守住边界。"
+>
   <main class="landing">
-    <!-- Hero：左文案 + 右活终端/目录树 -->
+    <!-- Hero：Jev 决策视觉 + 价值主张 -->
     <section class="hero-split">
       <div class="hero-copy">
-        <span class="hero-kicker">AI 编程工程循环编排器</span>
-        <h1 class="hero-title">给 AI 编程，<br /><span class="accent">上工程纪律。</span></h1>
+        <span class="hero-kicker">gf × TypeSafe Jev</span>
+        <h1 class="hero-title">把 Jev 的判断力，<br /><span class="accent">放进工程护栏。</span></h1>
         <p class="hero-sub">
-          跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent
-          Skills，覆盖从需求到发布的完整工程循环。
+          类型化 AI 决策接入跨平台 Git 工作流，始终由确定性规则和人工审查兜底。
         </p>
-        <CopyCommand command="cargo install gf" />
         <div class="hero-ctas">
-          <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手</a>
-          <a class="btn btn-ghost" href="https://github.com/byx-darwin/tap">GitHub →</a>
+          <a class="btn btn-primary" href={`${base}/jev/`}>了解 Jev</a>
+          <a class="btn btn-ghost" href={`${base}/quickstart/`}>快速上手</a>
         </div>
       </div>
       <div class="hero-visual">
-        <Terminal lines={heroTerminal} title="gf — workflow" />
-        <FileTree rows={heroTree} />
+        <figure class="hero-art">
+          <img
+            src={`${base}/assets/jev-decision-flow.webp`}
+            width="1600"
+            height="667"
+            alt="类型化决策信号依次通过工程检查点并收敛为可验证结果"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <figcaption>语义判断进入工作流，授权边界仍由规则控制。</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Jev 核心能力 -->
+    <section class="section jev-feature" id="jev">
+      <div class="jev-feature-copy reveal">
+        <h2 class="section-heading">Jev 负责判断，规则负责授权。</h2>
+        <p class="section-lede">
+          gf 只在显式启用时调用 Jev。响应经过类型和问题集合校验，失败时回到确定性规则或人工审查，不让模型直接改变仓库状态。
+        </p>
+        <a class="text-link" href={`${base}/jev/`}>查看 Jev 集成与安全边界 →</a>
+      </div>
+      <div class="reveal jev-terminal" style="transition-delay:100ms">
+        <Terminal lines={heroTerminal} title="gf decide" />
+      </div>
+      <div class="decision-types">
+        {
+          decisionTypes.map((type, i) => (
+            <article class="decision-type reveal" style={`transition-delay:${i * 70}ms`}>
+              <h3>{type.name}</h3>
+              <p>{type.body}</p>
+            </article>
+          ))
+        }
       </div>
     </section>
 
@@ -138,28 +176,27 @@ const infraBadges = [
       <div class="bento">
         <div class="reveal bento-big">
           <div class="bento-card">
-            <h3>三大平台，一个命令面</h3>
+            <h3>确定性护栏，不让模型越权</h3>
             <p>
-              统一封装 GitHub、GitLab、GitCode 的平台差异——同一条 <code style="font-family:var(--font-mono);color:var(--gf-teal)">gf issue list</code>
-              在三个平台上行为一致。自动检测 git remote，也可 <code style="font-family:var(--font-mono);color:var(--gf-teal)">--platform</code> 手动指定。
+              Jev 输出只提供只读建议。gf 保留原有合同门禁、输入边界、响应校验和人工确认，任何写操作仍走明确的 CLI 权限路径。
             </p>
             <div class="badge-row">
-              <span class="bento-badge">GitHub · gh</span>
-              <span class="bento-badge">GitLab · glab</span>
-              <span class="bento-badge">GitCode · gitcode</span>
+              <span class="bento-badge">opt-in</span>
+              <span class="bento-badge">read-only</span>
+              <span class="bento-badge">fallback-safe</span>
             </div>
           </div>
         </div>
         <div class="reveal" style="transition-delay:70ms">
           <div class="bento-card">
-            <h3>26 个 Skills</h3>
-            <p>从 Issue 创建、PR 审查到 Release 发布的全流程技能矩阵，装进你的 Agent。</p>
+            <h3>类型化决策</h3>
+            <p>Noul、Choice、Score、Batch 四种问题模型，输出可验证 JSON。</p>
           </div>
         </div>
         <div class="reveal" style="transition-delay:140ms">
           <div class="bento-card">
-            <h3>多 Agent 平台</h3>
-            <p>Claude Code / Codex / Gemini / Copilot / OpenCode，一键安装、自动检测。</p>
+            <h3>离线评估</h3>
+            <p>保存响应、校准阈值、对比基线，不必每次都调用在线服务。</p>
           </div>
         </div>
         <div class="reveal" style="transition-delay:210ms">
@@ -170,14 +207,14 @@ const infraBadges = [
         </div>
         <div class="reveal" style="transition-delay:280ms">
           <div class="bento-card">
-            <h3>toon 输出</h3>
-            <p>面向 Agent 消费的 token 优化输出格式，省 60–90% token。</p>
+            <h3>跨平台 Git</h3>
+            <p>同一命令面覆盖 GitHub、GitLab、GitCode，自动识别 remote。</p>
           </div>
         </div>
         <div class="reveal" style="transition-delay:350ms">
           <div class="bento-card">
             <h3>Dogfooding</h3>
-            <p>用 gf 开发 gf——它自己的工作流就是最好的案例。<a href={`${base}/dogfooding/`}>看真实案例 →</a></p>
+            <p>用 gf 开发 gf：它自己的工作流就是最好的案例。<a href={`${base}/dogfooding/`}>看真实案例 →</a></p>
           </div>
         </div>
       </div>
@@ -205,9 +242,9 @@ const infraBadges = [
     <!-- 安装 CTA -->
     <section class="section cta-band">
       <div class="reveal">
-        <h2 class="cta-heading">现在，给你的 AI 编程加上工程纪律。</h2>
+        <h2 class="cta-heading">让 Jev 判断，让 gf 守住边界。</h2>
         <CopyCommand command="brew tap byx-darwin/tap && brew install gf" />
-        <p class="cta-note">MIT License · Rust 2024 · 支持 GitHub / GitLab / GitCode 三大平台</p>
+        <p class="cta-note">MIT License | Rust 2024 | 支持 GitHub / GitLab / GitCode</p>
       </div>
     </section>
   </main>

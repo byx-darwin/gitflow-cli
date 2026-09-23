@@ -16,6 +16,8 @@
 
 gf 不是又一个 gh 封装，而是"AI 编程工程循环编排器"：统一封装 GitHub / GitLab / GitCode 三大平台差异（底层分别调用 gh / glab / gitcode CLI），配合可安装到多个 Agent 平台的 Skills 集合，覆盖从需求澄清到代码发布的完整工程循环。
 
+可选的 TypeSafe Jev 适配器为语义不确定性提供类型化、只读判断。`gf decide` 支持 Noul、Choice、Score、Batch；Jev 响应不授权状态变更，服务失败时调用方继续确定性规则或人工审查。
+
 ### 安装
 
 Homebrew（macOS）：
@@ -40,6 +42,7 @@ Cargo：
 - `gf label` / `gf milestone` — 标签 / 里程碑管理
 - `gf repo {clone,list,create,stats,sync,view}` — 仓库操作
 - `gf skills {install,list,uninstall}` — Skills 管理
+- `gf decide {noul,choice,score,batch,eval,calibrate,compare}` — 类型化决策与离线评估
 - `gf completions {bash,zsh,fish}` — Shell 补全
 
 全局标志：`--platform github|gitlab|gitcode`、`--output json|text|toon|auto`。
@@ -48,6 +51,7 @@ Cargo：
 
 - `gf-core`：Platform trait 抽象、跨平台适配器契约、toon 输出
 - `gf-github` / `-gitlab` / `-gitcode`：三平台适配器
+- `gitflow-jev`：可选 TypeSafe Jev 决策适配器
 - `gf`（CLI 应用）：命令路由、输出格式化、Skills 安装
 - 依赖单向流动：应用 → 库；`forbid(unsafe_code)`、pedantic clippy
 
