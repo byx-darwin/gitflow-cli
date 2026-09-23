@@ -7,11 +7,11 @@
       "steps": [
         {
           "name": "安装 gf",
-          "text": "运行 brew tap byx-darwin/tap && brew install gf 或 cargo install gf。"
+          "text": "运行 brew tap byx-darwin/tap && brew install gf 或 cargo install gitflow-cli。"
         },
         {
           "name": "安装 Skills",
-          "text": "运行 gf skills install，将 26 个 skills 安装到 .claude/skills/。"
+          "text": "运行 gf skills install，将 30 个 skills 安装到自动检测到的 Agent 目录。"
         },
         {
           "name": "验证环境",

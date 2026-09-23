@@ -9,6 +9,15 @@
 --help                            显示帮助
 --version                         显示版本
 
+## gf decide — 类型化决策
+
+子命令：`noul`、`choice`、`score`、`batch`、`eval`、`calibrate`、`compare`。
+
+## gf regression — 回归语义评估
+
+### gf regression semantic-eval
+在确定性断言完成后评估已捕获的回归案例。
+
 ## gf issue — Issue 管理
 
 ### gf issue list
@@ -219,26 +228,6 @@
   --description <desc>            里程碑描述
   --due-date <date>               截止日期
 
-## gf repo — 仓库操作
-
-### gf repo clone <repo>
-克隆仓库。
-
-### gf repo list
-列出仓库。
-
-### gf repo create
-创建新仓库。
-
-### gf repo stats
-查看仓库统计。
-
-### gf repo sync
-同步仓库。
-
-### gf repo view
-查看仓库详情。
-
 ## gf skills — Skills 管理
 
 ### gf skills install
@@ -254,13 +243,14 @@
 ### gf skills uninstall
 卸载 skills。
 
-## gf completions — Shell 补全
+## gf workflow — Workflow 合同管理
 
-### gf completions bash
-生成 bash 补全脚本。
+子命令：`progress`、`context`、`semantic-check`、`recommend`、`create`、`list`、`status`、`archive`、`cleanup`。
 
-### gf completions zsh
-生成 zsh 补全脚本。
+## gf doctor — 环境诊断
 
-### gf completions fish
-生成 fish 补全脚本。
+诊断底层 CLI、Agent、Skills 与配置状态。
+
+## gf update — 自更新
+
+将 gf 二进制更新到最新 GitHub Release。

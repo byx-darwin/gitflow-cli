@@ -241,6 +241,12 @@ export function generateBlogJsonLd(): BlogJsonLd {
         url: "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/",
         datePublished: "2026-09-23",
       },
+      {
+        "@type": "BlogPosting",
+        headline: "用 gf 开发 gf：一次真实的 dogfooding 案例",
+        url: "https://byx-darwin.github.io/gitflow-cli/dogfooding/",
+        datePublished: "2026-09-02",
+      },
     ],
   };
 }

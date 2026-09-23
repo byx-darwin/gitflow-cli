@@ -19,7 +19,7 @@ const compareRows = [
   },
   {
     dimension: "Agent 集成",
-    gf: "26 个 <code>gf-*</code> Skills，一键安装到 Claude Code / Codex / Gemini / Copilot / OpenCode，Agent 开箱即用。",
+    gf: "30 个 <code>gf-*</code> Skills，一键安装到 Claude Code / Codex / Gemini / Copilot / OpenCode / Qoder / Pi，Agent 开箱即用。",
     gh: "可被 Agent 调用，但无配套 Skills 编排。",
     glab: "可被 Agent 调用，但无配套 Skills 编排。",
   },
@@ -31,13 +31,13 @@ const compareRows = [
   },
   {
     dimension: "输出格式",
-    gf: "<code>json</code> / <code>text</code> / <code>toon</code>（Agent 专用 token 优化，省 60–90% token）。",
+    gf: "<code>json</code> / <code>text</code> / <code>toon</code>。toon 面向 Agent 提供更紧凑的结构化输出，实际节省量取决于数据形状。",
     gh: "JSON / markdown / 表格。",
     glab: "JSON / markdown / 表格。",
   },
   {
     dimension: "安装方式",
-    gf: "<code>brew tap byx-darwin/tap && brew install gf</code> 或 <code>cargo install gf</code>；底层复用 gh / glab / gitcode。",
+    gf: "<code>brew tap byx-darwin/tap && brew install gf</code> 或 <code>cargo install gitflow-cli</code>；底层复用 gh / glab / gitcode。",
     gh: "brew / 官方安装脚本 / 各平台包管理器。",
     glab: "brew / 官方安装脚本 / 各平台包管理器。",
   },
@@ -62,7 +62,7 @@ const gfScenarios = [
   },
   {
     title: "节省 token 预算",
-    body: "toon 输出针对 Agent 消费优化，命令交互省 60–90% token，长会话成本更低。",
+    body: "toon 输出针对 Agent 消费优化，在保持结构的同时减少重复标记；实际收益取决于返回数据。",
   },
   {
     title: "平台迁移成本",
@@ -97,7 +97,7 @@ const commandMap = [
   { scene: "合并 PR", gh: "gh pr merge 123", gf: "gf pr merge 123", note: "语法一致" },
   { scene: "审查 PR", gh: "gh pr review --approve", gf: "gf review approve 123", note: "独立的 review 命令面" },
   { scene: "创建 Release", gh: "gh release create v1.0.0", gf: "gf release create v1.0.0", note: "语法一致" },
-  { scene: "克隆仓库", gh: "gh repo clone owner/repo", gf: "gf repo clone owner/repo", note: "语法一致" },
+  { scene: "克隆仓库", gh: "gh repo clone owner/repo", gf: "git clone &lt;url&gt;", note: "当前由 Git 负责" },
   { scene: "查看流水线", gh: "gh run view", gf: "gf pipeline status", note: "独立 pipeline 命令面" },
   { scene: "登录认证", gh: "gh auth login", gf: "gf auth login", note: "语法一致" },
 ];

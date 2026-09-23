@@ -10,7 +10,7 @@
     },
     {
       "question": "支持哪些 AI Agent 平台？",
-      "answer": "Claude Code / Codex / OpenCode / Gemini CLI / Copilot CLI。"
+      "answer": "Claude Code / Codex / OpenCode / Gemini CLI / Copilot CLI / Qoder / Pi。"
     },
     {
       "question": "什么是 gf-workflow？",
@@ -18,7 +18,7 @@
     },
     {
       "question": "如何安装 gf？",
-      "answer": "Homebrew: brew tap byx-darwin/tap && brew install gf。Cargo: cargo install gf。"
+      "answer": "Homebrew: brew tap byx-darwin/tap && brew install gf。Cargo: cargo install gitflow-cli。"
     },
     {
       "scope": "jev",

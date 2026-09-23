@@ -89,11 +89,13 @@ gf (app)
 
 ## Agent 生态集成
 
-支持 5 个 Agent 平台：
+支持 7 个 Agent 平台：
 - Claude Code（主要）
 - Codex
 - OpenCode
 - Gemini CLI
 - Copilot CLI
+- Qoder
+- Pi
 
 Skills 是 Markdown 文件，安装到 `.claude/skills/` 目录，提供工作流编排能力。

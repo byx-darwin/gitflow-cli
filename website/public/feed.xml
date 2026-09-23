@@ -13,5 +13,12 @@
       <pubDate>Wed, 23 Sep 2026 00:00:00 +0800</pubDate>
       <description>从自由文本建议到 Noul、Choice、Score、Batch 类型化判断，解释 gf 如何安全接入 Jev，并用真实 Issue 试点评估能力边界。</description>
     </item>
+    <item>
+      <title>用 gf 开发 gf：一次真实的 dogfooding 案例</title>
+      <link>https://byx-darwin.github.io/gitflow-cli/dogfooding/</link>
+      <guid isPermaLink="true">https://byx-darwin.github.io/gitflow-cli/dogfooding/</guid>
+      <pubDate>Wed, 02 Sep 2026 00:00:00 +0800</pubDate>
+      <description>从 30 个历史执行合同出发，复盘 gf 的四阶段工作流、契约测试与质量门禁，并按当前功能更新说明。</description>
+    </item>
   </channel>
 </rss>

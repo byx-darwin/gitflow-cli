@@ -13,13 +13,19 @@ export interface Props {
   structuredData?: object[];
 }
 
+// Astro pages pass props directly; MDX layouts pass their frontmatter under
+// `frontmatter`. Normalize both shapes so legacy MDX pages keep full metadata.
+const pageProps = Astro.props.frontmatter
+  ? { ...Astro.props, ...Astro.props.frontmatter }
+  : Astro.props;
+
 const {
   title,
   description = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。",
   socialImage = "og-image.svg",
   faqScope,
   structuredData = [],
-} = Astro.props;
+} = pageProps;
 
 const base = import.meta.env.BASE_URL;
 

@@ -85,10 +85,15 @@ describe("GEO entity consistency", () => {
     expect(article.author.name).toBe("皮哥不写PPT");
   });
 
-  it("should expose the Jev article through the Blog entity", () => {
+  it("should expose current and legacy articles through the Blog entity", () => {
     const blog = generateBlogJsonLd();
     expect(blog["@type"]).toBe("Blog");
-    expect(blog.blogPost).toHaveLength(1);
-    expect(blog.blogPost[0].url).toContain("/blog/jev-typed-decisions/");
+    expect(blog.blogPost).toHaveLength(2);
+    expect(blog.blogPost.map((post) => post.url)).toEqual(
+      expect.arrayContaining([
+        "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/",
+        "https://byx-darwin.github.io/gitflow-cli/dogfooding/",
+      ]),
+    );
   });
 });
