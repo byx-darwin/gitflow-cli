@@ -210,7 +210,17 @@ fn context_path(workflow_id: &str) -> miette::Result<PathBuf> {
 
 fn snapshot(root: &Path, workflow_id: &str, input: &str) -> miette::Result<ContextSnapshot> {
     validate_workflow_id(workflow_id)?;
-    let contract_path = workflow_dir().join(format!("{workflow_id}.json"));
+    // Keep both sides of the containment check in canonical form. On Windows,
+    // `Path::canonicalize` adds the verbatim (`\\?\`) prefix, while a fresh
+    // `current_dir` path does not necessarily carry it; mixing the two makes
+    // `strip_prefix` reject a contract that is actually inside the repository.
+    let contract_path = workflow_dir()
+        .join(format!("{workflow_id}.json"))
+        .canonicalize()
+        .map_err(|_| miette::miette!("workflow contract cannot be resolved"))?;
+    if !contract_path.starts_with(root) || !contract_path.is_file() {
+        return Err(miette::miette!("workflow contract is outside repository"));
+    }
     let contract_bytes = read_limited(&contract_path, MAX_CONTRACT_BYTES)?;
     let contract: serde_json::Value = serde_json::from_slice(&contract_bytes)
         .map_err(|_| miette::miette!("workflow contract JSON is invalid"))?;
