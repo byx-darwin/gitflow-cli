@@ -10,6 +10,7 @@ SCRIPT_NAME="$(basename "$0")"
 PLATFORM="github"
 MODE="read-only"
 VERBOSE=0
+API_REPO_DIR=""
 
 # 计数器
 PASS_COUNT=0
@@ -34,6 +35,7 @@ if ! command -v "$GITFLOW_CLI" &> /dev/null; then
     echo "错误: gf 二进制不可执行: $GITFLOW_CLI" >&2
     exit 1
 fi
+GITFLOW_CLI="$(realpath "$(command -v "$GITFLOW_CLI")")"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -78,6 +80,7 @@ usage() {
 选项:
     --platform <平台>    指定测试平台 (github|gitlab|gitcode)，默认: github
     --read-only          只读模式，仅测试 --help 和读取命令 (默认)
+    --api-repo-dir <目录> 在指定 Git 仓库中运行 API 读取测试
     --write              写入模式，额外测试写入命令的 --help
     --verbose, -v        详细输出模式
     --version            显示版本信息
@@ -88,6 +91,7 @@ usage() {
     $SCRIPT_NAME --platform gitlab         # 测试 GitLab 平台
     $SCRIPT_NAME --platform gitcode --write # 测试 GitCode 平台，包含写入命令
     $SCRIPT_NAME --read-only --verbose     # 只读模式，详细输出
+    $SCRIPT_NAME --platform gitlab --api-repo-dir /path/to/gitlab-repo
 
 退出码:
     0    所有测试通过
@@ -251,8 +255,14 @@ test_api_read_commands() {
 
     log_info "测试 API 读取命令 (最佳努力模式, 平台: $current_platform)"
 
-    # 允许跳过认证相关的错误
-    export ALLOW_SKIP=true
+    if [[ -n "$API_REPO_DIR" ]]; then
+        # 显式指定测试仓库时，API 失败必须计入失败，不能当作通过。
+        export ALLOW_SKIP=false
+        pushd "$API_REPO_DIR" > /dev/null || return 1
+    else
+        # 默认模式允许未配置认证的环境跳过 API 读取。
+        export ALLOW_SKIP=true
+    fi
 
     # 这些命令可能因为缺少认证或原生 CLI 而失败,但我们应该优雅地跳过
     test_command "issue list (API)" "$GITFLOW_CLI" --platform "$current_platform" issue list --limit 3 || true
@@ -263,6 +273,9 @@ test_api_read_commands() {
 
     # 重置
     unset ALLOW_SKIP
+    if [[ -n "$API_REPO_DIR" ]]; then
+        popd > /dev/null || return 1
+    fi
 }
 
 # 解析命令行参数
@@ -285,6 +298,14 @@ parse_args() {
             --read-only)
                 MODE="read-only"
                 shift
+                ;;
+            --api-repo-dir)
+                if [[ -z "${2:-}" || ! -d "$2" ]] || ! git -C "$2" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+                    echo "错误: --api-repo-dir 需要已有的 Git 仓库目录" >&2
+                    exit 1
+                fi
+                API_REPO_DIR="$(cd "$2" && pwd -P)"
+                shift 2
                 ;;
             --write)
                 MODE="write"
