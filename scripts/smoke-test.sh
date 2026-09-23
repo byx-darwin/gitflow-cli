@@ -91,7 +91,7 @@ usage() {
     $SCRIPT_NAME --platform gitlab         # 测试 GitLab 平台
     $SCRIPT_NAME --platform gitcode --write # 测试 GitCode 平台，包含写入命令
     $SCRIPT_NAME --read-only --verbose     # 只读模式，详细输出
-    $SCRIPT_NAME --platform gitlab --api-repo-dir /path/to/gitlab-repo
+    $SCRIPT_NAME --platform gitlab --api-repo-dir fixtures/gitlab-repo
 
 退出码:
     0    所有测试通过
@@ -116,8 +116,13 @@ test_command() {
         local exit_code=$?
         # 检查是否是因为缺少原生 CLI
         if echo "$output" | grep -qi "native cli.*not.*found\|command not found\|not found\.\|native CLI.*required\|failed to parse.*version\|not yet supported\|unrecognized subcommand"; then
-            log_skip "$description (缺少原生 CLI)"
-            return 2
+            if [[ "$allow_skip" == "true" ]]; then
+                log_skip "$description (缺少或不兼容的原生 CLI)"
+                return 2
+            fi
+            log_fail "$description (缺少或不兼容的原生 CLI，退出码: $exit_code)"
+            log_verbose "错误输出: $output"
+            return 1
         # 检查是否是认证/授权错误 (仅在允许跳过时)
         elif [[ "$allow_skip" == "true" ]] && echo "$output" | grep -qi "auth\|unauthorized\|forbidden\|token\|credentials\|not authenticated\|serialization error"; then
             log_skip "$description (API 错误)"
@@ -300,11 +305,16 @@ parse_args() {
                 shift
                 ;;
             --api-repo-dir)
-                if [[ -z "${2:-}" || ! -d "$2" ]] || ! git -C "$2" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+                local repo_dir="${2:-}"
+                if [[ -z "$repo_dir" || "$repo_dir" == /* || "$repo_dir" =~ (^|/)\.\.(/|$) ]]; then
+                    echo "错误: --api-repo-dir 需要当前目录下、不含 '..' 的相对路径" >&2
+                    exit 1
+                fi
+                if [[ ! -d "$repo_dir" ]] || ! git -C "$repo_dir" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
                     echo "错误: --api-repo-dir 需要已有的 Git 仓库目录" >&2
                     exit 1
                 fi
-                API_REPO_DIR="$(cd "$2" && pwd -P)"
+                API_REPO_DIR="$(cd "$repo_dir" && pwd -P)"
                 shift 2
                 ;;
             --write)

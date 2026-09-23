@@ -2,7 +2,9 @@
 
 import faqData from "../data/faq.json";
 import howtoData from "../data/howto.json";
+import { BLOG_POSTS, JEV_BLOG_POST } from "../data/blog";
 
+/** Schema.org representation of the gf application. */
 export interface SoftwareAppJsonLd {
   "@context": "https://schema.org";
   "@type": "SoftwareApplication";
@@ -21,6 +23,7 @@ export interface SoftwareAppJsonLd {
   featureList: string[];
 }
 
+/** Schema.org FAQ page generated from the website FAQ data. */
 export interface FAQPageJsonLd {
   "@context": "https://schema.org";
   "@type": "FAQPage";
@@ -34,6 +37,7 @@ export interface FAQPageJsonLd {
   }>;
 }
 
+/** Schema.org step-by-step guide generated from the website HowTo data. */
 export interface HowToJsonLd {
   "@context": "https://schema.org";
   "@type": "HowTo";
@@ -47,6 +51,7 @@ export interface HowToJsonLd {
   }>;
 }
 
+/** Schema.org page entity for the optional Jev integration. */
 export interface JevWebPageJsonLd {
   "@context": "https://schema.org";
   "@type": "WebPage";
@@ -65,6 +70,7 @@ export interface JevWebPageJsonLd {
   primaryImageOfPage: { "@type": "ImageObject"; url: string; caption: string };
 }
 
+/** Schema.org metadata for one gf engineering article. */
 export interface BlogPostingJsonLd {
   "@context": "https://schema.org";
   "@type": "BlogPosting";
@@ -82,6 +88,7 @@ export interface BlogPostingJsonLd {
   isPartOf: { "@type": "Blog"; name: string; url: string };
 }
 
+/** Schema.org metadata for the gf blog and its article collection. */
 export interface BlogJsonLd {
   "@context": "https://schema.org";
   "@type": "Blog";
@@ -100,7 +107,9 @@ export interface BlogJsonLd {
 
 const CANONICAL_POSITIONING =
   "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。";
+const SITE_URL = "https://byx-darwin.github.io/gitflow-cli";
 
+/** Build the canonical software application entity used across the website. */
 export function generateSoftwareAppJsonLd(): SoftwareAppJsonLd {
   return {
     "@context": "https://schema.org",
@@ -129,6 +138,7 @@ export function generateSoftwareAppJsonLd(): SoftwareAppJsonLd {
   };
 }
 
+/** Build FAQ structured data, optionally limited to one content scope. */
 export function generateFAQPageJsonLd(scope?: string): FAQPageJsonLd {
   const faqs = scope
     ? faqData.faqs.filter((faq) => "scope" in faq && faq.scope === scope)
@@ -147,6 +157,7 @@ export function generateFAQPageJsonLd(scope?: string): FAQPageJsonLd {
   };
 }
 
+/** Build the structured page entity for the Jev product page. */
 export function generateJevWebPageJsonLd(): JevWebPageJsonLd {
   return {
     "@context": "https://schema.org",
@@ -180,18 +191,19 @@ export function generateJevWebPageJsonLd(): JevWebPageJsonLd {
   };
 }
 
+/** Build article structured data for the Jev engineering article. */
 export function generateJevBlogPostingJsonLd(): BlogPostingJsonLd {
-  const url = "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/";
+  const article = JEV_BLOG_POST;
+  const url = `${SITE_URL}${article.path}`;
   return {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    headline: "为什么 AI 工程工作流需要类型化决策：gf 接入 Jev 的设计与实践",
-    description:
-      "从自由文本建议到 Noul、Choice、Score、Batch 类型化判断，解释 gf 如何安全接入 Jev，并用真实 Issue 试点评估它的能力边界。",
+    headline: article.headline,
+    description: article.description,
     url,
-    image: "https://byx-darwin.github.io/gitflow-cli/assets/jev-decision-flow.webp",
-    datePublished: "2026-09-23",
-    dateModified: "2026-09-23",
+    image: `${SITE_URL}${article.image}`,
+    datePublished: article.datePublished,
+    dateModified: article.dateModified,
     inLanguage: "zh-CN",
     author: {
       "@type": "Person",
@@ -212,7 +224,7 @@ export function generateJevBlogPostingJsonLd(): BlogPostingJsonLd {
       { "@type": "Thing", name: "AI 工程工作流" },
       { "@type": "Thing", name: "类型化 AI 决策" },
     ],
-    keywords: ["Jev", "TypeSafe AI", "gf", "AI 工程工作流", "类型化决策"],
+    keywords: [...article.tags, "TypeSafe AI", "gf", "AI 工程工作流", "类型化决策"],
     isPartOf: {
       "@type": "Blog",
       name: "gf 博客",
@@ -221,6 +233,7 @@ export function generateJevBlogPostingJsonLd(): BlogPostingJsonLd {
   };
 }
 
+/** Build the blog collection entity from the canonical article metadata. */
 export function generateBlogJsonLd(): BlogJsonLd {
   return {
     "@context": "https://schema.org",
@@ -234,23 +247,16 @@ export function generateBlogJsonLd(): BlogJsonLd {
       name: "gf",
       url: "https://byx-darwin.github.io/gitflow-cli/",
     },
-    blogPost: [
-      {
-        "@type": "BlogPosting",
-        headline: "为什么 AI 工程工作流需要类型化决策：gf 接入 Jev 的设计与实践",
-        url: "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/",
-        datePublished: "2026-09-23",
-      },
-      {
-        "@type": "BlogPosting",
-        headline: "用 gf 开发 gf：一次真实的 dogfooding 案例",
-        url: "https://byx-darwin.github.io/gitflow-cli/dogfooding/",
-        datePublished: "2026-09-02",
-      },
-    ],
+    blogPost: BLOG_POSTS.map((article) => ({
+      "@type": "BlogPosting",
+      headline: article.headline,
+      url: `${SITE_URL}${article.path}`,
+      datePublished: article.datePublished,
+    })),
   };
 }
 
+/** Build one HowTo entity by guide name, or the first guide when omitted. */
 export function generateHowToJsonLd(guideName?: string): HowToJsonLd | null {
   const guide = howtoData.guides.find((g) =>
     guideName ? g.name === guideName : true,

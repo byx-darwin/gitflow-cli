@@ -144,7 +144,7 @@ const articleJsonLd = generateJevBlogPostingJsonLd();
 export GF_DECISION_PROVIDER=jev
 gf decide batch --input decision.json</code></pre>
           <p>
-            macOS 用户可以把 TypeSafe Key 保存到 Keychain 的 <code>gitflow-cli-typesafe</code> 项目。密钥不要放进命令参数、请求文件、仓库或聊天记录。
+            跨平台环境通过 <code>TYPESAFE_API_KEY</code> 从环境或密钥管理器注入凭据。macOS 用户也可以把 TypeSafe Key 保存到 Keychain 的 <code>gitflow-cli-typesafe</code> 项目，作为环境变量缺失时的后备；环境变量优先。TypeSafe 凭据与 <code>gf auth</code> 的 Git 平台凭据相互独立，密钥不要放进命令参数、请求文件、仓库或聊天记录。
           </p>
           <p>
             请求在 CLI 边界限制为 128 KiB，序列化状态限制为 32 KiB，问题数量最多 16 个。响应大小、问题集合和超时同样会被验证。这些检查是最后一道防线，发送前仍需人工删除密钥、个人信息与无关上下文。

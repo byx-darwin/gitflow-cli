@@ -141,8 +141,10 @@ const structuredData = [
           <CopyCommand command="cargo build -p gitflow-cli --features gitflow-jev" />
         </article>
         <article class="setup-item reveal" style="transition-delay:70ms">
-          <h3>保存 TypeSafe Key</h3>
-          <p>macOS 可写入 Keychain，避免把密钥放进参数、文件或聊天。</p>
+          <h3>配置 TypeSafe Key</h3>
+          <p>
+            跨平台方式是由环境或密钥管理器注入 <code>TYPESAFE_API_KEY</code>。macOS 还可使用下方 Keychain 项作为环境变量缺失时的后备。
+          </p>
           <CopyCommand command={'security add-generic-password -a "$USER" -s gitflow-cli-typesafe -U -w'} />
         </article>
         <article class="setup-item reveal" style="transition-delay:140ms">
@@ -151,6 +153,9 @@ const structuredData = [
           <CopyCommand command="GF_DECISION_PROVIDER=jev gf decide batch --input decision.json" />
         </article>
       </div>
+      <p class="section-lede" style="margin-top:24px">
+        <code>TYPESAFE_API_KEY</code> 优先于 Keychain；两者都与 <code>gf auth</code> 的 Git 平台凭据相互独立。不要把密钥字面量放进命令参数、请求文件、仓库或聊天记录。
+      </p>
     </section>
 
     <section class="section integration-section">

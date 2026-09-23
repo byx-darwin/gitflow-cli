@@ -35,15 +35,15 @@ Cargo：
 
 ### 核心命令（顶层）
 
-- `gf issue {create,list,view,close,reopen,comment}` — Issue 管理
-- `gf pr {create,list,view,close,merge,checkout}` — PR 管理
-- `gf release {create,list,view,edit}` — 发布管理
+- `gf issue {search,create,edit,list,view,precheck,close,reopen,comment,comments,add-label,remove-label}` — Issue 管理
+- `gf pr {search,create,list,view,precheck,close,reopen,comment,merge,checkout,ready,wip,sync,diff,patch,cleanup}` — PR 管理
+- `gf release {create,list,view,edit,upload,download,delete}` — 发布管理
 - `gf review {comment,approve,request-changes,submit}` — 代码审查
 - `gf auth {login,logout,status,token}` — 认证管理
-- `gf pipeline {status,logs,jobs,report}` — CI/CD 流水线
+- `gf pipeline {analyze-failures,status,logs,jobs,report}` — CI/CD 流水线
 - `gf commit {view,diff,patch,comment}` — 提交操作
 - `gf label` / `gf milestone` — 标签 / 里程碑管理
-- `gf skills {install,list,uninstall}` — Skills 管理
+- `gf skills {suggest,install,list,uninstall,update}` — Skills 管理
 - `gf decide {noul,choice,score,batch,eval,calibrate,compare}` — 类型化决策与离线评估
 - `gf regression semantic-eval` — 回归案例语义评估
 - `gf workflow {progress,context,semantic-check,recommend,create,list,status,archive,cleanup}` — Workflow 合同与只读遥测

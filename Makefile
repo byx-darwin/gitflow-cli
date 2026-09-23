@@ -638,6 +638,9 @@ smoke-test-gitcode: ## Run smoke test for GitCode platform
 smoke-test-write: ## Run smoke test with write commands (help only)
 	@bash scripts/smoke-test.sh --write
 
+test-smoke-script: ## Test smoke-test strict mode and path validation
+	@bash scripts/test-smoke-test.sh
+
 release: ## Interactive release with safety checks and version preview
 	@bash scripts/release.sh
 

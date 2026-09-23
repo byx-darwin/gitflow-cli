@@ -25,7 +25,7 @@ glab 只服务 GitLab 单一平台；gf 提供跨平台统一接口。如果你�
 安装 Skills 后，用 gf-workflow 四阶段编排（需求澄清 → 计划 → 执行 → 交付检查），每阶段有质量门禁。
 
 **步骤**：
-1. `gf skills install` — 安装 30 个 skills 到自动检测到的 Agent 目录
+1. `gf skills install` — 默认安装 30 个 skills 到 Claude Code；其他平台显式传 `--agent`
 2. `/gf-workflow` — 启动四阶段工作流
 3. 每阶段自动执行质量检查（测试、clippy、fmt）
 

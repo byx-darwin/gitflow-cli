@@ -98,4 +98,4 @@ gf (app)
 - Qoder
 - Pi
 
-Skills 是 Markdown 文件，安装到 `.claude/skills/` 目录，提供工作流编排能力。
+Skills 是 Markdown 文件。`gf skills install` 默认安装到 Claude Code 的 `.claude/skills/`；其他 Agent 通过 `--agent` 显式选择，并写入各自约定的项目级目录。

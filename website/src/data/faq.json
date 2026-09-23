@@ -33,7 +33,7 @@
     {
       "scope": "jev",
       "question": "如何在 gf 中启用 Jev？",
-      "answer": "从源码构建时启用 gitflow-jev feature，安全保存 TypeSafe Key，并在调用时显式设置 GF_DECISION_PROVIDER=jev。默认构建和默认运行均不会静默启用 Jev。"
+      "answer": "从源码构建时启用 gitflow-jev feature，通过环境或密钥管理器注入 TYPESAFE_API_KEY，并在调用时显式设置 GF_DECISION_PROVIDER=jev。macOS Keychain 仅在环境变量缺失时作为后备；TypeSafe 凭据与 gf auth 凭据相互独立。"
     },
     {
       "scope": "jev",

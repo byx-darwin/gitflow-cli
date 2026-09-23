@@ -42,7 +42,7 @@ gf skills install        # 项目级（推荐，跟随仓库）
 gf skills install -g     # 全局（所有项目可用）
 ```
 
-不指定 `--agent` 时自动检测目标 Agent 平台（Claude Code / Codex / OpenCode / Gemini / Copilot / Qoder / Pi）。
+不指定 `--agent` 时默认安装到 Claude Code。其他平台需显式指定 `--agent codex|open-code|gemini|copilot|qoder|pi`。
 
 > 需先完成[第 0 步](#0-前置条件)安装技能来源，否则 `gf skills install` 会因「未检测到任何技能来源」而中止。
 

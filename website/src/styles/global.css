@@ -684,7 +684,7 @@ a:focus-visible, button:focus-visible {
 .blog-archive {
   margin-top: 72px;
   padding-top: 32px;
-  border-top: 1px solid var(--gf-border);
+  border-top: 1px solid var(--gf-line);
 }
 .blog-archive-story {
   display: grid;
