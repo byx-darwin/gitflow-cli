@@ -10,6 +10,7 @@
 - [架构说明](./llms-architecture.txt) — Platform trait、适配器、依赖关系
 - [FAQ](./llms-faq.txt) — 常见问题与长尾提问解答
 - [Jev 事实页](./llms-jev.txt) — Jev 定义、决策类型、安全边界与接入方式
+- [Jev 设计实践](./blog/jev-typed-decisions/) — gf 接入类型化 AI 决策的设计取舍与试点评估
 
 ## 快速摘要
 

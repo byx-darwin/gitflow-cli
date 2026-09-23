@@ -1,0 +1,174 @@
+---
+import Base from "../../layouts/Base.astro";
+import { generateJevBlogPostingJsonLd } from "../../lib/jsonld";
+
+const base = import.meta.env.BASE_URL;
+const articleJsonLd = generateJevBlogPostingJsonLd();
+---
+
+<Base
+  title="为什么 AI 工程工作流需要类型化决策 | gf 博客"
+  description="从自由文本建议到 Noul、Choice、Score、Batch 类型化判断，解释 gf 如何安全接入 Jev，并用真实 Issue 试点评估能力边界。"
+  socialImage="assets/jev-decision-flow.webp"
+  structuredData={[articleJsonLd]}
+>
+  <main class="blog-article">
+    <header class="article-header">
+      <a class="article-back" href={`${base}/blog/`}>博客</a>
+      <h1>为什么 AI 工程工作流<br />需要类型化决策</h1>
+      <p class="article-dek">
+        自由文本可以解释判断，工程系统还需要验证判断。gf 用 Jev 处理语义不确定性，同时把写权限留在确定性规则和人工确认手中。
+      </p>
+      <div class="article-meta">
+        <span>皮哥不写PPT</span>
+        <time datetime="2026-09-23">2026-09-23</time>
+        <span>Jev / AI 工程工作流</span>
+      </div>
+    </header>
+
+    <figure class="article-cover">
+      <img
+        src={`${base}/assets/jev-decision-flow.webp`}
+        width="1600"
+        height="667"
+        alt="语义信号先经过 Jev 类型化，再通过 gf 校验和授权边界"
+        loading="eager"
+        fetchpriority="high"
+      />
+      <figcaption>判断可以来自模型，权限必须来自系统。</figcaption>
+    </figure>
+
+    <div class="article-layout">
+      <aside class="article-rail">
+        <nav aria-label="文章目录">
+          <strong>本文内容</strong>
+          <a href="#problem">自由文本的问题</a>
+          <a href="#types">四种决策类型</a>
+          <a href="#boundary">判断与授权分离</a>
+          <a href="#pilot">试点评估</a>
+          <a href="#setup">接入 Jev</a>
+        </nav>
+      </aside>
+
+      <article class="article-prose">
+        <p class="article-opening">
+          AI 已经能阅读 Issue、PR 和 CI 日志，但“能理解”不等于“可以执行”。工程工作流最危险的跳跃，是把一段自然语言建议直接解释成标签、合并、发布或权限变更。
+        </p>
+
+        <section id="problem">
+          <h2>自由文本的问题，不只是难解析</h2>
+          <p>
+            普通模型响应往往是一段解释。它可以同时包含结论、保留意见、替代建议和未经请求的动作。对人来说这很自然，对程序来说却缺少稳定契约。
+          </p>
+          <p>
+            工程系统真正需要的是边界明确的问题：是否存在阻塞证据，候选类型中哪一个最合适，风险落在哪个有序等级。响应必须与原问题一一对应，超出候选集合的内容应当被拒绝。
+          </p>
+          <blockquote>
+            Jev 在 gf 中不是聊天接口，而是一个可选的 TypeSafe 决策适配器。它提供受约束的语义信号，不提供执行权限。
+          </blockquote>
+        </section>
+
+        <section id="types">
+          <h2>四种类型，分别回答四类工程问题</h2>
+          <div class="article-decision-grid">
+            <div>
+              <code>Noul</code>
+              <h3>允许回答未知</h3>
+              <p>用 yes、no、unknown 表达证据边界，适合阻塞、安全与合规判断。</p>
+            </div>
+            <div>
+              <code>Choice</code>
+              <h3>只能从候选中选择</h3>
+              <p>适合 Issue 类型、失败分类和工作流模式，不让响应创造新枚举。</p>
+            </div>
+            <div>
+              <code>Score</code>
+              <h3>在有序尺度上评估</h3>
+              <p>适合优先级、质量和风险，但阈值必须根据已标注数据单独校准。</p>
+            </div>
+            <div>
+              <code>Batch</code>
+              <h3>一次组合多个问题</h3>
+              <p>把不同类型放进同一请求，同时验证响应是否覆盖完全相同的问题集合。</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="boundary">
+          <h2>核心设计：判断与授权分离</h2>
+          <p>
+            gf 把 Jev 放在建议层。调用前限制状态大小、问题数量和候选范围，调用后校验响应结构与问题集合。任何一步失败，调用方都回到原有规则或人工审查。
+          </p>
+          <div class="decision-boundary" aria-label="Jev 判断层与 gf 授权层的职责边界">
+            <div class="decision-lane decision-lane-signal">
+              <span>Jev 判断层</span>
+              <strong>理解语义</strong>
+              <p>Noul / Choice / Score / Batch</p>
+              <p>输出只读、可验证的建议</p>
+            </div>
+            <div class="decision-lane decision-lane-authority">
+              <span>gf 授权层</span>
+              <strong>控制状态</strong>
+              <p>合同门禁 / CLI 权限 / 人工确认</p>
+              <p>决定是否执行真实写操作</p>
+            </div>
+          </div>
+          <p>
+            这种分层意味着 Jev 超时、凭据缺失或服务不可用时，安全属性不会改变。没有模型响应不会自动变成许可，低置信度也不会被当成确定答案。
+          </p>
+        </section>
+
+        <section id="pilot">
+          <h2>22 个公开 Issue 告诉了我们什么</h2>
+          <p>
+            仓库用 22 个已有类型与优先级标签的公开 Issue 做过一次小规模试点。请求只发送标题，不发送正文、评论、作者、链接或标签。所有调用都成功，也没有修改任何标签。
+          </p>
+          <div class="pilot-results" aria-label="Jev Issue 分流试点结果">
+            <div><strong>16/22</strong><span>类型选择与现有标签一致</span></div>
+            <div><strong>11/22</strong><span>优先级映射与现有标签一致</span></div>
+            <div><strong>22/22</strong><span>调用完成，零标签写入</span></div>
+          </div>
+          <p>
+            这些结果不是生产准确率。样本刻意偏向 bug 和高优先级问题，现有标签也不是独立裁定的真值。尤其是标题无法解释仓库自己的 feature 与 enhancement 政策，高置信度也没有稳定带来更高一致率。
+          </p>
+          <p>
+            因此结论不是“可以自动打标签”，而是继续保持建议模式。要部署自动阈值，需要更多独立标注样本、每类问题单独校准，并重点衡量高风险漏判。
+          </p>
+        </section>
+
+        <section id="setup">
+          <h2>在 gf 中显式接入 Jev</h2>
+          <p>默认二进制不包含 Jev。构建 feature、保存凭据和启用 provider 都需要显式动作。</p>
+          <pre><code>cargo build -p gitflow-cli --features gitflow-jev
+
+export GF_DECISION_PROVIDER=jev
+gf decide batch --input decision.json</code></pre>
+          <p>
+            macOS 用户可以把 TypeSafe Key 保存到 Keychain 的 <code>gitflow-cli-typesafe</code> 项目。密钥不要放进命令参数、请求文件、仓库或聊天记录。
+          </p>
+          <p>
+            请求在 CLI 边界限制为 128 KiB，序列化状态限制为 32 KiB，问题数量最多 16 个。响应大小、问题集合和超时同样会被验证。这些检查是最后一道防线，发送前仍需人工删除密钥、个人信息与无关上下文。
+          </p>
+        </section>
+
+        <section>
+          <h2>适合 Jev 的地方，也是规则的边界</h2>
+          <p>
+            Issue 分流、PR 风险预检查、CI 失败分类、Skill 选择和语义回归都包含难以用字符串规则覆盖的判断。它们适合引入类型化信号，但不适合把最终权限交给模型。
+          </p>
+          <p>
+            gf 的选择是让 Jev 负责“这更像什么”，让确定性系统负责“接下来允许做什么”。两者之间的接口越窄，工程工作流越容易测试、审计和降级。
+          </p>
+        </section>
+
+        <footer class="article-footer">
+          <p>继续了解实现细节、安全边界和离线评估命令。</p>
+          <div class="hero-ctas">
+            <a class="btn btn-primary" href={`${base}/jev/`}>查看 Jev 决策层</a>
+            <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli/blob/dev/docs/jev-triage-evaluation-2026-09-22.md">阅读完整评估</a>
+          </div>
+        </footer>
+      </article>
+    </div>
+  </main>
+</Base>

@@ -65,6 +65,39 @@ export interface JevWebPageJsonLd {
   primaryImageOfPage: { "@type": "ImageObject"; url: string; caption: string };
 }
 
+export interface BlogPostingJsonLd {
+  "@context": "https://schema.org";
+  "@type": "BlogPosting";
+  headline: string;
+  description: string;
+  url: string;
+  image: string;
+  datePublished: string;
+  dateModified: string;
+  inLanguage: string;
+  author: { "@type": "Person"; name: string; url: string };
+  publisher: { "@type": "Organization"; name: string; url: string };
+  about: Array<{ "@type": "Thing"; name: string; description?: string }>;
+  keywords: string[];
+  isPartOf: { "@type": "Blog"; name: string; url: string };
+}
+
+export interface BlogJsonLd {
+  "@context": "https://schema.org";
+  "@type": "Blog";
+  name: string;
+  description: string;
+  url: string;
+  inLanguage: string;
+  publisher: { "@type": "Organization"; name: string; url: string };
+  blogPost: Array<{
+    "@type": "BlogPosting";
+    headline: string;
+    url: string;
+    datePublished: string;
+  }>;
+}
+
 const CANONICAL_POSITIONING =
   "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。";
 
@@ -144,6 +177,71 @@ export function generateJevWebPageJsonLd(): JevWebPageJsonLd {
       url: "https://byx-darwin.github.io/gitflow-cli/assets/jev-decision-flow.webp",
       caption: "Jev 类型化决策信号经过校验后输出受约束结果",
     },
+  };
+}
+
+export function generateJevBlogPostingJsonLd(): BlogPostingJsonLd {
+  const url = "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/";
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: "为什么 AI 工程工作流需要类型化决策：gf 接入 Jev 的设计与实践",
+    description:
+      "从自由文本建议到 Noul、Choice、Score、Batch 类型化判断，解释 gf 如何安全接入 Jev，并用真实 Issue 试点评估它的能力边界。",
+    url,
+    image: "https://byx-darwin.github.io/gitflow-cli/assets/jev-decision-flow.webp",
+    datePublished: "2026-09-23",
+    dateModified: "2026-09-23",
+    inLanguage: "zh-CN",
+    author: {
+      "@type": "Person",
+      name: "皮哥不写PPT",
+      url: "https://byx-darwin.github.io/",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "gf",
+      url: "https://byx-darwin.github.io/gitflow-cli/",
+    },
+    about: [
+      {
+        "@type": "Thing",
+        name: "Jev",
+        description: "TypeSafe AI 的类型化决策模型，在 gf 中作为可选、只读的语义判断层。",
+      },
+      { "@type": "Thing", name: "AI 工程工作流" },
+      { "@type": "Thing", name: "类型化 AI 决策" },
+    ],
+    keywords: ["Jev", "TypeSafe AI", "gf", "AI 工程工作流", "类型化决策"],
+    isPartOf: {
+      "@type": "Blog",
+      name: "gf 博客",
+      url: "https://byx-darwin.github.io/gitflow-cli/blog/",
+    },
+  };
+}
+
+export function generateBlogJsonLd(): BlogJsonLd {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "gf 博客",
+    description: "gf 的工程实践、设计取舍与评估记录。",
+    url: "https://byx-darwin.github.io/gitflow-cli/blog/",
+    inLanguage: "zh-CN",
+    publisher: {
+      "@type": "Organization",
+      name: "gf",
+      url: "https://byx-darwin.github.io/gitflow-cli/",
+    },
+    blogPost: [
+      {
+        "@type": "BlogPosting",
+        headline: "为什么 AI 工程工作流需要类型化决策：gf 接入 Jev 的设计与实践",
+        url: "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/",
+        datePublished: "2026-09-23",
+      },
+    ],
   };
 }
 

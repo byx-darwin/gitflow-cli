@@ -37,6 +37,12 @@ const socialImageUrl = new URL(`${base}/${socialImage}`, Astro.site ?? Astro.url
     <meta name="description" content={description} />
     <link rel="canonical" href={Astro.url.href} />
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="gf 博客"
+      href={`${base}/feed.xml`}
+    />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -76,6 +82,7 @@ const socialImageUrl = new URL(`${base}/${socialImage}`, Astro.site ?? Astro.url
       <a class="nav-brand" href={`${base}/`}><span class="brand-mark">❯_</span> gf</a>
       <div class="nav-links">
         <a class="nav-feature" href={`${base}/jev/`}>Jev</a>
+        <a class="nav-secondary" href={`${base}/blog/`}>博客</a>
         <a href={`${base}/docs/`}>文档</a>
         <a class="nav-secondary" href={`${base}/architecture/`}>架构</a>
         <a class="nav-secondary" href={`${base}/release-workflow/`}>发布</a>
@@ -100,6 +107,7 @@ const socialImageUrl = new URL(`${base}/${socialImage}`, Astro.site ?? Astro.url
         <span>MIT License | Rust 2024 | 跨平台 Git 工程化工作流编排框架</span>
         <div class="footer-links">
           <a href={`${base}/jev/`}>Jev</a>
+          <a href={`${base}/blog/`}>博客</a>
           <a href={`${base}/workflow/`}>工作流</a>
           <a href={`${base}/architecture/`}>架构</a>
           <a href={`${base}/release-workflow/`}>发布</a>
@@ -108,6 +116,7 @@ const socialImageUrl = new URL(`${base}/${socialImage}`, Astro.site ?? Astro.url
           <a href="https://github.com/byx-darwin/gitflow-cli">GitHub</a>
           <a href="https://crates.io/crates/gitflow-cli">crates.io</a>
           <a href={`${base}/llms.txt`}>llms.txt</a>
+          <a href={`${base}/feed.xml`}>RSS</a>
         </div>
       </div>
     </footer>

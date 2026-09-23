@@ -4,6 +4,8 @@ import {
   generateFAQPageJsonLd,
   generateHowToJsonLd,
   generateJevWebPageJsonLd,
+  generateJevBlogPostingJsonLd,
+  generateBlogJsonLd,
 } from "../src/lib/jsonld";
 
 const CANONICAL_POSITIONING =
@@ -72,5 +74,21 @@ describe("GEO entity consistency", () => {
     expect(page.about.name).toBe("Jev for gf");
     expect(page.about.isSoftwareAddonFor.name).toBe("gf");
     expect(page.primaryImageOfPage.url).toContain("jev-decision-flow.webp");
+  });
+
+  it("should generate a Jev BlogPosting entity with stable attribution", () => {
+    const article = generateJevBlogPostingJsonLd();
+    expect(article["@type"]).toBe("BlogPosting");
+    expect(article.headline).toContain("类型化决策");
+    expect(article.url).toContain("/blog/jev-typed-decisions/");
+    expect(article.about.some((subject) => subject.name === "Jev")).toBe(true);
+    expect(article.author.name).toBe("皮哥不写PPT");
+  });
+
+  it("should expose the Jev article through the Blog entity", () => {
+    const blog = generateBlogJsonLd();
+    expect(blog["@type"]).toBe("Blog");
+    expect(blog.blogPost).toHaveLength(1);
+    expect(blog.blogPost[0].url).toContain("/blog/jev-typed-decisions/");
   });
 });

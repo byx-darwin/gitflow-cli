@@ -1,0 +1,51 @@
+---
+import Base from "../../layouts/Base.astro";
+import { generateBlogJsonLd } from "../../lib/jsonld";
+
+const base = import.meta.env.BASE_URL;
+const blogJsonLd = generateBlogJsonLd();
+---
+
+<Base
+  title="博客 | gf"
+  description="gf 的工程实践、设计取舍与评估记录，包括 Jev 类型化 AI 决策层的接入与安全边界。"
+  socialImage="assets/jev-decision-flow.webp"
+  structuredData={[blogJsonLd]}
+>
+  <main class="blog-index">
+    <header class="blog-index-header">
+      <p class="blog-index-label">工程实践</p>
+      <h1>把判断写进<br /><span>可验证的边界。</span></h1>
+      <p>记录 gf 在跨平台工作流、Agent 工程纪律和类型化 AI 决策上的真实实现与评估。</p>
+    </header>
+
+    <section class="blog-lead-story" aria-labelledby="jev-story-title">
+      <a class="blog-lead-visual" href={`${base}/blog/jev-typed-decisions/`}>
+        <img
+          src={`${base}/assets/jev-decision-flow.webp`}
+          width="1600"
+          height="667"
+          alt="Jev 类型化决策信号通过 gf 的校验和授权边界"
+          loading="eager"
+          fetchpriority="high"
+        />
+      </a>
+      <div class="blog-lead-copy">
+        <div class="blog-story-meta">
+          <time datetime="2026-09-23">2026-09-23</time>
+          <span>Jev</span>
+          <span>工程实践</span>
+        </div>
+        <h2 id="jev-story-title">
+          <a href={`${base}/blog/jev-typed-decisions/`}>
+            为什么 AI 工程工作流需要类型化决策
+          </a>
+        </h2>
+        <p>
+          自由文本适合解释，不适合直接驱动工程状态。看 gf 如何用 Jev 把语义判断收进 Noul、Choice、Score 和 Batch，并把授权留给确定性规则与人。
+        </p>
+        <a class="text-link" href={`${base}/blog/jev-typed-decisions/`}>阅读全文 →</a>
+      </div>
+    </section>
+  </main>
+</Base>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>gf 博客</title>
+    <link>https://byx-darwin.github.io/gitflow-cli/blog/</link>
+    <description>gf 的工程实践、设计取舍与评估记录。</description>
+    <language>zh-CN</language>
+    <atom:link href="https://byx-darwin.github.io/gitflow-cli/feed.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>为什么 AI 工程工作流需要类型化决策</title>
+      <link>https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/</link>
+      <guid isPermaLink="true">https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/</guid>
+      <pubDate>Wed, 23 Sep 2026 00:00:00 +0800</pubDate>
+      <description>从自由文本建议到 Noul、Choice、Score、Batch 类型化判断，解释 gf 如何安全接入 Jev，并用真实 Issue 试点评估能力边界。</description>
+    </item>
+  </channel>
+</rss>

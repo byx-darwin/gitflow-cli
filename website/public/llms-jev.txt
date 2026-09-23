@@ -45,6 +45,7 @@ TypeSafe Key 应保存到系统凭据存储，不应出现在命令参数、仓�
 ## 相关资料
 
 - Jev 页面: https://byx-darwin.github.io/gitflow-cli/jev/
+- Jev 设计实践: https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/
 - 完整项目上下文: https://byx-darwin.github.io/gitflow-cli/llms-full.txt
 - 命令参考: https://byx-darwin.github.io/gitflow-cli/llms-commands.txt
 - 离线评估: https://github.com/byx-darwin/gitflow-cli/blob/dev/docs/decision-offline-evaluation.md
