@@ -1,8 +1,10 @@
 # Optional Jev decisions (#382)
 
 `gf decide` is an optional, read-only typed decision interface. The default
-binary builds without the Jev adapter. Build with `cargo build -p gitflow-cli
---features gitflow-jev` and set `GF_DECISION_PROVIDER=jev` to enable it.
+binary builds without the Jev adapter. Installed users can run `cargo install
+gitflow-cli --features gitflow-jev --force`; repository developers can build
+with `cargo build -p gitflow-cli --features gitflow-jev`. Set
+`GF_DECISION_PROVIDER=jev` to enable the adapter at runtime.
 Place a newly generated TypeSafe key in the local `TYPESAFE_API_KEY` environment
 variable. On macOS, the adapter also reads the `gitflow-cli-typesafe` generic
 password item for the current `$USER` account from Keychain when that

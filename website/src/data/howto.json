@@ -48,8 +48,8 @@
       "url": "https://byx-darwin.github.io/gitflow-cli/jev/",
       "steps": [
         {
-          "name": "构建 Jev 适配器",
-          "text": "运行 cargo build -p gitflow-cli --features gitflow-jev，从源码启用可选适配器。"
+          "name": "安装 Jev 适配器",
+          "text": "已安装用户运行 cargo install gitflow-cli --features gitflow-jev --force；仓库开发者也可运行 cargo build -p gitflow-cli --features gitflow-jev 从源码构建。"
         },
         {
           "name": "安全保存 TypeSafe Key",

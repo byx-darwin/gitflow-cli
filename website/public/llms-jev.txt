@@ -30,9 +30,11 @@ Jev 在 gf 中是建议层，不是权限层。Jev 响应不会授权创建、�
 ## 接入
 
 ```sh
-cargo build -p gitflow-cli --features gitflow-jev
+cargo install gitflow-cli --features gitflow-jev --force
 GF_DECISION_PROVIDER=jev gf decide batch --input decision.json
 ```
+
+以上是 crates.io 安装用户的推荐路径。仓库开发者也可运行 `cargo build -p gitflow-cli --features gitflow-jev` 从源码构建，但调用时应确保使用该构建产物，而不是未启用 feature 的旧全局二进制。
 
 跨平台环境应通过环境或密钥管理器注入 `TYPESAFE_API_KEY`。macOS 还可使用当前用户 Keychain 中服务名为 `gitflow-cli-typesafe` 的 generic password 项作为环境变量缺失时的后备；`TYPESAFE_API_KEY` 优先。
 
