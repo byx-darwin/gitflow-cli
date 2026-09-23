@@ -1,6 +1,6 @@
 # Python Quality Toolchain
 
-**Detection:** `pyproject.toml`, `setup.py`, or `setup.cfg` in project root.
+**Shared language profile:** `gf-quality/references/profiles/python.md`. Read it before running these gates.
 
 ## Gate Commands
 
@@ -8,46 +8,27 @@
 |---|------|---------|---------------|
 | 1 | build | `python -m compileall src/ -q` | exit 0 |
 | 2 | test | `python -m pytest --tb=short` | all pass |
-| 3 | coverage | `python -m pytest --cov=src/ --cov-report=term-missing` | incremental ≥ 80% |
+| 3 | coverage | `python -m pytest --cov=src/ --cov-report=term-missing --cov-fail-under=${COV_THRESHOLD:-80}` | exit 0 (total line coverage ≥ threshold); N/A if no `.py` in change set |
 | 4 | format | `ruff format --check .` or `black --check .` | exit 0 |
 | 5 | static | `ruff check .` or `pylint src/` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
 
-## Tool Installation
+## Gate Notes
 
-| Tool | Install Command | Required By |
-|------|----------------|-------------|
-| ruff | `pip install ruff` | Gate 4, 5 |
-| black | `pip install black` | Gate 4 (fallback) |
-| pylint | `pip install pylint` | Gate 5 (fallback) |
-| pytest-cov | `pip install pytest-cov` | Gate 3 |
-
-Prefer `ruff` (fast, covers format + lint). Fall back to `black` + `pylint` if ruff not configured.
-
-## Notes
-
+- Prefer Ruff for format and lint; use the project's configured Black and Pylint fallback if Ruff is unavailable.
 - Gate 1: for compiled Python checks; skip for pure script projects (mark N/A)
-- Gate 4: auto-fix with `ruff format .` or `black .` only after user confirmation
+- Gate 4: report the `ruff format --check .` diff — never run `ruff format .` or `black .`
 - Gate 5: check for TODO/FIXME/HACK residuals with `grep -rn "TODO\|FIXME\|HACK" --include="*.py" .`
 - Respect project's existing tool config (`.ruff.toml`, `pyproject.toml [tool.ruff]`)
 
 ## Forbidden Actions
 
-- ❌ Never auto-fix without showing diff first
+- ❌ Never auto-fix with `ruff format .` or `black .` — report only
 - ❌ Never install packages into system Python — use venv or pipx
 
-## Configuration
+## Quality Gate Configuration
 
-### Tool Setup
-
-| Tool | Install | Config File | Required |
-|------|---------|-------------|----------|
-| ruff | `pip install ruff` | `.ruff.toml` or `pyproject.toml` | Gate 4, 5 |
-| black | `pip install black` | `pyproject.toml` | Gate 4 (fallback) |
-| pylint | `pip install pylint` | `.pylintrc` | Gate 5 (fallback) |
-| pytest-cov | `pip install pytest-cov` | `pyproject.toml` | Gate 3 |
-
-### Config File Examples
+### Configuration Examples
 
 #### pyproject.toml
 
@@ -81,22 +62,6 @@ select = ["E", "F", "I", "N", "W"]
 ignore = ["E501"]
 ```
 
-### Environment Variables
-
-| Variable | Effect | Default |
-|----------|--------|---------|
-| `PYTHONPATH` | Python module search path | — |
-| `PYTHONDONTWRITEBYTECODE` | Skip .pyc files | — |
-| `VIRTUAL_ENV` | Active virtual environment path | — |
-
-### Language-Specific Notes
-
-- Prefer `ruff` (fast, covers format + lint). Fall back to `black` + `pylint` if ruff not configured
-- Gate 1: for compiled Python checks; skip for pure script projects (mark N/A)
-- Gate 4: auto-fix with `ruff format .` or `black .` only after user confirmation
-- Gate 5: check for TODO/FIXME/HACK residuals with `grep -rn "TODO\|FIXME\|HACK" --include="*.py" .`
-- Always use virtual environments — never install into system Python
-
 ## Troubleshooting
 
 ### Common Errors
@@ -105,7 +70,7 @@ ignore = ["E501"]
 |-------|-------|-----|
 | `pip: command not found` | pip not installed | `python -m ensurepip --upgrade` |
 | `Permission denied` | System Python | Use virtual environment: `python -m venv .venv` |
-| `ModuleNotFoundError` | Import error | Activate venv: `source .venv/bin/activate`, then `pip install -e .` |
+| `ModuleNotFoundError` | Import error | Activate venv: `source .venv/bin/activate`, then report missing project dependencies |
 | `ImportError: cannot import name` | Circular import | Restructure imports |
 
 ### Exit Code Reference
@@ -133,4 +98,3 @@ A: Define in `conftest.py`. Use `@pytest.fixture` decorator. Share across tests.
 - Use `pytest-xdist` for parallel test execution: `pytest -n auto`
 - Use `--cov-report=term-missing` for faster coverage reports
 - Use `pytest --cache-clear` to clear cache if tests behave unexpectedly
-- Use `pip install -e .` for editable installs during development

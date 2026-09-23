@@ -3,9 +3,14 @@ name: gf-repo-onboarding
 description: |
   Use when generating a project onboarding guide from repo structure, conventions, and toolchain. Chat-only output — never writes files.
   当用户要求生成项目入门指南或总结项目结构和约定时使用 — 输出纯对话，不写入文件。
+allowed-tools: Read, Grep, Glob
+disallowed-tools: Write, Edit
 ---
 
 # gf-repo-onboarding
+
+Read-only onboarding analysis produces a walkthrough in chat and never writes files.
+Shell inspection still follows the host's permission rules; this skill does not pre-approve Bash.
 
 ## CLI Requirement
 
@@ -23,7 +28,7 @@ description: |
 - `gf` authenticated: `gf auth status`
 ## Overview
 
-Read-only analysis → onboarding walkthrough in chat. Never writes files.
+Use repository evidence to explain setup, conventions, and CI to a newcomer.
 
 ## When to Use
 
@@ -38,7 +43,7 @@ Read-only analysis → onboarding walkthrough in chat. Never writes files.
 
 | Scenario | Why Not | Use Instead |
 |----------|---------|-------------|
-| Writing the onboarding guide to a file | This skill outputs to chat only, never writes files automatically | Ask user for explicit consent before using `Write` tool |
+| Writing the onboarding guide to a file | This skill outputs to chat only | Handle the separate writing request outside this read-only skill |
 | Performing PR code review | This skill generates onboarding walkthroughs, not code reviews | `/gf-pr-review` for PR code review |
 | Installing dependencies or hooks | This skill describes setup steps, never executes installs | User runs install commands manually |
 | Editing CI configuration or manifests | This skill is read-only analysis, never modifies project files | Edit workflow files or manifests directly |
@@ -105,7 +110,7 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 
 ## Red Flags
 
-- 🚩 "Save as `docs/ONBOARDING.md`" — confirm before `Write`
+- 🚩 "Save as `docs/ONBOARDING.md`" — handle as a separate writing task
 - 🚩 "Skip conventions" — conventions are non-negotiable
 - 🚩 "Assume CI checks" — must cite real `.github/workflows/` config
 - 🚩 "Install the hooks" — describe, do not execute
@@ -128,7 +133,7 @@ Detect language via manifest: `Cargo.toml` · `package.json` · `pyproject.toml`
 - **Given** "merge my PR?" · **Then** → `gf-pr` (NOT loaded)
 
 ### 3: Boundary
-- **Given** "save as `docs/ONBOARDING.md`" · **Then** Ask explicit consent before Write
+- **Given** "save as `docs/ONBOARDING.md`" · **Then** route to a separate writing task
 
 ### 4: Error
 - **Given** No Makefile/CI · **Then** Native CLI fallback; omit CI section

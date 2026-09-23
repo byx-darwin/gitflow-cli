@@ -1,0 +1,13 @@
+{
+  "name": "gitflow-cli-skills",
+  "description": "Claude Code skills for Gitflow CLI workflows and repository operations.",
+  "owner": {
+    "name": "byx-darwin"
+  },
+  "plugins": [
+    {
+      "name": "gitflow-cli",
+      "source": "."
+    }
+  ]
+}

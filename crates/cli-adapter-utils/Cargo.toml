@@ -13,6 +13,10 @@ readme = "README.md"
 keywords = ["cli", "gitflow", "adapter"]
 categories = ["development-tools"]
 
+[features]
+## Exposes `MockEnv` for downstream crates' unit tests. Never enable in production builds.
+test-util = []
+
 [dependencies]
 async-trait.workspace = true
 tokio.workspace = true

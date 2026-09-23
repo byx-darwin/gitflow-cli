@@ -361,7 +361,6 @@ install_skills() {
         local skill_name
         skill_name="$(basename "$skill_dir")"
 
-        # 跳过非 gf 前缀的目录（如 _common.sh 所在的父目录不会被遍历）
         local target_path="${SKILLS_TARGET_DIR}/${skill_name}"
 
         if [[ -d "$target_path" ]]; then
@@ -375,12 +374,6 @@ install_skills() {
         (( installed++ )) || true
         info "安装 Skill: ${skill_name}"
     done
-
-    # 复制 _common.sh 共享库
-    if [[ -f "${skills_source}/_common.sh" ]]; then
-        cp "${skills_source}/_common.sh" "${SKILLS_TARGET_DIR}/_common.sh"
-        info "安装共享库: _common.sh"
-    fi
 
     echo ""
     info "Skills 安装完成: 新增 ${installed} 个，跳过 ${skipped} 个（冲突）"

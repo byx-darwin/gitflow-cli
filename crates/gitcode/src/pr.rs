@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -52,6 +52,41 @@ struct PrApiResponse {
     merged_at: Option<String>,
     #[serde(default)]
     html_url: Option<String>,
+    #[serde(default)]
+    milestone: Option<PrMilestoneRefApi>,
+}
+
+/// 精简确认响应，`gitcode pr close --json` / `gitcode pr reopen --json` 实际返回的形状。
+///
+/// 与 `PrApiResponse`（`pr create`/`pr view` 的完整响应）不同——close/reopen
+/// 只返回一个状态确认对象，没有 `title` 等字段。实测响应（2026-09-21，对
+/// `byx-darwin/NexaTrade` 的真实 PR）：
+/// `{"number":6,"state":"closed","owner":"byx-darwin","repo":"NexaTrade","url":"..."}`。
+/// 只需要 `number` 去调用 `view()` 拿完整数据，其余字段（`state`/`owner`/`repo`/`url`）
+/// 未被消费，故不建模，避免死代码；反序列化仍容忍它们出现在响应里（`serde_json`
+/// 默认忽略结构体未声明的字段）。
+#[derive(Debug, Clone, Deserialize)]
+struct PrCloseReopenApiResponse {
+    number: u64,
+}
+
+/// gitcode CLI 嵌入在 PR 响应中的 `milestone` 对象的最小字段集。
+///
+/// 与 `issue.rs` 的 `MilestoneRefApi` 同形（同一 GitCode API 端点复用同一
+/// milestone 序列化形状），单独定义以避免跨模块耦合。
+#[derive(Debug, Clone, Deserialize)]
+struct PrMilestoneRefApi {
+    number: u64,
+    title: String,
+}
+
+impl From<PrMilestoneRefApi> for gitflow_core::types::MilestoneRef {
+    fn from(api: PrMilestoneRefApi) -> Self {
+        Self {
+            number: api.number,
+            title: api.title,
+        }
+    }
 }
 
 /// gitcode PR JSON 中 `user` 对象的最小字段集。
@@ -99,14 +134,14 @@ impl From<PrCommentApiResponse> for CommentData {
                 id: u.id.unwrap_or_default(),
             },
         );
-        let created_at = api.created_at.as_deref().map_or_else(Utc::now, |s| {
+        let created_at = api.created_at.as_deref().and_then(|s| {
             DateTime::parse_from_rfc3339(s)
                 .map(|dt| dt.with_timezone(&Utc))
                 .or_else(|_| {
                     chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
                         .map(|ndt| ndt.and_utc())
                 })
-                .unwrap_or_else(|_| Utc::now())
+                .ok()
         });
         Self {
             id: api.id,
@@ -119,12 +154,9 @@ impl From<PrCommentApiResponse> for CommentData {
 
 impl From<PrApiResponse> for PrData {
     fn from(api: PrApiResponse) -> Self {
+        // A missing timestamp stays None — never filled in as "now", which
+        // would misreport an unknown creation/update/merge time (#380).
         let parse_time = |s: Option<String>| {
-            s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
-                .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
-        };
-        // 不能复用 parse_time：缺失会被填成「现在」，那等于谎报一次合并。
-        let parse_opt_time = |s: Option<String>| {
             s.and_then(|v| DateTime::parse_from_rfc3339(&v).ok())
                 .map(|dt| dt.with_timezone(&Utc))
         };
@@ -151,8 +183,9 @@ impl From<PrApiResponse> for PrData {
             head_branch: api.head.map_or_else(String::new, |h| h.branch_ref),
             created_at: parse_time(api.created_at),
             updated_at: parse_time(api.updated_at),
-            merged_at: parse_opt_time(api.merged_at),
+            merged_at: parse_time(api.merged_at),
             url: api.html_url.unwrap_or_default(),
+            milestone: api.milestone.map(Into::into),
         }
     }
 }
@@ -216,17 +249,76 @@ impl<R: CommandRunner> GitCodePrProvider<R> {
             runner,
         }
     }
+
+    /// [`PrProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let state = args.state;
+        // 见 issue.rs 同处注释：`--per-page` 优先于 `--limit` 且被 API 封顶 100。
+        // 不用 gitcode 的 `--paginate`：那会让 CLI 自行取完全部页，本适配器
+        // 需要的是受控翻页以便 N+1 探测。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
+
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode pr list`");
+
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", repo, "--json"];
+
+                if let Some(state) = &state {
+                    cmd_args.push("--state");
+                    cmd_args.push(match state {
+                        State::Open => "open",
+                        State::Closed => "closed",
+                        State::All => "all",
+                    });
+                }
+
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
+
+                let output = runner
+                    .run(binary, &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
+
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
+
+                let apis: Vec<PrApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(apis.into_iter().map(PrData::from).collect())
+            },
+        )
+        .await
+    }
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
+impl<R: CommandRunner + Clone + 'static> PrProvider for GitCodePrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let binary = crate::gitcode_binary();
+        let repo = args.repo.as_deref().unwrap_or(&self.repo);
         let mut cmd_args: Vec<&str> = vec![
             "pr",
             "create",
             "--repo",
-            args.repo.as_deref().unwrap_or(&self.repo),
+            repo,
             "--title",
             &args.title,
             "--head",
@@ -269,44 +361,59 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
         let api: PrApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(api.into())
+        let mut pr_data: PrData = api.into();
+
+        // `gitcode pr create` has no `--milestone` flag at all (confirmed:
+        // `gitcode pr create --help`, 2026-09-21), so milestone attachment on
+        // creation is a create-then-edit two-step. A failure in the second
+        // step must not lose the already-created PR's data.
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider =
+                crate::GitCodeMilestoneProvider::with_runner(repo, self.runner.clone());
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            let number_str = pr_data.number.to_string();
+            let milestone_number_str = resolved.number.to_string();
+
+            let edit_output = self
+                .runner
+                .run(
+                    &binary,
+                    &[
+                        "pr",
+                        "edit",
+                        &number_str,
+                        "--repo",
+                        repo,
+                        "--milestone",
+                        &milestone_number_str,
+                    ],
+                )
+                .await
+                .map_err(|e| {
+                    CoreError::Platform(format!(
+                        "PR #{} created, but attaching milestone failed to spawn: {e}",
+                        pr_data.number
+                    ))
+                })?;
+
+            if !edit_output.status.success() {
+                return Err(CoreError::Platform(format!(
+                    "PR #{} created, but attaching milestone failed: {}",
+                    pr_data.number,
+                    String::from_utf8_lossy(&edit_output.stderr)
+                )));
+            }
+
+            pr_data.milestone = Some(resolved);
+        }
+
+        Ok(pr_data)
     }
 
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let binary = crate::gitcode_binary();
-        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json"];
-
-        if let Some(state) = &args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `gitcode pr list`");
-
-        let output = self
-            .runner
-            .run(&binary, &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
-
-        let apis: Vec<PrApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(apis.into_iter().map(PrData::from).collect())
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
@@ -335,12 +442,14 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 
     /// 关闭指定编号的 PR。
     ///
-    /// 调用 `gitcode pr close <number> --repo <repo> --yes --json` 关闭 PR，
-    /// 并返回更新后的完整 PR 数据。
+    /// 调用 `gitcode pr close <number> --repo <repo> --yes --json` 关闭 PR。
+    /// 该命令只返回精简确认对象（无 `title` 等字段），随后调用 [`Self::view`]
+    /// 取回更新后的完整 PR 数据。
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、已关闭或 `gitcode` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、已关闭、`gitcode` CLI 调用失败，或关闭成功后 `view()`
+    /// 失败时返回错误。
     async fn close(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
@@ -367,20 +476,22 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(parse_gitcode_error(&output.stderr).into());
         }
 
-        let api: PrApiResponse =
+        let close_result: PrCloseReopenApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(api.into())
+        self.view(close_result.number).await
     }
 
     /// 重新打开指定编号的 PR。
     ///
-    /// 调用 `gitcode pr reopen <number> --repo <repo> --yes --json` 重新打开已关闭的 PR，
-    /// 并返回更新后的完整 PR 数据。
+    /// 调用 `gitcode pr reopen <number> --repo <repo> --yes --json` 重新打开已关闭的 PR。
+    /// 该命令只返回精简确认对象（无 `title` 等字段），随后调用 [`Self::view`]
+    /// 取回更新后的完整 PR 数据。
     ///
     /// # Errors
     ///
-    /// 当 PR 不存在、未关闭或 `gitcode` CLI 调用失败时返回错误。
+    /// 当 PR 不存在、未关闭、`gitcode` CLI 调用失败，或重新打开成功后 `view()`
+    /// 失败时返回错误。
     async fn reopen(&self, number: u64) -> Result<PrData> {
         let binary = crate::gitcode_binary();
         let number_str = number.to_string();
@@ -407,10 +518,10 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
             return Err(parse_gitcode_error(&output.stderr).into());
         }
 
-        let api: PrApiResponse =
+        let reopen_result: PrCloseReopenApiResponse =
             serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
 
-        Ok(api.into())
+        self.view(reopen_result.number).await
     }
 
     /// 在指定 PR 上添加评论。
@@ -683,12 +794,26 @@ impl<R: CommandRunner + 'static> PrProvider for GitCodePrProvider<R> {
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
+
+    /// 查询仓库配置的默认分支。
+    ///
+    /// GitCode CLI 无对应查询能力（先例：`merge --auto`），直接返回
+    /// [`CoreError::Platform`]，不发起任何 CLI 调用。
+    ///
+    /// # Errors
+    ///
+    /// 恒定返回错误：GitCode 平台不支持此查询。
+    async fn default_branch(&self) -> Result<String> {
+        Err(CoreError::Platform(
+            "GitCode CLI 不支持查询仓库默认分支。请显式传入 --base，或改用 GitHub/GitLab。".into(),
+        ))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     /// gitcode CLI v0.6.1 `pr list/view --json` 的真实输出结构（2026-07-31 实测捕获，已精简）。
     fn real_gitcode_pr_json() -> &'static str {
@@ -759,7 +884,10 @@ mod tests {
             pr.url,
             "https://gitcode.com/byx-darwin/go-beniofit/merge_requests/52"
         );
-        assert_eq!(pr.created_at.to_rfc3339(), "2026-07-30T04:40:46+00:00");
+        assert_eq!(
+            pr.created_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-07-30T04:40:46+00:00".to_string())
+        );
     }
 
     #[test]
@@ -784,6 +912,14 @@ mod tests {
         assert_eq!(pr.head_branch, "feature/x");
         assert_eq!(pr.base_branch, "main");
         assert_eq!(pr.author.login, "dev");
+        assert!(
+            pr.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            pr.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]
@@ -828,6 +964,23 @@ mod tests {
         assert_eq!(comment.body, "Approved, merging now.");
         assert_eq!(comment.author.login, "reviewer");
         assert_eq!(comment.author.id, "88");
+    }
+
+    #[test]
+    fn test_should_keep_pr_comment_created_at_none_when_gc_api_omits_it() {
+        let gc_json = br#"{
+            "id": 2003,
+            "body": "No timestamp provided.",
+            "user": {"login": "reviewer", "id": "88"}
+        }"#;
+
+        let api: PrCommentApiResponse =
+            serde_json::from_slice(gc_json).expect("valid PrCommentApiResponse");
+        let comment = CommentData::from(api);
+        assert!(
+            comment.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]
@@ -900,6 +1053,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 
@@ -942,6 +1096,189 @@ mod tests {
         ));
     }
 
+    // --- milestone wiring: create+edit two-step ---
+
+    /// A single-item `gitcode milestone list --json` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    fn pr_milestone_list_fixture() -> String {
+        r#"[{"number": 3, "title": "v2.0", "description": null, "state": "open", "due_on": null, "closed_issues": 0, "open_issues": 0}]"#.to_string()
+    }
+
+    #[tokio::test]
+    async fn test_should_attach_milestone_via_create_then_edit_two_step() {
+        // `gitcode pr create` has no `--milestone` flag, so attaching a
+        // milestone on creation is: 1. `pr create` (no milestone), 2. resolve
+        // the identifier via `gitcode milestone list`, 3. `pr edit --milestone <number>`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/owner/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (true, ""),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+
+        assert_eq!(pr.number, 52);
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            3,
+            "must call: pr create, milestone list, pr edit"
+        );
+        assert_eq!(calls[0].1[0], "pr");
+        assert_eq!(calls[0].1[1], "create");
+        assert!(
+            !calls[0].1.iter().any(|a| a == "--milestone"),
+            "pr create has no --milestone flag; must not be passed, got: {:?}",
+            calls[0].1
+        );
+        assert_eq!(
+            calls[1].1.first().map(String::as_str),
+            Some("milestone"),
+            "second call must resolve the milestone via `gitcode milestone list`, got: {:?}",
+            calls[1].1
+        );
+        let edit_call = &calls[2].1;
+        assert_eq!(edit_call[0], "pr");
+        assert_eq!(edit_call[1], "edit");
+        assert_eq!(edit_call[2], "52");
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "3"),
+            "pr edit argv must carry the resolved milestone NUMBER, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_resolve_milestone_against_overridden_repo_on_pr_create() {
+        // Regression: `args.repo` overrides the target repo for both `pr
+        // create` and `pr edit`, but milestone resolution must ALSO target
+        // that overridden repo, not the provider's default `self.repo`.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/other/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (true, ""),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.repo = Some("other/repo".to_string());
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            3,
+            "must call: pr create, milestone list, pr edit"
+        );
+
+        let create_call = &calls[0].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--repo" && w[1] == "other/repo"),
+            "pr create must target the overridden repo, got: {create_call:?}"
+        );
+
+        let milestone_list_call = &calls[1].1;
+        assert!(
+            milestone_list_call
+                .windows(2)
+                .any(|w| w[0] == "-R" && w[1] == "other/repo"),
+            "milestone resolution must target the overridden repo (\"other/repo\"), not the \
+             provider default (\"owner/repo\"), got: {milestone_list_call:?}"
+        );
+
+        let edit_call = &calls[2].1;
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--repo" && w[1] == "other/repo"),
+            "pr edit must target the overridden repo, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_surface_created_pr_number_when_milestone_attach_fails_to_spawn() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/owner/repo/merge_requests/52"}"#,
+            ),
+            (true, &pr_milestone_list_fixture()),
+            (false, "gitcode: 403 Forbidden"),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+
+        let err = provider
+            .create(args)
+            .await
+            .expect_err("milestone attach failure must surface, not be swallowed");
+
+        let msg = format!("{err}");
+        assert!(
+            matches!(err, gitflow_core::CoreError::Platform(_)),
+            "expected CoreError::Platform, got {msg}"
+        );
+        assert!(
+            msg.contains("52"),
+            "error must name the already-created PR number, got: {msg}"
+        );
+        assert!(
+            msg.contains("milestone"),
+            "error must mention milestone attachment, got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_pr_create_two_step()
+    {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":52,"title":"Add feature","body":null,"state":"open","draft":false,"user":{"login":"alice","id":"2"},"head":{"ref":"feature/x"},"base":{"ref":"main"},"created_at":"2026-02-20T14:00:00Z","updated_at":"2026-02-20T14:00:00Z","html_url":"https://gitcode.com/owner/repo/merge_requests/52"}"#,
+            ),
+            (true, "[]"),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
+    }
+
     #[tokio::test]
     async fn test_should_return_platform_error_when_gc_fails_for_list() {
         let runner = MockCommandRunner::failure("forbidden", 256);
@@ -966,6 +1303,86 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_page_through_gitcode_pr_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=100，want=101。首页满 100 条 ⇒ 必然发出第二页。
+        // cap 必须 ≥ 100：更小的 cap 会让 per_page 恰为 cap+1，首页一次满足
+        // want，循环只发一次调用，页号递增无从观测。
+        let one = real_gitcode_pr_json();
+        let page = format!("[{}]", vec![one; 100].join(","));
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page), (true, &page)]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list(ListPrArgs {
+                state: Some(State::Open),
+                limit: Some(100),
+            })
+            .await
+            .expect("list should succeed");
+
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        let first = &calls[0].1;
+        assert!(
+            first
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {first:?}"
+        );
+        assert!(
+            first.windows(2).any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {first:?}"
+        );
+        assert!(
+            !first.iter().any(|a| a == "--limit"),
+            "实际 argv: {first:?}"
+        );
+        assert!(
+            calls[1]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitcode_pr_list_with_state() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "pr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                "--state",
+                "open",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
+            ]
+        );
     }
 
     #[tokio::test]
@@ -1208,7 +1625,70 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_should_pass_limit_flag_to_pr_list() {
+    async fn test_should_deserialize_real_gitcode_pr_close_response_via_view() {
+        // 实测响应（2026-09-21，对 byx-darwin/NexaTrade 的真实 PR #6）：
+        // `gitcode pr close --json` 只返回精简确认对象，没有 title 等字段。
+        // close() 必须用这个精简形状拿到 number，再调用 view() 取回完整 PrData。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":6,"state":"closed","owner":"byx-darwin","repo":"NexaTrade","url":"https://gitcode.com/byx-darwin/NexaTrade/merge_requests/6"}"#,
+            ),
+            (true, real_gitcode_pr_json()),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let pr = provider.close(6).await.expect("close should succeed");
+
+        assert_eq!(pr.number, 52); // real_gitcode_pr_json() 的 PR 号，证明走了 view() 而非直接转换精简响应
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "close 必须先 close 再 view 两次调用");
+        assert!(calls[0].1.contains(&"close".to_string()));
+        assert!(calls[1].1.contains(&"view".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_deserialize_real_gitcode_pr_reopen_response_via_view() {
+        // 实测响应（2026-09-21，对 byx-darwin/NexaTrade 的真实 PR #6）：
+        // `gitcode pr reopen --json` 与 close 同形，只是 state 变为 "opened"。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (
+                true,
+                r#"{"number":6,"state":"opened","owner":"byx-darwin","repo":"NexaTrade","url":"https://gitcode.com/byx-darwin/NexaTrade/merge_requests/6"}"#,
+            ),
+            (true, real_gitcode_pr_json()),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let pr = provider.reopen(6).await.expect("reopen should succeed");
+
+        assert_eq!(pr.number, 52);
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "reopen 必须先 reopen 再 view 两次调用");
+        assert!(calls[0].1.contains(&"reopen".to_string()));
+        assert!(calls[1].1.contains(&"view".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_view_error_after_close_succeeds() {
+        // close 命令本身成功，但紧随其后的 view() 失败——错误必须原样冒泡，
+        // 不能吞掉伪造一个"成功但数据可能有误"的 PrData。
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, r#"{"number":6,"state":"closed"}"#),
+            (false, "gitcode: pr not found"),
+        ]);
+        let provider = GitCodePrProvider::with_runner("owner/repo", runner.clone());
+
+        let err = provider
+            .close(6)
+            .await
+            .expect_err("view failure must propagate");
+
+        assert!(matches!(err, CoreError::Cli(_)));
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_user_limit_to_pr_list_via_per_page() {
         let runner = RecordingMockRunner::success(&format!("[{}]", real_gitcode_pr_json()));
         let provider = GitCodePrProvider::with_runner("o/r", runner.clone());
 
@@ -1220,10 +1700,11 @@ mod tests {
             .await
             .expect("list should succeed");
 
-        assert_eq!(prs.len(), 1);
+        assert_eq!(prs.items.len(), 1);
         let args = &runner.calls()[0];
-        assert!(args.contains(&"--limit".to_string()));
-        assert!(args.contains(&"5".to_string()));
+        // N+1 探测：cap=5 时页大小为 6，以便区分"恰好 5 条"与"还有更多"。
+        assert!(args.windows(2).any(|w| w[0] == "--per-page" && w[1] == "6"));
+        assert!(args.windows(2).any(|w| w[0] == "--page" && w[1] == "1"));
         assert!(args.contains(&"--state".to_string()));
         assert!(args.contains(&"open".to_string()));
     }
@@ -1323,7 +1804,25 @@ mod tests {
         let api: PrCommentApiResponse = serde_json::from_str(json).expect("legacy shape");
         let comment: CommentData = api.into();
         assert_eq!(comment.author.login, "alice");
-        assert_eq!(comment.created_at.to_rfc3339(), "2026-07-07T10:40:20+00:00");
+        assert_eq!(
+            comment.created_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-07-07T10:40:20+00:00".to_string())
+        );
+    }
+
+    // --- default_branch() tests ---
+
+    #[tokio::test]
+    async fn test_should_error_without_cli_call_for_default_branch() {
+        use crate::runner::RecordingMockRunner;
+
+        let runner = RecordingMockRunner::success("should not be called");
+        let provider = GitCodePrProvider::with_runner("group/project", runner.clone());
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_err());
+        assert!(runner.calls().is_empty());
     }
 }
 
@@ -1355,6 +1854,7 @@ mod contract_tests {
             .list(ListPrArgs::default())
             .await
             .expect("contract fixture must parse");
+        let prs = prs.items;
 
         assert_eq!(prs.len(), 1);
         let pr = &prs[0];

@@ -21,7 +21,15 @@ cargo install gitflow-cli
 
 ## 前置条件
 
-`gf` 本体只依赖对应平台的 Git CLI（见[平台支持](#平台支持)）。但要跑 `/gf-workflow` 四阶段工作流，还需先准备好 Agent 运行环境与技能来源：
+`gf` 支持两种使用方式，前置依赖不同：只想直接跑 `gf issue/pr/release` 等 CLI 命令，装完 `gf` 本体即可用；想用 `/gf-workflow` 四阶段编排，则还需额外准备 Agent 运行环境与技能来源。
+
+### 纯 CLI 使用
+
+`gf` 本体只依赖对应平台的 Git CLI，无需 Claude Code、Skills 或 Node.js。安装 `gf` 后，按 `--platform`（或自动检测）装好对应的 `gh` / `glab` / `gitcode` 即可直接使用，版本要求见[平台支持](#平台支持)。
+
+### Agent 编排使用
+
+要跑 `/gf-workflow` 四阶段工作流，还需先准备好 Agent 运行环境与技能来源：
 
 | 依赖 | 要求 | 说明 |
 |------|------|------|
@@ -40,18 +48,50 @@ npx skills@latest add mattpocock/skills   # 需 Node.js ≥ 22.20.0
 
 ## 30 秒上手
 
+### Agent 编排路径
+
 ```bash
-# 0. 先装好前置条件：Claude Code + 技能来源（见上「前置条件」）
+# 0. 先装好前置条件：Claude Code + 技能来源（见上「前置条件 > Agent 编排使用」）
 
 # 1. 安装 Skills（项目级，跟随仓库）
 gf skills install
 
 # 2. 验证
-gf skills list     # 应看到 26 个 gf-* skills
+gf skills list     # 应看到 30 个 gf-* skills
 gf --version
 
 # 3. 在 Agent 平台中进入四阶段工作流
 /gf-workflow 我要做 X
+```
+
+### Claude Code Plugin 安装入口
+
+只想先在 Claude Code 中发现和试用这些技能，也可以直接从本仓库安装 Plugin，无需先安装 `gf` 二进制：
+
+```text
+/plugin marketplace add byx-darwin/gitflow-cli
+/plugin install gitflow-cli@gitflow-cli-skills
+```
+
+Plugin 加载仓库 `skills/` 中同一份技能内容，调用名称带 `gitflow-cli:` 前缀，
+例如 `/gitflow-cli:gf-workflow`。技能中执行 `gf` 命令时仍需安装 `gf`；
+`gf skills install` 仍是直接安装无前缀技能到各 Agent 的主路径。
+两条路径的技能清单由 `make check-agent-sync` 校验同步。
+
+### 仅用 CLI 路径
+
+不需要 Claude Code / Skills，装好 `gf` 和对应平台 CLI 即可直接操作：
+
+```bash
+# 1. 安装 gf
+brew tap byx-darwin/tap && brew install gf   # 或 cargo install gitflow-cli
+
+# 2. 登录对应平台（自动检测或用 --platform 指定）
+gf auth login
+
+# 3. 直接使用底层命令
+gf issue list
+gf pr create --title "fix: xxx" --body "..."
 ```
 
 ## 平台支持
@@ -91,7 +131,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 |----|-------|--------|
 | 编排 | `gf-workflow` | 四阶段全流程编排：需求澄清 → 计划制定 → 执行 → 交付后检查 |
 | 编排 | `gf-quality` | 本地质量门禁：build → test → coverage → format → static → pre-commit |
-| Issue | `gf-issue-create` / `gf-issue-review` / `gf-issue-triage` | 创建 / 需求审查 / 分类分流 |
+| Issue | `gf-issue-create` / `gf-issue-decompose` / `gf-issue-review` / `gf-issue-triage` | 创建 / 垂直切片拆解 / 需求审查 / 分类分流 |
 | PR | `gf-pr-create` / `gf-pr-review` / `gf-pr-inline-review` / `gf-pr-apply-feedback` | 创建 / 6 维审查 / 逐行评论 / 应用反馈 |
 | 交付 | `gf-release-helper` / `gf-label-stats` / `gf-pipeline-analyzer` | Release Note / 标签统计 / 流水线健康 |
 | 辅助 | `gf-security-check` / `gf-precommit` / `gf-regression` / `gf-repo-onboarding` | 安全审计 / 预提交 / 回归 / 入门 |
@@ -126,6 +166,7 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 - [5 分钟快速上手](https://byx-darwin.github.io/gitflow-cli/quickstart/)
 - [兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/)
 - [更新日志](https://byx-darwin.github.io/gitflow-cli/changelog/)
+- [用 gf 开发 gf：dogfooding 案例](https://byx-darwin.github.io/gitflow-cli/dogfooding/)
 - 仓库内文档：[`docs/`](docs/index.md)
 
 ## 设计原则
@@ -138,4 +179,4 @@ Skills 可安装到任意支持的 AI Agent 平台，`--agent` 指定目标（�
 
 ## 贡献
 
-详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+详见 [CONTRIBUTING.md](CONTRIBUTING.md)。初次贡献可从 [`good first issue` 列表](https://github.com/byx-darwin/gitflow-cli/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)开始。

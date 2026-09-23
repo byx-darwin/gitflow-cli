@@ -24,6 +24,44 @@ pub fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> mi
     }
 }
 
+/// 构造截断警告文案；未截断时返回 `None`。
+///
+/// 抽成纯函数以便单元测试——实际写 stderr 的动作在
+/// [`print_list_output`] 中，本身不含逻辑。
+#[must_use]
+pub fn truncation_warning(meta: &gitflow_core::PaginationMeta) -> Option<String> {
+    if !meta.truncated {
+        return None;
+    }
+    Some(format!(
+        "⚠️  结果被截断：返回 {returned} 条，还有更多未取回。用 --limit <N> 提高上限。",
+        returned = meta.returned
+    ))
+}
+
+/// 打印列表类命令的输出：数据走 stdout，截断警告走 stderr。
+///
+/// 警告走 stderr 而非 stdout，以保证 stdout 仍可直接喂给 `jq`。
+///
+/// # Errors
+///
+/// 序列化或格式化失败时返回错误。
+pub fn print_list_output<T: serde::Serialize>(
+    items: T,
+    meta: gitflow_core::PaginationMeta,
+    platform: &str,
+    command: &str,
+    format: &OutputFormat,
+) -> miette::Result<()> {
+    let warning = truncation_warning(&meta);
+    let output = gitflow_core::CliOutput::success_paged(items, meta, platform, command);
+    print_output(&output, format)?;
+    if let Some(warning) = warning {
+        eprintln!("{warning}");
+    }
+    Ok(())
+}
+
 /// JSON 格式输出。
 fn print_json<T: serde::Serialize>(value: &T) -> miette::Result<()> {
     let json = serde_json::to_string_pretty(value)
@@ -225,9 +263,32 @@ fn pad_right(s: &str, width: usize) -> String {
     reason = "允许在测试中使用 expect/unwrap/panic"
 )]
 mod tests {
+    use gitflow_core::PaginationMeta;
     use serde::Serialize;
 
     use super::*;
+
+    #[test]
+    fn test_should_not_warn_when_not_truncated() {
+        let meta = PaginationMeta {
+            truncated: false,
+            returned: 33,
+            limit: 1000,
+        };
+        assert_eq!(truncation_warning(&meta), None);
+    }
+
+    #[test]
+    fn test_should_warn_with_counts_when_truncated() {
+        let meta = PaginationMeta {
+            truncated: true,
+            returned: 1000,
+            limit: 1000,
+        };
+        let warning = truncation_warning(&meta).expect("truncated 必须产生警告");
+        assert!(warning.contains("1000"), "警告必须含实际返回条数");
+        assert!(warning.contains("--limit"), "警告必须告诉用户如何提高上限");
+    }
 
     #[derive(Serialize)]
     struct TestIssue {

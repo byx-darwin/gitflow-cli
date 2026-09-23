@@ -7,7 +7,7 @@ description: |
 
 # gf-regression
 
-Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, classifies real failures and surfaces them for the user to file manually via `gf issue create`. Defaults to `--read-only`. Does not fix bugs, edit scripts, or modify remotes.
+Runs `scripts/smoke-test.sh`, parses PASS/FAIL/SKIP, classifies real failures and surfaces them for the user to file manually via `gf issue create`. Defaults to `--read-only`. The explicitly requested `--write` smoke-test mode is why this skill does not use the read-only permission profile. It does not fix bugs or edit scripts.
 
 ## CLI Requirement
 
@@ -71,6 +71,18 @@ Do NOT use this skill in the following scenarios:
 
 ## Core Pattern
 
+### Optional semantic oracle (Issue #389)
+
+After the existing deterministic smoke/contract assertions, a reviewed,
+versioned capture suite can be evaluated with
+`gf regression semantic-eval --suite <suite.json> --responses <saved.json>`.
+The suite must record the actual exit-code, schema, and side-effect assertion
+results for each case. The CLI skips Jev for factual failures and exits nonzero
+for them; semantic findings remain advisory. `--live` is an explicit opt-in,
+with at most four concurrent requests and a 50-case limit. Without it, ordinary
+CI needs no Jev key. Never treat a semantic finding as a release verdict or file
+an Issue automatically. See `docs/semantic-regression.md`.
+
 ```bash
 test -f scripts/smoke-test.sh
 bash scripts/smoke-test.sh --platform github 2>&1
@@ -87,6 +99,16 @@ bash scripts/smoke-test.sh --platform github 2>&1
 | Write mode | `bash scripts/smoke-test.sh --platform github --write` |
 
 Platforms: github, gitlab, gitcode. Default mode: read-only; `--write` requires explicit user confirmation.
+
+## Report Output & Archiving
+
+When invoked as the Phase 3 change-surface gate step of `gf-workflow`
+(Issue #344), the audit-trail report goes to
+`docs/regression-report-<issue-number>-<YYYY-MM-DD>.md`. Once
+`regression-report-*.md` files under `docs/` exceed 5, move all but the 5
+most recent (ordered by the issue number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
 
 ## Flowchart
 

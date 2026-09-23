@@ -1,6 +1,6 @@
 # Rust Quality Toolchain
 
-**Detection:** `Cargo.toml` in project root.
+**Shared language profile:** `gf-quality/references/profiles/rust.md`. Read it before running these gates.
 
 ## Gate Commands
 
@@ -8,33 +8,19 @@
 |---|------|---------|---------------|
 | 1 | build | `cargo build --workspace --quiet` | exit 0 |
 | 2 | test | `cargo test --workspace --quiet` | all pass |
-| 3 | coverage | `cargo tarpaulin --workspace 2>&1 \| tail -3` | > `COV_THRESHOLD` (default 80%) |
+| 3 | coverage | `cargo llvm-cov --workspace --fail-under-lines ${COV_THRESHOLD:-80}` | exit 0 (total line coverage ≥ threshold); N/A if no `.rs` in change set |
 | 4 | format | `cargo +nightly fmt -- --check` | exit 0, no diff |
 | 5 | static | `cargo clippy --workspace --all-targets --all-features -- -D warnings -W clippy::pedantic` | exit 0, no warnings |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A if no `.pre-commit-config.yaml`) |
 
-## Tool Installation
+## Gate Notes
 
-| Tool | Install Command | Required By |
-|------|----------------|-------------|
-| cargo-tarpaulin | `cargo install cargo-tarpaulin` | Gate 3 (coverage) |
-| nightly toolchain | `rustup toolchain install nightly` | Gate 4 (format) |
+- Run workspace gates at the workspace root so every member is covered.
+- Gate 3 is SKIPPED if `cargo-llvm-cov` is absent and N/A only when the change set has no `.rs` file.
+- Gate 4 is SKIPPED if the required nightly toolchain is absent.
+- Gate 5 uses `-D warnings`, so any warning fails the gate.
 
-If a tool is missing, **warn the user and recommend install** — do NOT auto-install.
-
-## Environment Variables
-
-| Variable | Effect |
-|----------|--------|
-| `COV_THRESHOLD` / `COVERAGE_THRESHOLD` | Override coverage threshold (default: 80%) |
-
-## Forbidden Actions
-
-- ❌ Never run `cargo clean`
-- ❌ Never auto-fix with `cargo clippy --fix` — report only
-- ❌ Never auto-fix with `cargo fmt` (without `--check`) — report only
-
-## Makefile-First Rule
+### Makefile-First Rule
 
 If project root contains a `Makefile` with matching targets, prefer `make` commands over direct tool invocations:
 
@@ -47,59 +33,46 @@ If project root contains a `Makefile` with matching targets, prefer `make` comma
 
 Detection: `make -n <target> >/dev/null 2>&1` returns 0 → target exists.
 
-## Configuration
 
-### Tool Setup
+## Forbidden Actions
 
-| Tool | Install | Config File | Required |
-|------|---------|-------------|----------|
-| cargo-tarpaulin | `cargo install cargo-tarpaulin` | — | Gate 3 (coverage) |
-| nightly toolchain | `rustup toolchain install nightly` | — | Gate 4 (format) |
-| rustfmt | Included with rustup | `rustfmt.toml` | Gate 4 |
-| clippy | Included with rustup | `clippy.toml` | Gate 5 |
+- ❌ Never run `cargo clean`
+- ❌ Never auto-fix with `cargo clippy --fix` — report only
+- ❌ Never auto-fix with `cargo fmt` (without `--check`) — report only
 
-### Config File Examples
+## Quality Gate Configuration
+
+### Configuration Examples
 
 #### rustfmt.toml
 
 ```toml
-edition = "2021"
+edition = "2024"
 max_width = 100
-imports_layout = "Mixed"
+wrap_comments = true
+comment_width = 100
+format_strings = true
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+style_edition = "2024"
 ```
 
 #### clippy.toml
 
-```toml
-cognitive-complexity-threshold = 30
-too-many-arguments-threshold = 7
-```
+Read the target project's `clippy.toml`. In this repository it defines
+`disallowed-types` and `disallowed-methods`; do not assume a generic threshold
+file represents its lint policy.
 
 #### Cargo.toml (workspace)
 
 ```toml
 [workspace]
 members = ["crates/*", "apps/*"]
-resolver = "2"
+resolver = "3"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 ```
-
-### Environment Variables
-
-| Variable | Effect | Default |
-|----------|--------|---------|
-| `COV_THRESHOLD` / `COVERAGE_THRESHOLD` | Override coverage threshold | 80% |
-| `RUSTFLAGS` | Pass flags to rustc | — |
-| `CARGO_HOME` | Cargo cache location | `~/.cargo` |
-
-### Language-Specific Notes
-
-- For Rust workspaces, run gates at workspace root (covers all members)
-- Gate 3 requires `cargo-tarpaulin` — if missing, mark SKIPPED
-- Gate 4 requires nightly toolchain — if missing, mark SKIPPED
-- Gate 5 uses `-D warnings` — any warning fails the gate
 
 ## Troubleshooting
 
@@ -107,8 +80,8 @@ pedantic = { level = "warn", priority = -1 }
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `cargo-tarpaulin: command not found` | Tool not installed | `cargo install cargo-tarpaulin` |
-| `error: toolchain 'nightly' is not installed` | Nightly missing | `rustup toolchain install nightly` |
+| `cargo-llvm-cov: command not found` | Tool not installed | See the shared Rust profile |
+| `error: toolchain 'nightly' is not installed` | Nightly missing | See the shared Rust profile |
 | `error: could not compile` | Compilation error | Read error message, fix code |
 | `test failed, doctests failed` | Test failure | Run `cargo test --workspace -- --nocapture` |
 
@@ -124,7 +97,7 @@ pedantic = { level = "warn", priority = -1 }
 ### FAQ
 
 **Q: Why does coverage show 0%?**
-A: Ensure `cargo-tarpaulin` is installed and project builds successfully. Check for `#[cfg(test)]` modules.
+A: Ensure `cargo-llvm-cov` is installed and project builds successfully. Check for `#[cfg(test)]` modules.
 
 **Q: How to skip doc tests?**
 A: Run `cargo test --lib --bins` instead of `cargo test --workspace`.

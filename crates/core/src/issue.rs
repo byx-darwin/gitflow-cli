@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
+    paging::Paged,
     types::{CommentData, Label, State, UserSummary, deserialize_u64_or_string},
 };
 
@@ -38,10 +39,15 @@ pub struct IssueData {
     /// 被指派的成员列表。
     #[serde(default)]
     pub assignees: Vec<UserSummary>,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
-    /// 最近更新时间（UTC）。
-    pub updated_at: DateTime<Utc>,
+    /// The milestone this issue is attached to, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub milestone: Option<crate::types::MilestoneRef>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    /// 最近更新时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
     /// Issue 的 Web URL。
     pub url: String,
 }
@@ -57,6 +63,8 @@ pub struct CreateIssueArgs {
     pub labels: Vec<String>,
     /// 指派的登录名列表。
     pub assignees: Vec<String>,
+    /// Milestone identifier to attach on creation (`NUMBER` or exact `TITLE`), if any.
+    pub milestone: Option<String>,
 }
 
 /// 编辑 Issue 所需参数（部分更新）。
@@ -68,6 +76,9 @@ pub struct EditIssueArgs {
     pub title: Option<String>,
     /// 新正文（不修改时为 `None`）。
     pub body: Option<String>,
+    /// Milestone change: `None` = don't touch; `Some(None)` = unassign;
+    /// `Some(Some(identifier))` = set to this milestone (`NUMBER` or `TITLE`).
+    pub milestone: Option<Option<String>>,
 }
 
 /// 列出 Issue 的过滤参数。
@@ -79,12 +90,12 @@ pub struct ListIssueArgs {
     pub state: Option<State>,
     /// 按标签名过滤。
     pub labels: Vec<String>,
-    /// 按指派用户过滤。
-    pub assignee: Option<String>,
     /// 关键字搜索条件。
     pub search: Option<String>,
     /// 返回数量上限。
     pub limit: Option<u32>,
+    /// Filter by milestone identifier (`NUMBER` or exact `TITLE`), if any.
+    pub milestone: Option<String>,
 }
 
 /// Issue 操作的平台抽象。
@@ -117,10 +128,13 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
 
     /// 根据过滤条件列出 Issue 列表。
     ///
+    /// 返回的 [`Paged`] 携带截断标志：平台侧的列表命令默认只返回首页，
+    /// 本方法保证要么取满上限，要么诚实报告还有更多。
+    ///
     /// # Errors
     ///
     /// 当平台 API 调用失败或过滤条件非法时返回错误。
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>>;
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>>;
 
     /// 查看指定编号的 Issue 详情。
     ///
@@ -150,12 +164,14 @@ pub trait IssueProvider: std::fmt::Debug + Send + Sync {
     /// 当 Issue 不存在、`body` 为空或平台 API 调用失败时返回错误。
     async fn comment(&self, number: u64, body: &str) -> Result<CommentData>;
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
+    ///
+    /// `limit` 为 `None` 时取至 [`crate::paging::DEFAULT_LIST_LIMIT`]。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或平台 API 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>>;
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>>;
 
     /// 为指定 Issue 添加标签。
     ///
@@ -286,7 +302,6 @@ mod tests {
         let args = ListIssueArgs::default();
         assert!(args.state.is_none());
         assert!(args.labels.is_empty());
-        assert!(args.assignee.is_none());
         assert!(args.search.is_none());
         assert!(args.limit.is_none());
     }

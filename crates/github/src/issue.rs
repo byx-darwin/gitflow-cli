@@ -6,20 +6,22 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     issue::{CreateIssueArgs, EditIssueArgs, IssueData, IssueProvider, ListIssueArgs},
     types::{CommentData, Label, State, UserSummary},
 };
 use tracing::debug;
 
 use crate::{
+    GITHUB_API_MAX_PER_PAGE,
+    datetime::parse_api_datetime,
     error::parse_gh_error,
     runner::{CommandRunner, RealCommandRunner},
 };
 
 /// `gh issue` 请求的 JSON 字段列表。
 const ISSUE_FIELDS: &str =
-    "number,title,body,state,labels,author,assignees,createdAt,updatedAt,url";
+    "number,title,body,state,labels,author,assignees,createdAt,updatedAt,milestone,url";
 
 /// GitHub Issue 提供者，通过 `gh` CLI 操作。
 ///
@@ -113,8 +115,82 @@ impl<R: CommandRunner> GitHubIssueProvider<R> {
     }
 }
 
+impl<R: CommandRunner + Clone + 'static> GitHubIssueProvider<R> {
+    /// [`IssueProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let state = args.state.map(|state| match state {
+            State::Open => "open",
+            State::Closed => "closed",
+            State::All => "all",
+        });
+        let repo = &self.repo;
+        let runner = &self.runner;
+        let search = &args.search;
+        let labels = &args.labels;
+        let milestone = &args.milestone;
+
+        debug!(repo = %self.repo, cap, "spawning `gh issue list`");
+
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> =
+                vec!["issue", "list", "--repo", repo, "--json", ISSUE_FIELDS];
+
+            if let Some(state) = state {
+                cmd_args.push("--state");
+                cmd_args.push(state);
+            }
+
+            if let Some(search) = search {
+                cmd_args.push("--search");
+                cmd_args.push(search);
+            }
+
+            for label in labels {
+                cmd_args.push("--label");
+                cmd_args.push(label);
+            }
+
+            let resolved_milestone_title;
+            if let Some(identifier) = milestone {
+                let milestone_provider =
+                    crate::GitHubMilestoneProvider::with_runner(repo.as_str(), runner.clone());
+                let resolved = gitflow_core::label::resolve_milestone_identifier(
+                    &milestone_provider,
+                    identifier,
+                )
+                .await?;
+                resolved_milestone_title = resolved.title;
+                cmd_args.push("--milestone");
+                cmd_args.push(&resolved_milestone_title);
+            }
+
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run("gh", &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+            if !output.status.success() {
+                return Err(parse_gh_error(&output.stderr).into());
+            }
+
+            let issues: Vec<IssueData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(issues)
+        })
+        .await
+    }
+}
+
 #[async_trait]
-impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
+impl<R: CommandRunner + Clone + 'static> IssueProvider for GitHubIssueProvider<R> {
     async fn create(&self, args: CreateIssueArgs) -> Result<IssueData> {
         let labels_joined = args.labels.join(",");
         let assignees_joined = args.assignees.join(",");
@@ -141,6 +217,20 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         if !args.assignees.is_empty() {
             cmd_args.push("--assignee");
             cmd_args.push(&assignees_joined);
+        }
+
+        let resolved_milestone_title;
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider = crate::GitHubMilestoneProvider::with_runner(
+                self.repo.as_str(),
+                self.runner.clone(),
+            );
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_title = resolved.title;
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_title);
         }
 
         debug!(repo = %self.repo, title = %args.title, "spawning `gh issue create`");
@@ -216,6 +306,28 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
             cmd_args.push(body);
         }
 
+        let resolved_milestone_title;
+        match &args.milestone {
+            None => {}
+            Some(None) => {
+                cmd_args.push("--remove-milestone");
+            }
+            Some(Some(identifier)) => {
+                let milestone_provider = crate::GitHubMilestoneProvider::with_runner(
+                    self.repo.as_str(),
+                    self.runner.clone(),
+                );
+                let resolved = gitflow_core::label::resolve_milestone_identifier(
+                    &milestone_provider,
+                    identifier,
+                )
+                .await?;
+                resolved_milestone_title = resolved.title;
+                cmd_args.push("--milestone");
+                cmd_args.push(&resolved_milestone_title);
+            }
+        }
+
         let output = self
             .runner
             .run("gh", &cmd_args)
@@ -229,52 +341,8 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         self.view(number).await
     }
 
-    async fn list(&self, args: ListIssueArgs) -> Result<Vec<IssueData>> {
-        let mut cmd_args: Vec<&str> = vec![
-            "issue",
-            "list",
-            "--repo",
-            &self.repo,
-            "--json",
-            ISSUE_FIELDS,
-        ];
-
-        if let Some(state) = &args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-
-        if let Some(ref search) = args.search {
-            cmd_args.push("--search");
-            cmd_args.push(search);
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `gh issue list`");
-
-        let output = self
-            .runner
-            .run("gh", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
-
-        let issues: Vec<IssueData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(issues)
+    async fn list(&self, args: ListIssueArgs) -> Result<Paged<IssueData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<IssueData> {
@@ -422,37 +490,47 @@ impl<R: CommandRunner + 'static> IssueProvider for GitHubIssueProvider<R> {
         Ok(comment.into())
     }
 
-    /// 列出指定 Issue 的所有评论。
+    /// 列出指定 Issue 的评论。
     ///
     /// 调用 `gh api repos/{repo}/issues/{number}/comments` 获取评论列表，
-    /// 直接从响应中解析评论数据数组。
+    /// 通过 `per_page`/`page` 查询参数逐页取到 `limit`（已实测 `gh api`
+    /// 直接接受这两个查询参数，无需 `--paginate`）。
     ///
     /// # Errors
     ///
     /// 当 Issue 不存在或 `gh` CLI 调用失败时返回错误。
-    async fn list_comments(&self, number: u64) -> Result<Vec<CommentData>> {
-        debug!(repo = %self.repo, number, "spawning `gh api` GET issue comments");
+    async fn list_comments(&self, number: u64, limit: Option<u32>) -> Result<Paged<CommentData>> {
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let api_path = format!(
-            "repos/{repo}/issues/{number}/comments",
-            repo = self.repo,
-            number = number
-        );
+        debug!(repo = %self.repo, number, cap, "spawning `gh api` GET issue comments");
 
-        let output = self
-            .runner
-            .run("gh", &["api", &api_path])
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
+        fetch_capped(
+            FetchStrategy::Paged {
+                per_page: cap.saturating_add(1).min(GITHUB_API_MAX_PER_PAGE),
+            },
+            cap,
+            |page, per_page| async move {
+                let api_path = format!(
+                    "repos/{repo}/issues/{number}/comments?per_page={per_page}&page={page}"
+                );
 
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
+                let output = runner
+                    .run("gh", &["api", &api_path])
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn gh api: {e}")))?;
 
-        let comments: Vec<GitHubCommentApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                if !output.status.success() {
+                    return Err(parse_gh_error(&output.stderr).into());
+                }
 
-        Ok(comments.into_iter().map(CommentData::from).collect())
+                let comments: Vec<GitHubCommentApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+                Ok(comments.into_iter().map(CommentData::from).collect())
+            },
+        )
+        .await
     }
 
     /// 为指定 Issue 添加一个或多个标签。
@@ -608,6 +686,8 @@ pub struct GitHubIssueApiResponse {
     pub created_at: String,
     pub updated_at: String,
     pub html_url: String,
+    #[serde(default)]
+    pub milestone: Option<gitflow_core::types::MilestoneRef>,
 }
 
 /// GitHub API 用户结构。
@@ -626,7 +706,11 @@ impl From<GitHubCommentApiResponse> for CommentData {
                 login: api.user.login,
                 id: api.user.id.to_string(),
             },
-            created_at: parse_api_datetime(&api.created_at),
+            // parse_api_datetime always returns a value (falling back to
+            // UNIX_EPOCH on parse failure); wrapped in Some purely to match
+            // CommentData.created_at's new Option type (#380). Whether that
+            // fallback value itself should change is Issue #401's decision.
+            created_at: Some(parse_api_datetime(&api.created_at)),
         }
     }
 }
@@ -660,21 +744,13 @@ impl From<GitHubIssueApiResponse> for IssueData {
             labels: api.labels.into_iter().map(Label::from).collect(),
             author: api.user.into(),
             assignees: api.assignees.into_iter().map(UserSummary::from).collect(),
-            created_at: parse_api_datetime(&api.created_at),
-            updated_at: parse_api_datetime(&api.updated_at),
+            // Same Some(...) wrap as CommentData above, same reasoning.
+            created_at: Some(parse_api_datetime(&api.created_at)),
+            updated_at: Some(parse_api_datetime(&api.updated_at)),
             url: api.html_url,
+            milestone: api.milestone,
         }
     }
-}
-
-/// 解析 GitHub REST API 的 RFC 3339 时间戳。
-///
-/// 格式非法时记录警告并回退到 Unix 纪元，避免时间戳异常阻断主流程。
-fn parse_api_datetime(value: &str) -> chrono::DateTime<chrono::Utc> {
-    value.parse().unwrap_or_else(|_| {
-        tracing::warn!(value, "Failed to parse GitHub API timestamp, using epoch");
-        chrono::DateTime::UNIX_EPOCH
-    })
 }
 
 /// Parse issue number from GitHub URL.
@@ -787,6 +863,49 @@ mod tests {
     }
 
     #[test]
+    fn test_should_deserialize_issue_with_milestone() {
+        let gh_json = br#"{
+            "number": 42,
+            "title": "Test",
+            "body": null,
+            "state": "OPEN",
+            "labels": [],
+            "author": {"login": "octocat", "id": "1"},
+            "assignees": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "milestone": {"number": 3, "title": "v2.0"},
+            "url": "https://github.com/octocat/hello-world/issues/42"
+        }"#;
+        let issue: IssueData = serde_json::from_slice(gh_json).expect("valid IssueData JSON");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+    }
+
+    #[test]
+    fn test_should_deserialize_issue_with_no_milestone() {
+        let gh_json = br#"{
+            "number": 42,
+            "title": "Test",
+            "body": null,
+            "state": "OPEN",
+            "labels": [],
+            "author": {"login": "octocat", "id": "1"},
+            "assignees": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "url": "https://github.com/octocat/hello-world/issues/42"
+        }"#;
+        let issue: IssueData = serde_json::from_slice(gh_json).expect("valid IssueData JSON");
+        assert!(issue.milestone.is_none());
+    }
+
+    #[test]
     fn test_should_deserialize_empty_issue_list_from_gh_output() {
         let gh_json = b"[]";
         let issues: Vec<IssueData> = serde_json::from_slice(gh_json).expect("valid IssueData list");
@@ -873,7 +992,7 @@ mod tests {
                 login: "alice".into(),
                 id: "3".to_string(),
             },
-            created_at: "2026-05-01T00:00:00Z".parse().expect("valid date"),
+            created_at: Some("2026-05-01T00:00:00Z".parse().expect("valid date")),
         };
         let json = serde_json::to_string(&comment).expect("serialize");
         let round_tripped: CommentData = serde_json::from_str(&json).expect("deserialize");
@@ -918,7 +1037,7 @@ mod tests {
 
         let comment_data: CommentData = api_response.into();
         // Should fall back to UNIX_EPOCH
-        assert_eq!(comment_data.created_at, chrono::DateTime::UNIX_EPOCH);
+        assert_eq!(comment_data.created_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     // --- GitHubIssueApiResponse conversion tests ---
@@ -950,6 +1069,16 @@ mod tests {
     }
 
     #[test]
+    fn test_should_deserialize_issue_with_present_timestamps_as_some() {
+        // Sanity check that the Option type change doesn't break the normal
+        // (timestamp present) path through GitHubIssueApiResponse, only the
+        // already-covered UNIX_EPOCH fallback path.
+        let issue: IssueData = sample_rest_issue_response().into();
+        assert!(issue.created_at.is_some());
+        assert!(issue.updated_at.is_some());
+    }
+
+    #[test]
     fn test_should_fall_back_to_epoch_for_invalid_rest_issue_dates() {
         let mut api_response = sample_rest_issue_response();
         api_response.created_at = "invalid-date".to_string();
@@ -957,8 +1086,8 @@ mod tests {
 
         let issue: IssueData = api_response.into();
 
-        assert_eq!(issue.created_at, chrono::DateTime::UNIX_EPOCH);
-        assert_eq!(issue.updated_at, chrono::DateTime::UNIX_EPOCH);
+        assert_eq!(issue.created_at, Some(chrono::DateTime::UNIX_EPOCH));
+        assert_eq!(issue.updated_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     // --- add_labels / remove_label: unit tests for provider ---
@@ -1077,6 +1206,7 @@ mod tests {
             body: Some("Steps to reproduce".to_string()),
             labels: vec!["bug".to_string()],
             assignees: vec!["octocat".to_string()],
+            milestone: None,
         }
     }
 
@@ -1164,6 +1294,7 @@ mod tests {
         "created_at": "2026-07-31T02:00:00Z",
         "updated_at": "2026-08-03T09:31:29Z",
         "closed_at": "2026-08-03T09:31:29Z",
+        "milestone": {"number": 3, "title": "v2.0", "state": "open", "id": 17970779},
         "html_url": "https://github.com/o/r/issues/107"
     }"#;
 
@@ -1212,7 +1343,17 @@ mod tests {
         assert_eq!(issue.labels[0].name, "upstream-drift");
         assert_eq!(issue.labels[0].description, None);
         assert_eq!(issue.url, "https://github.com/o/r/issues/107");
-        assert_eq!(issue.updated_at.to_rfc3339(), "2026-08-03T09:31:29+00:00");
+        assert_eq!(
+            issue.updated_at.map(|dt| dt.to_rfc3339()),
+            Some("2026-08-03T09:31:29+00:00".to_string())
+        );
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into(),
+            })
+        );
     }
 
     #[tokio::test]
@@ -1232,6 +1373,7 @@ mod tests {
         assert_eq!(issue.assignees[0].login, "octocat");
         assert_eq!(issue.assignees[0].id, "583231");
         assert_eq!(issue.url, "https://github.com/o/r/issues/108");
+        assert_eq!(issue.milestone, None);
     }
 
     #[tokio::test]
@@ -1342,6 +1484,96 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_produce_complete_argv_for_list_comments_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "gh");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "api",
+                "repos/owner/repo/issues/359/comments?per_page=100&page=1"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_build_well_formed_query_string_for_list_comments() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        provider
+            .list_comments(359, None)
+            .await
+            .expect("list_comments should succeed");
+
+        let calls = runner.recorded_calls();
+        let api_path = &calls[0].1[1];
+        assert_eq!(
+            api_path.matches('?').count(),
+            1,
+            "must have exactly one '?', got: {api_path}"
+        );
+        assert_eq!(
+            api_path.matches('&').count(),
+            1,
+            "must have exactly one '&', got: {api_path}"
+        );
+        assert!(api_path.contains("per_page=100"), "got: {api_path}");
+        assert!(api_path.contains("page=1"), "got: {api_path}");
+    }
+
+    /// 证明分页确实会递增页码：第一页给满 100 条（`per_page` 值），
+    /// 迫使循环请求第二页；第二页给 1 条（短页）以终止循环。
+    #[tokio::test]
+    async fn test_should_increment_page_across_calls_for_list_comments() {
+        let full_page: Vec<String> = (0..100)
+            .map(|i| {
+                format!(
+                    r#"{{"id":{i},"body":"c{i}","user":{{"login":"u","id":1}},"created_at":"2026-08-18T00:00:00Z"}}"#
+                )
+            })
+            .collect();
+        let full_page_json = format!("[{}]", full_page.join(","));
+
+        let short_page_json = r#"[{"id":9999,"body":"last","user":{"login":"u","id":1},"created_at":"2026-08-18T00:00:00Z"}]"#;
+
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &full_page_json),
+            (true, short_page_json),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider
+            .list_comments(359, Some(150))
+            .await
+            .expect("should list across two pages");
+
+        assert_eq!(paged.items.len(), 101);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 2, "必须恰好翻两页");
+        assert!(
+            calls[0].1[1].contains("page=1"),
+            "第一次调用必须请求 page=1，实际: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1].1[1].contains("page=2"),
+            "第二次调用必须请求 page=2，实际: {:?}",
+            calls[1].1
+        );
+    }
+
+    #[tokio::test]
     async fn test_should_return_platform_error_when_gh_fails_for_add_labels() {
         let runner = MockCommandRunner::failure(r#"{"message": "Not found"}"#, 256);
         let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
@@ -1374,6 +1606,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("New title".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await
@@ -1396,6 +1629,7 @@ mod tests {
                 gitflow_core::issue::EditIssueArgs {
                     title: Some("T".to_string()),
                     body: None,
+                    milestone: None,
                 },
             )
             .await;
@@ -1618,6 +1852,7 @@ mod tests {
             body: Some("Description".to_string()),
             labels,
             assignees: vec![],
+            milestone: None,
         }
     }
 
@@ -1680,6 +1915,166 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    // --- milestone wiring: create/edit/list ---
+
+    /// A single-item `gh api repos/.../milestones?...` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    const MILESTONE_LIST_JSON: &str = r#"[
+        {"number": 3, "title": "v2.0", "state": "open", "description": null}
+    ]"#;
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_issue_create() {
+        // Sequence:
+        // 1. milestone resolution: `gh api repos/owner/repo/milestones?...`
+        //    (GitHubMilestoneProvider::list)
+        // 2. `gh issue create ... --milestone v2.0`
+        // 3. `gh issue view <number>` (create() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "https://github.com/owner/repo/issues/42"),
+            (
+                true,
+                r#"{"number":42,"title":"New feature","body":"Description","state":"open","labels":[],"author":{"login":"octocat","id":"1"},"assignees":[],"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","milestone":{"number":3,"title":"v2.0"},"url":"https://github.com/owner/repo/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = create_args_with_labels(vec![]);
+        args.milestone = Some("3".to_string()); // resolve by number
+
+        let issue = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            issue.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 3, "expected exactly 3 gh invocations");
+        assert!(
+            calls[0].1.first().map(String::as_str) == Some("api"),
+            "first call must resolve the milestone via `gh api`, got: {:?}",
+            calls[0].1
+        );
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "issue create argv must carry the resolved milestone title, got: {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_create() {
+        // Milestone list resolves to no match for "does-not-exist" → resolve_milestone_identifier
+        // returns an error before `gh issue create` is ever invoked.
+        let runner = SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON)]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+
+        let mut args = create_args_with_labels(vec![]);
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_issue_edit() {
+        // Sequence:
+        // 1. milestone resolution
+        // 2. `gh issue edit <number> --milestone v2.0`
+        // 3. `gh issue view <number>` (edit() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, ""),
+            (
+                true,
+                r#"{"number":42,"title":"T","body":null,"state":"open","labels":[],"author":{"login":"octocat","id":"1"},"assignees":[],"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","milestone":{"number":3,"title":"v2.0"},"url":"https://github.com/owner/repo/issues/42"}"#,
+            ),
+        ]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let issue = provider
+            .edit(
+                42,
+                gitflow_core::issue::EditIssueArgs {
+                    title: None,
+                    body: None,
+                    milestone: Some(Some("v2.0".to_string())),
+                },
+            )
+            .await
+            .expect("edit should succeed");
+        assert_eq!(issue.milestone.map(|m| m.title), Some("v2.0".to_string()));
+
+        let calls = runner.recorded_calls();
+        let edit_call = &calls[1].1;
+        assert!(
+            edit_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "issue edit argv must carry the resolved milestone title, got: {edit_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_send_remove_milestone_flag_without_resolving() {
+        // `Some(None)` means "clear the milestone" — no cross-provider resolution call
+        // should happen; the edit call must carry `--remove-milestone` directly.
+        let runner = MockCommandRunner::success("");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .edit(
+                7,
+                gitflow_core::issue::EditIssueArgs {
+                    title: None,
+                    body: None,
+                    milestone: Some(None),
+                },
+            )
+            .await;
+
+        let calls = runner.recorded_calls();
+        // `edit()` always delegates to `view()` afterward — 2 calls total, neither of
+        // which is a milestone-resolution `gh api` call.
+        assert_eq!(calls.len(), 2, "no milestone resolution call expected");
+        assert!(
+            calls[0].1.iter().any(|a| a == "--remove-milestone"),
+            "edit argv must carry --remove-milestone, got: {:?}",
+            calls[0].1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_issue_list_filter() {
+        // Sequence:
+        // 1. milestone resolution
+        // 2. `gh issue list ... --milestone v2.0`
+        let runner =
+            SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON), (true, "[]")]);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let args = ListIssueArgs {
+            milestone: Some("v2.0".to_string()),
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+
+        let calls = runner.recorded_calls();
+        let list_call = &calls[1].1;
+        assert!(
+            list_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "issue list argv must carry the resolved milestone title, got: {list_call:?}"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1702,6 +2097,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("gh v2.94 bot-author fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 2);
         assert_eq!(issues[0].number, 107);
@@ -1723,6 +2119,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("contract fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 1);
         let issue = &issues[0];
@@ -1750,6 +2147,7 @@ mod contract_tests {
             .list(ListIssueArgs::default())
             .await
             .expect("gh v2.97 mixed-author fixture must parse");
+        let issues = issues.items;
 
         assert_eq!(issues.len(), 2);
         // bot-authored issue: id omitted by gh → defaults to empty string
@@ -1782,5 +2180,119 @@ mod contract_tests {
         assert_eq!(issue.author.login, "app/github-actions");
         assert_eq!(issue.author.id, "");
         assert_eq!(issue.state, gitflow_core::types::State::Open);
+    }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_when_limit_absent() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+        let paged = provider
+            .list(ListIssueArgs::default())
+            .await
+            .expect("list should succeed");
+        assert!(paged.items.is_empty());
+        assert!(!paged.truncated);
+        let args = &runner.recorded_calls()[0].1;
+        assert!(
+            args.windows(2).any(|w| w[0] == "--limit" && w[1] == "1001"),
+            "无 --limit 时必须向 gh 要 DEFAULT_LIST_LIMIT + 1 = 1001 条，实际 argv: {args:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_pass_user_limit_plus_one_to_gh() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            limit: Some(10),
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "11"),
+            "用户指定 --limit 10 时也要跑 N+1 探测，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_report_truncation_when_gh_returns_more_than_cap() {
+        // cap = 2 ⇒ 请求 3 条；返回 3 条 ⇒ 截到 2 条并置 truncated
+        let stdout = r#"[
+            {"number":1,"title":"a","state":"OPEN","body":"","labels":[],"assignees":[],"author":{"login":"u","id":"1"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://example.com/1"},
+            {"number":2,"title":"b","state":"OPEN","body":"","labels":[],"assignees":[],"author":{"login":"u","id":"1"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://example.com/2"},
+            {"number":3,"title":"c","state":"OPEN","body":"","labels":[],"assignees":[],"author":{"login":"u","id":"1"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","url":"https://example.com/3"}
+        ]"#;
+        let runner = MockCommandRunner::success(stdout);
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner);
+        let args = ListIssueArgs {
+            limit: Some(2),
+            ..ListIssueArgs::default()
+        };
+        let paged = provider.list(args).await.expect("list should succeed");
+        assert_eq!(paged.items.len(), 2);
+        assert!(paged.truncated);
+        assert_eq!(paged.limit, 2);
+    }
+
+    #[tokio::test]
+    async fn test_should_forward_label_filter_to_gh() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+        let args = ListIssueArgs {
+            labels: vec!["bug".to_string(), "help wanted".to_string()],
+            ..ListIssueArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "bug"),
+            "--label 过滤此前被静默丢弃，必须真正传给 gh，实际 argv: {recorded:?}"
+        );
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--label" && w[1] == "help wanted"),
+            "多个标签必须各自重复 --label，实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_list_issues_with_state_and_label_using_full_argv() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubIssueProvider::with_runner("owner/repo", runner.clone());
+
+        let _ = provider
+            .list(ListIssueArgs {
+                state: Some(State::Open),
+                labels: vec!["bug".to_string()],
+                ..ListIssueArgs::default()
+            })
+            .await;
+
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "issue",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                ISSUE_FIELDS,
+                "--state",
+                "open",
+                "--label",
+                "bug",
+                "--limit",
+                "1001"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 }

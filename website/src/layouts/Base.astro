@@ -8,17 +8,30 @@ import {
 export interface Props {
   title: string;
   description?: string;
+  socialImage?: string;
+  faqScope?: string;
+  structuredData?: object[];
 }
+
+// Astro pages pass props directly; MDX layouts pass their frontmatter under
+// `frontmatter`. Normalize both shapes so legacy MDX pages keep full metadata.
+const pageProps = Astro.props.frontmatter
+  ? { ...Astro.props, ...Astro.props.frontmatter }
+  : Astro.props;
 
 const {
   title,
   description = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。",
-} = Astro.props;
+  socialImage = "og-image.svg",
+  faqScope,
+  structuredData = [],
+} = pageProps;
 
 const base = import.meta.env.BASE_URL;
 
 const softwareAppJsonLd = generateSoftwareAppJsonLd();
-const faqPageJsonLd = generateFAQPageJsonLd();
+const faqPageJsonLd = generateFAQPageJsonLd(faqScope);
+const socialImageUrl = new URL(`${base}/${socialImage}`, Astro.site ?? Astro.url).href;
 ---
 
 <!doctype html>
@@ -30,44 +43,63 @@ const faqPageJsonLd = generateFAQPageJsonLd();
     <meta name="description" content={description} />
     <link rel="canonical" href={Astro.url.href} />
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="gf 博客"
+      href={`${base}/feed.xml`}
+    />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content={Astro.url.href} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={`${base}/og-image.png`} />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta property="og:image:alt" content={`${title} 页面预览`} />
     <meta property="og:locale" content="zh_CN" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={`${base}/og-image.png`} />
+    <meta name="twitter:image" content={socialImageUrl} />
+    <meta name="twitter:image:alt" content={`${title} 页面预览`} />
 
     <script is:inline>document.documentElement.classList.remove("no-js");</script>
-    <script type="application/ld+json" is:inline>
-      {JSON.stringify(softwareAppJsonLd)}
-    </script>
-    <script type="application/ld+json" is:inline>
-      {JSON.stringify(faqPageJsonLd)}
-    </script>
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(softwareAppJsonLd)}
+    />
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(faqPageJsonLd)}
+    />
+    {
+      structuredData.map((data) => (
+        <script type="application/ld+json" is:inline set:html={JSON.stringify(data)} />
+      ))
+    }
   </head>
   <body>
     <nav class="nav" aria-label="主导航">
       <a class="nav-brand" href={`${base}/`}><span class="brand-mark">❯_</span> gf</a>
       <div class="nav-links">
+        <a class="nav-feature" href={`${base}/jev/`}>Jev</a>
+        <a class="nav-secondary" href={`${base}/blog/`}>博客</a>
         <a href={`${base}/docs/`}>文档</a>
-        <a href={`${base}/architecture/`}>架构</a>
-        <a href={`${base}/release-workflow/`}>发布</a>
+        <a class="nav-secondary" href={`${base}/architecture/`}>架构</a>
+        <a class="nav-secondary" href={`${base}/release-workflow/`}>发布</a>
         <a href={`${base}/quickstart/`}>快速上手</a>
         <a href={`${base}/workflow/`}>工作流</a>
-        <a href={`${base}/compare/`}>对比</a>
-        <a href={`${base}/what-is-ai-workflow/`}>AI 工作流</a>
-        <a href={`${base}/compatibility/`}>兼容性</a>
-        <a href={`${base}/support/`}>支持</a>
-        <a href={`${base}/changelog/`}>更新日志</a>
-        <a class="nav-cta" href="https://github.com/byx-darwin/tap">GitHub</a>
+        <a class="nav-secondary" href={`${base}/compare/`}>对比</a>
+        <a class="nav-secondary" href={`${base}/what-is-ai-workflow/`}>AI 工作流</a>
+        <a class="nav-secondary" href={`${base}/compatibility/`}>兼容性</a>
+        <a class="nav-secondary" href={`${base}/support/`}>支持</a>
+        <a class="nav-secondary" href={`${base}/changelog/`}>更新日志</a>
+        <a class="nav-cta" href="https://github.com/byx-darwin/gitflow-cli">GitHub</a>
       </div>
     </nav>
 
@@ -78,16 +110,19 @@ const faqPageJsonLd = generateFAQPageJsonLd();
     <footer class="footer" role="contentinfo">
       <div class="footer-inner">
         <span class="footer-brand"><span style="color:var(--gf-orange)">❯_</span> gf</span>
-        <span>MIT License · Rust 2024 · 跨平台 Git 工程化工作流编排框架</span>
+        <span>MIT License | Rust 2024 | 跨平台 Git 工程化工作流编排框架</span>
         <div class="footer-links">
+          <a href={`${base}/jev/`}>Jev</a>
+          <a href={`${base}/blog/`}>博客</a>
           <a href={`${base}/workflow/`}>工作流</a>
           <a href={`${base}/architecture/`}>架构</a>
           <a href={`${base}/release-workflow/`}>发布</a>
           <a href={`${base}/compare/`}>对比</a>
           <a href={`${base}/what-is-ai-workflow/`}>AI 工作流</a>
-          <a href="https://github.com/byx-darwin/tap">GitHub</a>
+          <a href="https://github.com/byx-darwin/gitflow-cli">GitHub</a>
           <a href="https://crates.io/crates/gitflow-cli">crates.io</a>
           <a href={`${base}/llms.txt`}>llms.txt</a>
+          <a href={`${base}/feed.xml`}>RSS</a>
         </div>
       </div>
     </footer>

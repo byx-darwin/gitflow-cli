@@ -143,7 +143,7 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
             state: ReviewState::Commented,
             body: Some(note.body),
             author,
-            submitted_at: note.created_at.unwrap_or_else(Utc::now),
+            submitted_at: note.created_at,
         })
     }
 
@@ -186,7 +186,12 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
                 Some(message)
             },
             author,
-            submitted_at: Utc::now(),
+            // `glab mr approve` returns no timestamp of its own, but approval
+            // is a synchronous action happening at this exact instant — this
+            // is NOT backfilling an unknown historical value (the #380/#366
+            // bug class), so Utc::now() is correct here and intentionally
+            // stays a plain value, not a fallback (#380 design §3.3).
+            submitted_at: Some(Utc::now()),
         })
     }
 
@@ -210,7 +215,7 @@ impl<R: CommandRunner + 'static> ReviewProvider for GitLabReviewProvider<R> {
             state: ReviewState::ChangesRequested,
             body: Some(note.body),
             author,
-            submitted_at: note.created_at.unwrap_or_else(Utc::now),
+            submitted_at: note.created_at,
         })
     }
 
@@ -376,12 +381,13 @@ mod tests {
             state: ReviewState::Commented,
             body: Some(note.body),
             author,
-            submitted_at: note.created_at.expect("has date"),
+            submitted_at: note.created_at,
         };
 
         assert_eq!(review.id, 100);
         assert_eq!(review.state, ReviewState::Commented);
         assert_eq!(review.author.login, "reviewer");
+        assert!(review.submitted_at.is_some());
     }
 
     #[test]

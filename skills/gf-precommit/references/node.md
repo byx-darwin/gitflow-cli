@@ -1,15 +1,7 @@
 # Node.js / TypeScript Pre-commit Checks
 
-**Detection:** `package.json` in project root.
+**Shared language profile:** `gf-quality/references/profiles/node.md`. Read it for tools, version sources, and scan exclusions.
 
-## Runtime Detection
-
-| Lock File | Runtime |
-|-----------|---------|
-| `bun.lockb` / `bun.lock` | Bun |
-| `pnpm-lock.yaml` | pnpm |
-| `yarn.lock` | Yarn |
-| `package-lock.json` | npm |
 
 ## Check Commands
 

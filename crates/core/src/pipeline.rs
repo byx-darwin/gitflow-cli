@@ -28,6 +28,21 @@ pub enum PipelineStatusEnum {
     Pending,
 }
 
+impl PipelineStatusEnum {
+    /// 是否表示已收尾（终态）：`Success`/`Failed`/`Cancelled`。
+    ///
+    /// `Running`/`Pending` 表示流水线仍在执行或排队中，尚无最终结论；
+    /// 调用方在统计成功率、进行失败归因等场景中应先用此方法过滤掉
+    /// 未收尾项，避免把"进行中"误判为"已收尾"甚至"失败"。
+    #[must_use]
+    pub fn is_terminal(&self) -> bool {
+        !matches!(
+            self,
+            PipelineStatusEnum::Running | PipelineStatusEnum::Pending
+        )
+    }
+}
+
 /// 流水线状态数据。
 ///
 /// 由平台实现填充并返回给上层命令。字段命名与平台 API 输出
@@ -44,10 +59,12 @@ pub struct PipelineStatus {
     /// 流水线结论（成功/失败原因等，可选）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conclusion: Option<String>,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
-    /// 最近更新时间（UTC）。
-    pub updated_at: DateTime<Utc>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    /// 最近更新时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
     /// 流水线的 Web URL。
     pub url: String,
 }
@@ -141,6 +158,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_should_deserialize_pipeline_status_with_missing_timestamps_as_none() {
+        let json = r#"{
+            "id": 1,
+            "refName": "main",
+            "status": "success",
+            "url": "https://example.com/pipelines/1"
+        }"#;
+        let status: PipelineStatus = serde_json::from_str(json).expect("deserialize");
+        assert!(status.created_at.is_none());
+        assert!(status.updated_at.is_none());
+    }
+
+    #[test]
     fn test_should_serialize_pipeline_status_enum_to_snake_case() {
         assert_eq!(
             serde_json::to_string(&PipelineStatusEnum::Running).expect("serialize"),
@@ -186,6 +216,19 @@ mod tests {
             serde_json::from_str::<PipelineStatusEnum>("\"pending\"").expect("deserialize"),
             PipelineStatusEnum::Pending
         );
+    }
+
+    #[test]
+    fn test_should_report_terminal_states_as_terminal() {
+        assert!(PipelineStatusEnum::Success.is_terminal());
+        assert!(PipelineStatusEnum::Failed.is_terminal());
+        assert!(PipelineStatusEnum::Cancelled.is_terminal());
+    }
+
+    #[test]
+    fn test_should_report_in_flight_states_as_not_terminal() {
+        assert!(!PipelineStatusEnum::Running.is_terminal());
+        assert!(!PipelineStatusEnum::Pending.is_terminal());
     }
 
     fn sample_pipeline_status_json() -> &'static str {

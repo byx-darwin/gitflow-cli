@@ -1,0 +1,15 @@
+[package]
+name = "e2e-gitcode"
+version.workspace = true
+edition.workspace = true
+publish = false
+release = false
+license = "MIT"
+
+[dev-dependencies]
+e2e-core = { path = "../e2e-core" }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[lints]
+workspace = true

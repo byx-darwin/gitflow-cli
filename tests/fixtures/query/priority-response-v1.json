@@ -1,0 +1,20 @@
+{
+  "model": "synthetic-fixture",
+  "answers": {
+    "field_0": {
+      "type": "choice",
+      "choice": "c0",
+      "confidence": 0.99,
+      "probabilities": {"c0": 1.0, "c1": 0.0, "none": 0.0}
+    },
+    "match_0": {
+      "type": "score",
+      "score": 2.0,
+      "confidence": 0.99,
+      "legend": {"0": "No match", "1": "Possible match", "2": "Exact meaning"},
+      "probabilities": {"0": 0.0, "1": 0.0, "2": 1.0}
+    },
+    "ambig_0": {"type": "noul", "noul": 0.01}
+  },
+  "usage": {"input_tokens": 0, "output_tokens": 0}
+}

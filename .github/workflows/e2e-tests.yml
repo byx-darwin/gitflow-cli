@@ -49,6 +49,13 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
+      # e2e-core resolves the binary beside the test profile directory and
+      # deliberately does not fall back to PATH (Issue #358). nextest does not
+      # build the workspace binary target on its own, so keep the debug binary
+      # available for the harness-level resolution tests as well.
+      - name: Build debug binary for test harness
+        run: cargo build --bin gf
+
       - name: Add to PATH
         run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
 
@@ -79,3 +86,173 @@ jobs:
           name: e2e-results-github
           path: target/nextest/
           retention-days: 7
+
+  e2e-gitlab:
+    name: E2E Tests (GitLab)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
+      - name: Install glab CLI
+        run: |
+          set -euo pipefail
+          # `go install .../glab@latest` builds without gitlab-org/cli's own
+          # release ldflags, so `glab --version` prints "glab DEV ()" — no
+          # semver substring, which breaks gf's version parser
+          # (`apps/cli/src/commands/prerequisites.rs::extract_semver`) and makes
+          # every `gf ... --platform gitlab` call fail with "glab 版本信息解析
+          # 失败" instead of running/skipping normally. Install the official
+          # release tarball instead, which embeds a real version string.
+          GLAB_VERSION=$(curl -fsSL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases" \
+            | jq -r '.[0].tag_name' | sed 's/^v//')
+          curl -fsSL \
+            "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/${GLAB_VERSION}/glab_${GLAB_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/glab.tar.gz
+          mkdir -p /tmp/glab-extract
+          tar -xzf /tmp/glab.tar.gz -C /tmp/glab-extract
+          sudo install -m 0755 /tmp/glab-extract/bin/glab /usr/local/bin/glab
+          glab --version
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Build debug binary for test harness
+        run: cargo build --bin gf
+
+      - name: Add to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+
+      # 模式判定由测试层承担:无凭据/无测试仓库时实测自动 skip,
+      # 无凭据错误路径(noauth)不受影响,正常运行(依赖上一步安装的 glab)。
+      - name: Run E2E tests
+        env:
+          E2E_GITLAB_TOKEN: ${{ secrets.E2E_GITLAB_TOKEN }}
+          E2E_TEST_REPO_GITLAB: ${{ secrets.E2E_TEST_REPO_GITLAB }}
+          RUST_LOG: info
+        run: |
+          cargo nextest run -p e2e-core -p e2e-gitlab --all-features
+
+      - name: Report run mode
+        if: always()
+        env:
+          E2E_GITLAB_TOKEN: ${{ secrets.E2E_GITLAB_TOKEN }}
+        run: |
+          if [ -n "$E2E_GITLAB_TOKEN" ]; then
+            echo "E2E mode: authenticated (real-credential scenarios executed)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "E2E mode: unauthenticated (error paths + harness self-tests only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-gitlab
+          path: target/nextest/
+          retention-days: 7
+
+  e2e-gitcode:
+    name: E2E Tests (GitCode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
+      - name: Install gitcode CLI
+        run: pip install gitcode-cli
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Build debug binary for test harness
+        run: cargo build --bin gf
+
+      - name: Add to PATH
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+
+      - name: Run E2E tests
+        env:
+          E2E_GITCODE_TOKEN: ${{ secrets.E2E_GITCODE_TOKEN }}
+          E2E_TEST_REPO_GITCODE: ${{ secrets.E2E_TEST_REPO_GITCODE }}
+          RUST_LOG: info
+        run: |
+          cargo nextest run -p e2e-core -p e2e-gitcode --all-features
+
+      - name: Report run mode
+        if: always()
+        env:
+          E2E_GITCODE_TOKEN: ${{ secrets.E2E_GITCODE_TOKEN }}
+        run: |
+          if [ -n "$E2E_GITCODE_TOKEN" ]; then
+            echo "E2E mode: authenticated (real-credential scenarios executed)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "E2E mode: unauthenticated (error paths + harness self-tests only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results-gitcode
+          path: target/nextest/
+          retention-days: 7
+
+  notify-on-schedule-failure:
+    name: Notify on Scheduled Regression Failure
+    needs: [e2e-github, e2e-gitlab, e2e-gitcode]
+    # 只在 `schedule` 触发的定时回归里告警——PR/push 触发的失败是开发期反馈，
+    # 走 PR 检查/日常 CI 通知即可，不属于"回归"，不应重复开 Issue。
+    if: always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Create or update regression issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESULT_GITHUB: ${{ needs.e2e-github.result }}
+          RESULT_GITLAB: ${{ needs.e2e-gitlab.result }}
+          RESULT_GITCODE: ${{ needs.e2e-gitcode.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # 沿用 upstream-patrol.yml 的去重范式：标题固定（不含日期），
+          # 已存在同标题的 open issue 就追加评论，否则新建。
+          LABEL="e2e-regression"
+          TITLE="定时 E2E 回归失败"
+
+          EXISTING=$(gh issue list --label "$LABEL" --state open \
+            --search "in:title ${TITLE}" --json number --jq '.[0].number // empty')
+
+          BODY_FILE=$(mktemp)
+          {
+            printf '定时 E2E 回归（cron: schedule）检测到失败，防不住的是 CLI 行为/退出码变化，而不是输出格式漂移（那部分由契约测试兜底）。\n\n'
+            printf -- '- **平台结果**: github=%s, gitlab=%s, gitcode=%s\n' "$RESULT_GITHUB" "$RESULT_GITLAB" "$RESULT_GITCODE"
+            printf -- '- **Run**: %s\n\n' "$RUN_URL"
+            printf '请查看上方 Run 链接定位失败用例，确认是三平台 CLI（gh/glab/gitcode-cli）行为变化，还是测试环境/凭据问题。\n'
+          } > "$BODY_FILE"
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "定时回归复核仍失败: $(date -u +%F) — ${RUN_URL}"
+          else
+            gh issue create --title "$TITLE" --label "$LABEL" --body-file "$BODY_FILE"
+          fi
+          rm -f "$BODY_FILE"

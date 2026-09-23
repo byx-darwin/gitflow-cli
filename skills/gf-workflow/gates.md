@@ -45,14 +45,14 @@
 - 等待用户输入: "approved" / "changes requested" / "rejected"
 - 用户批准后，**自动进入 Phase 3**
 
-**GO 闸门——执行模式选择（Issue #141）:** 用户批准后、进入 Phase 3 前，编排器必须提供执行模式选择：
-① 后台代理（默认推荐，仅 superpowers 来源可用）② 手动新窗口 ③ 同会话执行（仅显式要求）。
-mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked，后台代理无法调用）。
+**GO 闸门——执行模式选择（Issue #141，Issue #325 移除后台代理选项）:** 用户批准后、进入 Phase 3 前，编排器必须提供执行模式选择：
+① 手动新窗口（默认）② 同会话执行（仅显式要求）。两个来源（superpowers / mattpocock）菜单一致，
+无需按来源裁剪。
 模式语义详见 `references.md` → Phase 3 Execution Modes。
 
 提示文案须告知：Phase 3 Step 1 会先跑 **Worktree Preflight**——设计文档（Bucket A）提交前也会
 暂停询问是否提交，主工作区若有与本工作流无关的改动（Bucket B）会再次中断询问。
-此处**不新增闸门条件**——Gate 2→3 只校验合同证据；且模式 ①② 下建 worktree 的是执行者，
+此处**不新增闸门条件**——Gate 2→3 只校验合同证据；且模式 ① 下建 worktree 的是执行者，
 在闸门里查树状态保护不到它，preflight 必须随 handoff 下发。
 
 ### Gate 3→4: 执行 → 交付
@@ -63,9 +63,16 @@ mattpocock 来源下菜单自动裁剪为 ②③（`/implement` 为 user-invoked
   - `delivery_mode == "pr"` → `phases.3.evidence.pr_url` 非空
   - `delivery_mode == "local_merge"` → `phases.3.evidence.merge_commit` 非空
 - `phases.3.evidence.tests_passed` 为 `true`（两种交付方式均必须）
+- `phases.3.evidence.security_check.status` ∈ `{passed, exempted, not_triggered}`（Issue #344；防御性检查——Phase 3 新 Step 3 已经在 `failed` 时阻断，正常情况下不会带着 `failed` 走到这里）
+- `phases.3.evidence.regression_check.status` ∈ `{passed, exempted, not_triggered}`（同上）
 
-**本闸门不证明什么:** `tests_passed` 来自 Phase 3 Step 4 的**本地** `make test` / `cargo test`，
-它是前置自检，**不是 CI 结论**。真正的合并闸门是平台的必需检查 + Step 5 的排队合并
+**已知限制:** 若某合同在本变更落地前就已进入 Phase 3（`phases.3.evidence` 里没有
+`security_check`/`regression_check` 字段），Gate 3→4 会因 `status` 缺失而永远不通过。
+本仓库是单会话/单人使用的内部工具，跨部署长期存活的 Phase-3 合同极少见；遇到时手动回到
+Phase 3 Step 3 补跑一次检测即可，不为此设计自动回填迁移逻辑。
+
+**本闸门不证明什么:** `tests_passed` 来自 Phase 3 Step 5 的**本地** `make test` / `cargo test`，
+它是前置自检，**不是 CI 结论**。真正的合并闸门是平台的必需检查 + Step 6 的排队合并
 （`gf pr merge --auto`）——平台会在检查不通过时拒绝合并，所以这里无需、也不应重复判定。
 
 `merge_queued` **不作为闸门条件**：GitCode 无排队合并能力，若强制为 `true` 会把 GitCode
@@ -111,9 +118,14 @@ def check_gate(contract, target_phase):
             delivery_ok = bool(evidence.get("merge_commit"))
         else:
             delivery_ok = bool(evidence.get("pr_url"))
+        ok_statuses = {"passed", "exempted", "not_triggered"}
+        security_ok = (evidence.get("security_check") or {}).get("status") in ok_statuses
+        regression_ok = (evidence.get("regression_check") or {}).get("status") in ok_statuses
         return contract["phases"]["3"]["status"] == "complete" \
                and delivery_ok \
-               and evidence.get("tests_passed")
+               and evidence.get("tests_passed") \
+               and security_ok \
+               and regression_ok
 
     return False
 ```
@@ -121,11 +133,16 @@ def check_gate(contract, target_phase):
 ### Phase 4 步骤选择
 
 ```python
-def get_phase4_steps(mode):
+def get_phase4_steps(mode, run_pipeline_analysis=True):
     """按模式返回 Phase 4 步骤分组：parallel 组内的步骤单条消息内并发派发
     （各自 Agent 独立执行、互不读取彼此产出，因为三者只共享 Phase 3 的
-    pr_url/branch，无真实数据依赖），全部返回后再按顺序执行 sequential 组。"""
-    parallel = ["pipeline"]
+    pr_url/branch，无真实数据依赖），全部返回后再按顺序执行 sequential 组。
+
+    run_pipeline_analysis: Phase 4 入口处用户的实时选择（三种模式下均默认 True，
+    每次询问，见 SKILL.md → Phase 4 Step 0）；不是按 mode 派生的常量。"""
+    parallel = []
+    if run_pipeline_analysis:
+        parallel.append("pipeline")
     if mode == "full":
         parallel.append("triage")
     if mode in ("full", "standard"):
@@ -144,6 +161,7 @@ def get_phase4_steps(mode):
 2. 每个子 Agent 独立读取仓库/PR 上下文（不共享编排器会话状态），并被显式告知：把完整报告写入磁盘、仅在回复里返回一行状态摘要（`✅ <step>: no findings` / `⚠️ <step>: N findings, see <path>`）——遵守 SKILL.md 「Reporting Granularity」的约定，避免并行派发把 token 成本推高抵消 Phase 4 报告瘦身的收益
 3. 子 Agent 内部**不得**写 workflow contract；`evidence` 只能由编排器在全部并行结果返回后、进入 sequential 组之前统一写入（与现有「join 后才更新 contract」的模式一致，避免并发写入同一份 JSON 合同）
 4. 任一并行步骤失败：编排器等待其余步骤完成后再统一处理失败（不要因为一个步骤失败就取消其余仍在跑的步骤），失败步骤的详情随一行摘要的 `⚠️` 提示一并给出
+5. `fast` 模式下用户若也跳过 pipeline 分析，`parallel` 为空列表——直接进入 `sequential` 组（`branch_finish`），无需派发任何 Agent；这不等于跳过 Phase 4
 
 ## 自动流转规则
 

@@ -14,7 +14,10 @@ use gitflow_gitcode::GitCodeIssueProvider;
 use gitflow_github::GitHubIssueProvider;
 use gitflow_gitlab::GitLabIssueProvider;
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// Issue 子命令集合。
 ///
@@ -22,6 +25,8 @@ use crate::OutputFormat;
 /// `add-label`、`remove-label` 操作，每种操作对应不同的 clap 参数。
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
+    /// Compile and run a read-only typed Issue query.
+    Search(super::query_search::SearchArgs),
     /// 创建一个新的 Issue。
     Create {
         /// Issue 标题（必填）。
@@ -44,6 +49,10 @@ pub enum IssueCommand {
         #[arg(long = "assignee")]
         assignee: Vec<String>,
 
+        /// 挂载的 milestone（编号或标题，可选）。
+        #[arg(long)]
+        milestone: Option<String>,
+
         /// 目标仓库（可选，格式：owner/repo，覆盖从 remote 自动检测的值）。
         #[arg(long)]
         repo: Option<String>,
@@ -65,6 +74,14 @@ pub enum IssueCommand {
         /// 从文件读取新正文（可选）。
         #[arg(long = "body-file")]
         body_file: Option<String>,
+
+        /// 设置 milestone（编号或标题，可选，与 `--remove-milestone` 二选一）。
+        #[arg(long)]
+        milestone: Option<String>,
+
+        /// 取消 milestone 挂载（可选，与 `--milestone` 二选一）。
+        #[arg(long = "remove-milestone")]
+        remove_milestone: bool,
     },
 
     /// 列出 Issue。
@@ -84,12 +101,29 @@ pub enum IssueCommand {
         /// 返回数量上限。
         #[arg(long)]
         limit: Option<u32>,
+
+        /// 按 milestone 过滤（编号或标题，可选）。
+        #[arg(long)]
+        milestone: Option<String>,
     },
 
     /// 查看单个 Issue 详情。
     View {
         /// Issue 编号。
         number: u64,
+    },
+
+    /// Read-only, optional semantic requirement-quality precheck.
+    Precheck {
+        /// Minimal reviewed Issue JSON, not the raw `gf issue view` envelope.
+        #[arg(long)]
+        input: String,
+        /// Saved typed decision response for offline replay.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly call the configured Jev provider.
+        #[arg(long)]
+        live: bool,
     },
 
     /// 关闭 Issue。
@@ -122,6 +156,10 @@ pub enum IssueCommand {
     Comments {
         /// Issue 编号。
         number: u64,
+
+        /// 返回数量上限。
+        #[arg(long)]
+        limit: Option<u32>,
     },
 
     /// 为 Issue 添加标签。
@@ -179,6 +217,27 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let IssueCommand::Search(args) = &command {
+        return super::query_search::handle(
+            gitflow_core::query_filter::Target::Issue,
+            args.clone(),
+            platform,
+            repo,
+            remote_url,
+        )
+        .await;
+    }
+    if let IssueCommand::Precheck {
+        input,
+        response,
+        live,
+    } = &command
+    {
+        let report = super::issue_precheck::handle(input.clone(), response.clone(), *live).await?;
+        let output = CliOutput::success(report, "local", "issue precheck");
+        return print_output(&output, &output_format);
+    }
+
     // Allow `--repo` on Create to override the auto-detected repo.
     let effective_repo = match &command {
         IssueCommand::Create {
@@ -209,12 +268,14 @@ pub async fn handle(
     };
 
     match command {
+        IssueCommand::Search(_) => return Err(miette::miette!("invalid search dispatch")),
         IssueCommand::Create {
             title,
             body,
             body_file,
             label,
             assignee,
+            milestone,
             repo: _,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
@@ -223,6 +284,7 @@ pub async fn handle(
                 body: resolved_body,
                 labels: label,
                 assignees: assignee,
+                milestone,
             };
             let issue = provider
                 .create(args)
@@ -236,12 +298,29 @@ pub async fn handle(
             title,
             body,
             body_file,
+            milestone,
+            remove_milestone,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
-            ensure_edit_has_changes(title.as_ref(), resolved_body.as_ref())?;
+            let resolved_milestone = match (milestone, remove_milestone) {
+                (Some(_), true) => {
+                    return Err(miette::miette!(
+                        "--milestone 与 --remove-milestone 不能同时指定"
+                    ));
+                }
+                (Some(m), false) => Some(Some(m)),
+                (None, true) => Some(None),
+                (None, false) => None,
+            };
+            ensure_edit_has_changes(
+                title.as_ref(),
+                resolved_body.as_ref(),
+                resolved_milestone.as_ref(),
+            )?;
             let args = EditIssueArgs {
                 title,
                 body: resolved_body,
+                milestone: resolved_milestone,
             };
             let issue = provider
                 .edit(number, args)
@@ -255,6 +334,7 @@ pub async fn handle(
             search,
             label,
             limit,
+            milestone,
         } => {
             let parsed_state = state
                 .as_deref()
@@ -267,20 +347,21 @@ pub async fn handle(
                     ))),
                 })
                 .transpose()?;
+            let limit = validate_limit(limit)?;
 
             let args = ListIssueArgs {
                 state: parsed_state,
                 labels: label,
-                assignee: None,
                 search,
                 limit,
+                milestone,
             };
-            let issues = provider
+            let paged = provider
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list issues: {e}"))?;
-            let output = CliOutput::success(issues, platform, "issue list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "issue list", &output_format)?;
         }
         IssueCommand::View { number } => {
             let issue = provider
@@ -290,6 +371,7 @@ pub async fn handle(
             let output = CliOutput::success(issue, platform, "issue view");
             print_output(&output, &output_format)?;
         }
+        IssueCommand::Precheck { .. } => return Err(miette::miette!("invalid precheck dispatch")),
         IssueCommand::Close { number } => {
             let issue = provider
                 .close(number)
@@ -319,13 +401,14 @@ pub async fn handle(
             let output = CliOutput::success(comment, platform, "issue comment");
             print_output(&output, &output_format)?;
         }
-        IssueCommand::Comments { number } => {
-            let comments = provider
-                .list_comments(number)
+        IssueCommand::Comments { number, limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list_comments(number, limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list comments for issue #{number}: {e}"))?;
-            let output = CliOutput::success(comments, platform, "issue comments");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "issue comments", &output_format)?;
         }
         IssueCommand::AddLabel { number, label } => {
             provider
@@ -396,15 +479,20 @@ fn resolve_comment_body(body: Option<String>, body_file: Option<String>) -> miet
     resolved.ok_or_else(|| miette::miette!("Comment body is required. Use --body or --body-file."))
 }
 
-/// 校验编辑参数：`title` 与 `body` 至少提供一个。
+/// 校验编辑参数：`title`、`body`、`milestone` 至少提供一个。
 ///
 /// # Errors
 ///
-/// 当两者都为 `None` 时返回错误。
-fn ensure_edit_has_changes(title: Option<&String>, body: Option<&String>) -> miette::Result<()> {
-    if title.is_none() && body.is_none() {
+/// 当三者都为 `None` 时返回错误。
+fn ensure_edit_has_changes(
+    title: Option<&String>,
+    body: Option<&String>,
+    milestone: Option<&Option<String>>,
+) -> miette::Result<()> {
+    if title.is_none() && body.is_none() && milestone.is_none() {
         return Err(miette::miette!(
-            "Nothing to edit. Provide --title and/or --body/--body-file."
+            "Nothing to edit. Provide --title, --body/--body-file, --milestone, or \
+             --remove-milestone."
         ));
     }
     Ok(())
@@ -447,11 +535,9 @@ mod tests {
 
     #[test]
     fn test_should_resolve_body_from_file() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("gitflow_test_body.md");
-        std::fs::write(&path, "file content here").expect("write temp file");
-        let result = resolve_body(None, Some(path.to_string_lossy().into_owned()));
-        let _ = std::fs::remove_file(&path);
+        let file = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(file.path(), "file content here").expect("write temp file");
+        let result = resolve_body(None, Some(file.path().to_string_lossy().into_owned()));
         assert!(result.is_ok());
         assert_eq!(
             result.expect("already checked"),
@@ -493,7 +579,7 @@ mod tests {
 
     #[test]
     fn test_should_error_when_edit_has_no_changes() {
-        let result = ensure_edit_has_changes(None, None);
+        let result = ensure_edit_has_changes(None, None, None);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Nothing to edit"));
@@ -513,6 +599,7 @@ mod tests {
             body_file: None,
             label: vec![],
             assignee: vec![],
+            milestone: None,
             repo: Some("other/repo".into()),
         };
         assert!(!should_use_remote_url_for_gitlab(&command));
@@ -526,6 +613,7 @@ mod tests {
             body_file: None,
             label: vec![],
             assignee: vec![],
+            milestone: None,
             repo: None,
         };
         assert!(should_use_remote_url_for_gitlab(&command));
@@ -534,14 +622,14 @@ mod tests {
     #[test]
     fn test_should_allow_edit_with_title_only() {
         let title = Some("T".to_string());
-        let result = ensure_edit_has_changes(title.as_ref(), None);
+        let result = ensure_edit_has_changes(title.as_ref(), None, None);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_should_allow_edit_with_body_only() {
         let body = Some("B".to_string());
-        let result = ensure_edit_has_changes(None, body.as_ref());
+        let result = ensure_edit_has_changes(None, body.as_ref(), None);
         assert!(result.is_ok());
     }
 
@@ -549,7 +637,7 @@ mod tests {
     fn test_should_allow_edit_with_both_title_and_body() {
         let title = Some("T".to_string());
         let body = Some("B".to_string());
-        let result = ensure_edit_has_changes(title.as_ref(), body.as_ref());
+        let result = ensure_edit_has_changes(title.as_ref(), body.as_ref(), None);
         assert!(result.is_ok());
     }
 
@@ -720,6 +808,45 @@ mod tests {
     }
 
     #[test]
+    fn test_should_parse_read_only_issue_precheck() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "precheck",
+            "--input",
+            "/tmp/issue.json",
+            "--live",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Precheck {
+                input,
+                response,
+                live,
+            }) => {
+                assert_eq!(input, "/tmp/issue.json");
+                assert!(response.is_none());
+                assert!(live);
+            }
+            _ => panic!("Expected IssueCommand::Precheck"),
+        }
+        assert!(
+            crate::Cli::try_parse_from([
+                "gitflow",
+                "issue",
+                "precheck",
+                "--input",
+                "/tmp/issue.json",
+                "--live",
+                "--response",
+                "/tmp/answer.json",
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
     fn test_should_parse_issue_edit_with_title() {
         use clap::Parser;
         let cli =
@@ -731,11 +858,15 @@ mod tests {
                 title,
                 body,
                 body_file,
+                milestone,
+                remove_milestone,
             }) => {
                 assert_eq!(number, 42);
                 assert_eq!(title, Some("New title".to_string()));
                 assert!(body.is_none());
                 assert!(body_file.is_none());
+                assert!(milestone.is_none());
+                assert!(!remove_milestone);
             }
             _ => panic!("Expected IssueCommand::Edit"),
         }
@@ -782,8 +913,24 @@ mod tests {
         let cli =
             crate::Cli::try_parse_from(["gitflow", "issue", "comments", "10"]).expect("parse");
         match cli.command {
-            crate::Commands::Issue(IssueCommand::Comments { number }) => {
+            crate::Commands::Issue(IssueCommand::Comments { number, limit }) => {
                 assert_eq!(number, 10);
+                assert_eq!(limit, None);
+            }
+            _ => panic!("Expected IssueCommand::Comments"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_comments_with_limit() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "comments", "10", "--limit", "5"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Comments { number, limit }) => {
+                assert_eq!(number, 10);
+                assert_eq!(limit, Some(5));
             }
             _ => panic!("Expected IssueCommand::Comments"),
         }
@@ -803,11 +950,13 @@ mod tests {
                 search,
                 label,
                 limit,
+                milestone,
             }) => {
                 assert_eq!(state, Some("open".into()));
                 assert_eq!(search, Some("crash".into()));
                 assert_eq!(label, vec!["bug".to_string()]);
                 assert_eq!(limit, Some(10));
+                assert!(milestone.is_none());
             }
             _ => panic!("Expected IssueCommand::List"),
         }
@@ -848,6 +997,94 @@ mod tests {
                 assert_eq!(assignee, vec!["user1".to_string(), "user2".to_string()]);
             }
             _ => panic!("Expected IssueCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_create_with_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "issue",
+            "create",
+            "--title",
+            "With milestone",
+            "--milestone",
+            "v1.0",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Create { milestone, .. }) => {
+                assert_eq!(milestone, Some("v1.0".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_milestone() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--milestone", "v2.0"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit {
+                milestone,
+                remove_milestone,
+                ..
+            }) => {
+                assert_eq!(milestone, Some("v2.0".to_string()));
+                assert!(!remove_milestone);
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_issue_edit_with_remove_milestone() {
+        use clap::Parser;
+        let cli =
+            crate::Cli::try_parse_from(["gitflow", "issue", "edit", "42", "--remove-milestone"])
+                .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::Edit {
+                milestone,
+                remove_milestone,
+                ..
+            }) => {
+                assert!(milestone.is_none());
+                assert!(remove_milestone);
+            }
+            _ => panic!("Expected IssueCommand::Edit"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_error_when_edit_has_milestone_and_remove_milestone() {
+        let command = IssueCommand::Edit {
+            number: 42,
+            title: None,
+            body: None,
+            body_file: None,
+            milestone: Some("v2.0".to_string()),
+            remove_milestone: true,
+        };
+        let result = handle(command, "github", "owner/repo", "", OutputFormat::Json).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("不能同时指定"));
+    }
+
+    #[test]
+    fn test_should_parse_issue_list_with_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "issue", "list", "--milestone", "v1.0"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Issue(IssueCommand::List { milestone, .. }) => {
+                assert_eq!(milestone, Some("v1.0".to_string()));
+            }
+            _ => panic!("Expected IssueCommand::List"),
         }
     }
 

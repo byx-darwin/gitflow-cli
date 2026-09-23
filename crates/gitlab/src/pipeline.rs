@@ -186,8 +186,8 @@ impl From<PipelineApiResponse> for PipelineStatus {
             ref_name: api.effective_ref(),
             status: status_enum,
             conclusion,
-            created_at: api.created_at.unwrap_or_else(Utc::now),
-            updated_at: api.updated_at.unwrap_or_else(Utc::now),
+            created_at: api.created_at,
+            updated_at: api.updated_at,
             url: api.web_url.unwrap_or_default(),
         }
     }
@@ -342,14 +342,20 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
 
         let pipelines = self.status(branch).await?;
 
-        // Filter by date range
+        // Filter by date range. A pipeline with no created_at has an unknown
+        // creation time and must be excluded, not guessed into or out of the
+        // window (#380 design §3.2).
         let cutoff = Utc::now() - chrono::Duration::days(i64::from(days));
         let recent: Vec<&PipelineStatus> = pipelines
             .iter()
-            .filter(|p| p.created_at >= cutoff)
+            .filter(|p| p.created_at.is_some_and(|c| c >= cutoff))
             .collect();
 
-        let total_runs = recent.len() as u64;
+        // Only pipelines that have reached a terminal state (Success/Failed/
+        // Cancelled) count toward the denominator used for `success_rate`.
+        // Running/Pending pipelines are still in flight and must not
+        // silently deflate the reported rate.
+        let total_runs = recent.iter().filter(|p| p.status.is_terminal()).count() as u64;
         if total_runs == 0 {
             return Ok(PipelineReport {
                 total_runs: 0,
@@ -374,14 +380,21 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitLabPipelineProvider<R> 
             }
         };
 
-        // Calculate average duration
+        // Calculate average duration. A pipeline missing either timestamp
+        // cannot have its duration computed and must be excluded from the
+        // sample set entirely, not treated as a 0-second run (#380 design
+        // §3.2).
         #[allow(
             clippy::cast_precision_loss,
             reason = "Duration values never exceed f64 precision"
         )]
         let durations: Vec<f64> = recent
             .iter()
-            .map(|p| (p.updated_at - p.created_at).num_seconds().max(0) as f64)
+            .filter_map(|p| {
+                let created = p.created_at?;
+                let updated = p.updated_at?;
+                Some((updated - created).num_seconds().max(0) as f64)
+            })
             .filter(|d| *d > 0.0)
             .collect();
 
@@ -528,6 +541,30 @@ mod tests {
         assert_eq!(status.ref_name, "main");
         assert_eq!(status.status, PipelineStatusEnum::Success);
         assert_eq!(status.conclusion.as_deref(), Some("success"));
+    }
+
+    #[test]
+    fn test_should_keep_pipeline_timestamps_none_when_api_omits_them() {
+        let api = PipelineApiResponse {
+            id: 101,
+            ref_name: Some("main".into()),
+            git_ref: None,
+            status: "success".into(),
+            created_at: None,
+            updated_at: None,
+            web_url: None,
+            sha: None,
+        };
+
+        let status: PipelineStatus = api.into();
+        assert!(
+            status.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            status.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
     }
 
     #[test]
@@ -748,5 +785,139 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_should_exclude_non_terminal_pipelines_from_report_total_runs() {
+        // 4 pipelines in the report window: 2 success, 1 failed, 1 still running.
+        let now = Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"id": 1, "ref_name": "main", "status": "success", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 2, "ref_name": "main", "status": "success", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 3, "ref_name": "main", "status": "failed", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 4, "ref_name": "main", "status": "running", "created_at": "{}", "updated_at": "{}"}}
+            ]"#,
+            ts(600),
+            ts(300),
+            ts(500),
+            ts(200),
+            ts(400),
+            ts(100),
+            ts(60),
+            ts(30),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        // Only 3 of the 4 pipelines have reached a terminal state
+        // (Success/Failed/Cancelled); the running one must be excluded
+        // from total_runs, not just from success/failure counts.
+        assert_eq!(report.total_runs, 3);
+        assert!((report.success_rate - (2.0 / 3.0)).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn test_should_zero_report_when_all_pipelines_are_running() {
+        // No terminal pipelines at all in the window -> total_runs must be
+        // 0 (not the raw count of running pipelines), success_rate 0.0, and
+        // no division-by-zero NaN leaking into the report.
+        let now = Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[{{"id": 1, "ref_name": "main", "status": "running", "created_at": "{}", "updated_at": "{}"}}]"#,
+            ts(60),
+            ts(30),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        assert_eq!(report.total_runs, 0);
+        assert!((report.success_rate - 0.0).abs() < f64::EPSILON);
+        assert!(!report.success_rate.is_nan());
+    }
+
+    #[tokio::test]
+    async fn test_should_exclude_pipelines_with_missing_created_at_from_report_cutoff() {
+        // One pipeline has a real, in-window created_at; the other omits it
+        // entirely. The one with no created_at must not count toward
+        // total_runs — we cannot know whether it falls in the requested
+        // window, so we exclude it rather than guess.
+        let now = Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"id": 1, "ref_name": "main", "status": "success", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 2, "ref_name": "main", "status": "success"}}
+            ]"#,
+            ts(600),
+            ts(300),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        assert_eq!(
+            report.total_runs, 1,
+            "pipeline #2 has no created_at and must be excluded from the report, not counted as \
+             in-window"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_exclude_pipeline_with_missing_timestamp_from_duration_average() {
+        // Pipeline #1 has both timestamps present (contributes a real duration
+        // sample). Pipeline #2 has created_at but no updated_at — it must be
+        // excluded from the average, not treated as a 0-second duration.
+        let now = Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"id": 1, "ref_name": "main", "status": "success", "created_at": "{}", "updated_at": "{}"}},
+                {{"id": 2, "ref_name": "main", "status": "success", "created_at": "{}"}}
+            ]"#,
+            ts(600),
+            ts(300),
+            ts(500),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitLabPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        // Only pipeline #1 contributes a duration sample (300s); pipeline #2's
+        // missing updated_at must not be treated as 0, which would drag the
+        // average down incorrectly.
+        assert!(
+            (report.avg_duration_secs - 300.0).abs() < 1.0,
+            "expected ~300s average from the one complete sample, got {}",
+            report.avg_duration_secs
+        );
     }
 }

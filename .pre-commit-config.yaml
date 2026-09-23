@@ -19,8 +19,10 @@ repos:
       - id: cargo-fmt
         # NOTE: requires `rustup toolchain install nightly`
         name: cargo fmt
-        description: Format files with rustfmt.
-        entry: bash -c 'cargo +nightly fmt -- --check'
+        description: 'Format files with rustfmt (writes back; pre-commit will
+          report "files were modified by this hook" and block the commit if
+          it did — re-`git add` and commit again, per Issue #369).'
+        entry: bash -c 'cargo +nightly fmt'
         language: system
         files: \.rs$
         pass_filenames: false

@@ -2,19 +2,22 @@
 
 > 跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。
 
-gf 是一个 Rust 编写的命令行工具，统一封装 GitHub（gh）、GitLab（glab）、GitCode（gitcode）三大平台的差异，并配套可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot 的 Skills 集合，提供从需求澄清到代码发布的完整 AI 编程工程循环。
+gf 是一个 Rust 编写的命令行工具，统一封装 GitHub（gh）、GitLab（glab）、GitCode（gitcode）三大平台的差异，并配套可安装到 Claude Code / Codex / OpenCode / Gemini / Copilot / Qoder / Pi 的 Skills 集合，提供从需求澄清到代码发布的完整 AI 编程工程循环。可选的 TypeSafe Jev 适配器为语义不确定性提供 Noul / Choice / Score / Batch 类型化判断，确定性规则与人工确认仍控制真实写操作。
 
 ## Docs
 
 - [文档索引](https://byx-darwin.github.io/gitflow-cli/docs/): 文档与指南入口
+- [Jev 类型化决策](https://byx-darwin.github.io/gitflow-cli/jev/): 可选 Jev 决策层、安全边界与离线评估
+- [Jev 设计实践](https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/): 为什么 AI 工程工作流需要类型化决策
+- [Jev 机器可读事实页](https://byx-darwin.github.io/gitflow-cli/llms-jev.txt): 定义、类型、权限边界与接入方式
 - [5 分钟快速上手](https://byx-darwin.github.io/gitflow-cli/quickstart/): 安装、装 Skills、验证、首次工作流
 - [兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/): 三平台底层 CLI 版本与功能覆盖
 - [更新日志](https://byx-darwin.github.io/gitflow-cli/changelog/): 版本更新历史
 
 ## Distribution
 
-- [crates.io](https://crates.io/crates/gitflow-cli): cargo install gf
-- [GitHub](https://github.com/byx-darwin/tap): 源码、Issues、Releases
+- [crates.io](https://crates.io/crates/gitflow-cli): cargo install gitflow-cli
+- [GitHub](https://github.com/byx-darwin/gitflow-cli): 源码、Issues、Releases
 - [Homebrew](https://github.com/byx-darwin/tap/tree/main/HomebrewFormula): brew tap byx-darwin/tap
 
 ## Optional

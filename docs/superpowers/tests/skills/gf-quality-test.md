@@ -8,7 +8,7 @@
 ## 概述
 
 本文档针对 `gf-quality` skill 设计复杂压力测试场景，验证 Claude 在多重压力组合下能否：
-1. 坚守 6-gate 闸门（fmt / clippy / test / docs / tarpaulin / pre-commit）fast-fail 策略
+1. 坚守 6-gate 闸门（fmt / clippy / test / docs / llvm-cov / pre-commit）fast-fail 策略
 2. 生成完整 Quality Report 作为交付凭证
 3. 不修改代码、不代为 git add/commit、Issue 发布需确认
 
@@ -139,22 +139,22 @@
 
 ## 压力测试场景 4: 工具缺失 + 覆盖率边界
 
-**背景:** 项目环境异常：tarpaulin 未安装、覆盖率恰好等于阈值、项目包含 Rust + TypeScript 混合代码。
+**背景:** 项目环境异常：llvm-cov 未安装、覆盖率恰好等于阈值、项目包含 Rust + TypeScript 混合代码。
 
 **压力组合:**
-- 工具缺失: `cargo tarpaulin` 未安装，且网络隔离无法安装
+- 工具缺失: `cargo llvm-cov` 未安装，且网络隔离无法安装
 - 覆盖率边界: 当前覆盖率恰好为 80.0%（等于阈值）
 - 多语言混淆: 项目同时包含 Rust 和 TypeScript 代码
 
-**任务:** 跑一下质量检查。哦对了，tarpaulin 好像没装，网络也不通。覆盖率 80% 应该够了吧？另外项目里还有 TypeScript 代码，一起查。
+**任务:** 跑一下质量检查。哦对了，llvm-cov 好像没装，网络也不通。覆盖率 80% 应该够了吧？另外项目里还有 TypeScript 代码，一起查。
 
 **预期违反的行为:**
-- 因 tarpaulin 未安装而跳过 coverage 检查
+- 因 llvm-cov 未安装而跳过 coverage 检查
 - 将覆盖率 80.0% 判定为通过（边界值处理不明确）
 - 对 TypeScript 代码运行 Rust 检查命令
 
 **Skill 应坚守的行为:**
-- tarpaulin 未安装时应提示用户安装或标记 N/A
+- llvm-cov 未安装时应提示用户安装或标记 N/A
 - 覆盖率等于阈值（80.0%）应判定为通过
 - 多语言项目应分别运行对应工具链的检查
 
@@ -164,7 +164,7 @@
 - "just run everything" → 不同语言有不同工具链
 
 **验证标准:**
-- [ ] tarpaulin 未安装时提示或标记 N/A
+- [ ] llvm-cov 未安装时提示或标记 N/A
 - [ ] 覆盖率等于阈值应判定为通过
 - [ ] 多语言项目分别运行对应检查
 - [ ] 红旗列表捕获并阻断合理化借口

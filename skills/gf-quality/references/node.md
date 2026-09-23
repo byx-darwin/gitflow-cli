@@ -1,19 +1,6 @@
 # Node.js / TypeScript Quality Toolchain
 
-**Detection:** `package.json` in project root.
-
-## Runtime Detection
-
-Check for package manager lock files **in order**:
-
-| Lock File | Runtime | Install Command |
-|-----------|---------|----------------|
-| `bun.lockb` / `bun.lock` | Bun | `bun install` |
-| `pnpm-lock.yaml` | pnpm | `pnpm install` |
-| `yarn.lock` | Yarn | `yarn install` |
-| `package-lock.json` | npm | `npm install` |
-
-First match wins. If no lock file, default to `npm`.
+**Shared language profile:** `gf-quality/references/profiles/node.md`. Read it before running these gates.
 
 ## Gate Commands
 
@@ -23,7 +10,7 @@ First match wins. If no lock file, default to `npm`.
 |---|------|---------|---------------|
 | 1 | build | `bun run build` or `bunx tsc --noEmit` (TS) | exit 0 |
 | 2 | test | `bun test` | all pass |
-| 3 | coverage | `bun test --coverage` | incremental ≥ 80% |
+| 3 | coverage | `bun test --coverage` | exit 0 (threshold enforced via `bunfig.toml`'s `[test] coverageThreshold`, a fraction where `0.80` = the skill's default 80%); SKIPPED if `bunfig.toml` has no `[test] coverageThreshold` — `bun test --coverage` then exits 0 at any coverage and the skill must not create the file; N/A if no `.js`/`.jsx`/`.ts`/`.tsx` in change set |
 | 4 | format | `bunx prettier --check .` | exit 0 |
 | 5 | static | `bunx eslint .` or `bun run lint` | exit 0, no errors |
 | 6 | pre-commit | `pre-commit run --all-files` or `bunx lint-staged` | all hooks pass (or N/A) |
@@ -34,27 +21,33 @@ First match wins. If no lock file, default to `npm`.
 |---|------|---------|---------------|
 | 1 | build | `npm run build` or `npx tsc --noEmit` (TS) | exit 0 |
 | 2 | test | `npm test` | all pass |
-| 3 | coverage | `npm run test:coverage` or `npx jest --coverage` | incremental ≥ 80% |
+| 3 | coverage | `npx jest --coverage --coverageThreshold="{\"global\":{\"lines\":${COV_THRESHOLD:-80}}}"` (preferred — it is the only form that provably enforces the threshold) | exit 0 (total line coverage ≥ threshold); N/A if no `.js`/`.jsx`/`.ts`/`.tsx` in change set |
 | 4 | format | `npx prettier --check .` or `npm run format:check` | exit 0 |
 | 5 | static | `npx eslint .` or `npm run lint` | exit 0, no errors |
 | 6 | pre-commit | `pre-commit run --all-files` or `npx lint-staged` | all hooks pass (or N/A) |
+
+A project's own `npm run test:coverage` may be used **only** after inspecting the
+script in `package.json` and confirming it passes a threshold (`--coverageThreshold`,
+`--cov-fail-under`, a `coverageThreshold` key in jest config, or
+`coverage.thresholds` in vitest config). An arbitrary `test:coverage` script
+guarantees nothing: if no threshold is enforced, report Gate 3 as **SKIPPED**
+rather than PASS.
+
+Note the quoting of the jest command: the JSON argument is in **double** quotes so
+`${COV_THRESHOLD:-80}` expands. The original single-quoted form would have passed
+the literal text `${COV_THRESHOLD:-80}` to jest.
 
 ### pnpm / Yarn
 
 Replace `npm` → `pnpm` or `yarn`, `npx` → `pnpm exec` or `yarn exec` accordingly.
 
-## Runtime Detection Command
 
-```bash
-for f in bun.lockb bun.lock pnpm-lock.yaml yarn.lock package-lock.json; do
-  [ -f "$f" ] && echo "DETECTED: $f" && break
-done
-```
+## Gate Notes
 
-## Notes
-
-- Gate 1: check scripts in lock file's package manager; for TypeScript, also run type check
-- Gate 3: look for `test:coverage` or `coverage` script; fallback to `jest --coverage` / `vitest --coverage`
+- Gate 1: for TypeScript, also run `tsc --noEmit` for type checking
+- Gate 3: a `test:coverage` script counts only if it enforces a threshold; a bare `jest --coverage` or `vitest --coverage` enforces none — in that case mark SKIPPED
+- Gate 3: jest takes the threshold from `--coverageThreshold`; vitest from `coverage.thresholds.lines` in `vitest.config.*`; Bun from `[test] coverageThreshold` in `bunfig.toml`. Absent threshold config → SKIPPED, never PASS
+- Gate 3 is N/A when the change set contains no `.js`/`.jsx`/`.ts`/`.tsx` file — report N/A, not SKIPPED
 - Gate 4: respect `.prettierrc` or config in `package.json`
 - Gate 5: respect `.eslintrc*` or `eslintConfig` in `package.json`
 - Gate 6: if no pre-commit config, check for `husky` + `lint-staged` setup
@@ -63,20 +56,12 @@ done
 
 - ❌ Never run install without user confirmation
 - ❌ Never modify `package.json` or lock files during quality check
-- ❌ Never auto-fix lint issues without showing diff first
-- ❌ Never mix runtimes (e.g., run `npm install` in a bun project)
+- ❌ Never auto-fix lint issues with `eslint --fix` — report only
+- ❌ Never mix package managers; follow the shared profile
 
-## Configuration
+## Quality Gate Configuration
 
-### Tool Setup
-
-| Tool | Install | Config File | Required |
-|------|---------|-------------|----------|
-| prettier | `npm install -D prettier` | `.prettierrc` | Gate 4 |
-| eslint | `npm install -D eslint` | `.eslintrc.json` | Gate 5 |
-| typescript | `npm install -D typescript` | `tsconfig.json` | Gate 1 (TS projects) |
-
-### Config File Examples
+### Configuration Examples
 
 #### .prettierrc
 
@@ -124,6 +109,20 @@ done
 }
 ```
 
+#### bunfig.toml (Bun coverage threshold)
+
+```toml
+[test]
+coverageThreshold = 0.80
+```
+
+`coverageThreshold` is a fraction, not a percentage — `0.80` corresponds to the skill's default
+`COV_THRESHOLD=80`. Bun's `bun test --coverage` has no CLI flag for the threshold; it only reads
+`bunfig.toml`. `bun test` silently ignores unrecognized flags, so a threshold passed on the
+command line has no effect and must not be relied upon. If `bunfig.toml` is missing or has no
+`[test] coverageThreshold`, `bun test --coverage` exits 0 no matter how low coverage is — report
+Gate 3 as SKIPPED and recommend adding the key. The skill never creates or edits `bunfig.toml`.
+
 #### package.json (scripts section)
 
 ```json
@@ -138,21 +137,6 @@ done
 }
 ```
 
-### Environment Variables
-
-| Variable | Effect | Default |
-|----------|--------|---------|
-| `NODE_ENV` | Node environment | `development` |
-| `npm_config_*` | npm configuration | — |
-
-### Language-Specific Notes
-
-- Detect runtime from lock file: bun → pnpm → yarn → npm
-- Gate 1: for TypeScript, also run `tsc --noEmit` for type checking
-- Gate 3: look for `test:coverage` script, fallback to `jest --coverage` or `vitest --coverage`
-- Gate 4: respect `.prettierrc` or config in `package.json`
-- Gate 5: respect `.eslintrc*` or `eslintConfig` in `package.json`
-
 ## Troubleshooting
 
 ### Common Errors
@@ -160,7 +144,7 @@ done
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `npm ERR! permission denied` | Permission issue | Use `sudo` or fix npm directory permissions |
-| `ERESOLVE could not resolve dependency` | Lock file conflict | Delete `node_modules` and `package-lock.json`, run `npm install` |
+| `ERESOLVE could not resolve dependency` | Lock file conflict | Report the lockfile conflict; ask the user before changing dependencies |
 | `TS2304: Cannot find name` | TypeScript error | Check imports and type definitions |
 | `Cannot find module` | Import error | Check path and ensure module is installed |
 
@@ -176,17 +160,14 @@ done
 ### FAQ
 
 **Q: npm vs yarn vs pnpm?**
-A: All work. pnpm is fastest and most disk-efficient. yarn is mature. npm is default.
+A: Follow the selected lockfile and package manager in the shared Node.js profile.
 
 **Q: How to clear node_modules cache?**
-A: Delete `node_modules` and lock file, then run `npm install` (or `yarn install`, `pnpm install`).
+A: Inspect the selected lockfile and report the conflict; do not delete or regenerate it during a quality check.
 
 **Q: TypeScript strict mode?**
 A: Enable in `tsconfig.json`: `"strict": true`. Fix all type errors before proceeding.
 
 ### Performance Tips
 
-- Use `npm ci` instead of `npm install` in CI for faster, deterministic installs
 - Use parallel test runners: `jest --parallel` or `vitest --pool=forks`
-- Skip dev dependencies in CI: `npm install --production`
-- Use `--ignore-scripts` to skip postinstall scripts if not needed

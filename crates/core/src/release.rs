@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Result, types::UserSummary};
+use crate::{Result, paging::Paged, types::UserSummary};
 
 /// Release 数据。
 ///
@@ -37,8 +37,9 @@ pub struct ReleaseData {
     /// Release 作者（list 命令可能不包含此字段）。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<UserSummary>,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
     /// 发布时间（UTC），草稿 Release 为 None。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub published_at: Option<DateTime<Utc>>,
@@ -85,12 +86,15 @@ pub trait ReleaseProvider: std::fmt::Debug + Send + Sync {
     /// 当平台 API 调用失败或参数非法时返回错误。
     async fn create(&self, args: CreateReleaseArgs) -> Result<ReleaseData>;
 
-    /// 列出仓库的 Release 列表。
+    /// 列出仓库的 Release。
+    ///
+    /// `limit` 为 `None` 时取至 [`crate::paging::DEFAULT_LIST_LIMIT`]。
+    /// 返回的 [`Paged`] 携带截断标志。
     ///
     /// # Errors
     ///
     /// 当平台 API 调用失败时返回错误。
-    async fn list(&self) -> Result<Vec<ReleaseData>>;
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<ReleaseData>>;
 
     /// 查看指定 tag 的 Release 详情。
     ///
@@ -223,6 +227,31 @@ mod tests {
         assert!(!serialized.contains("\"name\":"));
         assert!(!serialized.contains("\"body\":"));
         assert!(!serialized.contains("\"publishedAt\":"));
+    }
+
+    #[test]
+    fn test_should_deserialize_release_with_missing_created_at_as_none() {
+        let json = r#"{
+            "id": 7,
+            "tagName": "v0.5.0",
+            "draft": false,
+            "prerelease": false,
+            "url": "https://example.com/releases/7"
+        }"#;
+        let release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        assert!(
+            release.created_at.is_none(),
+            "missing createdAt must deserialize to None, not error or a fabricated timestamp"
+        );
+    }
+
+    #[test]
+    fn test_should_omit_created_at_when_none_on_serialize() {
+        let json = sample_release_json();
+        let mut release: ReleaseData = serde_json::from_str(json).expect("deserialize");
+        release.created_at = None;
+        let serialized = serde_json::to_string(&release).expect("serialize");
+        assert!(!serialized.contains("\"createdAt\""));
     }
 
     #[test]

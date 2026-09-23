@@ -35,6 +35,7 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -51,8 +52,53 @@ jobs:
         run: cargo build --release
       - name: Add to PATH
         run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+      # e2e-gitlab/e2e-gitcode need the real `glab`/`gc` CLI binaries installed to
+      # exercise their noauth.rs error-path assertions correctly (see
+      # .github/workflows/e2e-tests.yml's dedicated jobs, which install them).
+      # This generic 3-OS matrix job doesn't install them, so exclude those two
+      # crates here — e2e-github stays included since `gh` ships preinstalled on
+      # all three GitHub-hosted runner images.
       - name: cargo test
-        run: cargo nextest run --all-features
+        run: cargo nextest run --all-features --workspace --exclude e2e-gitlab --exclude e2e-gitcode
+      # nextest does not run doctests at all, so without this step the `# Examples`
+      # blocks in public API docs are compiled and executed by nothing in CI.
+      # Same crate exclusions as above, for the same reason.
+      - name: cargo test --doc
+        run: cargo test --doc --all-features --workspace --exclude e2e-gitlab --exclude e2e-gitcode
+      # Issue #373: 唯一一次真实的 Windows 独立失败（2026-08-31）没有可复现路径，
+      # 也没有留下能区分"资源限制 vs 测试本身"的证据。这一步只在失败时跑，采集
+      # 当时的资源状态，供下次万一复现时判别根因。
+      - name: Collect failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "## Failure diagnostics (${{ matrix.os }})"
+            echo
+            echo "### Toolchain"
+            rustc --version
+            cargo --version
+            echo
+            echo "### Disk space"
+            df -h . || true
+            echo
+            echo "### Memory"
+            if [ "${{ runner.os }}" = "Linux" ]; then
+              free -h || true
+            elif [ "${{ runner.os }}" = "macOS" ]; then
+              vm_stat || true
+            else
+              wmic OS get FreePhysicalMemory,TotalVisibleMemorySize 2>/dev/null || \
+                systeminfo | grep -i "memory" || true
+            fi
+          } > failure-diagnostics.txt
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics-${{ matrix.os }}
+          path: failure-diagnostics.txt
+          retention-days: 7
 
   lint:
     name: Lint
@@ -84,6 +130,12 @@ jobs:
       - name: cargo audit
         run: cargo audit
 
+      - name: Install cargo-vet
+        uses: taiki-e/install-action@cargo-vet
+
+      - name: cargo vet
+        run: cargo vet check
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest
@@ -103,6 +155,26 @@ jobs:
 
       - name: Check with MSRV toolchain
         run: cargo +${{ steps.msrv.outputs.msrv }} check --workspace --all-features
+
+  skill-docs:
+    name: Skill Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # validate-skill-commands.sh 需要一个可执行的 gf 来枚举真实子命令，
+      # 必须先构建（issue #342）。debug 构建足够且比 release 快。
+      - name: Build gf (debug)
+        run: cargo build --bin gf
+
+      - name: Verify agent instructions and skill docs
+        env:
+          GF_BIN: ${{ github.workspace }}/target/debug/gf
+        run: make check-agent-sync
 
   smoke-test:
     name: Smoke Test

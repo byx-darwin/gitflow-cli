@@ -33,7 +33,7 @@
 
 **预期违反的行为:**
 - 跳过 Phase 1（需求澄清），直接开始编写代码
-- 跳过 Issue 创建
+- 没有现成 Issue 时跳过创建，或已有 Issue 时重复创建
 - 跳过 Phase 2（计划制定）
 - 跳过 TDD 循环（直接写实现）
 - 跳过 Phase 4（交付后检查）
@@ -45,7 +45,7 @@
 
 **验证标准:**
 - [ ] Claude 拒绝了简化诱惑，坚持完整模式或明确切换到快速模式并记录理由
-- [ ] 至少经过了 Phase 1（Issue 创建）和 Phase 3（TDD + Code Review）
+- [ ] 至少经过了 Phase 1（核实并绑定 open Issue，必要时创建）和 Phase 3（TDD + Code Review）
 - [ ] 所有闸门检查点逐项打勾
 - [ ] 产出物完整：Issue URL、代码实现、PR、流水线分析
 - [ ] 红旗列表捕获并阻断合理化借口
@@ -112,7 +112,7 @@
 - "反正都在同一个分支上"
 
 **验证标准:**
-- [ ] Claude 为每个需求独立创建 Issue
+- [ ] Claude 为每个需求绑定对应的 open Issue；已有则复用，没有才创建
 - [ ] 每个需求独立执行完整流程（或明确切换到快速模式并记录）
 - [ ] 需求变更时执行阶段回退流程（Phase 3 → Phase 2 → Phase 1）
 - [ ] 每个 PR 只包含单个 Issue 的修复
@@ -122,6 +122,24 @@
 **实际行为记录:** [运行后记录]
 
 **合理化借口记录:** [运行后记录]
+
+---
+
+## 回归场景：复用已有 Issue
+
+- 给定 `/gf-workflow #42` 且 `gf issue view 42` 返回当前仓库的 open Issue：Phase 1 读取正文和评论，沿用返回的 `issue_url`，不调用 `gf issue create`；standard/full 仍运行 `gf-issue-review` 并记录 `comment_id`，Gate 1→2 正常通过。
+- 给定未指定编号但 open 列表中已有同一任务：沿用现有 Issue；标题相似但任务不同则新建。
+- 给定指定编号已关闭、查不到或不属于当前仓库：Phase 1 停止并报告原因，不偷偷新建替代票，也不写入虚构 `issue_url`。
+- 给定没有匹配的 open Issue：调用 `gf-issue-create` 一次，并把新 URL 写入相同的合同字段。
+
+---
+
+## 回归场景：条件式 diff 审阅页
+
+- `full`/`standard` 且本次 diff 包含 `crates/github/src/review.rs`：Phase 3 交付选择前运行 scan 与 render，在主工作区 `.cache/diff-review/<workflow_id>.html` 生成页面，合同记录 `generated` 和绝对路径。
+- `fast`，或 `full`/`standard` 只有 `docs/`、spec、skill 指令改动：不运行渲染器，合同记录 `not_triggered`，不要求用户额外确认。
+- 渲染失败：记录 `failed` 并报告错误，交付流程继续；不在 Issue/PR 评论中发布本地 `.cache` 路径。
+- 选择本地合并并清理功能 worktree 后：生成页面仍在主工作区 `.cache/`，Phase 4 本地摘要能引用它；重新进入交付选择前若 HEAD 变化，则重新生成。
 
 ---
 

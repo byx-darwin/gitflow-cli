@@ -8,7 +8,7 @@ description: |
 
 # gf-review
 
-Submits review verdicts via `gf review`. Read-only skill — does not analyze code, edit files, or choose verdicts. Users must run `/gf-pr-review` or `/gf-pr-inline-review` first to form verdict, or supply verdict explicitly.
+Submits review verdicts via `gf review`. It does not edit local files or choose verdicts, but publishing a verdict changes remote PR state, so this skill cannot use the read-only permission profile. Users must run `/gf-pr-review` or `/gf-pr-inline-review` first to form a verdict, or supply one explicitly.
 
 ## CLI Requirement
 
@@ -64,6 +64,16 @@ gf review approve <n> --body "<c>"    # or: request-changes / comment
 | Submit (after inline) | `gf review submit <n> --event <approved|changes_requested|commented> --body "<c>"` |
 
 **Decision rule:** single verdict → `approve/request-changes`; after inline comments → `submit`; neutral only → `comment`.
+
+## Report Output & Archiving
+
+When invoked as the `gf-review` step of `gf-workflow` Phase 4 (full/standard
+mode), the accompanying code review findings persisted for audit trail go to
+`docs/code-review-report-pr<N>-<YYYY-MM-DD>.md`. Once
+`code-review-report-*.md` files under `docs/` exceed 5, move all but the 5
+most recent (ordered by the PR number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy.
 
 ## Flowchart
 

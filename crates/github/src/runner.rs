@@ -1,13 +1,16 @@
 //! Command execution abstraction for GitHub CLI (`gh`).
 //!
-//! Re-exports the shared [`CommandRunner`] trait, [`CommandOutput`], and
-//! [`RealCommandRunner`] from `gitflow-cli-adapter-utils`.
+//! Re-exports the shared [`CommandRunner`] trait, [`CommandOutput`],
+//! [`RealCommandRunner`], [`EnvSource`] trait, and [`RealEnv`] from
+//! `gitflow-cli-adapter-utils`.
 //! Platform-specific mock implementations live in this module for testing.
 
 #[cfg(test)]
 use std::process::ExitStatus;
 
-pub use gitflow_cli_adapter_utils::{CommandOutput, CommandRunner, RealCommandRunner};
+pub use gitflow_cli_adapter_utils::{
+    CommandOutput, CommandRunner, EnvSource, RealCommandRunner, RealEnv,
+};
 
 /// Mock implementation for testing failure scenarios.
 ///
@@ -136,6 +139,8 @@ impl CommandRunner for MockCommandRunner {
 #[derive(Debug, Clone)]
 pub struct SequencedMockCommandRunner {
     responses: std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<CommandOutput>>>,
+    /// Recorded `(program, args)` sequences for every `run`/`run_with_stdin` call.
+    recorded: std::sync::Arc<std::sync::Mutex<RecordedCalls>>,
 }
 
 #[cfg(test)]
@@ -150,6 +155,7 @@ impl SequencedMockCommandRunner {
     pub fn new(outputs: Vec<CommandOutput>) -> Self {
         Self {
             responses: std::sync::Arc::new(std::sync::Mutex::new(outputs.into())),
+            recorded: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
         }
     }
 
@@ -179,12 +185,27 @@ impl SequencedMockCommandRunner {
             .collect();
         Self::new(outputs)
     }
+
+    /// Return the recorded `(program, args)` sequences from every executed call.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal recording mutex is poisoned (a prior panic while
+    /// holding the lock).
+    #[must_use]
+    pub fn recorded_calls(&self) -> RecordedCalls {
+        self.recorded.lock().expect("mock mutex poisoned").clone()
+    }
 }
 
 #[cfg(test)]
 #[async_trait::async_trait]
 impl CommandRunner for SequencedMockCommandRunner {
-    async fn run(&self, _program: &str, _args: &[&str]) -> std::io::Result<CommandOutput> {
+    async fn run(&self, program: &str, args: &[&str]) -> std::io::Result<CommandOutput> {
+        self.recorded.lock().expect("mock mutex poisoned").push((
+            program.to_string(),
+            args.iter().map(|s| (*s).to_string()).collect(),
+        ));
         let mut guard = self
             .responses
             .lock()

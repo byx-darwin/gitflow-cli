@@ -46,8 +46,9 @@ pub struct ReviewData {
     pub body: Option<String>,
     /// 审查人。
     pub author: UserSummary,
-    /// 提交时间（UTC）。
-    pub submitted_at: DateTime<Utc>,
+    /// 提交时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub submitted_at: Option<DateTime<Utc>>,
 }
 
 /// Review 评论数据。

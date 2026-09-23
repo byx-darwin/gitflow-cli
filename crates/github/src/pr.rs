@@ -6,10 +6,11 @@
 
 use async_trait::async_trait;
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State},
 };
+use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
@@ -19,7 +20,20 @@ use crate::{
 
 /// `gh pr` 请求的 JSON 字段列表。
 const PR_FIELDS: &str = "number,title,body,state,isDraft,author,baseRefName,headRefName,createdAt,\
-                         updatedAt,mergedAt,url";
+                         updatedAt,mergedAt,milestone,url";
+
+/// `gh repo view --json defaultBranchRef` 的响应类型。
+#[derive(Debug, Deserialize)]
+struct RepoViewResponse {
+    #[serde(rename = "defaultBranchRef")]
+    default_branch_ref: DefaultBranchRef,
+}
+
+/// `defaultBranchRef` 对象，仅取 `name` 字段。
+#[derive(Debug, Deserialize)]
+struct DefaultBranchRef {
+    name: String,
+}
 
 /// GitHub Pull Request 提供者，通过 `gh` CLI 操作。
 ///
@@ -80,10 +94,53 @@ impl<R: CommandRunner> GitHubPrProvider<R> {
             runner,
         }
     }
+
+    /// [`PrProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let state = args.state.map(|state| match state {
+            State::Open => "open",
+            State::Closed => "closed",
+            State::All => "all",
+        });
+        let repo = &self.repo;
+        let runner = &self.runner;
+
+        debug!(repo = %self.repo, cap, "spawning `gh pr list`");
+
+        fetch_capped(FetchStrategy::SingleShot, cap, |_page, limit| async move {
+            let limit_str = limit.to_string();
+            let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", repo, "--json", PR_FIELDS];
+
+            if let Some(state) = state {
+                cmd_args.push("--state");
+                cmd_args.push(state);
+            }
+            cmd_args.push("--limit");
+            cmd_args.push(&limit_str);
+
+            let output = runner
+                .run("gh", &cmd_args)
+                .await
+                .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+            if !output.status.success() {
+                return Err(parse_gh_error(&output.stderr).into());
+            }
+
+            let prs: Vec<PrData> =
+                serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+            Ok(prs)
+        })
+        .await
+    }
 }
 
 #[async_trait]
-impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
+impl<R: CommandRunner + Clone + 'static> PrProvider for GitHubPrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let repo = args.repo.as_deref().unwrap_or(&self.repo);
 
@@ -110,6 +167,18 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
 
         if args.draft {
             cmd_args.push("--draft");
+        }
+
+        let resolved_milestone_title;
+        if let Some(identifier) = &args.milestone {
+            let milestone_provider =
+                crate::GitHubMilestoneProvider::with_runner(repo, self.runner.clone());
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_title = resolved.title;
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_title);
         }
 
         debug!(
@@ -140,40 +209,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
         self.view(pr_number).await
     }
 
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd_args: Vec<&str> = vec!["pr", "list", "--repo", &self.repo, "--json", PR_FIELDS];
-
-        if let Some(state) = &args.state {
-            cmd_args.push("--state");
-            cmd_args.push(match state {
-                State::Open => "open",
-                State::Closed => "closed",
-                State::All => "all",
-            });
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--limit");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `gh pr list`");
-
-        let output = self
-            .runner
-            .run("gh", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_gh_error(&output.stderr).into());
-        }
-
-        let prs: Vec<PrData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(prs)
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
@@ -523,6 +560,42 @@ impl<R: CommandRunner + 'static> PrProvider for GitHubPrProvider<R> {
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
+
+    /// 查询仓库配置的默认分支（如 `main`、`dev`）。
+    ///
+    /// 调用 `gh repo view --json defaultBranchRef` 并解析 `name` 字段。
+    ///
+    /// # Errors
+    ///
+    /// 当 `gh` CLI 调用失败或响应无法解析时返回错误。
+    async fn default_branch(&self) -> Result<String> {
+        debug!(repo = %self.repo, "spawning `gh repo view`");
+
+        let output = self
+            .runner
+            .run(
+                "gh",
+                &[
+                    "repo",
+                    "view",
+                    "--repo",
+                    &self.repo,
+                    "--json",
+                    "defaultBranchRef",
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn gh: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_gh_error(&output.stderr).into());
+        }
+
+        let resp: RepoViewResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(resp.default_branch_ref.name)
+    }
 }
 
 /// Parse PR number from GitHub URL.
@@ -544,7 +617,7 @@ fn parse_pr_number_from_url(url: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runner::MockCommandRunner;
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
 
     #[test]
     fn test_should_construct_github_pr_provider() {
@@ -585,6 +658,31 @@ mod tests {
         assert_eq!(pr.base_branch, "main");
         assert_eq!(pr.head_branch, "feature/new-thing");
         assert_eq!(pr.url, "https://github.com/octocat/hello-world/pull/123");
+    }
+
+    #[test]
+    fn test_should_deserialize_pr_with_missing_timestamps_as_none() {
+        // gh CLI is not known to ever omit createdAt/updatedAt, but PrData's
+        // fields are now Option<DateTime<Utc>> at the core level (#380) — this
+        // pins that the github path tolerates their absence gracefully rather
+        // than erroring, since this crate has no intermediate struct or
+        // fallback logic of its own for PrData.
+        let gh_json = br#"{
+            "number": 9,
+            "title": "No timestamps",
+            "state": "open",
+            "draft": false,
+            "author": {"login": "octocat", "id": "1"},
+            "baseBranch": "main",
+            "headBranch": "feature/x",
+            "mergedAt": null,
+            "url": "https://github.com/octocat/hello-world/pull/9"
+        }"#;
+
+        let pr: PrData =
+            serde_json::from_slice(gh_json).expect("missing timestamps must not error");
+        assert!(pr.created_at.is_none());
+        assert!(pr.updated_at.is_none());
     }
 
     #[test]
@@ -876,6 +974,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 
@@ -1182,5 +1281,170 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    // --- default_branch() tests ---
+
+    #[tokio::test]
+    async fn test_should_return_default_branch_on_success() {
+        let runner = MockCommandRunner::success(r#"{"defaultBranchRef":{"name":"dev"}}"#);
+        let provider = GitHubPrProvider::with_runner("octocat/hello-world", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.expect("already checked"), "dev");
+    }
+
+    #[tokio::test]
+    async fn test_should_send_expected_argv_for_default_branch() {
+        let runner = MockCommandRunner::success(r#"{"defaultBranchRef":{"name":"dev"}}"#);
+        let provider = GitHubPrProvider::with_runner("octocat/hello-world", runner.clone());
+
+        let _ = provider.default_branch().await;
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "gh");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "repo",
+                "view",
+                "--repo",
+                "octocat/hello-world",
+                "--json",
+                "defaultBranchRef",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_repo_view_fails() {
+        let runner = MockCommandRunner::failure("gh: Not Found (HTTP 404)", 1);
+        let provider = GitHubPrProvider::with_runner("octocat/nonexistent", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_request_default_cap_plus_one_for_pr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+        let paged = provider
+            .list(ListPrArgs::default())
+            .await
+            .expect("list should succeed");
+        assert!(!paged.truncated);
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--limit" && w[1] == "1001"),
+            "实际 argv: {recorded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_still_forward_state_filter_for_pr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--state" && w[1] == "open")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_pr_list_with_state() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0];
+        assert_eq!(recorded.0, "gh");
+        assert_eq!(
+            recorded.1,
+            vec![
+                "pr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--json",
+                PR_FIELDS,
+                "--state",
+                "open",
+                "--limit",
+                "1001",
+            ]
+        );
+    }
+
+    // --- milestone wiring: create ---
+
+    const MILESTONE_LIST_JSON: &str = r#"[
+        {"number": 3, "title": "v2.0", "state": "open", "description": null}
+    ]"#;
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_pr_create() {
+        // Sequence:
+        // 1. milestone resolution: `gh api repos/owner/repo/milestones?...`
+        // 2. `gh pr create ... --milestone v2.0`
+        // 3. `gh pr view <number>` (create() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "https://github.com/owner/repo/pull/42"),
+            (
+                true,
+                r#"{"number":42,"title":"Add feature","body":"Detailed description","state":"open","draft":false,"author":{"login":"alice","id":"2"},"baseBranch":"main","headBranch":"feature/new","createdAt":"2026-02-20T14:00:00Z","updatedAt":"2026-02-21T10:30:00Z","milestone":{"number":3,"title":"v2.0"},"url":"https://github.com/owner/repo/pull/42"}"#,
+            ),
+        ]);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 3, "expected exactly 3 gh invocations");
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "pr create argv must carry the resolved milestone title, got: {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_pr_create() {
+        let runner = SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON)]);
+        let provider = GitHubPrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
     }
 }

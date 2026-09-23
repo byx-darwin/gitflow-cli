@@ -133,6 +133,16 @@ jobs:
           mkdir -p release
           find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) | while read f; do cp "$f" release/; done
 
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@cargo-cyclonedx
+
+      - name: Generate SBOM
+        run: |
+          cargo cyclonedx --format json --describe binaries --spec-version 1.5
+          cp apps/cli/gf_bin.cdx.json release/gf-sbom.cdx.json
+
       # SLSA 供应链证明:对签名前的构建产物做 attestation(签名会修改文件哈希,
       # 故须在 Sign 之前;与移除前的 build.yml release job 行为一致)
       - name: Attest build provenance

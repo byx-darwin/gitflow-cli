@@ -32,7 +32,7 @@ const modeRows = [
   { dim: "阶段 1 需求澄清", full: "brainstorming + issue-create + issue-review", standard: "brainstorming + issue-create + issue-review", fast: "issue-create 必做，brainstorming 可选" },
   { dim: "阶段 2 计划制定", full: "writing-plans + quality 门禁", standard: "writing-plans + quality 门禁", fast: "可跳过" },
   { dim: "阶段 3 执行", full: "subagent-driven-development（TDD + 代码审查）", standard: "subagent-driven-development（TDD + 代码审查）", fast: "必做（TDD + 审查不可跳过）" },
-  { dim: "阶段 4 交付检查", full: "pipeline + triage + review + dogfooding", standard: "pipeline + review", fast: "pipeline + branch-finish" },
+  { dim: "阶段 4 交付检查", full: "可选 pipeline + triage + review + dogfooding", standard: "可选 pipeline + review", fast: "可选 pipeline + branch-finish" },
 ];
 
 const skillSourceRows = [
@@ -44,26 +44,18 @@ const skillSourceRows = [
   { capability: "Issue 审查", sp: "gf-issue-review", mp: "gf-issue-review" },
   { capability: "质量门禁", sp: "gf-quality", mp: "gf-quality" },
   { capability: "交付审查", sp: "gf-review", mp: "gf-review" },
-  { capability: "后台代理执行", sp: "✅ 可用", mp: "❌（/implement 为 user-invoked）" },
 ];
 
 const execModes = [
   {
     num: "①",
-    name: "后台代理",
-    tag: "默认 · superpowers only",
-    body: "以 isolation: worktree + run_in_background 派发独立子代理。交接物 = 契约路径 + 计划文档 + 引擎指令；执行者把证据写回契约，完成时任务通知回到原窗口。",
-    avail: "仅 superpowers 来源可用（/implement 是用户触发，后台无法调用）",
-  },
-  {
-    num: "②",
     name: "手动新窗口",
-    tag: "两种来源均可用",
+    tag: "默认 · 两种来源均可用",
     body: "打印开启指引：worktree 路径（或创建命令）+ 契约恢复命令（gf workflow status &lt;id&gt; 与计划文档路径）。新窗口自行创建分支/worktree 并运行执行引擎；用户回报后编排器校验证据。",
     avail: "superpowers 与 mattpocock 均可用",
   },
   {
-    num: "③",
+    num: "②",
     name: "同会话执行",
     tag: "仅显式要求",
     body: "编排器在当前会话创建 worktree 并内联驱动执行引擎。SDD 一旦启动会接管对话，因此同会话执行只在用户明确要求时启用。",
@@ -74,7 +66,7 @@ const execModes = [
 const gateRows = [
   { phase: "2 · 计划制定", evidence: "issue_url + comment_id + design_doc_path", fast: "comment_id 可选" },
   { phase: "3 · 执行", evidence: "spec_path + user_approved", fast: "可跳过（计划可跳过）" },
-  { phase: "4 · 交付检查", evidence: "pr_url + tests_passed", fast: "无豁免" },
+  { phase: "4 · 交付检查", evidence: "pr_url 或 merge_commit + tests_passed + 风险检查状态", fast: "无豁免" },
 ];
 ---
 
@@ -91,7 +83,7 @@ const gateRows = [
       </p>
       <div class="hero-ctas">
         <a class="btn btn-primary" href={`${base}/quickstart/`}>5 分钟快速上手</a>
-        <a class="btn btn-ghost" href="https://github.com/byx-darwin/tap">GitHub →</a>
+        <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli">GitHub →</a>
       </div>
     </section>
 
@@ -160,7 +152,7 @@ const gateRows = [
           <div class="wf-phase-head">
             <span class="workflow-num">03</span>
             <h3 class="wf-phase-title">执行 <span class="wf-phase-en">Execution</span></h3>
-            <p class="wf-phase-tagline">TDD 红绿循环 + 子代理隔离开发，自动创建 PR。</p>
+            <p class="wf-phase-tagline">worktree 隔离开发，完成验证后选择本地合并或创建 PR。</p>
           </div>
           <div class="wf-phase-meta">
             <span><strong>入口：</strong>Gate 2→3 通过（user_approved = true）</span>
@@ -168,17 +160,18 @@ const gateRows = [
             <span><strong>流转：</strong>Gate 3→4 通过后自动进入阶段 4</span>
           </div>
           <ol class="wf-phase-steps">
-            <li><strong>工作区：</strong>记录 <code>base_branch</code>，worktree 固定在 <code>.claude/worktree/&lt;branch-name&gt;</code>，分支名 <code>feat/&lt;issue-number&gt;-&lt;short-description&gt;</code></li>
+            <li><strong>工作区：</strong>先分类未提交内容并记录 <code>base_branch</code>，worktree 固定在 <code>.worktree/&lt;branch-name&gt;</code>，分支名 <code>feat/&lt;issue-number&gt;-&lt;short-description&gt;</code></li>
             <li><strong>执行引擎：</strong>按技能来源 + 执行模式运行 SDD / executing-plans / /implement，全程 TDD RED → GREEN → REFACTOR</li>
-            <li><strong>创建 PR：</strong><code>gf-pr-create</code>，PR 正文必须包含 <code>Closes #&lt;issue-number&gt;</code> → <code>pr_url</code></li>
+            <li><strong>风险检查：</strong>按改动面触发 <code>gf-security-check</code> / <code>gf-regression</code>，失败会阻断交付</li>
+            <li><strong>交付选择：</strong>本地合并写入 <code>merge_commit</code>；推送并创建 PR 则写入 <code>pr_url</code>，PR 正文必须包含 <code>Closes #&lt;issue-number&gt;</code></li>
             <li><strong>测试：</strong><code>make test</code> / <code>cargo test</code> → <code>tests_passed</code></li>
-            <li><strong>更新契约：</strong>写入 branch / base_branch / worktree_path / pr_url / tests_passed</li>
+            <li><strong>更新契约：</strong>写入工作区、风险检查、交付方式与测试证据</li>
           </ol>
           <div class="wf-phase-evidence">
             <span class="wf-evidence-label">证据字段</span>
-            <code>branch</code><code>base_branch</code><code>worktree_path</code><code>pr_url</code><code>tests_passed</code>
+            <code>branch</code><code>worktree_path</code><code>delivery_mode</code><code>pr_url / merge_commit</code><code>tests_passed</code>
           </div>
-          <p class="wf-phase-note">Gate 3→4 无任何模式豁免：pr_url 非空且 tests_passed 为 true 才能进入交付检查。</p>
+          <p class="wf-phase-note">Gate 3→4 无模式豁免：交付证据与 delivery_mode 对应、tests_passed 为 true，且安全/回归检查不能处于 failed。</p>
         </article>
 
         <!-- Phase 4 -->
@@ -194,7 +187,7 @@ const gateRows = [
             <span><strong>终态：</strong>归档契约，工作流结束</span>
           </div>
           <ol class="wf-phase-steps">
-            <li><strong>流水线分析：</strong><code>gf-pipeline-analyzer</code> 生成分析报告（所有模式）→ <code>pipeline_ok</code></li>
+            <li><strong>流水线分析：</strong>进入阶段时询问是否运行，默认运行 <code>gf-pipeline-analyzer</code>；跳过该项不等于跳过 Phase 4</li>
             <li><strong>Issue 分流：</strong><code>gf-issue-triage</code> 产出分流报告（full 模式）</li>
             <li><strong>代码审查：</strong><code>gf-review</code> 生成审查报告（full + standard）→ <code>review_report_path</code></li>
             <li><strong>Dogfooding：</strong>dogfooding 清单检查（full 模式）→ <code>dogfooding_passed</code></li>
@@ -205,7 +198,7 @@ const gateRows = [
             <span class="wf-evidence-label">证据字段</span>
             <code>pipeline_ok</code><code>review_report_path</code><code>dogfooding_passed</code><code>branch_cleaned</code>
           </div>
-          <p class="wf-phase-note">阶段 4 在所有模式下均为必做；按模式裁剪其中的检查步骤。</p>
+          <p class="wf-phase-note">阶段 4 在所有模式下均为必做；流水线分析可由用户跳过，其余检查按模式裁剪，Branch Finish 始终执行。</p>
         </article>
       </div>
     </section>
@@ -276,10 +269,10 @@ const gateRows = [
 
     <!-- 执行模式 -->
     <section class="section">
-      <div class="reveal"><h2 class="section-heading">三种执行模式</h2></div>
+      <div class="reveal"><h2 class="section-heading">两种执行模式</h2></div>
       <p class="section-lede">
-        Gate 2→3 审批通过后进入 GO 闸门，编排器要求选择执行模式。同会话执行已移出默认菜单：
-        批准计划 ≠ 授权数小时无人值守的子代理扇出。
+        Gate 2→3 审批通过后进入 GO 闸门。默认在手动新窗口继续；只有用户显式要求时，才在同会话执行。
+        已移除的后台代理模式不再出现在菜单中。
       </p>
       <div class="bento">
         {
@@ -299,7 +292,7 @@ const gateRows = [
         }
       </div>
       <p style="color:var(--gf-text-dim);font-size:14px;margin-top:16px">
-        质量补偿：executing-plans（轻量路径）缺少逐任务审查，由门禁补偿——PR 前 <code style="font-family:var(--font-mono);color:var(--gf-teal)">make test</code>
+        质量补偿：executing-plans（轻量路径）缺少逐任务审查，由门禁补偿：交付前 <code style="font-family:var(--font-mono);color:var(--gf-teal)">make test</code>
         + 阶段 4 的 <code style="font-family:var(--font-mono);color:var(--gf-teal)">gf-review</code>；SDD 自带内置逐任务审查。
       </p>
     </section>
@@ -321,7 +314,7 @@ const gateRows = [
       <pre class="wf-state-flow">[Start] → Bootstrap → <span class="wf-phase-flow">Phase 1</span> → [<span class="wf-gate">Gate 1→2</span>] AUTO → <span class="wf-phase-flow">Phase 2</span>
          → [<span class="wf-gate">Gate 2→3</span>] PAUSE → <span class="wf-phase-flow">Phase 3</span> → [<span class="wf-gate">Gate 3→4</span>] AUTO → <span class="wf-phase-flow">Phase 4</span> → [Archive] → [Complete]</pre>
       <p style="color:var(--gf-text-dim);font-size:14px;margin-top:12px">
-        唯一暂停点是 Gate 2→3（计划审批 + 执行模式选择），其余转换全部自动推进。
+        Gate 2→3 是唯一的阶段间强制暂停点。执行中的脏工作区、安全检查选择、交付方式与 Branch Finish 仍可能按场景请求确认。
       </p>
 
       <h3 class="wf-subhead">契约结构</h3>
@@ -370,7 +363,7 @@ const gateRows = [
       <div class="reveal">
         <h2 class="wf-subhead" style="font-size:28px">快速开始</h2>
         <ol class="wf-quickstart">
-          <li><strong>安装 gf：</strong><CopyCommand command="cargo install gf" /></li>
+          <li><strong>安装 gf：</strong><CopyCommand command="cargo install gitflow-cli" /></li>
           <li><strong>安装 skills：</strong><CopyCommand command="gf skills install" /></li>
           <li><strong>触发工作流：</strong>在项目根目录对 Claude Code 输入 <code style="font-family:var(--font-mono);color:var(--gf-amber)">/gf-workflow</code></li>
           <li><strong>确认模式与来源：</strong>确认自动检测出的 full / standard / fast 模式与技能来源</li>

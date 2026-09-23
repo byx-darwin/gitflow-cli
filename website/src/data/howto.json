@@ -7,11 +7,11 @@
       "steps": [
         {
           "name": "安装 gf",
-          "text": "运行 brew tap byx-darwin/tap && brew install gf 或 cargo install gf。"
+          "text": "运行 brew tap byx-darwin/tap && brew install gf 或 cargo install gitflow-cli。"
         },
         {
           "name": "安装 Skills",
-          "text": "运行 gf skills install，将 26 个 skills 安装到 .claude/skills/。"
+          "text": "运行 gf skills install，默认将 30 个 skills 安装到 Claude Code；其他平台显式传入 --agent。"
         },
         {
           "name": "验证环境",
@@ -39,6 +39,25 @@
         {
           "name": "完成四阶段",
           "text": "按引导完成需求澄清、计划制定、执行、交付检查。"
+        }
+      ]
+    },
+    {
+      "name": "接入 Jev 类型化决策层",
+      "description": "为 gf 显式启用 Jev 适配器，并通过类型化、只读响应辅助工程判断。",
+      "url": "https://byx-darwin.github.io/gitflow-cli/jev/",
+      "steps": [
+        {
+          "name": "构建 Jev 适配器",
+          "text": "运行 cargo build -p gitflow-cli --features gitflow-jev，从源码启用可选适配器。"
+        },
+        {
+          "name": "安全保存 TypeSafe Key",
+          "text": "通过环境或密钥管理器注入 TYPESAFE_API_KEY；macOS 可将 gitflow-cli-typesafe Keychain 项作为后备。不要把密钥字面量放进命令参数、文件或聊天。"
+        },
+        {
+          "name": "显式调用 Jev",
+          "text": "设置 GF_DECISION_PROVIDER=jev，然后运行 gf decide batch --input decision.json。"
         }
       ]
     }

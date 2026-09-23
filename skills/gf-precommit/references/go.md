@@ -1,6 +1,7 @@
 # Go Pre-commit Checks
 
-**Detection:** `go.mod` in project root.
+**Shared language profile:** `gf-quality/references/profiles/go.md`. Read it for tools, version sources, and scan exclusions.
+
 
 ## Check Commands
 

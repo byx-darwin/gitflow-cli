@@ -29,26 +29,40 @@ pub mod cleanup;
 pub mod cli_error;
 pub mod commit;
 pub mod compatibility;
+pub mod decision;
 pub mod doctor;
+pub mod evaluation;
 pub mod git_ops;
 pub mod issue;
+pub mod issue_quality;
 pub mod label;
 pub mod output;
+pub mod paging;
 pub mod pipeline;
+pub mod pipeline_failure;
 pub mod platform;
 pub mod pr;
+pub mod pr_precheck;
+pub mod query_filter;
 pub mod release;
 pub mod review;
+pub mod semantic_regression;
 pub mod session;
+pub mod skill_suggestion;
 pub mod toon;
 pub mod types;
+pub mod workflow_context;
+pub mod workflow_progress;
+pub mod workflow_recommendation;
+pub mod workflow_semantic;
 
 // Re-export types at the crate root for convenience.
 pub use auth_checker::{AuthCheckResult, AuthChecker};
 pub use cli_error::PlatformCliError;
 pub use compatibility::{PlatformCompat, platform_compatibility, platform_requirement};
 pub use doctor::{CheckItem, CheckStatus, DoctorReport, DoctorSummary, HealthCheck};
-pub use output::{CliError, CliOutput};
+pub use output::{CliError, CliOutput, PaginationMeta};
+pub use paging::{DEFAULT_LIST_LIMIT, FetchStrategy, Paged, fetch_capped};
 
 /// Application error type.
 ///
@@ -103,7 +117,7 @@ impl From<PlatformCliError> for CoreError {
 pub type Result<T> = std::result::Result<T, CoreError>;
 
 // Re-export key domain types at the crate root for convenience.
-pub use auth::AuthStatus;
+pub use auth::{AuthStatus, HostAuthStatus};
 pub use commit::{CommitData, CommitDetail, CommitFile};
 pub use label::{CreateLabelArgs, CreateMilestoneArgs, LabelData, MilestoneData};
 pub use release::{CreateReleaseArgs, ReleaseData};

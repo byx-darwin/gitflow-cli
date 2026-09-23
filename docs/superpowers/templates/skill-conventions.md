@@ -11,15 +11,15 @@
 
 ### 1.1 Hard Limit
 
-Every `SKILL.md` MUST be ≤ **500 English/Chinese words** (excluding code blocks, YAML frontmatter, and HTML comments).
+Every `SKILL.md` MUST be ≤ **650 English/Chinese words** (excluding code blocks, YAML frontmatter, HTML comments, and inline code).
 
-Rationale: Claude loads `SKILL.md` in full into context. At 26 skills, a single skill loaded in isolation must be self-contained within a small token envelope. 500 words ≈ 700–800 tokens, leaving headroom for user conversation and tool results.
+Rationale: Claude loads `SKILL.md` in full into context. At 26 skills, a single skill loaded in isolation must be self-contained within a small token envelope. 650 words ≈ 900–1000 tokens, leaving headroom for user conversation and tool results. The limit was raised from 500 to 650 after a repo-wide census (Issue #350) found 25 of 29 skills over 500 words with a median around 645 — 500 was unreachable under the required-section rules in §3, not a real ceiling. `gf-workflow` (3747 words) and `gf-refactor` (3228 words) remain known extreme outliers still over 650; they are tracked as separate compression tech debt, not covered by this limit change.
 
 ### 1.2 How to Count
 
 ```bash
 # Count words excluding fenced code blocks and frontmatter:
-perl -0 -ne 's/^---\n.*?^---\n//ms; s/```.*?```//gs; s/`[^`]+`//g; print scalar(/\p{L}+/g), "\n"' SKILL.md
+perl -0 -ne 's/^---\n.*?^---\n//ms; s/```.*?```//gs; s/`[^`]+`//g; print scalar(()=/\p{L}+/g), "\n"' SKILL.md
 ```
 
 Gray-area elements excluded from the count:
@@ -29,7 +29,6 @@ Gray-area elements excluded from the count:
 
 Elements that count toward the limit:
 - Prose paragraphs, table cell contents, bullet lists, headers
-- Inline code (each inline-code token counts as 1 word)
 
 ### 1.3 Externalization Rules
 
@@ -66,7 +65,7 @@ Pattern language structure: **[Condition] → [Action] → [Expected Result]**. 
 
 ### 1.5 Enforcement
 
-Phase 4 validation (TASK-59) runs word-count on every skill. If any skill exceeds 500 words, the reducer is responsible for externalization or compression. The fix must not weaken test coverage or remove red-flag entries.
+Phase 4 validation (TASK-59) runs word-count on every skill. If any skill exceeds 650 words, the reducer is responsible for externalization or compression. The fix must not weaken test coverage or remove red-flag entries.
 
 ---
 
@@ -455,7 +454,7 @@ The following MUST NOT appear in any `SKILL.md`:
 
 ```
 .claude/skills/{skill-name}/
-└── SKILL.md                          # ≤ 500 words, the only file in most cases
+└── SKILL.md                          # ≤ 650 words, the only file in most cases
 
 docs/
 ├── references/
@@ -494,7 +493,7 @@ Before marking any task complete, the implementing agent MUST verify against thi
 - [ ] Contains `## See Also` (≥ 2 cross-references)
 - [ ] Contains `## Test Scenarios` (≥ 4 scenarios including 1 negative)
 - [ ] Contains `## Success Criteria`
-- [ ] Word count ≤ 500 (excluding code blocks, frontmatter, HTML comments)
+- [ ] Word count ≤ 650 (excluding code blocks, frontmatter, HTML comments, inline code)
 - [ ] No fictional data in examples
 - [ ] No narrative examples
 - [ ] Cross-references are bidirectional (verified against peer skills)
@@ -507,7 +506,7 @@ Before marking any task complete, the implementing agent MUST verify against thi
 | Excuse | Reality |
 |--------|---------|
 | "This skill is special, the rules don't apply" | The rules exist because every previous exception caused failures. |
-| "500 words isn't enough for a skill this complex" | Complexity should be externalized, not crammed. |
+| "650 words isn't enough for a skill this complex" | Complexity should be externalized, not crammed. |
 | "The trigger description is too rigid" | Rigidity is a feature — it prevents misfires. |
 | "We don't need test scenarios, this skill is simple" | Simple skills still fail under stress. Test scenarios are load-bearing. |
 | "Red Flags will confuse the agent" | Red Flags help the agent recognize adversarial conditions. |

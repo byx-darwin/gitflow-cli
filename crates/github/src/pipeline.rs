@@ -11,6 +11,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    datetime::parse_api_datetime,
     error::parse_gh_error,
     runner::{CommandRunner, RealCommandRunner},
 };
@@ -52,20 +53,17 @@ struct GhRun {
 
 impl GhRun {
     fn into_status(self) -> PipelineStatus {
-        let created_at = chrono::DateTime::parse_from_rfc3339(&self.created_at)
-            .ok()
-            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
-        let updated_at = chrono::DateTime::parse_from_rfc3339(&self.updated_at)
-            .ok()
-            .map_or_else(chrono::Utc::now, |dt| dt.with_timezone(&chrono::Utc));
+        let created_at = parse_api_datetime(&self.created_at);
+        let updated_at = parse_api_datetime(&self.updated_at);
 
         PipelineStatus {
             id: self.database_id,
             ref_name: self.head_branch,
             status: gh_status_to_enum(&self.status, self.conclusion.as_deref()),
             conclusion: self.conclusion,
-            created_at,
-            updated_at,
+            // Wrapped in Some for PipelineStatus's Option type (#380).
+            created_at: Some(created_at),
+            updated_at: Some(updated_at),
             url: self.url,
         }
     }
@@ -175,36 +173,94 @@ impl<R: CommandRunner> GitHubPipelineProvider<R> {
     }
 }
 
+impl<R: CommandRunner + 'static> GitHubPipelineProvider<R> {
+    /// 为一批已收尾且失败类的 run 归因到具体失败 job 名称，用于 [`PipelineReport::top_failures`]。
+    ///
+    /// 只对结论落在失败类（见 [`is_failure_conclusion`]）的 run 发起 `jobs` 查询，
+    /// 成功和非失败终态（`cancelled`/`skipped`/`neutral`）的 run 不消耗额外 API
+    /// 调用。若某次 run 的 job 级数据无法获取、其中没有失败类 job，或匹配到的
+    /// job 自身尚未收尾（`status != "completed"`，issue #324），则回退为该 run
+    /// 的通用 `conclusion` 字符串，确保该样本仍计入统计而不是被静默丢弃或
+    /// 误将一个仍在执行的 job 当作失败来源。
+    async fn attribute_top_failures(&self, runs: &[&ReportRun]) -> Vec<String> {
+        let mut failure_counts: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
+
+        for run in runs {
+            let Some(conclusion) = run.conclusion.as_deref() else {
+                continue;
+            };
+            if !is_failure_conclusion(conclusion) {
+                continue;
+            }
+
+            let label = match self.jobs(run.database_id).await {
+                Ok(jobs) => jobs
+                    .iter()
+                    .find(|job| {
+                        job.status == "completed"
+                            && job.conclusion.as_deref().is_some_and(is_failure_conclusion)
+                    })
+                    .map_or_else(|| conclusion.to_owned(), |job| job.name.clone()),
+                Err(err) => {
+                    debug!(
+                        repo = %self.repo,
+                        pipeline_id = run.database_id,
+                        error = %err,
+                        "failed to fetch jobs for failure attribution, falling back to generic conclusion"
+                    );
+                    conclusion.to_owned()
+                }
+            };
+
+            *failure_counts.entry(label).or_insert(0) += 1;
+        }
+
+        // 按失败次数降序排列；次数相同时按标签字母序，保证输出稳定。
+        let mut failures: Vec<_> = failure_counts.into_iter().collect();
+        failures.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        failures.into_iter().map(|(label, _)| label).collect()
+    }
+}
+
 /// `gh run list` 的 report 统计所需最小字段集。
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReportRun {
+    database_id: u64,
+    /// GitHub Actions run 的整体状态（`"queued"`/`"in_progress"`/`"completed"` 等）。
+    ///
+    /// 只有 `"completed"` 才代表该 run 已收尾——`conclusion` 字段不能单独
+    /// 作为收尾判据：观测到 `gh run list` 会在 run 仍未收尾时也为
+    /// `conclusion` 填入非 null 值（issue #324）。
+    status: String,
     conclusion: Option<String>,
     created_at: String,
     updated_at: String,
 }
 
-/// 为 [`GitHubPipelineProvider::report`] 聚合每次运行的指标。
+/// 判断 run/job 的 `conclusion` 字符串是否属于失败类结论。
 ///
-/// 返回 `(success_count, total_duration_secs, failure_counts, runs_with_duration)`。
-fn aggregate_report_metrics(
-    runs: &[ReportRun],
-) -> (u64, f64, std::collections::HashMap<String, u64>, u64) {
+/// 与成功（`success`）、非失败终态（`cancelled`/`skipped`/`neutral`）区分开；
+/// 其余（`failure`/`startup_failure`/`timed_out` 及任何未知值）视为失败。
+fn is_failure_conclusion(conclusion: &str) -> bool {
+    !matches!(conclusion, "success" | "cancelled" | "skipped" | "neutral")
+}
+
+/// 为 [`GitHubPipelineProvider::report`] 聚合每次运行的成功数与耗时指标。
+///
+/// 失败归因（`top_failures`）由 [`GitHubPipelineProvider::attribute_top_failures`]
+/// 单独处理，因为它需要按需发起额外的 `jobs` API 调用。
+///
+/// 返回 `(success_count, total_duration_secs, runs_with_duration)`。
+fn aggregate_report_metrics(runs: &[&ReportRun]) -> (u64, f64, u64) {
     let mut success_count: u64 = 0;
     let mut total_duration_secs: f64 = 0.0;
-    let mut failure_counts: std::collections::HashMap<String, u64> =
-        std::collections::HashMap::new();
     let mut has_duration: u64 = 0;
 
     for run in runs {
-        if let Some(ref conclusion) = run.conclusion {
-            if conclusion == "success" {
-                success_count += 1;
-            } else if !matches!(conclusion.as_str(), "cancelled" | "skipped" | "neutral") {
-                // Counts all failure conclusions: "failure", "startup_failure",
-                // "timed_out", and any other non-success/non-neutral conclusion.
-                *failure_counts.entry(conclusion.clone()).or_insert(0) += 1;
-            }
+        if run.conclusion.as_deref() == Some("success") {
+            success_count += 1;
         }
 
         if let (Ok(created), Ok(updated)) = (
@@ -226,12 +282,7 @@ fn aggregate_report_metrics(
         }
     }
 
-    (
-        success_count,
-        total_duration_secs,
-        failure_counts,
-        has_duration,
-    )
+    (success_count, total_duration_secs, has_duration)
 }
 
 #[async_trait]
@@ -335,7 +386,7 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
                     "--repo",
                     &self.repo,
                     "--json",
-                    "conclusion,createdAt,updatedAt",
+                    "databaseId,status,conclusion,createdAt,updatedAt",
                     "--limit",
                     "100",
                 ],
@@ -361,10 +412,20 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             })
             .collect();
 
-        let total_runs = runs.len() as u64;
+        // A run only carries a meaningful `conclusion` once its `status` is
+        // `"completed"`. Gating on `status` (rather than `conclusion.is_some()`)
+        // is required because `gh run list` can populate `conclusion` for a
+        // run that has not actually finished (issue #324) — trusting presence
+        // alone re-admits in-progress runs into the denominator.
+        let terminal_runs: Vec<&ReportRun> = runs
+            .iter()
+            .filter(|run| run.status == "completed")
+            .collect();
 
-        let (success_count, total_duration_secs, failure_counts, has_duration) =
-            aggregate_report_metrics(&runs);
+        let total_runs = terminal_runs.len() as u64;
+
+        let (success_count, total_duration_secs, has_duration) =
+            aggregate_report_metrics(&terminal_runs);
 
         #[allow(
             clippy::cast_precision_loss,
@@ -386,10 +447,10 @@ impl<R: CommandRunner + 'static> PipelineProvider for GitHubPipelineProvider<R> 
             0.0
         };
 
-        // 按失败次数降序取 top 失败结论
-        let mut failures: Vec<_> = failure_counts.into_iter().collect();
-        failures.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        let top_failures: Vec<String> = failures.into_iter().map(|(k, _)| k).collect();
+        // 按失败次数降序取 top 失败归因标签（job 名称，若无法归因则回退为
+        // 通用 conclusion 字符串）。仅对失败类 run 发起额外的 jobs 查询，
+        // 避免对每个 run 都调用 API。
+        let top_failures = self.attribute_top_failures(&terminal_runs).await;
 
         Ok(PipelineReport {
             total_runs,
@@ -509,6 +570,39 @@ mod tests {
         assert_eq!(status.ref_name, "main");
         assert_eq!(status.status, PipelineStatusEnum::Success);
         assert_eq!(status.conclusion.as_deref(), Some("success"));
+    }
+
+    #[test]
+    fn test_should_convert_run_with_present_timestamps_to_some() {
+        let run = GhRun {
+            database_id: 1,
+            head_branch: "main".to_string(),
+            status: "completed".to_string(),
+            conclusion: Some("success".to_string()),
+            created_at: "2026-07-01T10:00:00Z".to_string(),
+            updated_at: "2026-07-01T10:05:30Z".to_string(),
+            url: "https://example.com/runs/1".to_string(),
+        };
+        let status = run.into_status();
+        assert!(status.created_at.is_some());
+        assert!(status.updated_at.is_some());
+    }
+
+    #[test]
+    fn test_should_use_epoch_for_malformed_pipeline_timestamps() {
+        let run = GhRun {
+            database_id: 1,
+            head_branch: "main".to_string(),
+            status: "completed".to_string(),
+            conclusion: Some("success".to_string()),
+            created_at: "invalid-created-at".to_string(),
+            updated_at: "invalid-updated-at".to_string(),
+            url: "https://example.com/runs/1".to_string(),
+        };
+
+        let status = run.into_status();
+        assert_eq!(status.created_at, Some(chrono::DateTime::UNIX_EPOCH));
+        assert_eq!(status.updated_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     #[test]
@@ -785,6 +879,143 @@ mod tests {
         assert_eq!(top_failures.len(), 3);
     }
 
+    #[tokio::test]
+    async fn test_should_exclude_in_progress_runs_from_report_total_runs() {
+        // 4 runs in the report window: 2 success, 1 failure, 1 still in-progress
+        // (GitHub only sets `conclusion` once a run is `completed`, so an
+        // in-progress run serializes with `"conclusion": null`).
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"databaseId": 1, "status": "completed", "conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 2, "status": "completed", "conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 3, "status": "completed", "conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 4, "status": "in_progress", "conclusion": null, "createdAt": "{}", "updatedAt": "{}"}}
+            ]"#,
+            ts(600),
+            ts(300),
+            ts(500),
+            ts(200),
+            ts(400),
+            ts(100),
+            ts(60),
+            ts(30),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        // Only 3 of the 4 runs have reached a terminal state (conclusion is
+        // Some); the in-progress run (conclusion: null) must be excluded
+        // from total_runs, not just from success/failure counts.
+        assert_eq!(report.total_runs, 3);
+        assert!((report.success_rate - (2.0 / 3.0)).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn test_should_exclude_runs_with_non_terminal_status_even_when_conclusion_is_present() {
+        // Reproduces issue #324: `gh run list` can report a non-null
+        // `conclusion` for a run whose `status` has not reached `"completed"`.
+        // Trusting `conclusion.is_some()` alone (the pre-fix behavior) would
+        // misclassify this still-running run as terminal, and even as a
+        // failure, inflating the denominator and corrupting `success_rate`.
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let json = format!(
+            r#"[
+                {{"databaseId": 1, "status": "completed", "conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 2, "status": "in_progress", "conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}}
+            ]"#,
+            ts(600),
+            ts(300),
+            ts(200),
+            ts(100),
+        );
+
+        let runner = MockCommandRunner::success(&json);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        // Only the `completed` run counts; the `in_progress` run must be
+        // excluded from total_runs/success_rate despite carrying a non-null
+        // `conclusion`, and must not appear in top_failures either.
+        assert_eq!(report.total_runs, 1);
+        assert!((report.success_rate - 1.0).abs() < f64::EPSILON);
+        assert!(report.top_failures.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_should_not_attribute_failure_to_a_still_in_progress_job() {
+        use crate::runner::SequencedMockCommandRunner;
+
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let run_list_json = format!(
+            r#"[{{"databaseId": 40, "status": "completed", "conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}}]"#,
+            ts(600),
+            ts(500),
+        );
+
+        // The run has concluded overall, but job-level data lags behind: one
+        // job already succeeded, the other is still `in_progress` yet
+        // (matching the real-world anomaly behind issue #324) already carries
+        // a non-null `conclusion` value. Attribution must not label the
+        // still-running job as the failure — it must fall back to the run's
+        // generic conclusion instead.
+        let jobs_json = r#"{
+            "jobs": [
+                {
+                    "databaseId": 1,
+                    "name": "MSRV",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "startedAt": "2026-07-01T10:00:00Z",
+                    "completedAt": "2026-07-01T10:01:00Z",
+                    "url": "https://example.com/job/1"
+                },
+                {
+                    "databaseId": 2,
+                    "name": "Test (windows-latest)",
+                    "status": "in_progress",
+                    "conclusion": "failure",
+                    "startedAt": "2026-07-01T10:00:00Z",
+                    "url": "https://example.com/job/2"
+                }
+            ]
+        }"#;
+
+        let runner =
+            SequencedMockCommandRunner::from_results(&[(true, &run_list_json), (true, jobs_json)]);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        assert_eq!(report.total_runs, 1);
+        assert_eq!(report.top_failures, vec!["failure".to_string()]);
+        assert!(!report.top_failures.contains(&"MSRV".to_string()));
+        assert!(
+            !report
+                .top_failures
+                .contains(&"Test (windows-latest)".to_string())
+        );
+    }
+
     // --- Failure-path tests using an injected MockCommandRunner ---
 
     #[tokio::test]
@@ -883,5 +1114,142 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Serialization(_)
         ));
+    }
+
+    // --- Job-level failure attribution (issue #289) ---
+
+    #[tokio::test]
+    async fn test_should_attribute_top_failures_to_job_names_not_generic_conclusion() {
+        use crate::runner::SequencedMockCommandRunner;
+
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        // Two failed runs (databaseId 10 and 11) plus one success run.
+        let run_list_json = format!(
+            r#"[
+                {{"databaseId": 10, "status": "completed", "conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 11, "status": "completed", "conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 12, "status": "completed", "conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}}
+            ]"#,
+            ts(600),
+            ts(500),
+            ts(400),
+            ts(300),
+            ts(200),
+            ts(100),
+        );
+
+        // Both failed runs' `jobs` responses point at the same failing job name,
+        // so it should be attributed by name rather than the generic "failure"
+        // conclusion string.
+        let jobs_json = r#"{
+            "jobs": [
+                {
+                    "databaseId": 1,
+                    "name": "Test (windows-latest)",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "startedAt": "2026-07-01T10:00:00Z",
+                    "completedAt": "2026-07-01T10:01:00Z",
+                    "url": "https://example.com/job/1"
+                },
+                {
+                    "databaseId": 2,
+                    "name": "Test (macos-latest)",
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "startedAt": "2026-07-01T10:00:00Z",
+                    "completedAt": "2026-07-01T10:02:00Z",
+                    "url": "https://example.com/job/2"
+                }
+            ]
+        }"#;
+
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &run_list_json),
+            (true, jobs_json),
+            (true, jobs_json),
+        ]);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        assert_eq!(report.total_runs, 3);
+        assert_eq!(report.top_failures, vec!["Test (macos-latest)".to_string()]);
+        assert!(!report.top_failures.contains(&"failure".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_should_fall_back_to_generic_conclusion_when_jobs_fetch_fails() {
+        use crate::runner::SequencedMockCommandRunner;
+
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        let run_list_json = format!(
+            r#"[{{"databaseId": 20, "status": "completed", "conclusion": "failure", "createdAt": "{}", "updatedAt": "{}"}}]"#,
+            ts(600),
+            ts(500),
+        );
+
+        // The `jobs` call for the failed run fails (e.g. permission error or
+        // transient API failure); attribution must degrade gracefully to the
+        // run's generic conclusion instead of panicking or dropping the run.
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, &run_list_json),
+            (false, r#"{"message": "Not found"}"#),
+        ]);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed despite jobs fetch failure");
+
+        assert_eq!(report.total_runs, 1);
+        assert_eq!(report.top_failures, vec!["failure".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_should_not_call_jobs_api_for_non_failure_runs() {
+        use crate::runner::SequencedMockCommandRunner;
+
+        let now = chrono::Utc::now();
+        let ts = |offset_secs: i64| (now - chrono::Duration::seconds(offset_secs)).to_rfc3339();
+
+        // success / cancelled / skipped / neutral runs must never trigger a
+        // `jobs` API call — only one response (the run list) is queued, so
+        // the test panics via SequencedMockCommandRunner if attribution tries
+        // to fetch jobs for any of them.
+        let run_list_json = format!(
+            r#"[
+                {{"databaseId": 30, "status": "completed", "conclusion": "success", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 31, "status": "completed", "conclusion": "cancelled", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 32, "status": "completed", "conclusion": "skipped", "createdAt": "{}", "updatedAt": "{}"}},
+                {{"databaseId": 33, "status": "completed", "conclusion": "neutral", "createdAt": "{}", "updatedAt": "{}"}}
+            ]"#,
+            ts(800),
+            ts(700),
+            ts(600),
+            ts(500),
+            ts(400),
+            ts(300),
+            ts(200),
+            ts(100),
+        );
+
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &run_list_json)]);
+        let provider = GitHubPipelineProvider::with_runner("owner/repo", runner);
+
+        let report = provider
+            .report("main", 7)
+            .await
+            .expect("report should succeed");
+
+        assert!(report.top_failures.is_empty());
     }
 }

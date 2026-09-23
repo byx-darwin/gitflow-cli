@@ -11,7 +11,7 @@ use gitflow_core::{
 };
 use tracing::debug;
 
-use crate::{error::parse_gh_error, issue::GitHubUser};
+use crate::{datetime::parse_api_datetime, error::parse_gh_error, issue::GitHubUser};
 
 /// GitHub Review 提供者，通过 `gh` CLI 操作。
 ///
@@ -259,10 +259,7 @@ impl From<GitHubReviewApiResponse> for ReviewData {
                 login: api.user.login,
                 id: api.user.id.to_string(),
             },
-            submitted_at: api
-                .submitted_at
-                .parse()
-                .unwrap_or_else(|_| chrono::Utc::now()),
+            submitted_at: Some(parse_api_datetime(&api.submitted_at)),
         }
     }
 }
@@ -399,6 +396,39 @@ mod tests {
         assert_eq!(review_data.body, Some("LGTM".to_string()));
         assert_eq!(review_data.author.login, "octocat");
         assert_eq!(review_data.author.id, "1");
+    }
+
+    #[test]
+    fn test_should_deserialize_review_with_present_submitted_at_as_some() {
+        let api_response = GitHubReviewApiResponse {
+            id: 1,
+            state: "APPROVED".to_string(),
+            body: None,
+            user: GitHubUser {
+                login: "user".to_string(),
+                id: 1,
+            },
+            submitted_at: "2026-08-03T10:00:00Z".to_string(),
+        };
+        let review_data: ReviewData = api_response.into();
+        assert!(review_data.submitted_at.is_some());
+    }
+
+    #[test]
+    fn test_should_use_epoch_for_malformed_review_timestamp() {
+        let api_response = GitHubReviewApiResponse {
+            id: 1,
+            state: "APPROVED".to_string(),
+            body: None,
+            user: GitHubUser {
+                login: "user".to_string(),
+                id: 1,
+            },
+            submitted_at: "not-a-timestamp".to_string(),
+        };
+
+        let review_data: ReviewData = api_response.into();
+        assert_eq!(review_data.submitted_at, Some(chrono::DateTime::UNIX_EPOCH));
     }
 
     #[test]

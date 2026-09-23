@@ -11,7 +11,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, fetch_capped,
     pr::{CreatePrArgs, ListPrArgs, PrData, PrProvider},
     types::{CommentData, MergeResult, MergeStrategy, State, UserSummary},
 };
@@ -19,6 +19,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 use crate::{
+    GITLAB_MAX_PER_PAGE,
     commit::encode_project_path,
     error::parse_glab_error,
     runner::{CommandRunner, RealCommandRunner},
@@ -155,6 +156,62 @@ impl<R: CommandRunner> GitLabMrProvider<R> {
         }
         Ok(())
     }
+
+    /// [`PrProvider::list`] 的实际实现。
+    ///
+    /// 抽成普通（非 `async_trait` 装箱）的关联函数，避开泛型 `AsyncFn` 闭包
+    /// 在 `async_trait` 装箱 Future 内部触发的 HRTB `Send` 检查缺陷。
+    async fn list_impl(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        let cap = args.limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo_target = &self.repo_target;
+        let runner = &self.runner;
+        let state = args.state;
+        // 页大小不必超过 cap+1：N+1 探测只需要多要一条即可判断截断，
+        // 请求整页 100 条再丢弃对 cap 很小的调用（如 `--limit 5`）是纯浪费。
+        let per_page = cap.saturating_add(1).min(GITLAB_MAX_PER_PAGE);
+
+        debug!(repo = %self.repo, cap, "spawning `glab mr list`");
+
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let mut cmd_args: Vec<&str> =
+                    vec!["mr", "list", "--repo", repo_target, "--output", "json"];
+
+                // glab 用 --closed 表示已关闭、--all 表示全部；默认（不加旗标）为 open。
+                if let Some(state) = &state {
+                    match state {
+                        State::Closed => cmd_args.push("--closed"),
+                        State::All => cmd_args.push("--all"),
+                        State::Open => {}
+                    }
+                }
+
+                cmd_args.push("--per-page");
+                cmd_args.push(&per_page_str);
+                cmd_args.push("--page");
+                cmd_args.push(&page_str);
+
+                let output = runner
+                    .run("glab", &cmd_args)
+                    .await
+                    .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+                if !output.status.success() {
+                    return Err(parse_glab_error(&output.stderr).into());
+                }
+
+                let api_responses: Vec<MrApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(api_responses.into_iter().map(PrData::from).collect())
+            },
+        )
+        .await
+    }
 }
 
 // ── 中间 API 响应类型 ──────────────────────────────────────────────
@@ -174,6 +231,35 @@ impl From<&ApiUser> for UserSummary {
             id: u.id.to_string(),
         }
     }
+}
+
+/// `glab mr` JSON 输出中内嵌的里程碑对象。
+///
+/// GitLab 的里程碑对象同时带有全局 `id` 和项目内 `iid`；本代码库的
+/// `MilestoneRef::number` 语义上是 `iid`（与 `label.rs` 中
+/// `MilestoneData::number` 的约定一致），`iid` 缺失时才回退到 `id`。
+#[derive(Debug, Clone, Deserialize)]
+struct MilestoneRefApi {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    iid: Option<u64>,
+    title: String,
+}
+
+impl From<MilestoneRefApi> for gitflow_core::types::MilestoneRef {
+    fn from(api: MilestoneRefApi) -> Self {
+        Self {
+            number: api.iid.unwrap_or(api.id),
+            title: api.title,
+        }
+    }
+}
+
+/// `glab repo view --output json` 的响应类型（仅取需要的字段）。
+#[derive(Debug, Deserialize)]
+struct RepoViewResponse {
+    default_branch: String,
 }
 
 /// `glab mr --output json` 返回的 JSON 结构。
@@ -202,11 +288,12 @@ struct MrApiResponse {
     merged_at: Option<DateTime<Utc>>,
     #[serde(default)]
     web_url: Option<String>,
+    #[serde(default)]
+    milestone: Option<MilestoneRefApi>,
 }
 
 impl From<MrApiResponse> for PrData {
     fn from(api: MrApiResponse) -> Self {
-        let now = Utc::now();
         let state = if api.state == "closed" || api.state == "merged" {
             State::Closed
         } else {
@@ -229,10 +316,11 @@ impl From<MrApiResponse> for PrData {
             author,
             base_branch: api.target_branch,
             head_branch: api.source_branch,
-            created_at: api.created_at.unwrap_or(now),
-            updated_at: api.updated_at.unwrap_or(now),
+            created_at: api.created_at,
+            updated_at: api.updated_at,
             merged_at: api.merged_at,
             url: api.web_url.unwrap_or_default(),
+            milestone: api.milestone.map(Into::into),
         }
     }
 }
@@ -262,7 +350,7 @@ impl From<CommentApiResponse> for CommentData {
             id: api.id,
             body: api.body,
             author,
-            created_at: api.created_at.unwrap_or_else(Utc::now),
+            created_at: api.created_at,
         }
     }
 }
@@ -270,7 +358,7 @@ impl From<CommentApiResponse> for CommentData {
 // ── trait 实现 ──────────────────────────────────────────────────────
 
 #[async_trait]
-impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
+impl<R: CommandRunner + Clone + 'static> PrProvider for GitLabMrProvider<R> {
     async fn create(&self, args: CreatePrArgs) -> Result<PrData> {
         let repo = args.repo.as_deref().unwrap_or(&self.repo_target);
         let mut cmd_args: Vec<&str> = vec![
@@ -296,6 +384,24 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
 
         if args.draft {
             cmd_args.push("--draft");
+        }
+
+        let resolved_milestone_title;
+        if let Some(identifier) = &args.milestone {
+            // `--project` 要裸 `namespace/project`，不能用 `repo`（上面
+            // `--repo` 用的目标，自建实例上可能是完整 remote URL 或
+            // `args.repo` 覆盖值，传给 `--project` 会 404）。`args.repo`
+            // 本身按文档就是 `owner/name` 格式的裸仓库，因此覆盖时直接复用；
+            // 未覆盖时退回 `self.repo`（而非 `self.repo_target`）。
+            let milestone_repo = args.repo.as_deref().unwrap_or(&self.repo);
+            let milestone_provider =
+                crate::GitLabMilestoneProvider::with_runner(milestone_repo, self.runner.clone());
+            let resolved =
+                gitflow_core::label::resolve_milestone_identifier(&milestone_provider, identifier)
+                    .await?;
+            resolved_milestone_title = resolved.title;
+            cmd_args.push("--milestone");
+            cmd_args.push(&resolved_milestone_title);
         }
 
         debug!(
@@ -326,48 +432,8 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
         self.view(mr_iid).await
     }
 
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>> {
-        let mut cmd_args: Vec<&str> = vec![
-            "mr",
-            "list",
-            "--repo",
-            &self.repo_target,
-            "--output",
-            "json",
-        ];
-
-        // glab uses --closed for closed MRs, --all for all MRs
-        // Default (no flag) shows open MRs
-        if let Some(state) = &args.state {
-            match state {
-                State::Closed => cmd_args.push("--closed"),
-                State::All => cmd_args.push("--all"),
-                State::Open => {}
-            }
-        }
-
-        let limit_str = args.limit.map(|limit| limit.to_string());
-        if let Some(ref limit) = limit_str {
-            cmd_args.push("--per-page");
-            cmd_args.push(limit);
-        }
-
-        debug!(repo = %self.repo, "spawning `glab mr list`");
-
-        let output = self
-            .runner
-            .run("glab", &cmd_args)
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
-
-        if !output.status.success() {
-            return Err(parse_glab_error(&output.stderr).into());
-        }
-
-        let api_responses: Vec<MrApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
-
-        Ok(api_responses.into_iter().map(PrData::from).collect())
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>> {
+        self.list_impl(args).await
     }
 
     async fn view(&self, number: u64) -> Result<PrData> {
@@ -618,6 +684,42 @@ impl<R: CommandRunner + 'static> PrProvider for GitLabMrProvider<R> {
 
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
+
+    /// 查询仓库配置的默认分支（如 `main`、`dev`）。
+    ///
+    /// 调用 `glab repo view --output json` 并解析 `default_branch` 字段。
+    ///
+    /// # Errors
+    ///
+    /// 当 `glab` CLI 调用失败或响应无法解析时返回错误。
+    async fn default_branch(&self) -> Result<String> {
+        debug!(repo = %self.repo, "spawning `glab repo view`");
+
+        let output = self
+            .runner
+            .run(
+                "glab",
+                &[
+                    "repo",
+                    "view",
+                    "--repo",
+                    &self.repo_target,
+                    "--output",
+                    "json",
+                ],
+            )
+            .await
+            .map_err(|e| CoreError::Platform(format!("Failed to spawn glab: {e}")))?;
+
+        if !output.status.success() {
+            return Err(parse_glab_error(&output.stderr).into());
+        }
+
+        let resp: RepoViewResponse =
+            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+        Ok(resp.default_branch)
+    }
 }
 
 /// Parse MR IID from GitLab URL.
@@ -803,6 +905,66 @@ mod tests {
         let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
         let pr: PrData = api.into();
         assert_eq!(pr.author.login, "unknown");
+        assert!(
+            pr.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+        assert!(
+            pr.updated_at.is_none(),
+            "missing updated_at must stay None, not fall back to Utc::now()"
+        );
+    }
+
+    #[test]
+    fn test_should_keep_mr_comment_created_at_none_when_api_omits_it() {
+        let json = br#"{
+            "id": 1003,
+            "body": "No timestamp provided.",
+            "author": {"username": "maintainer", "id": 42}
+        }"#;
+
+        let api: CommentApiResponse =
+            serde_json::from_slice(json).expect("valid CommentApiResponse");
+        let comment: CommentData = api.into();
+        assert!(
+            comment.created_at.is_none(),
+            "missing created_at must stay None, not fall back to Utc::now()"
+        );
+    }
+
+    #[test]
+    fn test_should_deserialize_mr_with_milestone() {
+        // Same GitLab REST milestone object shape as `glab issue view`
+        // (confirmed against http://192.168.230.23/iproost/iproost-docs on
+        // 2026-09-21: `glab mr list --output json` embeds a `milestone` field
+        // of the identical shape, `null` when unset).
+        let json = br#"{
+            "iid": 12,
+            "title": "Add feature",
+            "description": null,
+            "state": "opened",
+            "draft": false,
+            "author": {"username": "alice", "id": 2},
+            "source_branch": "feature/x",
+            "target_branch": "main",
+            "milestone": {
+                "id": 30,
+                "iid": 3,
+                "title": "v2.0",
+                "state": "active"
+            },
+            "web_url": "http://192.168.230.23/owner/repo/-/merge_requests/12"
+        }"#;
+
+        let api: MrApiResponse = serde_json::from_slice(json).expect("valid MrApiResponse");
+        let pr: PrData = api.into();
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into(),
+            })
+        );
     }
 
     // --- Failure-path tests using an injected MockCommandRunner ---
@@ -816,6 +978,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![],
+            milestone: None,
         }
     }
 
@@ -1000,7 +1163,11 @@ mod tests {
                 "owner/repo",
                 "--output",
                 "json",
-                "--all"
+                "--all",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
             ]
             .into_iter()
             .map(String::from)
@@ -1354,5 +1521,206 @@ mod tests {
             result.unwrap_err(),
             gitflow_core::CoreError::Cli(_)
         ));
+    }
+
+    // --- default_branch() tests ---
+
+    #[tokio::test]
+    async fn test_should_return_default_branch_on_success() {
+        let runner = MockCommandRunner::success(r#"{"default_branch":"dev"}"#);
+        let provider = GitLabMrProvider::with_runner("group/project", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.expect("already checked"), "dev");
+    }
+
+    #[tokio::test]
+    async fn test_should_use_repo_target_for_default_branch() {
+        let runner = MockCommandRunner::success(r#"{"default_branch":"dev"}"#);
+        let provider = GitLabMrProvider::with_runner_and_repo_target(
+            "group/project",
+            "https://gitlab.example.com/group/project.git",
+            runner.clone(),
+        );
+
+        let _ = provider.default_branch().await;
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls[0].0, "glab");
+        assert_eq!(
+            calls[0].1,
+            vec![
+                "repo",
+                "view",
+                "--repo",
+                "https://gitlab.example.com/group/project.git",
+                "--output",
+                "json",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_return_error_when_repo_view_fails() {
+        let runner = MockCommandRunner::failure("glab: 404 Not Found", 1);
+        let provider = GitLabMrProvider::with_runner("group/nonexistent", runner);
+
+        let result = provider.default_branch().await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_should_walk_pages_for_mr_list() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+        provider
+            .list(ListPrArgs::default())
+            .await
+            .expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0].1;
+        assert!(
+            recorded
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100")
+        );
+        assert!(recorded.windows(2).any(|w| w[0] == "--page" && w[1] == "1"));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_mr_list_with_state() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+        let args = ListPrArgs {
+            state: Some(State::Open),
+            ..ListPrArgs::default()
+        };
+        provider.list(args).await.expect("list should succeed");
+        let recorded = &runner.recorded_calls()[0];
+        assert_eq!(recorded.0, "glab");
+        assert_eq!(
+            recorded.1,
+            vec![
+                "mr",
+                "list",
+                "--repo",
+                "owner/repo",
+                "--output",
+                "json",
+                "--per-page",
+                "100",
+                "--page",
+                "1",
+            ]
+        );
+    }
+
+    // --- milestone wiring: create ---
+
+    /// A single-item `glab milestone list --output json` response resolving to
+    /// number 3 / title "v2.0", matching `resolve_milestone_identifier`'s contract.
+    const MILESTONE_LIST_JSON: &str = r#"[
+        {"id": 30, "iid": 3, "title": "v2.0", "state": "active"}
+    ]"#;
+
+    #[tokio::test]
+    async fn test_should_wire_resolved_milestone_title_into_mr_create() {
+        // Sequence:
+        // 1. milestone resolution: `glab milestone list --project ...`
+        //    (GitLabMilestoneProvider::list)
+        // 2. `glab mr create ... --milestone v2.0`
+        // 3. `glab mr view <number>` (create() delegates to view())
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "http://192.168.230.23/owner/repo/-/merge_requests/12"),
+            (
+                true,
+                r#"{"iid":12,"title":"Add feature","state":"opened","source_branch":"feature/x","target_branch":"main","milestone":{"id":30,"iid":3,"title":"v2.0","state":"active"}}"#,
+            ),
+        ]);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner.clone());
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string()); // resolve by number
+
+        let pr = provider.create(args).await.expect("create should succeed");
+        assert_eq!(
+            pr.milestone,
+            Some(gitflow_core::types::MilestoneRef {
+                number: 3,
+                title: "v2.0".into()
+            })
+        );
+
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 3, "expected exactly 3 glab invocations");
+        assert!(
+            calls[0].1.first().map(String::as_str) == Some("milestone"),
+            "first call must resolve the milestone via `glab milestone list`, got: {:?}",
+            calls[0].1
+        );
+        let create_call = &calls[1].1;
+        assert!(
+            create_call
+                .windows(2)
+                .any(|w| w[0] == "--milestone" && w[1] == "v2.0"),
+            "mr create argv must carry the resolved milestone title, got: {create_call:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_propagate_error_when_milestone_identifier_not_found_on_mr_create() {
+        // Milestone list resolves to no match for "does-not-exist" → resolve_milestone_identifier
+        // returns an error before `glab mr create` is ever invoked.
+        let runner = SequencedMockCommandRunner::from_results(&[(true, MILESTONE_LIST_JSON)]);
+        let provider = GitLabMrProvider::with_runner("owner/repo", runner);
+
+        let mut args = sample_create_args();
+        args.milestone = Some("does-not-exist".to_string());
+
+        let result = provider.create(args).await;
+        assert!(result.is_err());
+    }
+
+    // --- regression: milestone resolution must use the bare repo, not repo_target ---
+    //
+    // `glab milestone ...` subcommands take `--project`, which (unlike `--repo`)
+    // rejects a full git remote URL and 404s. `repo_target` may hold that URL on
+    // self-hosted instances (see `with_remote_url`'s doc comment and
+    // <https://gitlab.com/gitlab-org/cli/-/issues/1370>); the milestone-resolution
+    // provider must always be constructed from the bare `repo` field instead.
+    #[tokio::test]
+    async fn test_should_resolve_milestone_against_bare_repo_not_repo_target_for_mr_create() {
+        let runner = SequencedMockCommandRunner::from_results(&[
+            (true, MILESTONE_LIST_JSON),
+            (true, "http://192.168.230.23/owner/repo/-/merge_requests/12"),
+            (
+                true,
+                r#"{"iid":12,"title":"Feat","state":"opened","source_branch":"feat/x","target_branch":"main"}"#,
+            ),
+        ]);
+        let provider = GitLabMrProvider::with_runner_and_repo_target(
+            "owner/repo",
+            "https://192.168.230.23/iproost/proxy/api-src.git",
+            runner.clone(),
+        );
+
+        let mut args = sample_create_args();
+        args.milestone = Some("3".to_string());
+        provider.create(args).await.expect("create should succeed");
+
+        let resolve_call = &runner.recorded_calls()[0].1;
+        assert!(
+            resolve_call.iter().any(|a| a == "owner/repo"),
+            "milestone resolution must target the bare repo, got: {resolve_call:?}"
+        );
+        assert!(
+            !resolve_call
+                .iter()
+                .any(|a| a.contains("192.168.230.23/iproost/proxy")),
+            "milestone resolution must NOT use repo_target's remote URL, got: {resolve_call:?}"
+        );
     }
 }

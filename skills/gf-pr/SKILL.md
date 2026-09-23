@@ -5,7 +5,6 @@ description: >
   checkout/comment/sync/ready/wip/reopen or toggles draft/ready state.
   当用户通过 gf 创建、查看、合并、关闭、评论、检出、同步、
   标记PR时使用。
-Full params: docs/references/gf-pr-params.md
 ---
 
 # gf-pr — PR Command Router
@@ -164,3 +163,4 @@ CI 仍在跑（<branch>，已 N 分钟）。请选择：
 - `/gf-pr-review` — full review
 - `/gf-pr-inline-review` — line-level review
 - `/gf-pr-apply-feedback` — post-review code changes
+- `docs/references/gf-pr-params.md` — full params reference

@@ -1,6 +1,7 @@
 # Java Pre-commit Checks
 
-**Detection:** `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle) in project root.
+**Shared language profile:** `gf-quality/references/profiles/java.md`. Read it for tools, version sources, and scan exclusions.
+
 
 ## Maven Commands
 

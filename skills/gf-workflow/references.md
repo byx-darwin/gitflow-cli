@@ -59,8 +59,8 @@ New Session Starts
 3. Load context based on mode and current_phase:
    • Phase 1: No doc needed (start fresh)
    • Phase 2: Read design_doc_path; check mode for Phase 1 exemptions
-   • Phase 3: Read spec_path (plan document); check mode for fast skip
-   • Phase 4: Read pr_url + review reports; use get_phase4_steps(mode) to determine remaining steps
+   • Phase 3: Read spec_path (plan document); check mode for fast skip; also reload `change_surface`/`security_check`/`regression_check` evidence (Issue #344) and `diff_review_status`/`diff_review_path` (Issue #397) alongside `branch`/`worktree_path` — do not re-ask an answered change-surface question; rerun the cheap diff render if resuming before delivery, since HEAD may have changed
+   • Phase 4: Read pr_url + review reports and any generated local `diff_review_path`; use get_phase4_steps(mode) to determine remaining steps
 4. Resume from current_phase, follow auto-trigger rules
 ```
 
@@ -96,33 +96,66 @@ All worktrees are created at a fixed location within the project: `.worktree/<br
 ```bash
 # Phase 3 Step 1: preflight, then create worktree
 git status --porcelain                      # classify before forking (see below)
-git worktree add .worktree/feat-146-worktree-path -b feat/146-worktree-path main
+git worktree add .worktree/feat/146-worktree-path -b feat/146-worktree-path main
 
 # Carry this workflow's Phase 1/2 documents INTO the worktree, then commit on the
 # feature branch (structure-preserving and portable — macOS has no `cp --parents`)
+WORKTREE_PATH=".worktree/feat/146-worktree-path"
 for f in docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md; do
-  mkdir -p ".worktree/feat-146-worktree-path/$(dirname "$f")"
-  cp "$f" ".worktree/feat-146-worktree-path/$f"
+  mkdir -p "$WORKTREE_PATH/$(dirname "$f")"
+  cp "$f" "$WORKTREE_PATH/$f"
 done
 
 # Backstop: assert every contract-referenced document really landed in the worktree
 for f in docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md; do
-  test -f ".worktree/feat-146-worktree-path/$f" || { echo "ABORT: $f missing in worktree"; exit 1; }
+  test -f "$WORKTREE_PATH/$f" || { echo "ABORT: $f missing in worktree"; exit 1; }
 done
 
-# Symlink shared directories (workflow contracts + Claude config)
-mkdir -p .worktree/feat-146-worktree-path/.cache
-ln -s ../../.cache/workflows .worktree/feat-146-worktree-path/.cache/workflows
-ln -s ../../.claude .worktree/feat-146-worktree-path/.claude
+# Symlink shared directories (workflow contracts + Claude config).
+# Depth is computed, not hardcoded: worktree_path can be multi-segment
+# (branch names follow feat/<issue-number>-<short-description>, so
+# .worktree/<branch-name> is routinely 2+ segments deep). See "Why the
+# Symlink Depth Is Computed, Not Hardcoded" below for the formula and
+# the empirical proof.
+segs=$(awk -F/ '{print NF}' <<< "$WORKTREE_PATH")
+ups_cache=$((segs + 1))   # .cache/workflows 软链文件位于 .cache/ 下，多一级
+ups_claude=$segs          # .claude 软链文件直接位于 $WORKTREE_PATH 下
+rel_cache=$(printf '../%.0s' $(seq 1 "$ups_cache"))
+rel_claude=$(printf '../%.0s' $(seq 1 "$ups_claude"))
+mkdir -p "$WORKTREE_PATH/.cache"
+ln -s "${rel_cache}.cache/workflows" "$WORKTREE_PATH/.cache/workflows"
+ln -s "${rel_claude}.claude" "$WORKTREE_PATH/.claude"
 
-cd .worktree/feat-146-worktree-path
+# Existence self-check — a dangling symlink still passes `test -e`, so verify
+# the *resolved target* is a real directory. A failure here means the depth
+# formula or worktree_path itself is wrong, not that the contract is missing.
+test -d "$WORKTREE_PATH/.cache/workflows" || {
+  echo "ABORT: .cache/workflows symlink depth miscalculated — worktree_path=$WORKTREE_PATH segs=$segs ups_cache=$ups_cache"
+  echo "Expected to resolve to repo-root .cache/workflows but did not."
+  exit 1
+}
+test -d "$WORKTREE_PATH/.claude" || {
+  echo "ABORT: .claude symlink depth miscalculated — worktree_path=$WORKTREE_PATH segs=$segs ups_claude=$ups_claude"
+  echo "Expected to resolve to repo-root .claude but did not."
+  exit 1
+}
+
+# Exclude them from git tracking — writes to the COMMON git dir's info/exclude
+# (verified: worktrees do NOT have a per-worktree info/exclude; this file is shared
+# by the main tree + all worktrees of this local clone), so it protects every
+# worktree, not just this one, without touching the project's own .gitignore.
+EXCLUDE_FILE="$(cd "$WORKTREE_PATH" && git rev-parse --git-common-dir)/info/exclude"
+grep -qxF '.cache/workflows' "$EXCLUDE_FILE" || echo '.cache/workflows' >> "$EXCLUDE_FILE"
+grep -qxF '.claude' "$EXCLUDE_FILE" || echo '.claude' >> "$EXCLUDE_FILE"
+
+cd "$WORKTREE_PATH"
 git add docs && git commit -m "docs(workflow): wf-2026-08-30-001 Phase 1-2 artifacts"
 cd -
 # Only now remove the main-tree copies, so the eventual merge cannot be blocked
 rm docs/superpowers/specs/146-x-design.md docs/superpowers/plans/146-x.md
 
 # Phase 4 Branch Finish: Remove worktree
-git worktree remove .worktree/feat-146-worktree-path
+git worktree remove "$WORKTREE_PATH"
 ```
 
 ### Worktree Preflight (Phase 3 Step 1)
@@ -188,6 +221,117 @@ choice 4 — the contract stays in Phase 3 for resume.
 **Every execution mode must run this preflight.** Modes ① and ② let the *executor* create
 the worktree, so the orchestrator cannot rely on having checked the tree itself — the
 handoff text must carry these steps verbatim. See `Phase 3 Execution Modes` below.
+
+### Change-Surface Detection (Phase 3 Step 3, Issue #344)
+
+Phase 3 Step 3 决定是否阻断式运行 `gf-security-check` / `gf-regression`，判定依据是 Step 1 已经记录的 `base_branch`——**不重新猜测 base ref**，直接复用：
+
+```bash
+diff_files="$(git diff --name-only "$base_branch"...HEAD)"
+```
+
+（`gf-quality` 的 Gate 3 曾经因为用 `${BASE_REF:-origin/main}` 猜测 base ref，在 GitLab/GitCode 默认分支不是 `main` 时解析失败；这里直接吃 Phase 3 Step 1 的既有产出，不重蹈覆辙。）
+
+两条独立规则，各自判定，互不影响：
+
+| 检查 | 触发路径模式 |
+|---|---|
+| `gf-security-check` | `Cargo.toml`、`Cargo.lock`、`**/Cargo.toml`（workspace 内任意 crate）、`deny.toml` |
+| `gf-regression` | `apps/cli/src/**`、`crates/core/src/**`、`crates/github/src/**`、`crates/gitlab/src/**`、`crates/gitcode/src/**` |
+
+都不命中（例如纯文档/spec/skill 文本改动）→ `change_surface = "docs_only"`，两项检查都记 `not_triggered`，不实际调用任何一个 skill。
+
+**为什么必须在 Step 3（旧 Step 3 交付选择之前）而不是 Phase 4：** local_merge 路径下，旧的 Step 3（现 Step 4）会立刻把分支合并进 `base_branch`。如果检查放在 Phase 4（交付之后），发现问题时代码已经进了 `base_branch`，"阻断式"就名不副实了——所以必须卡在合并动作发生之前。
+
+### Conditional Diff Review (Phase 3 Step 4, Issue #397)
+
+`skills/gf-workflow/SKILL.md` → Phase 3 Step 4 defines the trigger and the
+scan/render commands. It runs before the delivery choice so both PR and local
+merge paths use the same `base_branch...HEAD` diff. The generated JSON/HTML
+live in the main worktree's ignored `.cache/diff-review/<workflow_id>.*`, which
+survives removal of the feature worktree. Record `diff_review_status` even when
+not triggered or when rendering fails; record `diff_review_path` only on
+success. This local file path belongs in the workflow summary, not in a remote
+Issue/PR comment.
+
+### Why the Symlink Depth Is Computed, Not Hardcoded
+
+A relative symlink resolves starting from the directory that *contains* the
+symlink file, not from `worktree_path` itself. `$WORKTREE_PATH/.cache/workflows`
+lives inside `$WORKTREE_PATH/.cache/`, **one segment deeper** than
+`$WORKTREE_PATH` — but `$WORKTREE_PATH/.claude` lives directly at
+`$WORKTREE_PATH`, with no extra segment. The two symlinks therefore need two
+different `../` counts:
+
+```
+ups_cache  = (number of "/"-separated segments in worktree_path) + 1
+ups_claude = (number of "/"-separated segments in worktree_path)
+```
+
+An earlier version of this formula used `ups_cache`'s value for both
+symlinks, which left `.claude` dangling (it resolved one level above the
+repo root) — see Issue #353.
+
+**Verified empirically** (not inferred from documentation) with real
+`mkdir` + `ln -s`:
+
+| `worktree_path` | segments | `ups_cache` | `ups_claude` |
+|---|---|---|---|
+| `.worktree/foo` (single-segment) | 2 | 3 | 2 |
+| `.worktree/feat/89-desc` (branch name contains `/`, per the `feat/<issue-number>-<short-description>` convention) | 3 | 4 | 3 |
+
+The old hardcoded `../../` (2 levels) was wrong even for the single-segment
+case it was presumably written for — it only reaches `.worktree/`, one level
+short of the repo root, in every case. A branch name containing `/` (the
+routine case, not an edge case — see the naming convention above) simply
+made the shortfall larger and easier to hit. The `ups_cache`/`ups_claude`
+split is correct for both symlinks, and the post-creation
+`test -d "$WORKTREE_PATH/.cache/workflows"` / `test -d "$WORKTREE_PATH/.claude"`
+checks catch any future regression of either formula by refusing to proceed
+silently — a dangling symlink otherwise looks identical to a missing
+contract to every downstream reader (see Issue #322's real-world report:
+this exact ambiguity cost significant debugging time downstream).
+
+### Why These Symlinks Must Never Reach the Main Branch
+
+`.cache/workflows` and `.claude` inside a worktree are relative symlinks
+(e.g. `../../../.cache/workflows`, `../../.claude` for a two-segment
+`worktree_path` — see `ups_cache`/`ups_claude` above). If either is ever committed, `git ls-files -s`
+shows a `120000` (symlink) mode entry for that path. A clone made from a commit carrying
+that entry re-creates the symlink pointing at `../../<name>` **relative to that clone's own
+location** — which, outside the original working tree that produced it, resolves to a
+directory that does not exist or belongs to something else entirely.
+
+**Verified real-world impact (Issue #318):** in the downstream project
+`iproost/proxy/api-src`, `.cache/workflows` and `.claude/.claude` had been committed as
+symlinks (commit `e7f4254`, swept in by an unrelated broad `git add`). Resolved from that
+repo's root, `.cache/workflows -> ../../.cache/workflows` landed **outside the repository**,
+in a directory shared by other checkouts. Every subsequent gf-workflow contract read/write in
+that project actually happened against that external shared path — including a case where a
+background research fork and the main session concurrently touched the same contract file and
+cross-wrote each other's Phase 3/4 progress.
+
+**Why `info/exclude` fixes this at the source, not just in this repo.** A linked worktree has
+no `info/exclude` of its own: `git rev-parse --git-common-dir` from inside any worktree
+resolves to the *main* repository's `.git`, and `info/exclude` always lives there — confirmed
+by writing to it from a worktree and observing `git status` change in a sibling worktree and
+the main tree alike. So the one write performed right after `ln -s` (see the example above)
+protects the main tree and every worktree this clone will ever create, permanently, without
+depending on that project's own `.gitignore` ever mentioning `.cache/` or `.claude/` — which is
+exactly the gap that let `e7f4254` happen upstream.
+
+**Belt and suspenders.** `info/exclude` only stops *new* accidental adds; it does nothing for
+a symlink that is already staged in a commit about to leave `branch` (rebase, cherry-pick,
+`git commit -a` racing the exclude write, etc.). That is why Phase 3 Step 4 in `SKILL.md` also
+scans the diff immediately before delivery:
+
+```bash
+git diff --summary "$BASE_BRANCH"...HEAD | grep 'create mode 120000'
+```
+
+A hit means some commit on `branch` added a symlink that `base_branch` doesn't have. Treat it
+as a hard stop: show the path(s), and let the user choose to drop the offending commit/entry
+or explicitly confirm it is an intentional, unrelated symlink before delivery proceeds.
 
 ## Lifecycle Management
 
@@ -261,18 +405,25 @@ Mirrored by the Rust constants in `apps/cli/src/commands/skills.rs`
 `SUPERPOWERS_BARE_SENTINELS` / `MATTPOCOCK_BARE_SENTINELS`) used by install-time
 Step 0. Change both sides together.
 
-| Source | Namespaced form | Bare form (double hit required) |
+| Source | Model-invoked sentinel | User-invoked sentinel |
 |---|---|---|
-| superpowers | `superpowers:brainstorming` | `brainstorming` + `writing-plans` |
-| mattpocock | `mattpocock-skills:to-spec` + `mattpocock-skills:grilling` | `to-spec` + `grilling` |
+| superpowers | `superpowers:brainstorming`, or bare `brainstorming` + `writing-plans` | — |
+| mattpocock | `mattpocock-skills:grilling`, or bare `grilling` | `to-spec` |
 
-Bare forms cover skills.sh / symlink installs. A partial hit (e.g. only `to-spec`)
-counts as absent; report which sentinel is missing.
+Model-invoked sentinels must appear in the session available-skills list. User-invoked
+sentinels normally do not appear there because their frontmatter sets
+`disable-model-invocation: true`; locate them only under skill roots declared by the
+environment and verify both the frontmatter `name` and that flag. They also count if the
+session explicitly exposes them. A partial hit counts as absent; report each missing
+sentinel.
 
 ### Detection & Recording
 
-- Mechanism: introspect the session available-skills list at Bootstrap, BEFORE the
-  contract exists. Filesystem probing is diagnostics-only.
+- Mechanism: at Bootstrap, BEFORE the contract exists, introspect the session
+  available-skills list for model-invoked sentinels. For explicit user-invoked sentinels,
+  inspect only the environment-declared skill roots; this scoped lookup is authoritative
+  because those skills are intentionally hidden from model invocation. All other
+  filesystem probing remains diagnostics-only.
 - Both present → ask the user which source this workflow uses (no default priority).
 - Neither present → ask: continue inline (`skill_source: "inline"`) or abort (no contract).
 - Record after contract creation:
@@ -292,15 +443,15 @@ jq --arg src "<superpowers|mattpocock|inline>" \
 |---|---|---|---|
 | Clarification | `brainstorming` | `grilling` | model-invoked / model-invoked |
 | Spec | (merged into brainstorming design doc) | ✋ `/to-spec` (local-only) | — / user-invoked |
-| Issue creation | `gf-issue-create` | `gf-issue-create` (unchanged; authority unified) | gf CLI |
+| Issue resolution | Reuse a verified open Issue; otherwise `gf-issue-create` | Same; `/to-spec` stays local-only | gf CLI |
 | Issue review | `gf-issue-review` | `gf-issue-review` (unchanged) | gf CLI |
 | Planning | `writing-plans` | ✋ `/to-tickets` | model-invoked / user-invoked |
 | Quality gate | `gf-quality` | `gf-quality` (unchanged) | gf CLI |
-| Execution engine | `subagent-driven-development` (same-session) / `executing-plans` (new window) / background agent — per GO gate | ✋ `/implement` per ticket (internal `/tdd` mandatory) | per mode / user-invoked |
+| Execution engine | `subagent-driven-development` (same-session) / `executing-plans` (new window) — per GO gate | ✋ `/implement` per ticket (internal `/tdd` mandatory) | per mode / user-invoked |
 | Execution review | SDD built-in two-stage review | `code-review` (driven inside `/implement`) | — |
 | Delivery review | `gf-review` | `gf-review` (unchanged; no extra code-review pass) | gf skill |
 | Triage (full mode) | `gf-issue-triage` | `gf-issue-triage` (unchanged; mattpocock `triage` NOT adopted) | gf skill |
-| Pipeline analysis | `gf-pipeline-analyzer` | (unchanged) | gf skill |
+| Pipeline analysis | `gf-pipeline-analyzer` — optional, asked at Phase 4 entry, default yes (all modes) | (unchanged) | gf skill |
 
 ### Source Branch Semantics
 
@@ -318,8 +469,10 @@ semantics, all `gf-*` steps, mandatory TDD + code review, mode matrix (full/stan
 
   Verify the local spec exists afterwards. **Fallback** (constraint failed / skill refused):
   the orchestrator writes the design doc itself from the grilling record, bypassing `to-spec`.
-  Then `gf-issue-create` creates the Issue (authority unified — no duplicate) and
-  `gf-issue-review` reviews it. Evidence: `issue_url`, `comment_id`, `design_doc_path`.
+  Then reuse the verified open Issue if one covers the task; otherwise
+  `gf-issue-create` creates one. `/to-spec` never publishes to the tracker.
+  `gf-issue-review` reviews the resolved Issue. Evidence: `issue_url`,
+  `comment_id`, `design_doc_path`.
 - **Phase 2:** ✋ PAUSE prompting `/to-tickets` with the Phase 1 spec reference.
   `to-tickets` publishes tickets per the configured tracker (local `.scratch/<feature>/issues/`
   files or real tracker issues) and includes its own breakdown quiz. Its rule "do NOT close
@@ -347,12 +500,59 @@ same-session SDD hijacks the conversation once started).
 
 | Mode | Description | Availability |
 |---|---|---|
-| ① Background agent ⭐default | Dispatch with `isolation: worktree` + `run_in_background`; handoff = contract path + plan doc + engine instructions + **Worktree Preflight steps verbatim** (this executor creates the worktree, so the orchestrator's tree state was never checked); `task-notification` returns to the original window; executor writes evidence back to the contract | superpowers only (`/implement` is user-invoked → unusable on mattpocock) |
-| ② Manual new window | Print opening guidance: worktree path (or creation command) + contract recovery command (`gf workflow status <id>` + plan doc path) + **Worktree Preflight steps verbatim**; new window creates branch/worktree itself and runs `executing-plans` (superpowers) or per-ticket `/implement` (mattpocock); user reports back, orchestrator verifies evidence | both sources |
-| ③ Same-session | Current behavior: orchestrator creates worktree and drives the engine inline | explicit request only |
+| ① Manual new window ⭐default | Print opening guidance: worktree path (or creation command) + contract recovery command (`gf workflow status <id>` + plan doc path) + **Worktree Preflight steps verbatim**; new window creates branch/worktree itself and runs `executing-plans` (superpowers) or per-ticket `/implement` (mattpocock); user reports back, orchestrator verifies evidence | both sources |
+| ② Same-session | Current behavior: orchestrator creates worktree and drives the engine inline | explicit request only |
+
+**Why no background-executor mode:** an earlier mode dispatching a harness-isolated,
+non-interactive executor (`isolation: worktree` + `run_in_background`) was removed after
+Issue #325 confirmed two structural defects that cannot be fixed by documentation alone:
+(1) such an isolated executor's git operations are hard-restricted to its own
+harness-managed worktree — it cannot target `.worktree/<branch-name>`; (2) that
+harness-managed worktree forks from `origin/<default-branch>`, not from the orchestrator's
+`base_branch`, so any resulting branch would silently miss `base_branch`-only commits.
+See `specs/gf-workflow-mode1-removal-design.md` for the investigation.
 
 Quality compensation: `executing-plans` (light path) lacks per-task review → gates
 compensate (`make test` before PR + Phase 4 `gf-review`). SDD carries per-task review built in.
+
+### Phase 3 Execution Error Classification (Issue #336)
+
+`skills/gf-workflow/SKILL.md`'s top-level Error Handling table covers orchestrator-level
+failures (missing contract, gate check failed). It does not cover failures that occur
+**during Phase 3 execution** (the implementation engine actually running build/test/lint
+commands, merging, or queuing a merge). This table fills that gap.
+
+**Two categories were adapted, not ported verbatim, from `smallnest/goal-workflow`'s
+`loop-it` skill** — this repo's semantics differ:
+
+- `merge_conflict`: Phase 3 Step 4's local-merge path already aborts and hands back to the
+  user on conflict (`git merge --abort`, branch/worktree untouched). The table below keeps
+  that behavior — zero automatic retries — rather than inventing a new auto-resolve loop.
+- `ci`: Phase 3 Step 6 queues the merge (`gf pr merge --auto`) against a specific SHA that
+  has already passed checks. Pushing a new commit to that branch after queuing does **not**
+  get carried into the queued check (verified empirically) — so `ci` failures can never be
+  "fixed" by pushing more commits onto the queued branch. A fix requires a fresh commit and
+  a fresh queue entry, which restarts at Step 2, not a retry of Step 6.
+
+| Category | Trigger | Recovery | Retry Cap |
+|---|---|---|---|
+| `build` | Compile/build failure | Fix code, rebuild | 3 |
+| `test` | Test failure | Fix code or test, rerun | 3 |
+| `lint` | `cargo clippy` / `cargo fmt` (or per-language equivalent) failure | Fix, rerun `make lint` | 3 |
+| `merge_conflict` | `git merge` conflict (Phase 3 Step 4, local-merge path) | `git merge --abort`; leave `branch`/worktree untouched; escalate to user immediately — no automatic retry. User resolves manually, then Step 4 is re-run as a fresh attempt (not counted against this cap) | 0 |
+| `ci` | Required check fails after the merge queue (Phase 3 Step 6, PR path) | Never push a new commit to the already-queued branch. `gf` has no re-run command for an existing pipeline run — ✋ PAUSE and ask the user to rule out flakiness via the platform's own re-run action (e.g. GitHub Actions "Re-run failed jobs", or that platform's native CLI); if it still fails, a real fix requires a new commit + a fresh queue entry — that restarts at Step 2, it is not a retry of Step 6 | 1 (one user-triggered same-SHA re-run only) |
+| `auth` | `gf auth status` failure / API 401/403 | No retry — escalate to user immediately (`auth login` is a human action) | 0 |
+| `rate_limit` | API 429 / platform throttling | No retry — escalate to user immediately (waiting or rotating credentials is a human decision) | 0 |
+| `network` | Transient network error (timeout, connection reset) | Retry with backoff | 3 |
+| `issue_unclear` | Execution engine hits a requirement ambiguity it cannot resolve | Not a retryable error — pause and ask the user for clarification; never guess. Each clarification round is a fresh attempt, not counted against a retry cap | 0 |
+| `unknown` | Uncategorized error | Capture the full error, retry once conservatively; escalate if it recurs | 1 |
+
+**Escalation contract.** When a category's retry cap is reached (or immediately, for the
+four 0-cap categories — `merge_conflict`, `auth`, `rate_limit`, `issue_unclear`): stop
+retrying automatically, show the user the error category, every recovery attempt tried so
+far with its outcome, and the retry count, then wait for the user's decision (continue /
+change strategy / abort the task). Never silently give up and never silently switch
+delivery mode (e.g. falling back from local-merge to PR) as a substitute for asking.
 
 ### Worktree Location Convention (Issue #146)
 
@@ -362,4 +562,9 @@ All gf-workflow worktrees are created at a **fixed path**: `.worktree/<branch-na
 - Full path example: `.worktree/feat/141-dual-skill-sources`
 - `.worktree/` is in `.gitignore` → worktrees are automatically excluded from version control
 - Phase 4 Branch Finish cleanup uses this predictable path for `git worktree remove`
-- Background agents and new-window executors create worktrees at this same location
+- New-window executors create worktrees at this same location
+## Workflow Recommendation (Issue #383)
+
+At Bootstrap, make a short, reviewed JSON input with `title`, `summary` (at most 512 bytes), `labels`, and optional `userMode`; store it under ignored `.cache/workflows/`. Include only the task description and allowed issue labels. Do not include logs, environment variables, credentials, private URLs, or full repository content. Run `gf workflow recommend --input <path>` for deterministic advice. If the user explicitly opts into Jev and `GF_DECISION_PROVIDER=jev` is configured, add `--live`; otherwise no provider call occurs. A saved typed `DecisionResponse` can be replayed with `--response <path>` without a provider. The command emits `ruleMode`, optional `suggestedMode`, `effectiveMode`, `status`, `riskFlags`, and `candidatePhases`. See `docs/workflow-recommendation.md` for the schema and examples.
+
+The command does not create a contract or change a gate. Use `effectiveMode` only as the rule or explicit user choice when creating the contract. Display model conflicts and low confidence for review; do not treat `suggestedMode`, `riskFlags`, or `suggestedSkills` as permission to run or skip steps. If the command is unavailable in an older `gf` binary, apply the deterministic Mode Auto-Detection table in `SKILL.md`.

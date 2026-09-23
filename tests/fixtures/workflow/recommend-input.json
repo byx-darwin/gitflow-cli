@@ -1,0 +1,5 @@
+{
+  "title": "feat: add data export",
+  "summary": "Add a public export command across the CLI and core modules.",
+  "labels": ["type:feature", "priority:medium"]
+}

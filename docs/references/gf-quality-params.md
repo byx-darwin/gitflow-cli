@@ -158,7 +158,7 @@ A: <answer>
 
 | Language | Common Errors | FAQ Topics |
 |----------|--------------|------------|
-| Rust | `cargo-tarpaulin` missing, nightly toolchain missing, compilation errors | Coverage shows 0%, skip doc tests, slow workspace builds |
+| Rust | `cargo-llvm-cov` missing, nightly toolchain missing, compilation errors | Coverage shows 0%, skip doc tests, slow workspace builds |
 | Go | `golangci-lint` missing, module download failures, race conditions | Test hangs, dependency updates, module proxy issues |
 | Node.js | Permission denied, lock file conflicts, TypeScript errors | npm vs yarn vs pnpm, cache clearing, strict mode |
 | Python | pip missing, permission denied, import errors | ruff vs black vs pylint, Python version management, pytest fixtures |

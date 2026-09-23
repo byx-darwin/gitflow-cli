@@ -43,7 +43,7 @@ Orchestrator commands only; state lives in the contract; gates are never skipped
    - Incomplete workflow exists (`status != "complete"`) → **RESUME** it: read `current_phase`, load context, continue from next step
    - Multiple exist → ask user which to resume
    - None exist → proceed to step 2
-2. Run mode auto-detection (full / standard / fast)
+2. Run mode auto-detection (full / standard / fast). For a bounded, reviewed task summary, use `gf workflow recommend --input <json>` to show the deterministic rule and any optional Jev advice together. `--live` is opt-in; see `references.md` → Workflow Recommendation. Model advice never selects the contract mode automatically.
 3. **Detect skill source** — see `## Skill Source Resolution`. Runs BEFORE the contract exists; if both sources are absent the user chooses inline-continue or abort (abort → no contract)
 4. Create the contract file at `.cache/workflows/active/<workflow_id>.json` (schema: `contract.schema.json`), then record `skill_source` via jq immediately after creation
 5. Announce the workflow start with: workflow_id, mode, title, `skill_source`
@@ -59,11 +59,18 @@ Phase steps below use **role aliases** only; actual skill names resolve via
 
 ### Detection (at Bootstrap, BEFORE contract creation)
 
-1. Introspect the session's available-skills list (primary signal — "invocable as detected").
-   Filesystem probing is diagnostics-only for error messages, never a decision source.
-2. Sentinels (each matches namespaced or bare form; bare form requires double hits):
-   - superpowers: `superpowers:brainstorming` (or bare `brainstorming` + `writing-plans`)
-   - mattpocock: `to-spec` + `grilling` double hit (namespaced `mattpocock-skills:*` or bare)
+1. Classify required skills by invocation policy:
+   - **Model-invoked skills** MUST appear in the session's available-skills list.
+   - **User-invoked skills** marked `disable-model-invocation: true` are intentionally absent
+     from that list. Discover them only beneath the skill roots declared by the environment,
+     and verify the `SKILL.md` frontmatter name and invocation flag. Do not probe arbitrary
+     filesystem locations.
+2. Sentinels:
+   - superpowers: `superpowers:brainstorming` (or bare `brainstorming` + `writing-plans`),
+     all from the session list because they are model-invoked.
+   - mattpocock: `grilling` from the session list, plus installed user-invoked skill
+     `to-spec` from declared skill roots. A user-invoked skill also counts when the
+     session explicitly exposes it.
 3. Result matrix:
 
 | Detection | Action | `skill_source` |
@@ -92,8 +99,8 @@ When resuming an existing contract, load context based on `current_phase`:
 |-------|----------------|-------------|
 | 1 | `design_doc_path` (if exists) | Next uncompleted step in Phase 1 |
 | 2 | `design_doc_path` + `spec_path` | Gate 2→3 pause (await user approval) |
-| 3 | `spec_path` (plan doc) | Next step after last evidence |
-| 4 | `pr_url`/`merge_commit`（按 `delivery_mode`）+ review reports | Next check in Phase 4 |
+| 3 | `spec_path` (plan doc) + `diff_review_status`/`diff_review_path` when present | Next step after last evidence; rerun diff rendering before delivery on resume |
+| 4 | `pr_url`/`merge_commit`（按 `delivery_mode`）+ review reports + local `diff_review_path` when generated | Next check in Phase 4 |
 
 Full recovery procedure: see `references.md` → Cross-Session Recovery.
 `skill_source` is always loaded from the contract (never re-detected silently) and re-verified per `## Skill Source Resolution`.
@@ -103,7 +110,7 @@ Full recovery procedure: see `references.md` → Cross-Session Recovery.
 | Rule | Description |
 |------|-------------|
 | **Call and Return** | After invoking a sub-skill, the orchestrator MUST resume at the next step. Sub-skills do NOT chain to other skills. |
-| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the transition to `gf-issue-create`. |
+| **Brainstorming Override** | When `brainstorming` is called as a Phase 1 sub-skill, its terminal state is **RETURN TO ORCHESTRATOR** (not `writing-plans`). The orchestrator handles the existing-Issue lookup or `gf-issue-create`. |
 | **Single Active Orchestrator** | Only this workflow's state machine drives the conversation. No other skill may claim orchestration while a contract is active. |
 | **Evidence Before Gate** | A gate check MAY NOT pass until all required evidence fields are populated. |
 | **No Implicit Completion** | A Phase is complete ONLY when the orchestrator sets `status = "complete"` in the contract. Sub-skill completion ≠ Phase completion. |
@@ -171,36 +178,41 @@ User can override batching strategy during plan phase.
 |----------|--------|
 | About to invoke `brainstorming` without a contract | **STOP** — create contract first |
 | About to create a new contract when an active one exists | **STOP** — resume the existing contract instead |
-| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, execute `gf-issue-create` |
-| About to skip `gf-issue-create` or `gf-issue-review` | **STOP** — MANDATORY in Phase 1 |
+| `brainstorming` starts invoking `writing-plans` | **STOP** — interrupt, return to orchestrator, resolve the Phase 1 Issue |
+| About to enter Phase 2 without a verified open Issue | **STOP** — reuse an existing Issue or create one in Phase 1 |
+| About to skip `gf-issue-review` outside fast mode | **STOP** — MANDATORY in standard/full Phase 1 |
+| About to create a second Issue for the same task | **STOP** — reuse the verified open Issue |
 | About to advance without updating contract evidence | **STOP** — update contract first |
 | User says "just write the code" | **CHECK** — Scenario C? If no contract, refuse and start Phase 1 |
 | About to let a sub-skill chain to another | **STOP** — sub-skills return to orchestrator |
-| About to invoke a source sub-skill without reading `references.md` mapping table | **STOP** — read the mapping table first; resolve names from the session skills list |
+| About to invoke a source sub-skill without reading `references.md` mapping table | **STOP** — read the mapping table first; resolve model-invoked names from the session list and user-invoked names from declared skill roots |
 | About to auto-invoke a user-invoked skill (`/to-spec`, `/to-tickets`, `/implement`) | **STOP** — these are `disable-model-invocation`; ✋ PAUSE and prompt the user |
 | About to run Phase 3 same-session without an explicit user request | **STOP** — Gate 2→3 includes execution-mode choice; same-session is explicit-only |
 | About to let `/to-spec` publish to the tracker | **STOP** — local-only constraint; issue creation belongs to `gf-issue-create` |
 | About to `git worktree add` without classifying the main tree | **STOP** — run Worktree Preflight first; the worktree forks a committed state and would leave `spec_path` behind |
 | About to delete untracked files to make the tree look clean | **STOP** — untracked is not disposable. Bucket B is classified and asked about, never removed |
+| About to let a user "跳过" security/regression check without a reason | **STOP** — 跳过必须有非空理由并写入 `exemption_reason`，理由为空按默认（运行）处理，不得静默跳过 |
 
 ## Rationalization Table
 
 | Excuse | Reality |
 |--------|---------|
+| "User declined pipeline analysis, skip Phase 4" | No — pipeline analysis is one optional step within Phase 4. Branch Finish (and, per mode, triage/review/dogfooding) still run; Phase 4 as a whole is mandatory in all modes. |
 | "brainstorming will handle Issue creation" | No — brainstorming chains to `writing-plans`, not Issue creation. Orchestrator must do it. |
 | "Contract can be created later" | No — contract MUST exist before any sub-skill. It is the single source of truth. |
 | "User just wants to discuss" | If they invoked `/gf-workflow`, run the workflow. |
-| "Issue review is optional" | No — `gf-issue-review` is MANDATORY in both full and fast modes. |
-| "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Issue list/create/review are separate mandatory steps. |
+| "Issue review is optional" | `gf-issue-review` is mandatory in standard/full; fast mode may omit it. |
+| "Brainstorming asked questions, Phase 1 is done" | No — brainstorming is ONE step. Resolve and verify the Issue, then run the required Issue review. |
 | "Requirement is clear, skip to Phase 3" | Scenario C. If `phases.2.evidence.spec_path` is empty, refuse and go to Phase 2. |
 | "New session, start fresh" | No — check `.cache/workflows/active/` first. If incomplete contract exists, resume it. |
 | "Different agent should start over" | No — contract is agent-agnostic. Any agent can resume from `current_phase` + evidence. |
 | "to-spec can publish the issue itself" | No — to-spec is constrained local-only; issue creation is unified under `gf-issue-create`. |
-| "The background agent can run /implement" | No — /implement is user-invoked; mattpocock's mode menu is trimmed to new-window / same-session. |
+| "Dispatch a background agent to run /implement" | No — /implement is user-invoked, and the background-agent execution mode was removed (Issue #325); the menu is new-window / same-session for both sources. |
 | "Both sources installed — pick the better one" | No priority — ask the user which source this workflow uses. |
 | "Phase 1/2 docs can just stay in the main tree" | No — `git worktree add` forks a committed state. The contract points at `spec_path`, and the executor cannot read a file that never entered its worktree. |
-| "Gate 2→3 already checked the tree" | No — that gate validates contract evidence. And in modes ① and ② the *executor* creates the worktree, so the preflight must travel with the handoff. |
+| "Gate 2→3 already checked the tree" | No — that gate validates contract evidence. And in mode ① (manual new window) the *executor* creates the worktree, so the preflight must travel with the handoff. |
 | "It's our own workflow doc, auto-commit it" | No — CLAUDE.md requires explicit permission before any commit, with no carve-out for the workflow's own artifacts. Bucket A is ✋ PAUSE and ask, same as Bucket B. |
+| "改动面没命中依赖/CLI路径，可以不检测直接跳" | No — 未命中时的正确行为是把 `change_surface` 记为 `docs_only` 并把两项检查记 `not_triggered`，而不是跳过整个 Step 3 的判定动作本身；判定动作永远要跑，只是判定结果决定要不要真的调用 skill |
 
 ## When to Use
 
@@ -211,13 +223,13 @@ User can override batching strategy during plan phase.
 
 **When NOT to Use:** quick fix → `gf-commit` · PR review → `gf-pr-review` · architecture discussion → the installed source's clarification skill directly (per `references.md` mapping) · user says "don't create an Issue" → do NOT invoke.
 
-**Mode auto-detection:** "fix"/"typo"/"hotfix"/"docs"/"chore" → `fast` · "refactor: small"/"fix: bug" → `standard` · "feat"/"refactor: large"/breaking → `full` · `good-first-issue` label → `fast` · unclear → `standard` (default). User can override with `--mode <mode>`.
+**Mode auto-detection:** `gf workflow recommend` implements the title/label rule summarized below and shows optional semantic advice. User can override with `--mode <mode>` when creating the contract; the recommendation does not create or edit a contract.
 
 ## Mode Comparison
 
 | Phase | Full Mode | Standard Mode | Fast Mode |
 |-------|-----------|---------------|-----------|
-| 1 | brainstorming + issue-create + issue-review | brainstorming + issue-create + issue-review | issue-create (required), brainstorming (optional) |
+| 1 | brainstorming + verified Issue + issue-review | brainstorming + verified Issue + issue-review | verified Issue (reuse/create), brainstorming (optional) |
 | 2 | writing-plans + quality gate | writing-plans + quality gate | **skippable** |
 | 3 | subagent-driven-development (TDD + Code Review) | subagent-driven-development (TDD + Code Review) | **required** |
 | 4 | pipeline + triage + review + dogfooding | pipeline + review | pipeline + branch-finish |
@@ -233,6 +245,8 @@ Detection priority (highest to lowest):
    - `fix:`, `refactor:`, `perf:` (single file/module) → **standard**
    - `feat:`, `refactor:` (cross-module), `!` (breaking change) → **full**
 4. **Default** → **standard** (balanced safety vs efficiency)
+
+Before the confirmation flow, run the read-only recommendation on a reviewed summary as described in `references.md` → Workflow Recommendation. Show `ruleMode`, `suggestedMode`, `status`, and `riskFlags` if present. Preserve a user override. If Jev is unavailable, low confidence, or conflicts with the rule, keep the deterministic result until the user chooses a mode. No model output may skip Phase 1–4 contracts, permission checks, tests, or delivery gates.
 
 ### Confirmation Flow
 
@@ -251,7 +265,7 @@ User input:
 
 In fast mode, the following skills are invoked per phase:
 
-**Phase 1:** `gf-issue-create` (required), Clarification skill per `skill_source` (optional)
+**Phase 1:** verified open Issue (reuse or `gf-issue-create`), Clarification skill per `skill_source` (optional)
 
 **Phase 2:** Planning skill per `skill_source` (optional, skippable)
 
@@ -263,7 +277,7 @@ In fast mode, the following skills are invoked per phase:
 
 In standard mode, the following skills are invoked per phase:
 
-**Phase 1:** Clarification skill per `skill_source` (required), `gf-issue-create` (required), `gf-issue-review` (required)
+**Phase 1:** Clarification skill per `skill_source` (required), verified open Issue (reuse or `gf-issue-create`), `gf-issue-review` (required)
 
 **Phase 2:** Planning skill per `skill_source` (required) + `gf-quality` gate (required)
 
@@ -281,6 +295,13 @@ In standard mode, the following skills are invoked per phase:
 
 ## Gate Rules
 
+At the end of Planning, Execution, and Delivery, an orchestrator may run
+`gf workflow semantic-check --workflow-id <id> --input <reviewed-json>` with a
+bounded summary and changed paths. Use `--live` only when explicitly intended.
+Record its advisory output in the contract, including `unavailable` on provider
+failure. The check never substitutes for any gate, test, lint, security check,
+permission, or user approval. See `docs/workflow-semantic-rules.md`.
+
 Full definitions: `skills/gf-workflow/gates.md`
 
 | Enter Phase | Required evidence | fast-mode exemption |
@@ -297,9 +318,10 @@ Full definitions: `skills/gf-workflow/gates.md`
    - Set `mode`, `title`, `current_phase = 1`, `phases.1.status = "in_progress"`
 
 2. **[AUTO] Read Open Issues**
-   - User specified an Issue → use it
-   - Otherwise → `gf issue list --state open`
-   - **Also read issue comments** → `gf issue comments <number>` to capture additional context from discussions
+   - User specified an Issue → `gf issue view <number>` in the current repository; require `state = open`. Use its returned URL and title as the task identity.
+   - Otherwise → `gf issue list --state open`; check for an existing Issue covering the same task before deciding to create one. Verify any candidate with `gf issue view <number>`; do not treat a merely similar Issue as a match.
+   - For a selected existing Issue, read `gf issue comments <number>` to capture additional context from discussions.
+   - If the specified Issue is missing, closed, or belongs to another repository, stop and report the mismatch; never create a replacement Issue silently.
 
 3. **[CALL] Clarification skill** (per `skill_source`; names in `references.md` → Dual-Source Mapping Table)
    - superpowers: `superpowers:brainstorming` (model-invoked)
@@ -309,18 +331,19 @@ Full definitions: `skills/gf-workflow/gates.md`
    - **⚠️ RETURN RULE:** Terminal state = **RETURN TO ORCHESTRATOR** (not `writing-plans`)
    - Output: `design_doc_path`
 
-4. **[AUTO] `gf-issue-create`** — **MANDATORY**
-   - Create Issue (or use existing), reference design doc in body
-   - mattpocock path: issue creation authority is UNIFIED here — `/to-spec` never publishes to the tracker
-   - Output: `issue_url`
+4. **[AUTO] Resolve Issue** — **MANDATORY**
+   - Existing matching open Issue → reuse its verified URL. Do not call `gf-issue-create`; keep the design document in the contract and use the existing Issue's acceptance criteria in the next steps.
+   - No matching open Issue → call `gf-issue-create` once and reference the design document in the new Issue body.
+   - mattpocock path: `/to-spec` remains local-only; only `gf-issue-create` may publish a new Issue.
+   - Output in both paths: `issue_url`
 
-5. **[AUTO] `gf-issue-review`** — **MANDATORY**
+5. **[AUTO] `gf-issue-review`** — mandatory in standard/full; optional in fast
    - Review Issue quality, add review comment
    - Output: `comment_id`
 
-6. **[AUTO] Update contract** — `phases.1.evidence = { issue_url, comment_id, design_doc_path }`, `status = "complete"`
+6. **[AUTO] Update contract** — `phases.1.evidence = { issue_url, comment_id, design_doc_path }`, `status = "complete"`; fast mode may omit the optional evidence fields per `gates.md`
 
-7. **[AUTO] Gate 1→2** — All evidence non-empty → **AUTO-ADVANCE to Phase 2**
+7. **[AUTO] Gate 1→2** — Required evidence for the selected mode is non-empty → **AUTO-ADVANCE to Phase 2**
 
 ## Phase 2: Planning
 
@@ -331,7 +354,7 @@ Full definitions: `skills/gf-workflow/gates.md`
 | 1 | **[CALL] Planning skill** (per `skill_source`) — **⚠️ RETURN to orchestrator**. superpowers: `superpowers:writing-plans` (input: `design_doc_path`) — create a full plan document (architecture, data flow, API design, component tree, route design). mattpocock: ✋ PAUSE → user runs `/to-tickets` on the Phase 1 spec; orchestrator records `ticket_refs` and sets `spec_path` = the spec file `to-tickets` consumed; the gate presents the ticket list + blocking edges. | `spec_path` (+ `ticket_refs` on mattpocock) |
 | 2 | **[AUTO]** `gf-quality` gate — runs all quality checks: Build check, Test check, Coverage check, Format check, Static check, and Pre-commit check. Report shows status per check. | all checks passed |
 | 3 | **[AUTO]** Update contract: `evidence = { spec_path, user_approved: false }` | — |
-| 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → **execution-mode choice (GO gate)**: ① background agent (default, superpowers only) ② manual new window ③ same-session (explicit request only); mattpocock menu is trimmed — see `references.md` → Phase 3 Execution Modes · "changes" → revise · "rejected" → terminate | `user_approved` |
+| 4 | **[PAUSE]** Gate 2→3 + user approval: "approved" → **execution-mode choice (GO gate)**: ① manual new window (default) ② same-session (explicit request only); identical menu for both `skill_source` values — see `references.md` → Phase 3 Execution Modes · "changes" → revise · "rejected" → terminate | `user_approved` |
 
 If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PASSED does the workflow continue.
 
@@ -341,13 +364,51 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO/PAUSE]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. **Preflight is a hard precondition to `git worktree add`**: that command forks a *committed* state, so an unclassified tree leaves this workflow's own `design_doc_path` / `spec_path` behind while the contract still points at them. Classify `git status --porcelain` → bucket A (workflow artifacts: ✋ PAUSE and ask before committing — show the paths, offer 提交/中止; never auto-commit even though it's the workflow's own doc; commit goes on the **feature branch**, never `base_branch`) / bucket B (unrelated: ✋ PAUSE, four options, never auto-commit, never delete) / bucket C (gitignored: skip). Then create the worktree: path FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`), branch `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (background agent / new window) otherwise — the handoff MUST carry the preflight steps verbatim; see `references.md` → Phase 3 Execution Modes. **After worktree creation**: symlink shared directories so workflow contracts and Claude config are accessible from the worktree: `mkdir -p <worktree-path>/.cache && ln -s ../../.cache/workflows <worktree-path>/.cache/workflows && ln -s ../../.claude <worktree-path>/.claude`. **Then assert** each contract-referenced document exists under `<worktree-path>/` — abort if missing. Remove bucket A's main-tree copies only after their commit is verified, otherwise the later merge aborts on untracked-overwrite. Full procedure: `references.md` → Worktree Preflight. | `branch`, `base_branch`, `worktree_path`, `worktree_preflight` |
-| 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window / background agent); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR | implementation |
-| 3 | **[AUTO]** Delivery choice — ask user: ① 推送 + 建 PR（默认）② 本地合并. **① PR**: `gf-pr-create`, PR body MUST include `Closes #<issue-number>`; `delivery_mode = "pr"`. **② Local merge**: ask which git 策略（`git merge --no-ff` / `git merge --squash`，无固定默认，每次询问）; in the **main working tree** (not the worktree — it doesn't own `base_branch`), merge `branch` into `base_branch`. Success → `merge_commit = $(git rev-parse HEAD)`, `delivery_mode = "local_merge"`. Conflict → `git merge --abort`, leave `branch`/worktree untouched, tell user to resolve manually and re-run this step (no silent fallback to PR). | `pr_url` or (`delivery_mode`, `merge_commit`) |
-| 4 | **[AUTO]** `make test` or `cargo test` — **本地前置自检**，不等于 CI 把关 | `tests_passed` |
-| 5 | **[AUTO]** 排队合并：`gf pr merge <n> --auto` —— 约 2.5 秒返回，平台在必需检查/pipeline 通过后自动完成。**不得在排队后再往该分支推 commit**：排队绑定的是已通过检查的那个 SHA，后推的 commit 不会被带上（实测踩过）。返回 `merged: false` 属正常（已排期），须原样转述 `message`，不得报"已合并"。GitCode 无此能力 → ✋ 告知用户需手动合并 | `merge_queued` |
-| 6 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, delivery_mode, pr_url, merge_commit, tests_passed, merge_queued }` (only the fields matching the chosen `delivery_mode` are populated; the other of `pr_url`/`merge_commit` stays absent) | — |
-| 7 | **[AUTO]** Gate 3→4 — 交付证据二选一（`pr_url` 或 `merge_commit`，按 `delivery_mode`）+ `tests_passed = true` → **AUTO-ADVANCE to Phase 4**。（PR 路径下，真正的合并闸门是平台必需检查 + 排队合并，不由本 workflow 判定；local_merge 路径下合并已在本 Step 完成） | — |
+| 1 | **[AUTO/PAUSE]** Record `base_branch` via `git rev-parse --abbrev-ref HEAD`. **Preflight is a hard precondition to `git worktree add`**: that command forks a *committed* state, so an unclassified tree leaves this workflow's own `design_doc_path` / `spec_path` behind while the contract still points at them. Classify `git status --porcelain` → bucket A (workflow artifacts: ✋ PAUSE and ask before committing — show the paths, offer 提交/中止; never auto-commit even though it's the workflow's own doc; commit goes on the **feature branch**, never `base_branch`) / bucket B (unrelated: ✋ PAUSE, four options, never auto-commit, never delete) / bucket C (gitignored: skip). Then create the worktree: path FIXED at `.worktree/<branch-name>` (covered by `.worktree/` in `.gitignore`), branch `feat/<issue-number>-<short-description>`. Created here for same-session mode; created by the executor (new window) otherwise — the handoff MUST carry the preflight steps verbatim; see `references.md` → Phase 3 Execution Modes. **After worktree creation**: symlink shared directories so workflow contracts and Claude config are accessible from the worktree: `segs=$(awk -F/ '{print NF}' <<< "<worktree-path>"); ups_cache=$((segs + 1)); ups_claude=$segs; rel_cache=$(printf '../%.0s' $(seq 1 "$ups_cache")); rel_claude=$(printf '../%.0s' $(seq 1 "$ups_claude")); mkdir -p <worktree-path>/.cache && ln -s "${rel_cache}.cache/workflows" <worktree-path>/.cache/workflows && ln -s "${rel_claude}.claude" <worktree-path>/.claude; test -d <worktree-path>/.cache/workflows || { echo "ABORT: .cache/workflows symlink depth miscalculated — worktree_path=<worktree-path> segs=$segs ups_cache=$ups_cache, expected to resolve to repo-root .cache/workflows but did not."; exit 1; }; test -d <worktree-path>/.claude || { echo "ABORT: .claude symlink depth miscalculated — worktree_path=<worktree-path> segs=$segs ups_claude=$ups_claude, expected to resolve to repo-root .claude but did not."; exit 1; }`. **Immediately exclude them** so no later commit can pick them up — write to the COMMON git dir's `info/exclude` (verified: worktrees share one `info/exclude` with the main tree and all sibling worktrees, there is no per-worktree copy): `EF="$(git rev-parse --git-common-dir)/info/exclude"; grep -qxF '.cache/workflows' "$EF" || echo '.cache/workflows' >> "$EF"; grep -qxF '.claude' "$EF" || echo '.claude' >> "$EF"`. **Then assert** each contract-referenced document exists under `<worktree-path>/` — abort if missing. Remove bucket A's main-tree copies only after their commit is verified, otherwise the later merge aborts on untracked-overwrite. Full procedure and rationale (including the `info/exclude` write above): `references.md` → Worktree Preflight. | `branch`, `base_branch`, `worktree_path`, `worktree_preflight` |
+| 2 | **[AUTO] Execution engine** (per `skill_source` + chosen execution mode): superpowers → `superpowers:subagent-driven-development` (same-session) or `superpowers:executing-plans` (new window); mattpocock → ✋ PAUSE per ticket → user runs `/implement` in dependency order (internal `/tdd` mandatory). All paths: TDD RED → GREEN → REFACTOR. **On execution failure:** classify against `references.md` → Phase 3 Execution Error Classification before retrying — never retry generically or escalate without first checking which category and its retry cap apply | implementation |
+| 3 | **[AUTO/PAUSE]** 改动面检测——阻断式接入 `gf-security-check` / `gf-regression`（Issue #344）。用 Step 1 已记录的 `base_branch`（不重新猜测）计算 `diff_files=$(git diff --name-only "$base_branch"...HEAD)`。按 `references.md` → Change-Surface Detection 的两条路径规则独立判定：命中 `Cargo.toml`/`Cargo.lock`/`**/Cargo.toml`/`deny.toml` → security 触发；命中 `apps/cli/src/**`、`crates/core/src/**`、`crates/github/src/**`、`crates/gitlab/src/**`、`crates/gitcode/src/**` → regression 触发。两者都未命中 → `change_surface = "docs_only"`，两项均记 `not_triggered`，跳过本 Step 其余动作，直接进入 Step 4。命中的每一项：✋ PAUSE 展示匹配文件 + 即将运行的检查名，问用户 ① 运行（默认）② 跳过（须给非空理由；理由为空或未填视为无效选择，按①处理，不得静默跳过）。① 运行 → inline 调用对应 skill（不走 Phase 4 式的并行 Agent 派发——本 Step 需要同步阻断并可能与用户交互，做法与 Phase 2 的 `gf-quality` gate 一致）：`gf-security-check` 出现 Critical/High 级发现（未修补 CVE、硬编码密钥）判 FAIL；`gf-regression` smoke test 出现非已知 flaky 的 FAIL 判 FAIL。FAIL → 阻断，不进入 Step 4；提示用户回到 Step 2 修复后重跑本 Step。PASS → 继续。② 跳过 → 记 `exemption_reason`，不运行该检查，继续。调用方负责按对应 SKILL.md 的 "Report Output & Archiving" 小节落盘和归档报告。本 Step 对 full/standard/fast 三种模式统一生效，不进 Phase 4 Step Matrix（那张表管的是按模式开关的报告步骤，这里是按改动面触发的阻断步骤）。 | `change_surface`, `security_check`, `regression_check` |
+| 4 | **[AUTO]** Pre-delivery symlink guard — before offering the delivery choice, run `git diff --summary "$BASE_BRANCH"...HEAD \| grep 'create mode 120000'`; a hit means a symlink (most likely `.cache/workflows` or `.claude`) got committed onto `branch` — ✋ PAUSE, show the matched path(s), do not proceed to PR/merge until the user resolves it (drop the commit or confirm intentional). Full command + rationale: `references.md` → Worktree Preflight. Clean → run the Conditional Diff Review below, then continue. Delivery choice — ask user: ① 本地合并（默认）② 推送 + 建 PR. **① Local merge**: ask which git 策略（`git merge --no-ff` / `git merge --squash`，无固定默认，每次询问）; in the **main working tree** (not the worktree — it doesn't own `base_branch`), merge `branch` into `base_branch`. Success → `merge_commit = $(git rev-parse HEAD)`, `delivery_mode = "local_merge"`. Conflict → `git merge --abort`, leave `branch`/worktree untouched, tell user to resolve manually and re-run this step (no silent fallback to PR). **② PR**: `gf-pr-create`, PR body MUST include `Closes #<issue-number>`; `delivery_mode = "pr"`. | `diff_review_status`, optional `diff_review_path`, then `pr_url` or (`delivery_mode`, `merge_commit`) |
+| 5 | **[AUTO]** `make test` or `cargo test` — **本地前置自检**，不等于 CI 把关 | `tests_passed` |
+| 6 | **[AUTO]** 排队合并：`gf pr merge <n> --auto` —— 约 2.5 秒返回，平台在必需检查/pipeline 通过后自动完成。**不得在排队后再往该分支推 commit**：排队绑定的是已通过检查的那个 SHA，后推的 commit 不会被带上（实测踩过）。返回 `merged: false` 属正常（已排期），须原样转述 `message`，不得报"已合并"。GitCode 无此能力 → ✋ 告知用户需手动合并 | `merge_queued` |
+| 7 | **[AUTO]** Update contract: `evidence = { branch, base_branch, worktree_path, worktree_preflight, unresolved_dirty_paths, change_surface, security_check, regression_check, diff_review_status, diff_review_path, delivery_mode, pr_url, merge_commit, tests_passed, merge_queued }` (only the fields matching the chosen `delivery_mode` are populated; the other of `pr_url`/`merge_commit` stays absent) | — |
+| 8 | **[AUTO]** Gate 3→4 — 交付证据二选一（`pr_url` 或 `merge_commit`，按 `delivery_mode`）+ `tests_passed = true` + `security_check.status`/`regression_check.status` 均不为 `failed`（见 `gates.md`） → **AUTO-ADVANCE to Phase 4**。（PR 路径下，真正的合并闸门是平台必需检查 + 排队合并，不由本 workflow 判定；local_merge 路径下合并已在本 Step 完成） | — |
+
+### Phase 3 Step 4: Conditional Diff Review (Issue #397)
+
+Run this after the symlink guard and **before** the delivery choice. A local
+merge moves `base_branch`, so a Phase 4 `base_branch...HEAD` scan could be empty.
+Use the `base_branch` recorded in Step 1 while the feature worktree is still
+checked out. This is a derived review aid, not another blocking gate or user
+confirmation.
+
+- Trigger only in `full` or `standard` mode when the changed-path list from
+  `git diff --name-only "$base_branch"...HEAD` contains source under `apps/*/src/`, `crates/*/src/`,
+  `scripts/`, `website/src/`, or `skills/*/scripts/`. Skip `fast` and changes
+  limited to docs, specs, or skill instructions. Record `not_triggered` when
+  skipped. Users can still run `make render-diff-review` manually for any diff.
+  Match paths with `rg '^(apps/[^/]+/src/|crates/[^/]+/src/|scripts/|website/src/|skills/[^/]+/scripts/)'`.
+- From the feature worktree, generate both files in the **main worktree's**
+  `.cache/diff-review/` so Branch Finish does not delete them. Use the contract's
+  `workflow_id` as the filename prefix; it is unique and safe to reuse on a
+  rerun. Do not add generated HTML or JSON to Git.
+
+```bash
+repo_root=$(dirname "$(git rev-parse --git-common-dir)")
+output_prefix="$repo_root/.cache/diff-review/$workflow_id"
+python3 scripts/render-diff-review.py scan "$base_branch...HEAD" \
+  --output "$output_prefix.json"
+python3 scripts/render-diff-review.py render "$output_prefix.json" \
+  --output "$output_prefix.html"
+```
+
+On success, record `diff_review_status = "generated"` and the absolute
+`diff_review_path = "$output_prefix.html"`; show that local path before the
+delivery choice. On failure, record `failed`, report the renderer error, and
+continue delivery; no `diff_review_path` is recorded. Phase 4 may pass a
+generated path to the local review agent and include it in the workflow's
+local summary. **Do not put a `.cache` path in an Issue/PR comment**: remote
+reviewers cannot open a file on this machine. The PR diff remains the remote
+review surface.
 
 ## Phase 4: Post-Delivery Checks
 
@@ -357,11 +418,16 @@ If any quality check fails, the gate blocks advancement. Only when ALL CHECKS PA
 
 | # | Step | Full | Standard | Fast |
 |---|------|------|----------|------|
-| 1 | Pipeline analysis | ✅ | ✅ | ✅ |
+| 1 | Pipeline analysis | 🔲(默认✅) | 🔲(默认✅) | 🔲(默认✅) |
 | 2 | Issue triage | ✅ | ❌ | ❌ |
 | 3 | Code review report | ✅ | ✅ | ❌ |
 | 4 | Dogfooding checklist | ✅ | ❌ | ❌ |
 | 5 | Branch Finish | ✅ | ✅ | ✅ |
+
+Pipeline analysis is **optional in all three modes**: at Phase 4 entry the
+orchestrator asks whether to run it, defaulting to yes. Declining removes `pipeline` from
+the parallel dispatch set for that run — this is independent of Phase 4 itself, which
+remains mandatory in all modes (see Enforcement Rules).
 
 ### Execution Flow by Mode
 
@@ -396,7 +462,8 @@ context).
 
 | Step | Action | Output |
 |------|--------|--------|
-| 1 | **[AUTO] Parallel dispatch** — in one message, launch one `Agent` call per `gates.md → get_phase4_steps(mode).parallel` entry: `gf-pipeline-analyzer` generates a pipeline analysis report (all modes), `gf-issue-triage` produces an Issue triage report (full only), `gf-review` creates a code review report (full + standard). Each subagent prompt MUST include the Reporting Granularity instruction above. Wait for all to return before continuing. | `pipeline_ok`, `review_report_path` (+ triage findings echoed inline if any) |
+| 0 | **[PAUSE]** Ask whether to run pipeline analysis — default **yes**; all modes. "no" removes `pipeline` from the parallel set the orchestrator passes into `gates.md → get_phase4_steps(mode)` for this run; the mode-based `triage`/`review` entries are unaffected. | `run_pipeline_analysis` |
+| 1 | **[AUTO] Parallel dispatch** — in one message, launch one `Agent` call per `gates.md → get_phase4_steps(mode).parallel` entry: `gf-pipeline-analyzer` returns a pipeline analysis report (all modes, unless declined in Step 0), `gf-issue-triage` produces an Issue triage report (full only), `gf-review` creates a code review report (full + standard). Each subagent prompt MUST include the Reporting Granularity instruction above. Wait for all to return, then the workflow caller persists and archives the pipeline report under its documented policy. | `pipeline_ok` (absent if declined), `review_report_path` (+ triage findings echoed inline if any) |
 | 2 | **[AUTO]** Dogfooding checklist (`docs/specs/phase4-dogfooding-checklist.md`) — sequential, local, full mode only; echo in full only if any item fails | `dogfooding_passed` |
 | 3 | **[AUTO]** Update contract: `evidence = { pipeline_ok, review_report_path, dogfooding_passed, branch_cleaned, phase4_steps_executed }` — join point; only the orchestrator writes the contract, never a dispatched subagent | — |
 | 4 | **[CONFIRM]** Branch Finish — detect PR merge status, user-confirmed cleanup (all modes) | `branch_cleaned` |
@@ -408,7 +475,7 @@ context).
 
 1. Read from contract: `base_branch`, `branch`, `worktree_path`, `delivery_mode` (Phase 3 evidence)
    - Note: `worktree_path` follows the convention `.worktree/<branch-name>`
-2. **`delivery_mode == "local_merge"`** → skip PR merge-status detection entirely (the merge already happened in Phase 3 Step 3); go straight to Step 4 ("PR merged" cleanup sequence) below.
+2. **`delivery_mode == "local_merge"`** → skip PR merge-status detection entirely (the merge already happened in Phase 3 Step 4); go straight to Step 4 ("PR merged" cleanup sequence) below.
 3. **`delivery_mode == "pr"` (or absent)** → detect PR merge status: `gf pr view <n>` → 读 **`mergedAt`**
    - `mergedAt` 非空 → 判定**已合并**
    - `mergedAt` 为空且 `state == Closed` → **无法判定**：`State` 把 `MERGED` alias 进
@@ -448,10 +515,10 @@ context).
 |-----------------|----------|
 | Contract not found | Create new contract (start from Bootstrap) |
 | Sub-skill did not return | Reassert: read contract, resume at next step |
-| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, execute `gf-issue-create` |
+| Brainstorming chained to `writing-plans` | Interrupt: return to orchestrator, resolve and verify the Phase 1 Issue |
 | Gate check failed | Return to current Phase to complete evidence |
 | Skip gate / inline sub-skill / advance before contract update / worktree leak | Fix and re-run |
-| **Invoke sub-skill without contract** / **let sub-skill chain** / **skip Issue create/review** | **STOP** — see Red Flags |
+| **Invoke sub-skill without contract** / **let sub-skill chain** / **skip Issue resolution or required review** | **STOP** — see Red Flags |
 
 ## Reference
 

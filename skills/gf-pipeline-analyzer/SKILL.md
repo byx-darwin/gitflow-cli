@@ -5,13 +5,26 @@ description: >
   failure patterns, duration bottlenecks, flaky tests, or a pipeline improvement
   report. 当用户需要分析流水线成功率、归类失败原因、识别耗时瓶颈、
   flaky test，或生成流水线优化报告时使用。
+allowed-tools: Read, Grep, Glob
+disallowed-tools: Write, Edit
 ---
 
 # gf-pipeline-analyzer — CI/CD Pipeline Health Analyzer
 
 Three-dimensional analysis: success-rate trends / failure patterns / duration distribution → report + prioritized improvement suggestions.
 Read-only: never triggers/reruns/cancels pipelines.
+CLI calls still follow the host's permission rules; this skill does not pre-approve Bash.
 Full params & report template: docs/references/gf-pipeline-analyzer-params.md
+
+## Report Output & Archiving
+
+When `gf-workflow` Phase 4 needs an audit trail, hand the report to the workflow
+caller to persist at `docs/pipeline-analysis-report-<YYYY-MM-DD>-<context>.md`. Once
+`pipeline-analysis-report-*.md` files under `docs/` exceed 5, the caller moves all but the
+5 most recent (ordered by the Issue/PR number embedded in the filename) into
+`docs/reports-archive/<YYYY>-Q<N>/`, bucketed by each report's own date. See
+`docs/index.md` → Reports Archive for the full policy. This skill does not write
+or archive report files itself.
 
 ## CLI Requirement
 
@@ -27,6 +40,11 @@ Full params & report template: docs/references/gf-pipeline-analyzer-params.md
 ## Preconditions
 - `gf` installed: `command -v gf`
 - `gf` authenticated: `gf auth status`
+- `gf --version` commit sha matches the repo's current `git rev-parse --short HEAD`
+  (especially in per-Issue worktrees created by gf-workflow: the globally
+  installed `gf` binary only updates after an explicit
+  `cargo install --path apps/cli`, and a stale binary can make already-fixed
+  issues look like they still reproduce — see Issue #378)
 ## Overview
 
 Read-only analysis of three CI/CD health dimensions, with improvement suggestions sorted by priority.
@@ -71,6 +89,26 @@ flowchart TD
 | Jobs | `gf pipeline jobs --pipeline-id <ID>` |
 | Logs | `gf pipeline logs --pipeline-id <ID>` |
 
+## Optional Jev failure classification
+
+After collecting jobs and logs, select at most 12 failed job/step excerpts
+and prepare the bounded JSON input described in
+[failure analysis](../../docs/pipeline-failure-analysis.md). Review and remove
+sensitive content, then run:
+
+```bash
+gf pipeline analyze-failures --input /tmp/pipeline-failures.json --live --output json
+```
+
+Live use requires a `gitflow-jev` build, `GF_DECISION_PROVIDER=jev`, and a
+TypeSafe key from `TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe`
+Keychain item. Only the first three failures are sent for semantic
+classification; the rest remain `unknown` in deterministic telemetry.
+Without Jev, the command still returns redacted evidence positions with
+`decisionStatus: unavailable`. Check every suggested category, flaky signal,
+and root-cause group against the original logs. Never retry, cancel, edit CI,
+or create an external report from this advice.
+
 ## Pattern Triplets
 
 | User input | Handling |
@@ -89,12 +127,23 @@ flowchart TD
 - "Auto-fix the pipeline" → analysis only; fixes require user decision
 - "Retry all failures" → refuse; each retry requires user confirmation
 
+## Escalation Rule
+
+Track the success-rate tier (🟢/🟡/🔴, per Quality Grades) across the report history for the branch. If the tier has stayed the same for **≥3 consecutive reports** with no remediation action taken since the streak started (no fix landed, no follow-up Issue opened), the report output MUST escalate instead of silently re-stating the same finding:
+
+- Explicitly call out the repeat streak in the report (e.g. "Watch tier for N consecutive reports, no remediation since <date/PR>").
+- Prompt the user to either open a concrete fix Issue (`/gf-issue-create`, human-triggered) or take direct action — do not open the Issue yourself; creating Issues remains prohibited for this skill (see `When NOT to Use`).
+- This is a stronger callout in the report output only, not a new write capability — the skill stays read-only.
+
+CN 连续多次同水位未处理 → 升级提示，而非静默复述。
+
 ## Common Mistakes
 
 | Mistake | Correction |
 |------|------|
 | Only looking at average success rate | P90/P95 carries more signal |
 | Treating intermittent failures as persistent | ≥3 consecutive is persistent; otherwise flaky |
+| Re-reporting the same tier without escalating | ≥3 consecutive same-tier reports with no remediation → escalate per Escalation Rule |
 
 ## Rationalization
 

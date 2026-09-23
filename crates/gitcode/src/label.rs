@@ -6,7 +6,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use gitflow_core::{
-    CoreError, Result, Session,
+    CoreError, DEFAULT_LIST_LIMIT, FetchStrategy, Paged, Result, Session, fetch_capped,
     label::{
         CreateLabelArgs, CreateMilestoneArgs, LabelData, LabelProvider, MilestoneData,
         MilestoneProvider,
@@ -16,7 +16,10 @@ use gitflow_core::{
 use serde::Deserialize;
 use tracing::debug;
 
-use crate::error::parse_gitcode_error;
+use crate::{
+    error::parse_gitcode_error,
+    runner::{CommandRunner, RealCommandRunner},
+};
 
 /// GitCode Label 提供者，通过 `gitcode` CLI 管理仓库标签。
 ///
@@ -28,18 +31,23 @@ use crate::error::parse_gitcode_error;
 /// let provider = GitCodeLabelProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeLabelProvider {
+pub struct GitCodeLabelProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodeLabelProvider {
+impl GitCodeLabelProvider<RealCommandRunner> {
     /// 创建新的 GitCode Label 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
     }
 
     /// Create a new provider from a shared [`Session`].
@@ -49,6 +57,21 @@ impl GitCodeLabelProvider {
     pub fn with_session(session: &Session) -> Self {
         Self {
             repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodeLabelProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
         }
     }
 }
@@ -57,7 +80,7 @@ impl GitCodeLabelProvider {
 const LABEL_FIELDS: &str = "name,color,description";
 
 #[async_trait]
-impl LabelProvider for GitCodeLabelProvider {
+impl<R: CommandRunner + 'static> LabelProvider for GitCodeLabelProvider<R> {
     async fn create(&self, args: CreateLabelArgs) -> Result<LabelData> {
         debug!(
             repo = %self.repo,
@@ -93,27 +116,56 @@ impl LabelProvider for GitCodeLabelProvider {
         Ok(label)
     }
 
-    async fn list(&self) -> Result<Vec<LabelData>> {
-        debug!(repo = %self.repo, "spawning `gc label list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<LabelData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["label", "list"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .arg(LABEL_FIELDS)
-            .output()
-            .await
-            .map_err(|e| CoreError::Platform(format!("Failed to spawn gitcode label list: {e}")))?;
+        // 实测（gitcode-cli 0.12.0）：`label list` 支持 `--page`（默认 1）与
+        // `--per-page`，`--per-page 2 --page 1/2` 返回不重叠 —— 分页真实生效。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode label list`");
 
-        let labels: Vec<LabelData> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let output = runner
+                    .run(
+                        binary,
+                        &[
+                            "label",
+                            "list",
+                            "-R",
+                            repo,
+                            "--json",
+                            "--per-page",
+                            &per_page_str,
+                            "--page",
+                            &page_str,
+                        ],
+                    )
+                    .await
+                    .map_err(|e| {
+                        CoreError::Platform(format!("Failed to spawn gitcode label list: {e}"))
+                    })?;
 
-        Ok(labels)
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
+
+                let labels: Vec<LabelData> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(labels)
+            },
+        )
+        .await
     }
 
     async fn edit(&self, name: &str, args: CreateLabelArgs) -> Result<LabelData> {
@@ -172,7 +224,7 @@ impl LabelProvider for GitCodeLabelProvider {
     }
 }
 
-impl GitCodeLabelProvider {
+impl<R: CommandRunner> GitCodeLabelProvider<R> {
     /// 获取指定名称的标签数据（内部辅助方法）。
     async fn fetch_label(&self, name: &str) -> Result<LabelData> {
         let output = tokio::process::Command::new(crate::gitcode_binary())
@@ -207,18 +259,23 @@ impl GitCodeLabelProvider {
 /// let provider = GitCodeMilestoneProvider::new("octocat/hello-world");
 /// ```
 #[derive(Debug, Clone)]
-pub struct GitCodeMilestoneProvider {
+pub struct GitCodeMilestoneProvider<R: CommandRunner = RealCommandRunner> {
     /// GitCode `owner/repo`。
     repo: String,
+    /// 用于执行 `gitcode` CLI 命令的 runner。
+    runner: R,
 }
 
-impl GitCodeMilestoneProvider {
+impl GitCodeMilestoneProvider<RealCommandRunner> {
     /// 创建新的 GitCode Milestone 提供者。
     ///
     /// `repo` 格式为 `owner/repo`。
     #[must_use]
     pub fn new(repo: impl Into<String>) -> Self {
-        Self { repo: repo.into() }
+        Self {
+            repo: repo.into(),
+            runner: RealCommandRunner,
+        }
     }
 
     /// Create a new provider from a shared [`Session`].
@@ -228,13 +285,27 @@ impl GitCodeMilestoneProvider {
     pub fn with_session(session: &Session) -> Self {
         Self {
             repo: session.repo.clone(),
+            runner: RealCommandRunner,
+        }
+    }
+}
+
+impl<R: CommandRunner> GitCodeMilestoneProvider<R> {
+    /// 使用自定义 [`CommandRunner`] 创建提供者。
+    ///
+    /// 主要用于测试，可注入模拟 runner 以控制 `gitcode` CLI 的输出。
+    /// `repo` 格式为 `owner/repo`。
+    #[must_use]
+    pub fn with_runner(repo: impl Into<String>, runner: R) -> Self {
+        Self {
+            repo: repo.into(),
+            runner,
         }
     }
 }
 
 /// `gc api milestones` 返回的 JSON 结构。
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct MilestoneApiResponse {
     number: u64,
     title: String,
@@ -261,7 +332,16 @@ impl From<MilestoneApiResponse> for MilestoneData {
                 State::Open
             },
             due_on: api.due_on.and_then(|s| {
-                DateTime::parse_from_rfc3339(&s).map_or(None, |dt| Some(dt.with_timezone(&Utc)))
+                // GitCode returns due_on as either full RFC3339 or a pure
+                // "YYYY-MM-DD" date (issue #377); fall back to the latter,
+                // anchored at midnight UTC, before giving up.
+                if let Ok(dt) = DateTime::parse_from_rfc3339(&s) {
+                    return Some(dt.with_timezone(&Utc));
+                }
+                chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+                    .ok()
+                    .and_then(|d| d.and_hms_opt(0, 0, 0))
+                    .map(|naive_dt| DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc))
             }),
             closed_issues: api.closed_issues,
             open_issues: api.open_issues,
@@ -270,7 +350,7 @@ impl From<MilestoneApiResponse> for MilestoneData {
 }
 
 #[async_trait]
-impl MilestoneProvider for GitCodeMilestoneProvider {
+impl<R: CommandRunner + 'static> MilestoneProvider for GitCodeMilestoneProvider<R> {
     async fn create(&self, args: CreateMilestoneArgs) -> Result<MilestoneData> {
         debug!(repo = %self.repo, title = %args.title, "spawning `gc milestone create`");
 
@@ -304,28 +384,55 @@ impl MilestoneProvider for GitCodeMilestoneProvider {
         Ok(api_response.into())
     }
 
-    async fn list(&self) -> Result<Vec<MilestoneData>> {
-        debug!(repo = %self.repo, "spawning `gc milestone list`");
+    async fn list(&self, limit: Option<u32>) -> Result<Paged<MilestoneData>> {
+        let binary = crate::gitcode_binary();
+        let binary = &binary;
+        let cap = limit.unwrap_or(DEFAULT_LIST_LIMIT);
+        let repo = &self.repo;
+        let runner = &self.runner;
 
-        let output = tokio::process::Command::new(crate::gitcode_binary())
-            .args(["milestone", "list"])
-            .arg("-R")
-            .arg(&self.repo)
-            .arg("--json")
-            .output()
-            .await
-            .map_err(|e| {
-                CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
-            })?;
+        // 见 label list 同处注释：`--page` / `--per-page` 已实测可用。
+        let per_page = cap.saturating_add(1).min(crate::GITCODE_API_MAX_PER_PAGE);
 
-        if !output.status.success() {
-            return Err(parse_gitcode_error(&output.stderr).into());
-        }
+        debug!(repo = %self.repo, cap, per_page, "spawning `gitcode milestone list`");
 
-        let milestones: Vec<MilestoneApiResponse> =
-            serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+        fetch_capped(
+            FetchStrategy::Paged { per_page },
+            cap,
+            |page, per_page| async move {
+                let page_str = page.to_string();
+                let per_page_str = per_page.to_string();
+                let output = runner
+                    .run(
+                        binary,
+                        &[
+                            "milestone",
+                            "list",
+                            "-R",
+                            repo,
+                            "--json",
+                            "--per-page",
+                            &per_page_str,
+                            "--page",
+                            &page_str,
+                        ],
+                    )
+                    .await
+                    .map_err(|e| {
+                        CoreError::Platform(format!("Failed to spawn gitcode milestone list: {e}"))
+                    })?;
 
-        Ok(milestones.into_iter().map(MilestoneData::from).collect())
+                if !output.status.success() {
+                    return Err(parse_gitcode_error(&output.stderr).into());
+                }
+
+                let milestones: Vec<MilestoneApiResponse> =
+                    serde_json::from_slice(&output.stdout).map_err(CoreError::Serialization)?;
+
+                Ok(milestones.into_iter().map(MilestoneData::from).collect())
+            },
+        )
+        .await
     }
 
     async fn edit(&self, number: u64, args: CreateMilestoneArgs) -> Result<MilestoneData> {
@@ -514,9 +621,9 @@ mod tests {
             "title": "v1.0 Release",
             "description": "First stable release",
             "state": "open",
-            "dueOn": "2026-06-01T00:00:00Z",
-            "closedIssues": 10,
-            "openIssues": 5
+            "due_on": "2026-06-01T00:00:00Z",
+            "closed_issues": 10,
+            "open_issues": 5
         }"#;
 
         let api: MilestoneApiResponse =
@@ -539,9 +646,9 @@ mod tests {
             "title": "v0.9 Beta",
             "description": null,
             "state": "closed",
-            "dueOn": null,
-            "closedIssues": 20,
-            "openIssues": 0
+            "due_on": null,
+            "closed_issues": 20,
+            "open_issues": 0
         }"#;
 
         let api: MilestoneApiResponse =
@@ -556,8 +663,8 @@ mod tests {
     #[test]
     fn test_should_deserialize_milestone_list() {
         let json = br#"[
-            {"number": 1, "title": "v1.0", "description": null, "state": "open", "dueOn": null, "closedIssues": 0, "openIssues": 3},
-            {"number": 2, "title": "v0.9", "description": "Beta", "state": "closed", "dueOn": "2026-01-01T00:00:00Z", "closedIssues": 15, "openIssues": 0}
+            {"number": 1, "title": "v1.0", "description": null, "state": "open", "due_on": null, "closed_issues": 0, "open_issues": 3},
+            {"number": 2, "title": "v0.9", "description": "Beta", "state": "closed", "due_on": "2026-01-01T00:00:00Z", "closed_issues": 15, "open_issues": 0}
         ]"#;
 
         let milestones: Vec<MilestoneApiResponse> =
@@ -565,6 +672,43 @@ mod tests {
         assert_eq!(milestones.len(), 2);
         assert_eq!(milestones[0].title, "v1.0");
         assert_eq!(milestones[1].title, "v0.9");
+    }
+
+    #[test]
+    fn test_should_default_issue_counts_when_absent_from_real_list_response() {
+        // 真实响应形状（2026-09-19 对 gitcode milestone list --repo openharmony/docs
+        // 的实测）：closed_issues/open_issues 键完全不存在，不是"值为 0"。
+        //
+        // 该真实响应的 due_on 是纯日期格式（"2026-08-31"，无时间/时区部分）。见
+        // Issue #377。
+        let json = br#"{
+            "id": null,
+            "number": 733070,
+            "title": "IT26_OpenHarmony 7.0(Release)",
+            "description": "",
+            "state": "active",
+            "due_on": "2026-08-31"
+        }"#;
+
+        let api: MilestoneApiResponse =
+            serde_json::from_slice(json).expect("valid MilestoneApiResponse");
+        let data: MilestoneData = api.into();
+
+        assert_eq!(data.number, 733_070);
+        assert_eq!(
+            data.closed_issues, 0,
+            "键缺失时应靠 #[serde(default)] 落到 0，而不是反序列化失败"
+        );
+        assert_eq!(
+            data.due_on,
+            Some(
+                chrono::DateTime::parse_from_rfc3339("2026-08-31T00:00:00Z")
+                    .expect("valid rfc3339")
+                    .with_timezone(&Utc)
+            ),
+            "纯日期格式的 due_on 应解析为当天 UTC 零点，而不是静默丢弃为 None（#377）"
+        );
+        assert_eq!(data.open_issues, 0);
     }
 
     #[test]
@@ -582,5 +726,215 @@ mod tests {
         let data: MilestoneData = api.clone().into();
         assert_eq!(data.number, api.number);
         assert_eq!(data.title, api.title);
+    }
+
+    // --- Runner-routing regression tests ---
+    //
+    // `list` 曾直接 `tokio::process::Command::new(...)`，绕过可注入的
+    // `CommandRunner`，导致其 argv 无法被测试观测。以下测试确认两者
+    // 均已改为通过 `self.runner` 派发。
+
+    use crate::runner::{MockCommandRunner, SequencedMockCommandRunner};
+
+    #[tokio::test]
+    #[allow(
+        clippy::similar_names,
+        reason = "page1/page2 fixtures vs paged result read clearly in test context"
+    )]
+    async fn test_should_page_through_gitcode_label_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        fn label_page_json(start: u32, count: u32) -> String {
+            let items: Vec<String> = (start..start + count)
+                .map(|n| format!(r##"{{"name":"l{n}","color":"#ffffff","description":""}}"##))
+                .collect();
+            format!("[{}]", items.join(","))
+        }
+        let page1 = label_page_json(1, 100);
+        let page2 = label_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(Some(100)).await.expect("should list");
+
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
+        );
+    }
+
+    #[tokio::test]
+    #[allow(
+        clippy::similar_names,
+        reason = "page1/page2 fixtures vs paged result read clearly in test context"
+    )]
+    async fn test_should_page_through_gitcode_milestone_list_with_incrementing_page_numbers() {
+        // cap=100 → per_page=100，want=101；首页满 100 条 ⇒ 必然发出第二页。
+        fn milestone_page_json(start: u64, count: u64) -> String {
+            let items: Vec<String> = (start..start + count)
+                .map(|n| {
+                    format!(
+                        r#"{{"number":{n},"title":"m{n}","description":null,"state":"open","due_on":null,"closed_issues":0,"open_issues":0}}"#
+                    )
+                })
+                .collect();
+            format!("[{}]", items.join(","))
+        }
+        let page1 = milestone_page_json(1, 100);
+        let page2 = milestone_page_json(101, 100);
+        let runner = SequencedMockCommandRunner::from_results(&[(true, &page1), (true, &page2)]);
+        let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(Some(100)).await.expect("should list");
+
+        assert_eq!(paged.items.len(), 100);
+        assert!(paged.truncated);
+
+        let calls = runner.recorded_calls();
+        assert_eq!(
+            calls.len(),
+            2,
+            "必须真的翻到第二页，实际调用数: {}",
+            calls.len()
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--per-page" && w[1] == "100"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[0]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "1"),
+            "实际 argv: {:?}",
+            calls[0].1
+        );
+        assert!(
+            calls[1]
+                .1
+                .windows(2)
+                .any(|w| w[0] == "--page" && w[1] == "2"),
+            "页号必须递增，实际 argv: {:?}",
+            calls[1].1
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_route_label_list_through_runner() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 1);
+        assert!(!calls[0].1.iter().any(|a| a == "--limit"));
+        assert!(calls[0].1.iter().any(|a| a == "--per-page"));
+        assert!(calls[0].1.iter().any(|a| a == "--page"));
+    }
+
+    #[tokio::test]
+    async fn test_should_route_milestone_list_through_runner() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        let calls = runner.recorded_calls();
+        assert_eq!(calls.len(), 1);
+        assert!(!calls[0].1.iter().any(|a| a == "--limit"));
+        assert!(calls[0].1.iter().any(|a| a == "--per-page"));
+        assert!(calls[0].1.iter().any(|a| a == "--page"));
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitcode_label_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeLabelProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, crate::gitcode_binary());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "label",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_should_produce_complete_argv_for_gitcode_milestone_list_with_default_limit() {
+        let runner = MockCommandRunner::success("[]");
+        let provider = GitCodeMilestoneProvider::with_runner("owner/repo", runner.clone());
+
+        let paged = provider.list(None).await.expect("should list");
+
+        assert!(paged.items.is_empty());
+        assert_eq!(runner.recorded_calls()[0].0, crate::gitcode_binary());
+        assert_eq!(
+            runner.recorded_calls()[0].1,
+            vec![
+                "milestone",
+                "list",
+                "-R",
+                "owner/repo",
+                "--json",
+                "--per-page",
+                "100",
+                "--page",
+                "1"
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>()
+        );
     }
 }

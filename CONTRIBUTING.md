@@ -23,6 +23,7 @@ make install-tools
 - `cargo-audit` — 安全漏洞扫描
 - `cargo-nextest` — 更快的测试运行器
 - `cargo-vet` — 供应链审查
+- `cargo-cyclonedx` — SBOM 生成
 - `pre-commit` — Git pre-commit 钩子
 
 ### IDE 配置
@@ -158,4 +159,5 @@ gf/
 ### 贡献指南
 
 欢迎外部贡献！请选择标记为 `good first issue` 的任务作为起点。
+可在此查看当前所有 [`good first issue` 列表](https://github.com/byx-darwin/gitflow-cli/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)。
 开发环境搭建请参照上方「安装开发工具」章节。

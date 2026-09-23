@@ -1,6 +1,6 @@
 # Java Quality Toolchain
 
-**Detection:** `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle) in project root.
+**Shared language profile:** `gf-quality/references/profiles/java.md`. Read it before running these gates.
 
 ## Gate Commands
 
@@ -10,7 +10,7 @@
 |---|------|---------|---------------|
 | 1 | build | `mvn compile -q` | exit 0 |
 | 2 | test | `mvn test` | all pass |
-| 3 | coverage | `mvn verify -Pcoverage` (requires JaCoCo) | incremental ≥ 80% |
+| 3 | coverage | `mvn verify -Pcoverage` (requires a JaCoCo `check` rule whose LINE COVEREDRATIO limit equals `COV_THRESHOLD/100`, e.g. `0.80` for the default 80) | exit 0 (total line coverage ≥ threshold); N/A if no `.java` in change set; SKIPPED if the JaCoCo plugin or its `check` rule is absent |
 | 4 | format | `mvn spotless:check` or `mvn formatter:validate` | exit 0 |
 | 5 | static | `mvn pmd:check` or `mvn spotbugs:check` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
@@ -21,18 +21,16 @@
 |---|------|---------|---------------|
 | 1 | build | `./gradlew compileJava` | exit 0 |
 | 2 | test | `./gradlew test` | all pass |
-| 3 | coverage | `./gradlew jacocoTestReport` | incremental ≥ 80% |
+| 3 | coverage | `./gradlew jacocoTestReport jacocoTestCoverageVerification` (violationRules: LINE COVEREDRATIO limit equals `COV_THRESHOLD/100`, e.g. `0.80` for the default 80) | exit 0 (total line coverage ≥ threshold); N/A if no `.java` in change set; SKIPPED if the JaCoCo plugin or its `violationRules` are absent |
 | 4 | format | `./gradlew spotlessCheck` | exit 0 |
 | 5 | static | `./gradlew checkstyleMain` or `./gradlew pmdMain` | exit 0 |
 | 6 | pre-commit | `pre-commit run --all-files` | all hooks pass (or N/A) |
 
-## Tool Installation
 
-Most tools are Maven/Gradle plugins — no separate install needed. If a plugin is missing, report N/A for that gate.
+## Gate Notes
 
-## Notes
-
-- Gate 3: requires JaCoCo plugin configured; if not present, mark N/A
+- Gate 3 requires the JaCoCo plugin with a coverage `check` rule — if either is absent, mark SKIPPED
+- Gate 3 is N/A when the change set contains no `.java` file — report N/A, not SKIPPED
 - Gate 4: Spotless is preferred; fall back to formatter-maven-plugin
 - Gate 5: try PMD first, then SpotBugs, then Checkstyle — use whatever is configured
 - Check for existing config files (`spotbugs-exclude.xml`, `pmd-ruleset.xml`, etc.)
@@ -44,18 +42,9 @@ Most tools are Maven/Gradle plugins — no separate install needed. If a plugin 
 - ❌ Never modify `pom.xml` or `build.gradle` during quality check
 - ❌ Never skip tests silently — if tests are skipped, report it
 
-## Configuration
+## Quality Gate Configuration
 
-### Tool Setup
-
-| Tool | Install | Config File | Required |
-|------|---------|-------------|----------|
-| JaCoCo | Maven/Gradle plugin | `pom.xml` or `build.gradle` | Gate 3 |
-| Spotless | Maven/Gradle plugin | `pom.xml` or `build.gradle` | Gate 4 |
-| PMD | Maven/Gradle plugin | `pmd-ruleset.xml` | Gate 5 |
-| SpotBugs | Maven/Gradle plugin | `spotbugs-exclude.xml` | Gate 5 (fallback) |
-
-### Config File Examples
+### Configuration Examples
 
 #### pom.xml (Maven)
 
@@ -116,22 +105,62 @@ spotless {
 </FindBugsFilter>
 ```
 
-### Environment Variables
+### Coverage Threshold Mapping
 
-| Variable | Effect | Default |
-|----------|--------|---------|
-| `MAVEN_OPTS` | Maven JVM options | — |
-| `GRADLE_OPTS` | Gradle JVM options | — |
-| `JAVA_HOME` | JDK location | — |
+JaCoCo has no command-line threshold flag: the limit lives in the `check` goal
+(Maven) or `jacocoTestCoverageVerification` task (Gradle) inside the build file,
+and it is expressed as a **fraction**, not a percentage. `COV_THRESHOLD=90`
+therefore corresponds to a `LINE` `COVEREDRATIO` minimum of `0.90`.
 
-### Language-Specific Notes
+Because Gate 3 must not modify `pom.xml` or `build.gradle` (see Forbidden
+Actions), the skill does **not** rewrite the rule. Instead it reads the
+configured `COVEREDRATIO` minimum and compares it against `COV_THRESHOLD/100`:
 
-- Most tools are Maven/Gradle plugins — no separate install needed
-- Gate 3: requires JaCoCo plugin configured; if not present, mark N/A
-- Gate 4: Spotless is preferred; fall back to formatter-maven-plugin
-- Gate 5: try PMD first, then SpotBugs, then Checkstyle — use whatever is configured
-- Check for existing config files (`spotbugs-exclude.xml`, `pmd-ruleset.xml`, etc.)
-- Respect `maven.test.skip` property — if set, warn user that tests are being skipped
+- Rule absent → Gate 3 is **SKIPPED** (no threshold was enforced).
+- Rule present and its minimum ≥ `COV_THRESHOLD/100` → the build's own exit
+  status is the gate result.
+- Rule present but its minimum < `COV_THRESHOLD/100` → report the gate result
+  together with the weaker configured limit, so a `COV_THRESHOLD=90` request is
+  never reported as satisfied by an `0.80` rule.
+
+Maven (`pom.xml`):
+
+```xml
+<execution>
+  <id>check</id>
+  <goals><goal>check</goal></goals>
+  <configuration>
+    <rules>
+      <rule>
+        <element>BUNDLE</element>
+        <limits>
+          <limit>
+            <counter>LINE</counter>
+            <value>COVEREDRATIO</value>
+            <minimum>0.80</minimum>
+          </limit>
+        </limits>
+      </rule>
+    </rules>
+  </configuration>
+</execution>
+```
+
+Gradle (`build.gradle`):
+
+```groovy
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+        }
+    }
+}
+```
 
 ## Troubleshooting
 

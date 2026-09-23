@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Result,
+    paging::Paged,
     types::{
         CommentData, MergeResult, MergeStrategy, State, UserSummary, deserialize_u64_or_string,
     },
@@ -43,10 +44,12 @@ pub struct PrData {
     /// 来源分支。
     #[serde(alias = "headRefName")]
     pub head_branch: String,
-    /// 创建时间（UTC）。
-    pub created_at: DateTime<Utc>,
-    /// 最近更新时间（UTC）。
-    pub updated_at: DateTime<Utc>,
+    /// 创建时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    /// 最近更新时间（UTC）。API 未返回该字段时为 `None`——绝不用当前时间伪造。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
     /// 合并时间（UTC）；未合并时为 `None`。
     ///
     /// 存在的必要：[`State`] 把 `MERGED` alias 进 `Closed`，仅凭 `state`
@@ -54,6 +57,9 @@ pub struct PrData {
     /// 才能安全删分支。`gh` 提供 `mergedAt`；GitLab/GitCode 若不返回则为 `None`，
     /// 调用方须把 `None` 当作"未知"而非"未合并"。
     pub merged_at: Option<DateTime<Utc>>,
+    /// The milestone this PR is attached to, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub milestone: Option<crate::types::MilestoneRef>,
     /// PR 的 Web URL。
     pub url: String,
 }
@@ -75,6 +81,8 @@ pub struct CreatePrArgs {
     pub repo: Option<String>,
     /// 需要在合并时自动关闭的 Issue 编号列表。
     pub closes_issues: Vec<u64>,
+    /// Milestone identifier to attach on creation (`NUMBER` or exact `TITLE`), if any.
+    pub milestone: Option<String>,
 }
 
 /// 列出 PR 的过滤参数。
@@ -109,10 +117,12 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
 
     /// 根据过滤条件列出 PR 列表。
     ///
+    /// 返回的 [`Paged`] 携带截断标志，语义见 [`crate::paging`]。
+    ///
     /// # Errors
     ///
     /// 当平台 API 调用失败或过滤条件非法时返回错误。
-    async fn list(&self, args: ListPrArgs) -> Result<Vec<PrData>>;
+    async fn list(&self, args: ListPrArgs) -> Result<Paged<PrData>>;
 
     /// 查看指定编号的 PR 详情。
     ///
@@ -210,6 +220,16 @@ pub trait PrProvider: std::fmt::Debug + Send + Sync {
     ///
     /// [`CoreError`]: crate::CoreError
     async fn patch(&self, number: u64) -> Result<String>;
+
+    /// 查询仓库配置的默认分支（如 `main`、`dev`）。
+    ///
+    /// 用于 `pr create` 在未显式指定 `--base` 时探测目标分支，避免硬编码
+    /// `"main"` 导致默认分支非 `main` 的仓库创建出目标错误的 PR/MR。
+    ///
+    /// # Errors
+    ///
+    /// 当平台 API 调用失败或平台不支持该查询（如 GitCode）时返回错误。
+    async fn default_branch(&self) -> Result<String>;
 }
 
 /// Format closing keywords and append to body.
@@ -371,7 +391,10 @@ mod tests {
             async fn create(&self, _args: crate::pr::CreatePrArgs) -> Result<crate::pr::PrData> {
                 unimplemented!()
             }
-            async fn list(&self, _args: crate::pr::ListPrArgs) -> Result<Vec<crate::pr::PrData>> {
+            async fn list(
+                &self,
+                _args: crate::pr::ListPrArgs,
+            ) -> Result<crate::paging::Paged<crate::pr::PrData>> {
                 unimplemented!()
             }
             async fn view(&self, _number: u64) -> Result<crate::pr::PrData> {
@@ -414,6 +437,9 @@ mod tests {
                 unimplemented!()
             }
             async fn patch(&self, _number: u64) -> Result<String> {
+                unimplemented!()
+            }
+            async fn default_branch(&self) -> Result<String> {
                 unimplemented!()
             }
         }
@@ -487,6 +513,7 @@ mod tests {
             draft: false,
             repo: None,
             closes_issues: vec![24, 23],
+            milestone: None,
         };
         assert_eq!(args.closes_issues, vec![24, 23]);
     }

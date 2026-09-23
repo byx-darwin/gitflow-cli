@@ -2,6 +2,14 @@
 //!
 //! Identifies the hosting platform (GitHub, GitLab, or `GitCode`) from a
 //! remote URL so that the CLI can select the correct API and workflow.
+//!
+//! This module is URL-detection logic only — it does **not** define a
+//! unified "Platform trait". The actual per-platform capability
+//! abstraction is the set of fine-grained provider traits (`IssueProvider`,
+//! `PrProvider`, `LabelProvider`, `ReleaseProvider`, `PipelineProvider`,
+//! `CommitProvider`, `ReviewProvider`, `AuthProvider`, `AuthChecker`,
+//! `HealthCheck`, `MilestoneProvider`), each defined in its own module and
+//! implemented per platform in the adapter crates.
 
 /// Result of detecting a platform from a remote URL.
 ///

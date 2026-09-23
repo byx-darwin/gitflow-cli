@@ -13,8 +13,12 @@ use gitflow_core::{
 use gitflow_gitcode::GitCodePrProvider;
 use gitflow_github::GitHubPrProvider;
 use gitflow_gitlab::GitLabMrProvider;
+use is_terminal::IsTerminal;
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// PR 子命令集合。
 ///
@@ -22,6 +26,8 @@ use crate::OutputFormat;
 /// `merge`、`checkout`、`ready`、`wip`、`sync`、`diff`、`patch` 操作。
 #[derive(Debug, Subcommand)]
 pub enum PrCommand {
+    /// Compile and run a read-only typed PR query.
+    Search(super::query_search::SearchArgs),
     /// 创建一条新的 Pull Request。
     Create {
         /// PR 标题（必填）。
@@ -32,7 +38,7 @@ pub enum PrCommand {
         #[arg(long)]
         head: Option<String>,
 
-        /// 目标分支（可选，默认为 `main`）。
+        /// 目标分支（可选，默认探测仓库配置的默认分支，探测失败时回退 `main`）。
         #[arg(long)]
         base: Option<String>,
 
@@ -55,6 +61,10 @@ pub enum PrCommand {
         /// 合并 PR 时自动关闭的 Issue 编号（可多次指定）。
         #[arg(long = "closes", alias = "fixes")]
         closes: Vec<u64>,
+
+        /// 挂载的 milestone（编号或标题，可选）。
+        #[arg(long)]
+        milestone: Option<String>,
     },
 
     /// 列出 Pull Request。
@@ -72,6 +82,22 @@ pub enum PrCommand {
     View {
         /// PR 编号。
         number: u64,
+    },
+
+    /// Read-only, optional semantic PR review precheck.
+    Precheck {
+        /// Reviewed PR JSON with bounded file patches, not the raw platform envelope.
+        #[arg(long)]
+        input: String,
+        /// Saved typed decision response for offline replay.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly call the configured Jev provider.
+        #[arg(long)]
+        live: bool,
+        /// Permit live provider use for a private or unknown-visibility repository.
+        #[arg(long, requires = "live")]
+        allow_private: bool,
     },
 
     /// 关闭 Pull Request。
@@ -177,7 +203,7 @@ pub enum PrCommand {
         #[arg(long)]
         dry_run: bool,
 
-        /// 跳过交互式确认。
+        /// 跳过 --merged/--closed 批量清理的确认提示（显式指定 PR 编号时本就不确认）。
         #[arg(long, short = 'y')]
         yes: bool,
 
@@ -218,6 +244,29 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let PrCommand::Search(args) = &command {
+        return super::query_search::handle(
+            gitflow_core::query_filter::Target::Pr,
+            args.clone(),
+            platform,
+            repo,
+            remote_url,
+        )
+        .await;
+    }
+    if let PrCommand::Precheck {
+        input,
+        response,
+        live,
+        allow_private,
+    } = &command
+    {
+        let report =
+            super::pr_precheck::handle(input.clone(), response.clone(), *live, *allow_private)
+                .await?;
+        let output = CliOutput::success(report, "local", "pr precheck");
+        return print_output(&output, &output_format);
+    }
     let provider: Box<dyn PrProvider> = match platform {
         "github" => Box::new(GitHubPrProvider::new(repo)),
         "gitlab" => {
@@ -236,6 +285,8 @@ pub async fn handle(
     };
 
     match command {
+        PrCommand::Search(_) => return Err(miette::miette!("invalid search dispatch")),
+        PrCommand::Precheck { .. } => return Err(miette::miette!("invalid precheck dispatch")),
         PrCommand::Create {
             title,
             head,
@@ -245,10 +296,14 @@ pub async fn handle(
             draft,
             repo: target_repo,
             closes,
+            milestone,
         } => {
             let resolved_body = resolve_body(body, body_file)?;
             let resolved_head = resolve_head(head)?;
-            let resolved_base = base.unwrap_or_else(|| "main".to_string());
+            let resolved_base = match base {
+                Some(b) => b,
+                None => resolve_default_branch(provider.default_branch().await),
+            };
 
             let args = CreatePrArgs {
                 title,
@@ -258,6 +313,7 @@ pub async fn handle(
                 draft,
                 repo: target_repo,
                 closes_issues: closes,
+                milestone,
             };
             let pr = provider
                 .create(args)
@@ -278,17 +334,18 @@ pub async fn handle(
                     ))),
                 })
                 .transpose()?;
+            let limit = validate_limit(limit)?;
 
             let args = ListPrArgs {
                 state: parsed_state,
                 limit,
             };
-            let prs = provider
+            let paged = provider
                 .list(args)
                 .await
                 .map_err(|e| miette::miette!("Failed to list prs: {e}"))?;
-            let output = CliOutput::success(prs, platform, "pr list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "pr list", &output_format)?;
         }
         PrCommand::View { number } => {
             let pr = provider
@@ -438,26 +495,147 @@ pub async fn handle(
                 yes,
             };
 
-            let results = if args.merged {
-                gitflow_core::cleanup::CleanupService::cleanup_merged(&*provider, &args)
-                    .await
-                    .map_err(|e| miette::miette!("Failed to cleanup merged PRs: {e}"))?
-            } else if args.closed {
-                gitflow_core::cleanup::CleanupService::cleanup_closed(&*provider, &args)
-                    .await
-                    .map_err(|e| miette::miette!("Failed to cleanup closed PRs: {e}"))?
-            } else {
-                gitflow_core::cleanup::CleanupService::cleanup(&*provider, &args)
-                    .await
-                    .map_err(|e| miette::miette!("Failed to cleanup PRs: {e}"))?
-            };
+            if args.merged || args.closed {
+                let plan = if args.merged {
+                    gitflow_core::cleanup::CleanupService::plan_merged(&*provider)
+                        .await
+                        .map_err(|e| miette::miette!("Failed to plan merged PR cleanup: {e}"))?
+                } else {
+                    gitflow_core::cleanup::CleanupService::plan_closed(&*provider)
+                        .await
+                        .map_err(|e| miette::miette!("Failed to plan closed PR cleanup: {e}"))?
+                };
 
-            let output = CliOutput::success(results, platform, "pr cleanup");
-            print_output(&output, &output_format)?;
+                if plan.truncated {
+                    eprintln!(
+                        "警告：仓库中还有更多符合条件的 PR 未被纳入本次计划（已达到分页上限）。"
+                    );
+                }
+
+                if !args.yes
+                    && !args.dry_run
+                    && !confirm_cleanup(plan.targets.len(), plan.truncated)?
+                {
+                    eprintln!("已取消，未删除任何内容。");
+                    return Ok(());
+                }
+
+                let truncated = plan.truncated;
+                let limit = plan.limit;
+                let results =
+                    gitflow_core::cleanup::CleanupService::execute_plan(&*provider, &args, &plan)
+                        .await
+                        .map_err(|e| miette::miette!("Failed to execute PR cleanup plan: {e}"))?;
+
+                // `truncated`/`limit` below describe the underlying closed-PR
+                // listing that produced `plan`, NOT `results`/`data`: `data` is
+                // already filtered down from that listing (e.g. to the merged
+                // subset for `--merged`), so its length can differ from
+                // `limit` even when `truncated` is `false`. Do not read this
+                // pagination block as a claim about `data.len()`.
+                let meta = cleanup_pagination_meta(truncated, limit, results.len());
+                let output =
+                    gitflow_core::CliOutput::success_paged(results, meta, platform, "pr cleanup");
+                print_output(&output, &output_format)?;
+            } else {
+                let results = gitflow_core::cleanup::CleanupService::cleanup(&*provider, &args)
+                    .await
+                    .map_err(|e| miette::miette!("Failed to cleanup PRs: {e}"))?;
+
+                let output = CliOutput::success(results, platform, "pr cleanup");
+                print_output(&output, &output_format)?;
+            }
         }
     }
 
     Ok(())
+}
+
+/// 为批量清理（`--merged`/`--closed`）的 JSON 输出构造 [`gitflow_core::PaginationMeta`]。
+///
+/// `truncated` 与 `limit` 描述的是产生 [`gitflow_core::cleanup::CleanupPlan`] 的那次
+/// 底层已关闭 PR 列表查询，**不是** `data`（即 `returned`）：`data` 已经从该列表里
+/// 按 `--merged`/`--closed` 过滤出一个子集，其长度可以小于 `limit`，即便
+/// `truncated` 为 `false`。调用方不得把这个分页块读成对 `data.len()` 的断言。
+#[must_use]
+pub fn cleanup_pagination_meta(
+    truncated: bool,
+    limit: u32,
+    returned: usize,
+) -> gitflow_core::PaginationMeta {
+    gitflow_core::PaginationMeta {
+        truncated,
+        returned,
+        limit,
+    }
+}
+
+/// 构造批量清理（`--merged`/`--closed`）的确认提示文案。
+///
+/// `count` 为计划清理的 PR 数量；`truncated` 为真时说明底层列表已触顶分页上限，
+/// 仓库中还有更多符合条件的 PR 未被纳入本次计划。
+#[must_use]
+pub fn cleanup_confirmation_prompt(count: usize, truncated: bool) -> String {
+    let mut prompt = format!("即将清理 {count} 个 PR 的远程分支、本地分支与 worktree，是否继续？");
+    if truncated {
+        prompt.push_str(" 注意：仓库中还有更多符合条件的 PR 未被纳入本次计划（已达到分页上限）。");
+    }
+    prompt
+}
+
+/// 在删除任何东西之前，为批量清理（`--merged`/`--closed`）请求用户确认。
+///
+/// 要求 stdin 与 stderr **都**是 TTY：提示写到 stderr，答案从 stdin 读取，
+/// 只检查其中一个会被 `yes | gf pr cleanup --merged` 这类管道绕过。
+/// 任一端不是 TTY 时直接返回错误，不挂起等待输入，也不默认放行。
+///
+/// # Errors
+///
+/// - stdin 或 stderr 不是 TTY 时返回错误，提示改用 `--yes`。
+/// - 读取 stdin 失败时返回错误。
+fn confirm_cleanup(count: usize, truncated: bool) -> miette::Result<bool> {
+    if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
+        return Err(miette::miette!(
+            "Refusing to prompt for confirmation in a non-interactive session; re-run with --yes \
+             to skip confirmation."
+        ));
+    }
+
+    let prompt = cleanup_confirmation_prompt(count, truncated);
+    eprint!("{prompt} [y/N] ");
+    let _ = std::io::Write::flush(&mut std::io::stderr());
+
+    let stdin = std::io::stdin();
+    let mut reader = stdin.lock();
+    confirm_cleanup_with_reader(&mut reader)
+}
+
+/// Testable core of [`confirm_cleanup`] — reads one line from any `BufRead`
+/// source and decides yes/no. Contains no TTY logic, so it can be exercised
+/// directly by tests without a real terminal.
+///
+/// Empty input (bare Enter) and EOF both resolve to `false`: this is a
+/// `[y/N]` prompt guarding an irreversible bulk deletion, so the default must
+/// stay "no".
+///
+/// # Errors
+///
+/// Returns an error if reading from `reader` fails.
+fn confirm_cleanup_with_reader(reader: &mut impl std::io::BufRead) -> miette::Result<bool> {
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .map_err(|e| miette::miette!("Failed to read confirmation: {e}"))?;
+    Ok(cleanup_confirm_answer(&line))
+}
+
+/// Parse one line of user input into a yes/no answer for the cleanup prompt.
+///
+/// Accepts `y`/`yes` (case-insensitive, surrounding whitespace ignored) as
+/// `true`; everything else — including an empty line — is `false`.
+#[must_use]
+fn cleanup_confirm_answer(line: &str) -> bool {
+    matches!(line.trim().to_lowercase().as_str(), "y" | "yes")
 }
 
 /// 解析 `--body` 与 `--body-file` 参数。
@@ -536,6 +714,16 @@ fn resolve_head(head: Option<String>) -> miette::Result<String> {
     Ok(branch)
 }
 
+/// 将 provider 查询到的默认分支结果落地为最终使用的 base 分支名。
+///
+/// 查询失败（含平台不支持，如 GitCode）时回退 `"main"`，不中断 `pr create` 流程。
+fn resolve_default_branch(detected: gitflow_core::Result<String>) -> String {
+    detected.unwrap_or_else(|e| {
+        tracing::debug!(error = %e, "default_branch query failed, falling back to \"main\"");
+        "main".to_string()
+    })
+}
+
 /// 根据输出格式打印结果。
 ///
 /// Phase 1 仅支持 JSON（pretty-printed）。Text 格式暂未实现，返回错误。
@@ -555,6 +743,8 @@ fn print_output<T: serde::Serialize>(value: &T, format: &OutputFormat) -> miette
     reason = "Test code: panic is acceptable for assertion failures"
 )]
 mod tests {
+    use clap::Parser;
+
     use super::*;
 
     #[test]
@@ -573,11 +763,9 @@ mod tests {
 
     #[test]
     fn test_should_resolve_body_from_file() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("gitflow_test_pr_body.md");
-        std::fs::write(&path, "pr body from file").expect("write temp file");
-        let result = resolve_body(None, Some(path.to_string_lossy().into_owned()));
-        let _ = std::fs::remove_file(&path);
+        let file = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(file.path(), "pr body from file").expect("write temp file");
+        let result = resolve_body(None, Some(file.path().to_string_lossy().into_owned()));
         assert!(result.is_ok());
         assert_eq!(
             result.expect("already checked"),
@@ -624,6 +812,20 @@ mod tests {
     }
 
     #[test]
+    fn test_should_use_detected_branch_on_success() {
+        let result = resolve_default_branch(Ok("dev".to_string()));
+        assert_eq!(result, "dev");
+    }
+
+    #[test]
+    fn test_should_fallback_to_main_on_detection_failure() {
+        let result = resolve_default_branch(Err(gitflow_core::CoreError::Platform(
+            "unsupported".to_string(),
+        )));
+        assert_eq!(result, "main");
+    }
+
+    #[test]
     fn test_should_print_json_output() {
         let value = serde_json::json!({"number": 1, "title": "test"});
         let result = print_output(&value, &OutputFormat::Json);
@@ -638,6 +840,28 @@ mod tests {
     }
 
     // --- PrCommand 解析测试 ---
+
+    #[test]
+    fn test_should_parse_read_only_pr_precheck() {
+        let cli = crate::Cli::try_parse_from([
+            "gf",
+            "pr",
+            "precheck",
+            "--input",
+            "/tmp/pr.json",
+            "--live",
+            "--allow-private",
+        ])
+        .expect("parse");
+        assert!(matches!(
+            cli.command,
+            crate::Commands::Pr(PrCommand::Precheck {
+                live: true,
+                allow_private: true,
+                ..
+            })
+        ));
+    }
 
     #[test]
     fn test_should_parse_pr_close() {
@@ -896,6 +1120,40 @@ mod tests {
     }
 
     #[test]
+    fn test_should_parse_pr_create_with_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gitflow",
+            "pr",
+            "create",
+            "--title",
+            "Feature PR",
+            "--milestone",
+            "v1.0",
+        ])
+        .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { milestone, .. }) => {
+                assert_eq!(milestone, Some("v1.0".to_string()));
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
+    fn test_should_parse_pr_create_without_milestone() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from(["gitflow", "pr", "create", "--title", "Feature PR"])
+            .expect("parse");
+        match cli.command {
+            crate::Commands::Pr(PrCommand::Create { milestone, .. }) => {
+                assert!(milestone.is_none());
+            }
+            _ => panic!("Expected PrCommand::Create"),
+        }
+    }
+
+    #[test]
     fn test_should_parse_pr_list_without_args() {
         use clap::Parser;
         let cli = crate::Cli::try_parse_from(["gitflow", "pr", "list"]).expect("parse");
@@ -1048,5 +1306,105 @@ mod tests {
             }
             _ => panic!("Expected PrCommand::Create"),
         }
+    }
+
+    #[test]
+    fn test_should_mention_count_in_cleanup_confirmation_prompt() {
+        let prompt = cleanup_confirmation_prompt(7, false);
+        assert!(prompt.contains('7'));
+    }
+
+    #[test]
+    fn test_should_warn_about_more_prs_when_plan_truncated() {
+        let truncated_prompt = cleanup_confirmation_prompt(1000, true);
+        assert!(truncated_prompt.contains("更多"));
+
+        let complete_prompt = cleanup_confirmation_prompt(3, false);
+        assert!(!complete_prompt.contains("更多"));
+    }
+
+    #[test]
+    fn test_should_surface_truncated_flag_in_cleanup_pagination_meta() {
+        // Mirrors the shape of `pr cleanup`'s underlying closed-PR listing
+        // hitting the cap: the plan says truncated, but `data` (returned) is
+        // whatever survived the merged/closed filter — smaller than `limit`.
+        let meta = cleanup_pagination_meta(true, 1000, 3);
+        assert!(meta.truncated);
+        assert_eq!(meta.limit, 1000);
+        assert_eq!(meta.returned, 3);
+    }
+
+    #[test]
+    fn test_should_not_report_truncated_when_plan_was_not_truncated() {
+        let meta = cleanup_pagination_meta(false, 1000, 3);
+        assert!(!meta.truncated);
+    }
+
+    #[test]
+    fn test_should_emit_pagination_truncated_in_cleanup_json_output_when_plan_truncated() {
+        // Reproduces F-3: `gf pr cleanup --output json` must carry an in-band
+        // truncation signal, not just the stderr warning.
+        let meta = cleanup_pagination_meta(true, 1000, 3);
+        let results: Vec<gitflow_core::cleanup::CleanupResult> = Vec::new();
+        let output = gitflow_core::CliOutput::success_paged(results, meta, "github", "pr cleanup");
+        let json = serde_json::to_value(&output).expect("serialize cleanup output");
+        assert_eq!(json["pagination"]["truncated"], serde_json::json!(true));
+        assert_eq!(json["success"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn test_should_accept_lowercase_y_as_yes() {
+        assert!(cleanup_confirm_answer("y\n"));
+    }
+
+    #[test]
+    fn test_should_accept_uppercase_y_as_yes() {
+        assert!(cleanup_confirm_answer("Y\n"));
+    }
+
+    #[test]
+    fn test_should_accept_lowercase_yes_as_yes() {
+        assert!(cleanup_confirm_answer("yes\n"));
+    }
+
+    #[test]
+    fn test_should_accept_uppercase_yes_as_yes() {
+        assert!(cleanup_confirm_answer("YES\n"));
+    }
+
+    #[test]
+    fn test_should_accept_y_with_surrounding_whitespace_as_yes() {
+        assert!(cleanup_confirm_answer(" y \n"));
+    }
+
+    #[test]
+    fn test_should_treat_n_as_no() {
+        assert!(!cleanup_confirm_answer("n\n"));
+    }
+
+    #[test]
+    fn test_should_treat_empty_line_as_no() {
+        // Bare Enter at the prompt: `read_line` returns "\n".
+        assert!(!cleanup_confirm_answer("\n"));
+    }
+
+    #[test]
+    fn test_should_treat_eof_as_no() {
+        // `read_line` on EOF (no more input) leaves the buffer empty.
+        assert!(!cleanup_confirm_answer(""));
+    }
+
+    #[test]
+    fn test_should_treat_eof_as_no_through_reader() {
+        let mut reader: &[u8] = b"";
+        let answer = confirm_cleanup_with_reader(&mut reader).expect("EOF read should not error");
+        assert!(!answer);
+    }
+
+    #[test]
+    fn test_should_accept_yes_through_reader() {
+        let mut reader: &[u8] = b"yes\n";
+        let answer = confirm_cleanup_with_reader(&mut reader).expect("read should not error");
+        assert!(answer);
     }
 }

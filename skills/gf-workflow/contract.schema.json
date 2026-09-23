@@ -57,10 +57,41 @@
         "4": { "$ref": "#/$defs/phase" }
       },
       "additionalProperties": false
+    },
+    "semantic_checks": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/semantic_check" },
+      "description": "Optional semantic observations; never used by deterministic gates"
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "semantic_check": {
+      "type": "object",
+      "required": ["checkedAt", "policyVersion", "phase", "ruleId", "matchedPaths", "finding"],
+      "properties": {
+        "checkedAt": { "type": "string", "format": "date-time" },
+        "policyVersion": { "type": "string" },
+        "phase": { "enum": ["plan", "execute", "deliver"] },
+        "ruleId": { "type": "string" },
+        "matchedPaths": { "type": "array", "items": { "type": "string" } },
+        "finding": {
+          "type": "object",
+          "required": ["ruleId", "conclusion", "confidence", "status", "advice", "hypothesis"],
+          "properties": {
+            "ruleId": { "type": "string" },
+            "conclusion": { "enum": ["possible_violation", "no_violation", "unavailable", "not_applicable"] },
+            "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "status": { "enum": ["observed", "warning", "needs_review", "unavailable", "not_applicable"] },
+            "advice": { "type": "string" },
+            "hypothesis": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "phase": {
       "type": "object",
       "required": ["name", "status"],
@@ -118,6 +149,15 @@
             },
             "pipeline_ok": { "type": "boolean" },
             "review_report_path": { "type": "string" },
+            "diff_review_status": {
+              "type": "string",
+              "enum": ["generated", "not_triggered", "failed"],
+              "description": "Phase 3 条件式 diff 审阅页结果；仅用于本地查看，不参与门禁"
+            },
+            "diff_review_path": {
+              "type": "string",
+              "description": "生成成功时主工作区 .cache/diff-review/ 下 HTML 的绝对路径"
+            },
             "base_branch": {
               "type": "string",
               "description": "Branch the worktree was forked from (Phase 3)"

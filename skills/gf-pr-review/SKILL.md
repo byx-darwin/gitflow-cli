@@ -45,6 +45,17 @@ description: |
 | Deep security vulnerability scanning | This skill includes security as one of 6 dimensions, not a full audit | `/gf-security-check` for comprehensive security audit |
 | Submitting verdict without reading diff | This skill requires full diff analysis before verdict | Non-negotiable — always read diff first |
 
+## Evidence Grading
+
+| Tier | Meaning | Hard rule |
+|---|---|---|
+| `Measured` | Command run this session | No output → downgrade to `Inferred`. |
+| `Inferred` | Read from code/config/diff | Must cite `path:line`. |
+| `Unverified` | Not verified this run | Must state why; never omitted. |
+
+Reused verbatim from `gf-walkthrough`/`gf-smell`/`gf-quality`. Every
+dimension verdict in Step 2/3 carries one of these three tiers.
+
 ## Core Pattern
 
 ```bash
@@ -62,7 +73,7 @@ gf review approve <n> --body "<c>"      # 4. submit (or request-changes / commen
 | Request changes | `gf review request-changes <n> --body "<c>"` |
 | Comment | `gf review comment <n> --body "<c>"` |
 
-Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../references/pr-review-checklist.md).
+Dimensions: correctness, security, performance, maintainability, test-coverage, documentation. Full items: [checklist](../../docs/references/pr-review-checklist.md).
 
 ## Implementation
 
@@ -74,13 +85,33 @@ Dimensions: correctness, security, performance, maintainability, test-coverage, 
 
 `gf pr view <n>` then `gf pr diff <n>`. Confirm open, not draft/merged. Empty diff → stop.
 
+### Optional semantic precheck (read-only)
+
+For additional risk triage, prepare a reviewed JSON file with the PR title,
+short description, explicit repository visibility, test status, and changed
+file entries. See [PR precheck input](../../docs/pr-review-precheck.md) for the
+schema. Review and redact the content before running:
+
+```bash
+gf pr precheck --input /tmp/pr-precheck.json --live --output json
+```
+
+Live Jev use requires the `gitflow-jev` build feature,
+`GF_DECISION_PROVIDER=jev`, and a TypeSafe key from `TYPESAFE_API_KEY` or the
+macOS `gitflow-cli-typesafe` Keychain item. Private or unknown
+visibility also requires `--allow-private`. Without a provider, the command
+returns deterministic facts with `status: unavailable`; continue Step 2.
+The report separates facts from model inferences and unverified hypotheses.
+Candidate source hunks are places to inspect in the full diff, not proof of a
+defect. Never turn a precheck score into a verdict or skip the full review.
+
 ### Step 2: Assess 6 Dimensions
 
-For each dimension (correctness, security, performance, maintainability, test-coverage, docs): ✅ or ⚠️ with `path:line`. See [checklist](../references/pr-review-checklist.md).
+For each dimension (correctness, security, performance, maintainability, test-coverage, docs): ✅ or ⚠️ with `path:line`, plus an Evidence Tier — `Inferred` for a diff-reading judgment (the default; cites `path:line`), `Measured` when backed by a command actually run this session (command + output required), `Unverified` for an unresolved suspicion (state why, never omit). See [checklist](../../docs/references/pr-review-checklist.md).
 
 ### Step 3: Draft Conclusion
 
-Per-dimension verdicts with `path:line` for ⚠️ items. See [template](../references/pr-review-checklist.md).
+Per-dimension verdicts with `path:line` for ⚠️ items, carrying the same Evidence Tier assigned in Step 2 — never upgrade a tier between Step 2 and Step 3. See [checklist](../../docs/references/pr-review-checklist.md).
 
 ### Step 4: Submit
 
@@ -135,12 +166,14 @@ Output PR URL.
 |--------|---------|
 | "Small change, skip" | One-liners can hide vulnerabilities. |
 | "Inline faster" | Inline is `gf-pr-inline-review`'s job. |
+| "读了 diff 就是 Measured" | 读 diff 得出的判断是 `Inferred`；`Measured` 需要实际跑过验证命令并有输出 |
 
 ## Red Flags
 
 - 🚩 "approve without reviewing" — Refuse. Read diff.
 - 🚩 "leave line comments" — → `gf-pr-inline-review`.
 - 🚩 "fix the issues" — → `gf-pr-apply-feedback`.
+- 🚩 "结论没写证据等级" — Refuse. 每条 ✅/⚠️ 判断都要标 `Measured`/`Inferred`/`Unverified`
 
 ## Test Scenarios
 
@@ -179,6 +212,7 @@ Output PR URL.
 
 - ❌ **Approving without reading diff** — violates Preconditions. Read diff first.
 - ❌ **Publishing inline comments** — line-level belongs to `gf-pr-inline-review`.
+- ❌ **把 diff 阅读判断标成 Measured** — 未实际执行验证命令的判断只能是 `Inferred`
 
 ## Trigger Keywords
 

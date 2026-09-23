@@ -17,6 +17,18 @@ use crate::OutputFormat;
 /// 支持 `status`、`logs`、`jobs`、`report` 操作。
 #[derive(Debug, Subcommand)]
 pub enum PipelineCommand {
+    /// Read-only classification and grouping of reviewed failure excerpts.
+    AnalyzeFailures {
+        /// Reviewed bounded failure JSON, not the raw pipeline log response.
+        #[arg(long)]
+        input: String,
+        /// Saved typed decision response for offline replay.
+        #[arg(long, conflicts_with = "live")]
+        response: Option<String>,
+        /// Explicitly call the configured Jev provider.
+        #[arg(long)]
+        live: bool,
+    },
     /// 列出指定分支的流水线运行状态。
     Status {
         /// 分支名称（默认 `main`）。
@@ -68,6 +80,17 @@ pub async fn handle(
     remote_url: &str,
     output_format: OutputFormat,
 ) -> miette::Result<()> {
+    if let PipelineCommand::AnalyzeFailures {
+        input,
+        response,
+        live,
+    } = &command
+    {
+        let report =
+            super::pipeline_failure::handle(input.clone(), response.clone(), *live).await?;
+        let output = CliOutput::success(report, "local", "pipeline analyze-failures");
+        return print_output(&output, &output_format);
+    }
     let provider: Box<dyn PipelineProvider> = match platform {
         "github" => Box::new(GitHubPipelineProvider::new(repo)),
         "gitlab" => {
@@ -86,6 +109,9 @@ pub async fn handle(
     };
 
     match command {
+        PipelineCommand::AnalyzeFailures { .. } => {
+            return Err(miette::miette!("invalid analysis dispatch"));
+        }
         PipelineCommand::Status { branch } => {
             let result = provider.status(&branch).await.map_err(|e| {
                 miette::miette!("Failed to get pipeline status for '{branch}': {e}")
@@ -173,6 +199,24 @@ mod tests {
     }
 
     // --- PipelineCommand 解析测试 ---
+
+    #[test]
+    fn test_should_parse_read_only_failure_analysis() {
+        use clap::Parser;
+        let cli = crate::Cli::try_parse_from([
+            "gf",
+            "pipeline",
+            "analyze-failures",
+            "--input",
+            "/tmp/failures.json",
+            "--live",
+        ])
+        .expect("parse");
+        assert!(matches!(
+            cli.command,
+            crate::Commands::Pipeline(PipelineCommand::AnalyzeFailures { live: true, .. })
+        ));
+    }
 
     #[test]
     fn test_should_parse_pipeline_status_default_branch() {

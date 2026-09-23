@@ -4,7 +4,7 @@ Detect project language(s) by scanning marker files at root and in sub-directori
 
 ## Detection Scope
 
-Scan **up to 3 levels deep** from project root. This catches:
+Scan marker files in the root and up to **3 directory levels below** it. This catches:
 - Root-level projects (`Cargo.toml`, `go.mod`, etc.)
 - Monorepo sub-projects (`apps/*/package.json`, `services/*/Cargo.toml`)
 - Workspace member detection
@@ -17,7 +17,7 @@ Check these marker files at each scanned level:
 | Marker File | Language | Reference |
 |-------------|----------|-----------|
 | `Cargo.toml` | Rust | `references/rust.md` |
-| `go.mod` | Go | `references/go.md` |
+| `go.mod` / `go.work` | Go | `references/go.md` |
 | `pom.xml` | Java (Maven) | `references/java.md` |
 | `build.gradle` / `build.gradle.kts` | Java (Gradle) | `references/java.md` |
 | `pyproject.toml` | Python | `references/python.md` |
@@ -28,8 +28,13 @@ Check these marker files at each scanned level:
 ## Detection Command
 
 ```bash
-# Scan root + 3 levels deep for all marker files
-find . -maxdepth 3 \( \
+# Scan marker files in the root and up to three nested directories.
+find . -maxdepth 4 \
+  \( -type d \( -name node_modules -o -name target -o -name .git \
+     -o -name vendor -o -name dist -o -name build -o -name .cache \
+     -o -name .turbo -o -name .worktree -o -name .venv -o -name venv \
+     -o -name __pycache__ -o -name .gradle \) -prune \) -o \
+  \( -type f \( \
   -name "Cargo.toml" -o \
   -name "go.mod" -o \
   -name "go.work" -o \
@@ -39,11 +44,11 @@ find . -maxdepth 3 \( \
   -name "settings.gradle" -o \
   -name "pyproject.toml" -o \
   -name "setup.py" -o \
+  -name "setup.cfg" -o \
   -name "package.json" -o \
+  -name "settings.gradle.kts" -o \
   -name "Gemfile" \
-\) -not -path "*/node_modules/*" -not -path "*/target/*" \
-   -not -path "*/.git/*" -not -path "*/vendor/*" \
-   -not -path "*/dist/*" -not -path "*/build/*"
+  \) -print \)
 ```
 
 ## Single-Language Project
@@ -74,47 +79,17 @@ Which to check? [1/2/all]
 3. Each language runs independently — one failure does NOT block others
 4. Generate **aggregate report** at the end
 
-## Aggregate Report (Multi-Language)
-
-```markdown
-## Quality Gate Report (Multi-Language)
-
-| Language | Path | Build | Test | Coverage | Format | Static | Pre-commit | Result |
-|----------|------|-------|------|----------|--------|--------|------------|--------|
-| Rust     | ./   | ✅    | ✅   | ✅ 85%   | ✅     | ✅     | ✅         | PASS   |
-| Node.js  | apps/desktop/ | ✅ | ❌ 2 failed | — | ✅ | ❌ 3 warnings | N/A | FAIL |
-
-### Summary
-- Rust: ALL CHECKS PASSED
-- Node.js (apps/desktop): 2 test failures, 3 lint warnings
-
-### Actions Required
-- [ ] Fix 2 failing tests in apps/desktop
-- [ ] Address 3 lint warnings in apps/desktop
-```
+The aggregate quality report template lives only in `gf-quality/SKILL.md`.
 
 ## Runtime Detection (Node.js)
 
-When Node.js is detected, also check for package manager lock files in the same directory:
-
-| Lock File | Runtime |
-|-----------|---------|
-| `bun.lockb` / `bun.lock` | Bun |
-| `pnpm-lock.yaml` | pnpm |
-| `yarn.lock` | Yarn |
-| `package-lock.json` | npm |
-
-**Note:** A directory may have multiple lock files (e.g., during migration). Use the first match in order: bun → pnpm → yarn → npm.
+Use the lockfile precedence in `gf-quality/references/profiles/node.md`.
 
 ## Exclusion Rules
 
-Skip these directories during scanning:
-- `node_modules/`
-- `target/` (Rust build output)
-- `.git/`
-- `vendor/` (Go/PHP dependencies)
-- `dist/` / `build/` (build output)
-- `.cache/` / `.turbo/` (tool caches)
+Use the directory exclusions in the Detection Command above. It prunes those
+directories before descending, so markers in generated or vendored trees do
+not become projects.
 
 ## Workspace Detection
 
@@ -187,9 +162,7 @@ Use `tree` command or manual construction:
 # If tree is installed
 tree -L 3 -I 'node_modules|target|vendor|.git' --prune
 
-# Otherwise, use find + manual formatting
-find . -maxdepth 3 -type f \( -name "Cargo.toml" -o -name "package.json" -o -name "go.mod" \) \
-  -not -path "*/node_modules/*" -not -path "*/target/*" | sort
+# Otherwise, format the captured marker paths from Detection Command above.
 ```
 
 ## No Marker File (Generic)

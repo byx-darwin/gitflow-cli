@@ -9,12 +9,17 @@
 - [命令参考](./llms-commands.txt) — 所有命令、标志、选项的完整参考
 - [架构说明](./llms-architecture.txt) — Platform trait、适配器、依赖关系
 - [FAQ](./llms-faq.txt) — 常见问题与长尾提问解答
+- [Jev 事实页](./llms-jev.txt) — Jev 定义、决策类型、安全边界与接入方式
+- [Jev 设计实践](./blog/jev-typed-decisions/) — gf 接入类型化 AI 决策的设计取舍与试点评估
+- [Dogfooding 案例](./dogfooding/) — gf 用自身工作流开发 gf 的历史样本与当前机制说明
 
 ## 快速摘要
 
 ### 定位
 
 gf 不是又一个 gh 封装，而是"AI 编程工程循环编排器"：统一封装 GitHub / GitLab / GitCode 三大平台差异（底层分别调用 gh / glab / gitcode CLI），配合可安装到多个 Agent 平台的 Skills 集合，覆盖从需求澄清到代码发布的完整工程循环。
+
+可选的 TypeSafe Jev 适配器为语义不确定性提供类型化、只读判断。`gf decide` 支持 Noul、Choice、Score、Batch；Jev 响应不授权状态变更，服务失败时调用方继续确定性规则或人工审查。
 
 ### 安装
 
@@ -23,24 +28,27 @@ Homebrew（macOS）：
   brew install gf
 
 Cargo：
-  cargo install gf
+  cargo install gitflow-cli
 
 安装 Skills（项目级，推荐）：
   gf skills install
 
 ### 核心命令（顶层）
 
-- `gf issue {create,list,view,close,reopen,comment}` — Issue 管理
-- `gf pr {create,list,view,close,merge,checkout}` — PR 管理
-- `gf release {create,list,view,edit}` — 发布管理
+- `gf issue {search,create,edit,list,view,precheck,close,reopen,comment,comments,add-label,remove-label}` — Issue 管理
+- `gf pr {search,create,list,view,precheck,close,reopen,comment,merge,checkout,ready,wip,sync,diff,patch,cleanup}` — PR 管理
+- `gf release {create,list,view,edit,upload,download,delete}` — 发布管理
 - `gf review {comment,approve,request-changes,submit}` — 代码审查
 - `gf auth {login,logout,status,token}` — 认证管理
-- `gf pipeline {status,logs,jobs,report}` — CI/CD 流水线
+- `gf pipeline {analyze-failures,status,logs,jobs,report}` — CI/CD 流水线
 - `gf commit {view,diff,patch,comment}` — 提交操作
 - `gf label` / `gf milestone` — 标签 / 里程碑管理
-- `gf repo {clone,list,create,stats,sync,view}` — 仓库操作
-- `gf skills {install,list,uninstall}` — Skills 管理
-- `gf completions {bash,zsh,fish}` — Shell 补全
+- `gf skills {suggest,install,list,uninstall,update}` — Skills 管理
+- `gf decide {noul,choice,score,batch,eval,calibrate,compare}` — 类型化决策与离线评估
+- `gf regression semantic-eval` — 回归案例语义评估
+- `gf workflow {progress,context,semantic-check,recommend,create,list,status,archive,cleanup}` — Workflow 合同与只读遥测
+- `gf doctor` — CLI、Agent、Skills 与配置诊断
+- `gf update` — 更新 gf 二进制
 
 全局标志：`--platform github|gitlab|gitcode`、`--output json|text|toon|auto`。
 
@@ -48,6 +56,7 @@ Cargo：
 
 - `gf-core`：Platform trait 抽象、跨平台适配器契约、toon 输出
 - `gf-github` / `-gitlab` / `-gitcode`：三平台适配器
+- `gitflow-jev`：可选 TypeSafe Jev 决策适配器
 - `gf`（CLI 应用）：命令路由、输出格式化、Skills 安装
 - 依赖单向流动：应用 → 库；`forbid(unsafe_code)`、pedantic clippy
 
@@ -63,8 +72,8 @@ Cargo：
 gf-workflow 提供四阶段工作流编排：
 1. 需求澄清（brainstorming + Issue 创建）
 2. 计划制定（writing-plans + 质量门禁）
-3. 执行（TDD + 子代理开发）
-4. 交付检查（流水线分析 + 代码审查）
+3. 执行（worktree 隔离开发 + 本地合并或 PR 交付）
+4. 交付检查（可选流水线分析 + 按模式审查 + Branch Finish）
 
 支持三种模式：full / standard / fast
 支持两种技能来源：superpowers / mattpocock

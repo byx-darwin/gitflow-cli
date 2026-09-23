@@ -13,7 +13,10 @@ use gitflow_gitcode::GitCodeReleaseProvider;
 use gitflow_github::GitHubReleaseProvider;
 use gitflow_gitlab::GitLabReleaseProvider;
 
-use crate::OutputFormat;
+use crate::{
+    OutputFormat,
+    commands::{list_args::validate_limit, output::print_list_output},
+};
 
 /// Release 子命令集合。
 ///
@@ -185,13 +188,14 @@ pub async fn handle(
             let output = CliOutput::success(release, platform, "release create");
             print_output(&output, &output_format)?;
         }
-        ReleaseCommand::List { .. } => {
-            let releases = provider
-                .list()
+        ReleaseCommand::List { limit } => {
+            let limit = validate_limit(limit)?;
+            let paged = provider
+                .list(limit)
                 .await
                 .map_err(|e| miette::miette!("Failed to list releases: {e}"))?;
-            let output = CliOutput::success(releases, platform, "release list");
-            print_output(&output, &output_format)?;
+            let (items, meta) = paged.into_parts();
+            print_list_output(items, meta, platform, "release list", &output_format)?;
         }
         ReleaseCommand::View { tag } => {
             let release = provider
@@ -367,11 +371,9 @@ mod tests {
 
     #[test]
     fn test_should_resolve_body_from_file() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("gitflow_release_body.md");
-        std::fs::write(&path, "release body content").expect("write temp file");
-        let result = resolve_body(None, Some(path.to_string_lossy().into_owned()));
-        let _ = std::fs::remove_file(&path);
+        let file = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(file.path(), "release body content").expect("write temp file");
+        let result = resolve_body(None, Some(file.path().to_string_lossy().into_owned()));
         assert!(result.is_ok());
         assert_eq!(
             result.expect("already checked"),
