@@ -84,6 +84,7 @@ fn bundled_catalog() -> miette::Result<Vec<SkillCatalogEntry>> {
 fn frontmatter_summary(content: &str) -> miette::Result<(&str, String)> {
     let front = content
         .strip_prefix("---\n")
+        .or_else(|| content.strip_prefix("---\r\n"))
         .ok_or_else(|| miette::miette!("bundled skill frontmatter is invalid"))?;
     let mut name = None;
     let mut description = Vec::new();
@@ -215,6 +216,16 @@ mod tests {
     #[test]
     fn test_should_reject_missing_skill_frontmatter() {
         assert!(frontmatter_summary("# no frontmatter").is_err());
+    }
+
+    #[test]
+    fn test_should_accept_crlf_skill_frontmatter() {
+        let (name, description) = frontmatter_summary(
+            "---\r\nname: gf-example\r\ndescription: Windows checkout\r\n---\r\n",
+        )
+        .unwrap();
+        assert_eq!(name, "gf-example");
+        assert_eq!(description, "Windows checkout");
     }
 
     #[test]
