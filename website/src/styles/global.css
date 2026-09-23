@@ -551,6 +551,32 @@ a:focus-visible, button:focus-visible {
   grid-template-columns: 2fr 1fr 1fr;
   gap: 12px;
 }
+
+.jev-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 2.5rem;
+  background: var(--gf-border);
+  border: 1px solid var(--gf-border);
+}
+
+.jev-faq-item {
+  padding: 1.75rem;
+  background: var(--gf-surface);
+}
+
+.jev-faq-item h3 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.jev-faq-item p {
+  margin: 0;
+  color: var(--gf-muted);
+  line-height: 1.75;
+}
 .integration-item {
   min-height: 124px;
   display: flex;
@@ -695,7 +721,7 @@ a:focus-visible, button:focus-visible {
   .decision-type:nth-child(3) { padding-left: 0; border-left: 0; }
   .safeguard-section, .offline-section { grid-template-columns: 1fr; gap: 28px; }
   .safeguard-heading { position: static; }
-  .setup-grid, .integration-grid { grid-template-columns: 1fr; }
+  .setup-grid, .integration-grid, .jev-faq-grid { grid-template-columns: 1fr; }
   .setup-item:first-child, .integration-item:nth-child(4) { grid-column: auto; }
   .workflow { grid-template-columns: 1fr; }
   .workflow-step::after { display: none; }

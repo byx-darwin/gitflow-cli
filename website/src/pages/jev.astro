@@ -1,6 +1,11 @@
 ---
 import Base from "../layouts/Base.astro";
 import CopyCommand from "../components/CopyCommand.astro";
+import faqData from "../data/faq.json";
+import {
+  generateHowToJsonLd,
+  generateJevWebPageJsonLd,
+} from "../lib/jsonld";
 
 const base = import.meta.env.BASE_URL;
 
@@ -43,11 +48,21 @@ const integrations = [
   "工作流模式、上下文与进度建议",
   "Skill 选择与语义回归评估",
 ];
+
+const jevFaqs = faqData.faqs.filter((faq) => "scope" in faq && faq.scope === "jev");
+const jevHowToJsonLd = generateHowToJsonLd("接入 Jev 类型化决策层");
+const structuredData = [
+  generateJevWebPageJsonLd(),
+  ...(jevHowToJsonLd ? [jevHowToJsonLd] : []),
+];
 ---
 
 <Base
   title="Jev 决策层 | gf"
   description="了解 gf 如何将 TypeSafe Jev 作为可选、只读、类型化的 AI 决策层接入工程工作流，并保留确定性门禁与人工授权。"
+  socialImage="assets/jev-decision-flow.webp"
+  faqScope="jev"
+  structuredData={structuredData}
 >
   <main class="landing jev-page">
     <section class="jev-page-hero">
@@ -166,6 +181,24 @@ gf decide calibrate \
   --report .cache/decision/report.json \
   --question kind \
   --target-accuracy 0.99</code></pre>
+    </section>
+
+    <section class="section jev-faq-section">
+      <div class="reveal">
+        <span class="hero-kicker">Jev FAQ</span>
+        <h2 class="section-heading">关于 Jev 的常见问题</h2>
+        <p class="section-lede">明确它是什么、如何接入，以及它不会获得哪些权限。</p>
+      </div>
+      <div class="jev-faq-grid">
+        {
+          jevFaqs.map((faq, i) => (
+            <article class="jev-faq-item reveal" style={`transition-delay:${i * 60}ms`}>
+              <h3>{faq.question}</h3>
+              <p>{faq.answer}</p>
+            </article>
+          ))
+        }
+      </div>
     </section>
 
     <section class="section cta-band">

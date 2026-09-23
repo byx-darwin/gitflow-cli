@@ -41,6 +41,25 @@
           "text": "按引导完成需求澄清、计划制定、执行、交付检查。"
         }
       ]
+    },
+    {
+      "name": "接入 Jev 类型化决策层",
+      "description": "为 gf 显式启用 Jev 适配器，并通过类型化、只读响应辅助工程判断。",
+      "url": "https://byx-darwin.github.io/gitflow-cli/jev/",
+      "steps": [
+        {
+          "name": "构建 Jev 适配器",
+          "text": "运行 cargo build -p gitflow-cli --features gitflow-jev，从源码启用可选适配器。"
+        },
+        {
+          "name": "安全保存 TypeSafe Key",
+          "text": "将 TypeSafe Key 保存到系统凭据存储，不要把密钥放进命令参数、文件或聊天。"
+        },
+        {
+          "name": "显式调用 Jev",
+          "text": "设置 GF_DECISION_PROVIDER=jev，然后运行 gf decide batch --input decision.json。"
+        }
+      ]
     }
   ]
 }

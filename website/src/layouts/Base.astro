@@ -8,17 +8,24 @@ import {
 export interface Props {
   title: string;
   description?: string;
+  socialImage?: string;
+  faqScope?: string;
+  structuredData?: object[];
 }
 
 const {
   title,
   description = "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。",
+  socialImage = "og-image.svg",
+  faqScope,
+  structuredData = [],
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL;
 
 const softwareAppJsonLd = generateSoftwareAppJsonLd();
-const faqPageJsonLd = generateFAQPageJsonLd();
+const faqPageJsonLd = generateFAQPageJsonLd(faqScope);
+const socialImageUrl = new URL(`${base}/${socialImage}`, Astro.site ?? Astro.url).href;
 ---
 
 <!doctype html>
@@ -36,22 +43,33 @@ const faqPageJsonLd = generateFAQPageJsonLd();
     <meta property="og:url" content={Astro.url.href} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={`${base}/og-image.svg`} />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta property="og:image:alt" content={`${title} 页面预览`} />
     <meta property="og:locale" content="zh_CN" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={`${base}/og-image.svg`} />
+    <meta name="twitter:image" content={socialImageUrl} />
+    <meta name="twitter:image:alt" content={`${title} 页面预览`} />
 
     <script is:inline>document.documentElement.classList.remove("no-js");</script>
-    <script type="application/ld+json" is:inline>
-      {JSON.stringify(softwareAppJsonLd)}
-    </script>
-    <script type="application/ld+json" is:inline>
-      {JSON.stringify(faqPageJsonLd)}
-    </script>
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(softwareAppJsonLd)}
+    />
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(faqPageJsonLd)}
+    />
+    {
+      structuredData.map((data) => (
+        <script type="application/ld+json" is:inline set:html={JSON.stringify(data)} />
+      ))
+    }
   </head>
   <body>
     <nav class="nav" aria-label="主导航">

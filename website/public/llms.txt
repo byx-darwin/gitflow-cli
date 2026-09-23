@@ -8,6 +8,7 @@ gf 是一个 Rust 编写的命令行工具，统一封装 GitHub（gh）、GitLa
 
 - [文档索引](https://byx-darwin.github.io/gitflow-cli/docs/): 文档与指南入口
 - [Jev 类型化决策](https://byx-darwin.github.io/gitflow-cli/jev/): 可选 Jev 决策层、安全边界与离线评估
+- [Jev 机器可读事实页](https://byx-darwin.github.io/gitflow-cli/llms-jev.txt): 定义、类型、权限边界与接入方式
 - [5 分钟快速上手](https://byx-darwin.github.io/gitflow-cli/quickstart/): 安装、装 Skills、验证、首次工作流
 - [兼容性矩阵](https://byx-darwin.github.io/gitflow-cli/compatibility/): 三平台底层 CLI 版本与功能覆盖
 - [更新日志](https://byx-darwin.github.io/gitflow-cli/changelog/): 版本更新历史

@@ -19,6 +19,26 @@
     {
       "question": "如何安装 gf？",
       "answer": "Homebrew: brew tap byx-darwin/tap && brew install gf。Cargo: cargo install gf。"
+    },
+    {
+      "scope": "jev",
+      "question": "Jev 是什么？",
+      "answer": "Jev 是 gf 可选的 TypeSafe AI 决策适配器。它把语义判断约束为 Noul、Choice、Score 和 Batch 等类型化结果，供工程工作流读取和校验。"
+    },
+    {
+      "scope": "jev",
+      "question": "Jev 会直接修改 Issue、PR 或代码吗？",
+      "answer": "不会。Jev 在 gf 中只提供只读建议，不授予写权限，也不能绕过确定性规则、合同门禁或人工确认。"
+    },
+    {
+      "scope": "jev",
+      "question": "如何在 gf 中启用 Jev？",
+      "answer": "从源码构建时启用 gitflow-jev feature，安全保存 TypeSafe Key，并在调用时显式设置 GF_DECISION_PROVIDER=jev。默认构建和默认运行均不会静默启用 Jev。"
+    },
+    {
+      "scope": "jev",
+      "question": "Jev 服务不可用时会阻塞工作流吗？",
+      "answer": "不会破坏原有安全边界。凭据缺失、超时或服务不可用时，调用方可以降级到确定性规则或人工审查。"
     }
   ]
 }

@@ -1,0 +1,50 @@
+# Jev for gf
+
+> Jev 是 gf 可选的 TypeSafe AI 决策适配器。它为工程工作流提供类型化、只读的语义判断；确定性规则、合同门禁与人工确认继续控制真实写操作。
+
+Canonical page: https://byx-darwin.github.io/gitflow-cli/jev/
+Parent product: gf (gitflow-cli)
+Project: https://github.com/byx-darwin/gitflow-cli
+
+## Jev 是什么
+
+Jev 处理规则难以覆盖的语义不确定性。gf 通过 `gitflow-jev` 可选 feature 接入 Jev，并将响应约束为可验证的数据类型，而不是直接消费不受约束的自由文本。
+
+Jev 在 gf 中是建议层，不是权限层。Jev 响应不会授权创建、修改、合并或发布，也不会绕过 gf 的确定性检查和人工确认。
+
+## 决策类型
+
+- Noul: yes / no / unknown，适合阻塞、风险与合规边界判断。
+- Choice: 从封闭候选集合中选择，适合 Issue 类型、工作流模式和失败分类。
+- Score: 在有序尺度上给出结果，适合优先级、质量和风险评估。
+- Batch: 一次提交多种问题，返回与问题集合对应的类型化响应。
+
+## 安全边界
+
+- 默认构建不包含 Jev 适配器。
+- 运行时必须显式设置 `GF_DECISION_PROVIDER=jev`。
+- 请求大小、问题数量、候选范围、响应结构与超时均受校验。
+- 凭据缺失、超时或服务不可用时，可降级为确定性规则或人工审查。
+- Jev 结果可以保存后离线评估、校准并与基线比较。
+
+## 接入
+
+```sh
+cargo build -p gitflow-cli --features gitflow-jev
+GF_DECISION_PROVIDER=jev gf decide batch --input decision.json
+```
+
+TypeSafe Key 应保存到系统凭据存储，不应出现在命令参数、仓库文件或聊天记录中。
+
+## 命令与工程节点
+
+命令族：`gf decide noul`、`gf decide choice`、`gf decide score`、`gf decide batch`、`gf decide eval`、`gf decide calibrate`、`gf decide compare`。
+
+适用节点：Issue 需求质量预检查与分流、PR 语义预检查、CI 失败分类、自然语言查询补全、工作流建议、Skill 选择和语义回归评估。
+
+## 相关资料
+
+- Jev 页面: https://byx-darwin.github.io/gitflow-cli/jev/
+- 完整项目上下文: https://byx-darwin.github.io/gitflow-cli/llms-full.txt
+- 命令参考: https://byx-darwin.github.io/gitflow-cli/llms-commands.txt
+- 离线评估: https://github.com/byx-darwin/gitflow-cli/blob/dev/docs/decision-offline-evaluation.md

@@ -9,6 +9,7 @@
 - [命令参考](./llms-commands.txt) — 所有命令、标志、选项的完整参考
 - [架构说明](./llms-architecture.txt) — Platform trait、适配器、依赖关系
 - [FAQ](./llms-faq.txt) — 常见问题与长尾提问解答
+- [Jev 事实页](./llms-jev.txt) — Jev 定义、决策类型、安全边界与接入方式
 
 ## 快速摘要
 

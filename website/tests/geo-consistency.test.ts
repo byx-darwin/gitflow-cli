@@ -3,6 +3,7 @@ import {
   generateSoftwareAppJsonLd,
   generateFAQPageJsonLd,
   generateHowToJsonLd,
+  generateJevWebPageJsonLd,
 } from "../src/lib/jsonld";
 
 const CANONICAL_POSITIONING =
@@ -20,6 +21,12 @@ describe("GEO entity consistency", () => {
       "https://github.com/byx-darwin/gitflow-cli",
     );
     expect(jsonLd.sameAs).toContain("https://crates.io/crates/gitflow-cli");
+  });
+
+  it("should describe Jev as an optional typed decision feature", () => {
+    const jsonLd = generateSoftwareAppJsonLd();
+    expect(jsonLd.featureList.join(" ")).toContain("Jev");
+    expect(jsonLd.featureList.join(" ")).toContain("Noul");
   });
 
   it("should have correct author information in JSON-LD", () => {
@@ -52,5 +59,18 @@ describe("GEO entity consistency", () => {
         expect(step.text.length).toBeGreaterThan(0);
       }
     }
+  });
+
+  it("should generate Jev-specific FAQ, HowTo, and WebPage entities", () => {
+    const faq = generateFAQPageJsonLd("jev");
+    const howTo = generateHowToJsonLd("接入 Jev 类型化决策层");
+    const page = generateJevWebPageJsonLd();
+
+    expect(faq.mainEntity.length).toBeGreaterThanOrEqual(4);
+    expect(faq.mainEntity.every((item) => item.name.includes("Jev"))).toBe(true);
+    expect(howTo?.url).toBe("https://byx-darwin.github.io/gitflow-cli/jev/");
+    expect(page.about.name).toBe("Jev for gf");
+    expect(page.about.isSoftwareAddonFor.name).toBe("gf");
+    expect(page.primaryImageOfPage.url).toContain("jev-decision-flow.webp");
   });
 });
