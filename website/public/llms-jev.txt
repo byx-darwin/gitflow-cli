@@ -30,11 +30,15 @@ Jev 在 gf 中是建议层，不是权限层。Jev 响应不会授权创建、�
 ## 接入
 
 ```sh
-cargo build -p gitflow-cli --features gitflow-jev
+cargo install gitflow-cli --features gitflow-jev --force
 GF_DECISION_PROVIDER=jev gf decide batch --input decision.json
 ```
 
-跨平台环境应通过环境或密钥管理器注入 `TYPESAFE_API_KEY`。macOS 还可使用当前用户 Keychain 中服务名为 `gitflow-cli-typesafe` 的 generic password 项作为环境变量缺失时的后备；`TYPESAFE_API_KEY` 优先。
+以上是 crates.io 安装用户的推荐路径。仓库开发者也可运行 `cargo build -p gitflow-cli --features gitflow-jev` 从源码构建，但调用时应确保使用该构建产物，而不是未启用 feature 的旧全局二进制。
+
+跨平台环境应通过环境或密钥管理器注入 `TYPESAFE_API_KEY`。macOS 还可使用当前用户 Keychain 中服务名为 `ai.typesafe.api-key` 的 generic password 项作为环境变量缺失时的后备；`TYPESAFE_API_KEY` 优先。保存命令为 `security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w`。
+
+兼容期内，旧条目可迁移到共享服务名：`security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w "$(security find-generic-password -a "$USER" -s gitflow-cli-typesafe -w)"`。
 
 TypeSafe 凭据与 `gf auth` 的 GitHub / GitLab / GitCode 凭据相互独立。密钥字面量不应出现在命令参数、请求文件、仓库或聊天记录中。
 

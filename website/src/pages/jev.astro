@@ -136,16 +136,21 @@ const structuredData = [
       </div>
       <div class="setup-grid">
         <article class="setup-item reveal">
-          <h3>构建适配器</h3>
-          <p>从源码启用可选的 <code>gitflow-jev</code> feature。</p>
-          <CopyCommand command="cargo build -p gitflow-cli --features gitflow-jev" />
+          <h3>安装适配器</h3>
+          <p>已安装用户从 crates.io 重装，并显式启用可选的 <code>gitflow-jev</code> feature。</p>
+          <CopyCommand command="cargo install gitflow-cli --features gitflow-jev --force" />
+          <p>
+            仓库开发者也可运行 <code>cargo build -p gitflow-cli --features gitflow-jev</code> 从源码构建。
+          </p>
         </article>
         <article class="setup-item reveal" style="transition-delay:70ms">
           <h3>配置 TypeSafe Key</h3>
           <p>
             跨平台方式是由环境或密钥管理器注入 <code>TYPESAFE_API_KEY</code>。macOS 还可使用下方 Keychain 项作为环境变量缺失时的后备。
           </p>
-          <CopyCommand command={'security add-generic-password -a "$USER" -s gitflow-cli-typesafe -U -w'} />
+          <CopyCommand command={'security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w'} />
+          <p>已有旧条目的用户可运行迁移命令，复制到新的共享服务名：</p>
+          <CopyCommand command={'security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w "$(security find-generic-password -a "$USER" -s gitflow-cli-typesafe -w)"'} />
         </article>
         <article class="setup-item reveal" style="transition-delay:140ms">
           <h3>显式调用</h3>

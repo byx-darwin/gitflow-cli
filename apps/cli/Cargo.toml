@@ -46,7 +46,7 @@ thiserror = { workspace = true }
 self_update = { workspace = true }
 semver = { workspace = true }
 tempfile = { workspace = true }
-gitflow-jev = { version = "2.0.0", path = "../../crates/jev", optional = true }
+gitflow-jev = { version = "2.1.0", path = "../../crates/jev", optional = true }
 
 [build-dependencies]
 built = "0.7"

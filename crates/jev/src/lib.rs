@@ -6,6 +6,8 @@
     allow(clippy::unwrap_used, reason = "Test fixture setup may panic")
 )]
 
+#[cfg(any(target_os = "macos", test))]
+use std::sync::Once;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -14,7 +16,29 @@ use secrecy::{ExposeSecret, SecretString};
 
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
 const MAX_RESPONSE_BYTES: usize = 131_072;
+#[cfg(any(target_os = "macos", test))]
+const MAX_KEY_BYTES: usize = 4_096;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(any(target_os = "macos", test))]
+const PRIMARY_KEYCHAIN_SERVICE: &str = "ai.typesafe.api-key";
+#[cfg(any(target_os = "macos", test))]
+const LEGACY_KEYCHAIN_SERVICE: &str = "gitflow-cli-typesafe";
+#[cfg(any(target_os = "macos", test))]
+const MIGRATION_COMMAND: &str = r#"security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w "$(security find-generic-password -a "$USER" -s gitflow-cli-typesafe -w)""#;
+
+#[cfg(any(target_os = "macos", test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeychainSource {
+    Primary,
+    Legacy,
+}
+
+#[cfg(any(target_os = "macos", test))]
+#[derive(Debug)]
+struct KeychainKey {
+    value: SecretString,
+    source: KeychainSource,
+}
 
 /// Bounded configuration for a Jev request.
 pub struct JevEngine {
@@ -88,13 +112,37 @@ impl JevEngine {
 
 fn select_key(
     env_key: Option<String>,
-    keychain: impl FnOnce() -> Option<String>,
+    keychain: impl FnOnce() -> Option<SecretString>,
 ) -> Option<SecretString> {
     env_key
         .filter(|value| !value.trim().is_empty())
-        .or_else(keychain)
-        .filter(|value| !value.trim().is_empty())
         .map(SecretString::from)
+        .or_else(keychain)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_keychain_key(
+    mut read_service: impl FnMut(&str) -> Option<SecretString>,
+) -> Option<KeychainKey> {
+    read_service(PRIMARY_KEYCHAIN_SERVICE)
+        .filter(|value| !value.expose_secret().trim().is_empty())
+        .map(|value| KeychainKey {
+            value,
+            source: KeychainSource::Primary,
+        })
+        .or_else(|| {
+            read_service(LEGACY_KEYCHAIN_SERVICE)
+                .filter(|value| !value.expose_secret().trim().is_empty())
+                .map(|value| KeychainKey {
+                    value,
+                    source: KeychainSource::Legacy,
+                })
+        })
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn notify_legacy_keychain_once(once: &Once, notify: impl FnOnce(&'static str)) {
+    once.call_once(|| notify(MIGRATION_COMMAND));
 }
 
 #[cfg(target_os = "macos")]
@@ -102,34 +150,56 @@ fn select_key(
     clippy::disallowed_types,
     reason = "Synchronous, bounded Keychain lookup during adapter configuration"
 )]
-fn keychain_key() -> Option<String> {
+fn keychain_key() -> Option<SecretString> {
+    static LEGACY_KEYCHAIN_NOTICE: Once = Once::new();
+
     let user = std::env::var("USER").ok()?;
     if user.is_empty() {
         return None;
     }
+    let selected = select_keychain_key(|service| read_keychain_service(&user, service))?;
+    if selected.source == KeychainSource::Legacy {
+        notify_legacy_keychain_once(&LEGACY_KEYCHAIN_NOTICE, |migration_command| {
+            tracing::warn!(
+                keychain_service = LEGACY_KEYCHAIN_SERVICE,
+                migration_command,
+                "legacy TypeSafe Keychain service found; migrate it to the shared service name"
+            );
+        });
+    }
+    Some(selected.value)
+}
+
+#[cfg(target_os = "macos")]
+#[allow(
+    clippy::disallowed_types,
+    reason = "Synchronous, bounded Keychain lookup during adapter configuration"
+)]
+fn read_keychain_service(user: &str, service: &str) -> Option<SecretString> {
     let output = std::process::Command::new("/usr/bin/security")
-        .args([
-            "find-generic-password",
-            "-a",
-            &user,
-            "-s",
-            "gitflow-cli-typesafe",
-            "-w",
-        ])
+        .args(["find-generic-password", "-a", user, "-s", service, "-w"])
         .output()
         .ok()?;
     if !output.status.success() {
         return None;
     }
-    let mut key = String::from_utf8(output.stdout).ok()?;
+    parse_keychain_output(output.stdout)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn parse_keychain_output(output: Vec<u8>) -> Option<SecretString> {
+    if output.len() > MAX_KEY_BYTES {
+        return None;
+    }
+    let mut key = String::from_utf8(output).ok()?;
     while key.ends_with('\n') || key.ends_with('\r') {
         key.pop();
     }
-    (!key.trim().is_empty()).then_some(key)
+    (!key.trim().is_empty()).then(|| SecretString::from(key))
 }
 
 #[cfg(not(target_os = "macos"))]
-fn keychain_key() -> Option<String> {
+fn keychain_key() -> Option<SecretString> {
     None
 }
 
@@ -188,17 +258,30 @@ fn map_transport_error(error: &reqwest::Error) -> DecisionError {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, time::Duration};
+    use std::{
+        cell::{Cell, RefCell},
+        collections::BTreeMap,
+        sync::Once,
+        time::Duration,
+    };
 
     use gitflow_core::decision::{DecisionEngine, DecisionError, DecisionRequest, Question};
-    use secrecy::ExposeSecret;
+    use secrecy::{ExposeSecret, SecretString};
     use serde_json::json;
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
     };
 
-    use super::{JevEngine, select_key};
+    use super::{
+        JevEngine, KeychainSource, LEGACY_KEYCHAIN_SERVICE, MAX_KEY_BYTES, MIGRATION_COMMAND,
+        PRIMARY_KEYCHAIN_SERVICE, notify_legacy_keychain_once, parse_keychain_output, select_key,
+        select_keychain_key,
+    };
+
+    fn secret(value: &str) -> SecretString {
+        SecretString::from(value.to_string())
+    }
 
     #[test]
     fn test_should_prefer_environment_key_without_reading_keychain() {
@@ -214,8 +297,109 @@ mod tests {
 
     #[test]
     fn test_should_use_keychain_when_environment_key_is_empty() {
-        let key = select_key(Some(" ".into()), || Some("keychain-test-key".into())).unwrap();
+        let key = select_key(Some(" ".into()), || Some(secret("keychain-test-key"))).unwrap();
         assert_eq!(key.expose_secret(), "keychain-test-key");
+    }
+
+    #[test]
+    fn test_should_return_none_when_no_key_source_is_available() {
+        assert!(select_key(None, || None).is_none());
+    }
+
+    #[test]
+    fn test_should_read_key_from_primary_keychain_service() {
+        let selected = select_keychain_key(|service| {
+            (service == PRIMARY_KEYCHAIN_SERVICE).then(|| secret("primary-test-key"))
+        })
+        .unwrap();
+
+        assert_eq!(selected.value.expose_secret(), "primary-test-key");
+        assert_eq!(selected.source, KeychainSource::Primary);
+    }
+
+    #[test]
+    fn test_should_fall_back_to_legacy_keychain_service() {
+        let services = RefCell::new(Vec::new());
+        let selected = select_keychain_key(|service| {
+            services.borrow_mut().push(service.to_string());
+            (service == LEGACY_KEYCHAIN_SERVICE).then(|| secret("legacy-test-key"))
+        })
+        .unwrap();
+
+        assert_eq!(selected.value.expose_secret(), "legacy-test-key");
+        assert_eq!(selected.source, KeychainSource::Legacy);
+        assert_eq!(
+            services.into_inner(),
+            [PRIMARY_KEYCHAIN_SERVICE, LEGACY_KEYCHAIN_SERVICE]
+        );
+    }
+
+    #[test]
+    fn test_should_prefer_primary_keychain_service_without_reading_legacy() {
+        let legacy_read = Cell::new(false);
+        let selected = select_keychain_key(|service| match service {
+            PRIMARY_KEYCHAIN_SERVICE => Some(secret("primary-test-key")),
+            LEGACY_KEYCHAIN_SERVICE => {
+                legacy_read.set(true);
+                Some(secret("legacy-test-key"))
+            }
+            _ => None,
+        })
+        .unwrap();
+
+        assert_eq!(selected.value.expose_secret(), "primary-test-key");
+        assert_eq!(selected.source, KeychainSource::Primary);
+        assert!(!legacy_read.get());
+    }
+
+    #[test]
+    fn test_should_return_none_when_keychain_services_are_empty_or_missing() {
+        let selected = select_keychain_key(|service| {
+            (service == PRIMARY_KEYCHAIN_SERVICE).then(|| secret(" "))
+        });
+
+        assert!(selected.is_none());
+    }
+
+    #[test]
+    fn test_should_redact_keychain_key_debug_output() {
+        let selected = select_keychain_key(|_| Some(secret("sensitive-test-key"))).unwrap();
+        let debug = format!("{selected:?}");
+
+        assert!(!debug.contains("sensitive-test-key"));
+        assert!(debug.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn test_should_parse_keychain_output_and_trim_line_endings() {
+        let key = parse_keychain_output(b"keychain-test-key\r\n".to_vec()).unwrap();
+
+        assert_eq!(key.expose_secret(), "keychain-test-key");
+    }
+
+    #[test]
+    fn test_should_reject_invalid_or_empty_keychain_output() {
+        assert!(parse_keychain_output(vec![0xff]).is_none());
+        assert!(parse_keychain_output(b" \r\n".to_vec()).is_none());
+        assert!(parse_keychain_output(vec![b'x'; MAX_KEY_BYTES + 1]).is_none());
+    }
+
+    #[test]
+    fn test_should_emit_legacy_migration_notice_only_once() {
+        let once = Once::new();
+        let notice_count = Cell::new(0);
+        let notice = Cell::new("");
+
+        notify_legacy_keychain_once(&once, |command| {
+            notice_count.set(notice_count.get() + 1);
+            notice.set(command);
+        });
+        notify_legacy_keychain_once(&once, |_| {
+            notice_count.set(notice_count.get() + 1);
+        });
+
+        assert_eq!(notice_count.get(), 1);
+        assert_eq!(notice.get(), MIGRATION_COMMAND);
     }
 
     fn request() -> DecisionRequest {

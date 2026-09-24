@@ -23,7 +23,7 @@ response. The input file has this exact shape:
 Run `gf issue precheck --input <file> --live --output json`. The provider is
 contacted only if the binary has the `gitflow-jev` feature, the command has
 `--live`, `GF_DECISION_PROVIDER=jev`, and a TypeSafe key is available through
-`TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe` Keychain item. An
+`TYPESAFE_API_KEY` or the macOS `ai.typesafe.api-key` Keychain item. An
 unavailable provider produces `status: unavailable`; continue
 the existing four-dimension review. Use `--response <file>` for offline replay
 of a saved typed `DecisionResponse` without contacting a provider.

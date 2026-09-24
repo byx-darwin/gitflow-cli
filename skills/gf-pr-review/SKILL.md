@@ -98,7 +98,7 @@ gf pr precheck --input /tmp/pr-precheck.json --live --output json
 
 Live Jev use requires the `gitflow-jev` build feature,
 `GF_DECISION_PROVIDER=jev`, and a TypeSafe key from `TYPESAFE_API_KEY` or the
-macOS `gitflow-cli-typesafe` Keychain item. Private or unknown
+macOS `ai.typesafe.api-key` Keychain item. Private or unknown
 visibility also requires `--allow-private`. Without a provider, the command
 returns deterministic facts with `status: unavailable`; continue Step 2.
 The report separates facts from model inferences and unverified hypotheses.
