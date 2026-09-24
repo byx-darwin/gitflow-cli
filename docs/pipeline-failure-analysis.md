@@ -38,7 +38,7 @@ response or complete CI log.
 Run `gf pipeline analyze-failures --input <file> --output json` to inspect
 deterministic telemetry without a provider. Add `--live` for an explicit Jev
 call, with the `gitflow-jev` build feature, `GF_DECISION_PROVIDER=jev`, and
-a TypeSafe key from `TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe`
+a TypeSafe key from `TYPESAFE_API_KEY` or the macOS `ai.typesafe.api-key`
 Keychain item. Use `--response <saved-typed-response.json>` for offline
 replay. If the provider is missing or fails, `decisionStatus` is
 `unavailable`, all categories are `unknown`, and the evidence positions

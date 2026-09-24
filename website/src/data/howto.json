@@ -53,7 +53,7 @@
         },
         {
           "name": "安全保存 TypeSafe Key",
-          "text": "通过环境或密钥管理器注入 TYPESAFE_API_KEY；macOS 可将 gitflow-cli-typesafe Keychain 项作为后备。不要把密钥字面量放进命令参数、文件或聊天。"
+          "text": "通过环境或密钥管理器注入 TYPESAFE_API_KEY；macOS 可运行 security add-generic-password -a \"$USER\" -s ai.typesafe.api-key -U -w 保存共享 Keychain 项。不要把密钥字面量放进命令参数、文件或聊天。"
         },
         {
           "name": "显式调用 Jev",

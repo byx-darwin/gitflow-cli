@@ -7,6 +7,7 @@ import {
   generateJevBlogPostingJsonLd,
   generateBlogJsonLd,
 } from "../src/lib/jsonld";
+import { BLOG_POSTS } from "../src/data/blog";
 
 const CANONICAL_POSITIONING =
   "跨平台 Git 工程化工作流编排框架：统一封装 GitHub / GitLab / GitCode 三大平台，配合 AI Agent Skills，覆盖从需求到发布的完整工程循环。";
@@ -88,7 +89,7 @@ describe("GEO entity consistency", () => {
   it("test_should_expose_current_and_legacy_articles_through_blog_entity", () => {
     const blog = generateBlogJsonLd();
     expect(blog["@type"]).toBe("Blog");
-    expect(blog.blogPost).toHaveLength(2);
+    expect(blog.blogPost).toHaveLength(BLOG_POSTS.length);
     expect(blog.blogPost.map((post) => post.url)).toEqual(
       expect.arrayContaining([
         "https://byx-darwin.github.io/gitflow-cli/blog/jev-typed-decisions/",
