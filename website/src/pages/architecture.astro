@@ -15,10 +15,17 @@ const base = import.meta.env.BASE_URL;
 ├── apps/
 │   └── cli/          # Binary crate — CLI 入口
 ├── crates/
-│   ├── core/         # Library crate — 公开 API、领域类型
-│   ├── github/       # GitHub 平台适配器
-│   ├── gitlab/       # GitLab 平台适配器
-│   └── gitcode/      # GitCode 平台适配器
+│   ├── core/                 # 领域类型、Provider traits、核心逻辑
+│   ├── cli-adapter-utils/    # 三个平台适配器的共享工具
+│   ├── github/               # GitHub / gh 适配器
+│   ├── gitlab/               # GitLab / glab 适配器
+│   ├── gitcode/              # GitCode / gitcode 适配器
+│   ├── jev/                  # Jev 类型化决策集成
+│   ├── e2e-core/             # E2E 共享测试工具
+│   ├── e2e-github/           # GitHub 真实平台验收
+│   ├── e2e-gitlab/           # GitLab 真实平台验收
+│   ├── e2e-gitcode/          # GitCode 真实平台验收
+│   └── release-signer/       # Ed25519 发布产物签名
 ├── docs/             # 项目文档
 ├── specs/            # 功能规格说明
 ├── Cargo.toml        # 工作区清单
@@ -42,6 +49,7 @@ const base = import.meta.env.BASE_URL;
         <li>基于 <code>thiserror</code> 的错误枚举</li>
         <li>核心操作的纯函数和异步工作流</li>
       </ul>
+      <p>其他 crate 按职责分层：三个平台适配器共用 <code>cli-adapter-utils</code>，<code>jev</code> 提供类型化决策能力，<code>e2e-*</code> 与 <code>release-signer</code> 只服务测试和发布，不进入普通用户的命令路径。</p>
 
       <h3>apps/ — 二进制</h3>
       <p>二进制 crate 是薄入口点。它们：</p>
@@ -57,8 +65,13 @@ const base = import.meta.env.BASE_URL;
 
     <section class="section">
       <h2 class="section-heading">依赖流向</h2>
-      <pre class="code-block"><code>apps/cli  ──depends on──>  crates/core</code></pre>
-      <p>依赖箭头是单向的：二进制依赖库，永远不会反向。<code>crates/core</code> 不能依赖任何 <code>apps/</code> crate。这确保了：</p>
+      <pre class="code-block"><code>apps/cli ─┬─> github | gitlab | gitcode ─┬─> core
+          │                           └─> cli-adapter-utils
+          ├─> jev ──> core
+          └─> core
+
+e2e-github | e2e-gitlab | e2e-gitcode ──> e2e-core</code></pre>
+      <p>产品依赖始终向内收敛：CLI 组合平台适配器和 Jev，适配器实现 <code>core</code> 定义的细粒度 Provider traits。<code>core</code> 不依赖任何适配器或 <code>apps/</code> crate。这确保了：</p>
       <ul>
         <li><strong>编译时隔离</strong>：修改二进制不会重新编译库</li>
         <li><strong>API 边界</strong>：库不知道 CLI 标志、配置文件路径或日志后端</li>
@@ -119,8 +132,8 @@ const base = import.meta.env.BASE_URL;
       <h2 class="section-heading">设计原则</h2>
       <div class="bento">
         <div class="bento-card">
-          <h3>Platform Trait 抽象</h3>
-          <p>通过 <code>Platform</code> trait 统一三平台差异，依赖单向流动，禁止循环依赖。</p>
+          <h3>Provider Traits 抽象</h3>
+          <p>通过 Issue、PR、Release 等细粒度 Provider traits 统一三平台能力；<code>Platform</code> 只负责从 remote URL 识别托管平台。</p>
         </div>
         <div class="bento-card">
           <h3>安全优先</h3>
@@ -141,8 +154,8 @@ const base = import.meta.env.BASE_URL;
       <h2 class="cta-heading">深入了解代码</h2>
       <p>查看完整的架构设计和代码实现</p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/byx-darwin/gitflow-cli/tree/dev/crates/core">查看 crates/core 源码 →</a>
-        <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli/blob/dev/docs/architecture.md">GitHub 原文 →</a>
+        <a class="btn btn-primary" href="https://github.com/byx-darwin/gitflow-cli/tree/main/crates">查看 crates 源码 →</a>
+        <a class="btn btn-ghost" href="https://github.com/byx-darwin/gitflow-cli/blob/main/docs/architecture.md">GitHub 原文 →</a>
       </div>
     </section>
   </main>
