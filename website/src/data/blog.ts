@@ -38,7 +38,7 @@ export const BLOG_POSTS: BlogPostMetadata[] = [
     description:
       "从 30 个历史执行合同出发，复盘 gf 的四阶段工作流、契约测试与质量门禁，并按当前功能更新说明。",
     datePublished: "2026-09-02",
-    dateModified: "2026-09-23",
+    dateModified: "2026-09-24",
     image: "/demo.svg",
     tags: ["Dogfooding"],
   },
@@ -49,7 +49,7 @@ export const BLOG_POSTS: BlogPostMetadata[] = [
     description:
       "拆解 gf 的 Cargo 工作区、核心 crate、平台适配器和单向依赖边界，说明代码应当放在哪里以及为什么。",
     datePublished: "2026-08-09",
-    dateModified: "2026-09-23",
+    dateModified: "2026-09-24",
     image: "/og-image.svg",
     tags: ["架构", "工程实践"],
   },
@@ -60,7 +60,7 @@ export const BLOG_POSTS: BlogPostMetadata[] = [
     description:
       "从发布前检查、版本推断到预览和推送，完整说明 gf 的可重复发布流程与安全边界。",
     datePublished: "2026-08-09",
-    dateModified: "2026-09-23",
+    dateModified: "2026-09-24",
     image: "/og-image.svg",
     tags: ["发布", "工程实践"],
   },
@@ -104,7 +104,7 @@ export const BLOG_POSTS: BlogPostMetadata[] = [
     description:
       "汇总 gf 的版本支持周期、问题反馈渠道、兼容性入口和升级注意事项。",
     datePublished: "2026-08-04",
-    dateModified: "2026-08-04",
+    dateModified: "2026-09-24",
     image: "/og-image.svg",
     tags: ["支持政策"],
   },
@@ -126,7 +126,7 @@ export const BLOG_POSTS: BlogPostMetadata[] = [
     description:
       "查看 gf 对 gh、glab 和 gitcode 的最低版本、已验证版本与功能覆盖范围。",
     datePublished: "2026-08-01",
-    dateModified: "2026-08-19",
+    dateModified: "2026-09-24",
     image: "/og-image.svg",
     tags: ["兼容性", "跨平台"],
   },
@@ -137,7 +137,7 @@ export const BLOG_POSTS: BlogPostMetadata[] = [
     description:
       "按版本回顾 gf 的功能变化、兼容性改进、问题修复和工程能力演进。",
     datePublished: "2026-08-01",
-    dateModified: "2026-08-26",
+    dateModified: "2026-09-24",
     image: "/og-image.svg",
     tags: ["更新日志"],
   },
