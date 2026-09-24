@@ -6,7 +6,9 @@
     allow(clippy::unwrap_used, reason = "Test fixture setup may panic")
 )]
 
-use std::{sync::Once, time::Duration};
+#[cfg(any(target_os = "macos", test))]
+use std::sync::Once;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use gitflow_core::decision::{DecisionEngine, DecisionError, DecisionRequest, DecisionResponse};
@@ -14,18 +16,24 @@ use secrecy::{ExposeSecret, SecretString};
 
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
 const MAX_RESPONSE_BYTES: usize = 131_072;
+#[cfg(any(target_os = "macos", test))]
 const MAX_KEY_BYTES: usize = 4_096;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(any(target_os = "macos", test))]
 const PRIMARY_KEYCHAIN_SERVICE: &str = "ai.typesafe.api-key";
+#[cfg(any(target_os = "macos", test))]
 const LEGACY_KEYCHAIN_SERVICE: &str = "gitflow-cli-typesafe";
+#[cfg(any(target_os = "macos", test))]
 const MIGRATION_COMMAND: &str = r#"security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w "$(security find-generic-password -a "$USER" -s gitflow-cli-typesafe -w)""#;
 
+#[cfg(any(target_os = "macos", test))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum KeychainSource {
     Primary,
     Legacy,
 }
 
+#[cfg(any(target_os = "macos", test))]
 #[derive(Debug)]
 struct KeychainKey {
     value: SecretString,
@@ -112,6 +120,7 @@ fn select_key(
         .or_else(keychain)
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn select_keychain_key(
     mut read_service: impl FnMut(&str) -> Option<SecretString>,
 ) -> Option<KeychainKey> {
@@ -131,6 +140,7 @@ fn select_keychain_key(
         })
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn notify_legacy_keychain_once(once: &Once, notify: impl FnOnce(&'static str)) {
     once.call_once(|| notify(MIGRATION_COMMAND));
 }
