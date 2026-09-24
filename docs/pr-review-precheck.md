@@ -32,7 +32,7 @@ hunk, size, and sensitive-line filters before constructing a provider request.
 Run `gf pr precheck --input <file> --output json` for deterministic facts
 without a provider. Add `--live` for an explicit Jev call. This requires a
 binary built with `gitflow-jev`, `GF_DECISION_PROVIDER=jev`, and a TypeSafe
-key from `TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe` Keychain item.
+key from `TYPESAFE_API_KEY` or the macOS `ai.typesafe.api-key` Keychain item.
 `visibility` must be `public`, `private`, or `unknown`.
 Private and unknown-visibility PRs require `--allow-private` as well. This
 flag allows sending only the reviewed, filtered excerpt; check the file

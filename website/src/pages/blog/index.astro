@@ -1,11 +1,13 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { DOGFOODING_BLOG_POST, JEV_BLOG_POST } from "../../data/blog";
+import { BLOG_POSTS } from "../../data/blog";
 import { generateBlogJsonLd } from "../../lib/jsonld";
+import { withBasePath } from "../../lib/paths";
 
 const base = import.meta.env.BASE_URL;
 const blogJsonLd = generateBlogJsonLd();
-const articleHref = (path: string) => `${base}${path.slice(1)}`;
+const [leadPost, ...archivePosts] = BLOG_POSTS;
+const articleHref = (path: string) => withBasePath(base, path);
 ---
 
 <Base
@@ -21,44 +23,50 @@ const articleHref = (path: string) => `${base}${path.slice(1)}`;
       <p>记录 gf 在跨平台工作流、Agent 工程纪律和类型化 AI 决策上的真实实现与评估。</p>
     </header>
 
-    <section class="blog-lead-story" aria-labelledby="jev-story-title">
-      <a class="blog-lead-visual" href={articleHref(JEV_BLOG_POST.path)}>
+    <section class="blog-lead-story" aria-labelledby="lead-story-title">
+      <a class="blog-lead-visual" href={articleHref(leadPost.path)}>
         <img
-          src={`${base}/assets/jev-decision-flow.webp`}
+          src={articleHref(leadPost.image)}
           width="1600"
           height="667"
-          alt="Jev 类型化决策信号通过 gf 的校验和授权边界"
+          alt={`${leadPost.title}配图`}
           loading="eager"
           fetchpriority="high"
         />
       </a>
       <div class="blog-lead-copy">
         <div class="blog-story-meta">
-          <time datetime={JEV_BLOG_POST.datePublished}>{JEV_BLOG_POST.datePublished}</time>
-          {JEV_BLOG_POST.tags.map((tag) => <span>{tag}</span>)}
+          <time datetime={leadPost.datePublished}>{leadPost.datePublished}</time>
+          {leadPost.tags.map((tag) => <span>{tag}</span>)}
         </div>
-        <h2 id="jev-story-title">
-          <a href={articleHref(JEV_BLOG_POST.path)}>{JEV_BLOG_POST.title}</a>
+        <h2 id="lead-story-title">
+          <a href={articleHref(leadPost.path)}>{leadPost.title}</a>
         </h2>
         <p>
-          {JEV_BLOG_POST.description}
+          {leadPost.description}
         </p>
-        <a class="text-link" href={articleHref(JEV_BLOG_POST.path)}>阅读全文 →</a>
+        <a class="text-link" href={articleHref(leadPost.path)}>阅读全文 →</a>
       </div>
     </section>
 
-    <section class="blog-archive" aria-labelledby="archive-title">
-      <p class="blog-index-label" id="archive-title">更多实践记录</p>
-      <article class="blog-archive-story">
-        <div class="blog-story-meta">
-          <time datetime={DOGFOODING_BLOG_POST.datePublished}>{DOGFOODING_BLOG_POST.datePublished}</time>
-          <span>{DOGFOODING_BLOG_POST.dateModified} 更新</span>
-          {DOGFOODING_BLOG_POST.tags.map((tag) => <span>{tag}</span>)}
+    {archivePosts.length > 0 && (
+      <section class="blog-archive" aria-labelledby="archive-title">
+        <p class="blog-index-label" id="archive-title">更多实践记录</p>
+        <div class="blog-archive-list">
+          {archivePosts.map((post) => (
+            <article class="blog-archive-story">
+              <div class="blog-story-meta">
+                <time datetime={post.datePublished}>{post.datePublished}</time>
+                {post.dateModified !== post.datePublished && <span>{post.dateModified} 更新</span>}
+                {post.tags.map((tag) => <span>{tag}</span>)}
+              </div>
+              <h2><a href={articleHref(post.path)}>{post.title}</a></h2>
+              <p>{post.description}</p>
+              <a class="text-link" href={articleHref(post.path)}>阅读全文 →</a>
+            </article>
+          ))}
         </div>
-        <h2><a href={articleHref(DOGFOODING_BLOG_POST.path)}>{DOGFOODING_BLOG_POST.title}</a></h2>
-        <p>{DOGFOODING_BLOG_POST.description}</p>
-        <a class="text-link" href={articleHref(DOGFOODING_BLOG_POST.path)}>阅读全文 →</a>
-      </article>
-    </section>
+      </section>
+    )}
   </main>
 </Base>
