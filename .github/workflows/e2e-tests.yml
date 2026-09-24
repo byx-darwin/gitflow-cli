@@ -7,22 +7,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main, dev]
-    paths:
-      - 'crates/**'
-      - 'apps/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'release.toml'
-      - 'CHANGELOG.md'
-      - 'Makefile'
-      - 'scripts/**'
-      - '.github/workflows/e2e-tests.yml'
-      - '.github/workflows/release.yml'
-      - '.github/workflows/cd.yml'
-      - 'docs/compatibility-matrix.md'
+    # This workflow supplies a required branch-protection check, so every PR
+    # must create it. A paths filter leaves docs-only PRs permanently blocked:
+    # workflow_dispatch runs are not associated with the PR check suite.
   schedule:
     - cron: '0 2 * * 1'  # 每周一 02:00 UTC 定时回归(真实凭据)
-  workflow_dispatch:  # 手动触发（如 docs-only PR 绕过 paths 过滤时，供维护者手动补跑）
+  workflow_dispatch:  # 维护者手动回归
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
