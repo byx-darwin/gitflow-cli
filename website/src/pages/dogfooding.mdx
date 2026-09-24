@@ -80,7 +80,7 @@ gf 同时封装 GitHub（`gh`）、GitLab（`glab`）、GitCode（`gitcode`）�
 - **统一错误类型**：`PlatformCliError`（`crates/core/src/cli_error.rs`）把三份平台各自的错误类型收敛成一个，`user_message` / `raw_stderr` / `hint` / `doc_link` 分离，原始 stderr 只进 `tracing::debug!`，绝不直接回显给用户。
 - **单一数据源的兼容性矩阵**：`crates/core/resources/compatibility-matrix.json` 编译期通过 `include_str!` 嵌入 `gitflow-core`，同时驱动 `prerequisites.rs` 的版本前置检查和 `docs/compatibility-matrix.md` / 官网[兼容性页](/gitflow-cli/compatibility/)的生成——三处只维护一份数据，不会出现"文档写的版本和代码校验的版本不一致"。
 
-这套机制不是纸面设计。当前矩阵记录了 GitHub CLI 2.97.0、2.98.0，GitLab CLI 1.111.0 至 1.118.0 的多个版本，以及 GitCode CLI 0.6.1 至 0.11.1 的多个版本。每个版本号都来自兼容性数据源，而不是页面中的手工常量。
+这套机制不是纸面设计。当前已验证版本由兼容性数据源持续更新，官网兼容性页直接读取该数据；本文不再复制具体版本号，避免随上游 CLI 发布而失真。
 
 ## dogfooding 反过来教会了流程什么
 

@@ -1,5 +1,14 @@
 ---
 import Base from "../layouts/Base.astro";
+import { withBasePath } from "../lib/paths";
+import { readFileSync } from "node:fs";
+
+const base = import.meta.env.BASE_URL;
+const gfVersion = readFileSync(
+  new URL("../../../Cargo.toml", import.meta.url),
+  "utf-8",
+).match(/^version\s*=\s*"([^"]+)"/m)?.[1] ?? "";
+const currentMinor = gfVersion.replace(/\.\d+$/, ".x");
 ---
 
 <Base title="支持政策 — gf">
@@ -16,22 +25,16 @@ import Base from "../layouts/Base.astro";
       </thead>
       <tbody>
         <tr>
-          <td class="matrix-platform">1.0.x</td>
+          <td class="matrix-platform">{currentMinor}</td>
           <td class="matrix-ok">✅ 支持中</td>
           <td>TBD</td>
           <td>当前稳定版本</td>
         </tr>
         <tr>
-          <td class="matrix-platform">0.9.x</td>
-          <td class="matrix-ok">✅ 支持中</td>
-          <td>2026-12-31</td>
-          <td>仅安全修复</td>
-        </tr>
-        <tr>
-          <td class="matrix-platform">&lt; 0.9</td>
-          <td>❌ 已停止</td>
+          <td class="matrix-platform">其他历史版本</td>
+          <td>⚠️ 尽力支持</td>
           <td>-</td>
-          <td>生命周期结束</td>
+          <td>不保证回移修复，建议升级到当前版本</td>
         </tr>
       </tbody>
     </table>
@@ -45,15 +48,16 @@ import Base from "../layouts/Base.astro";
 
     <h2>兼容性矩阵</h2>
     <p>
-      平台兼容性详情见 <a href="/compatibility" style="color:var(--gf-teal)">兼容性矩阵</a>。
+      平台兼容性详情见 <a href={withBasePath(base, "/compatibility/")} style="color:var(--gf-teal)">兼容性矩阵</a>。
     </p>
 
     <h2>升级指南</h2>
-    <h3>从 0.9.x 升级到 1.0.x</h3>
+    <h3>升级到 {currentMinor}</h3>
     <ul>
-      <li>CLI 接口无破坏性变更</li>
-      <li>新增 crates.io 包（gf, gf-core, gf-github, gf-gitlab, gf-gitcode）</li>
-      <li>Homebrew formula 在发布时自动更新</li>
+      <li>通过 <code>brew upgrade gf</code> 或 <code>cargo install --force gitflow-cli</code> 升级 CLI</li>
+      <li>运行 <code>gf skills install --force</code> 同步当前 30 个官方 Skills</li>
+      <li>运行 <code>gf doctor</code> 检查 Agent、底层平台 CLI 和 Skills 状态</li>
+      <li>跨主版本升级前请阅读 <a href={withBasePath(base, "/changelog/")} style="color:var(--gf-teal)">更新日志</a></li>
     </ul>
   </main>
 </Base>

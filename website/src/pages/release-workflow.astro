@@ -13,7 +13,8 @@ const base = import.meta.env.BASE_URL;
       <h2 class="section-heading">快速开始</h2>
       <div class="code-block">
         <code><span class="prompt">❯</span> make release          <span class="comment"># 交互式发布（推荐）</span>
-<span class="prompt">❯</span> make release-quick    <span class="comment"># 快速发布（无预览）</span></code>
+<span class="prompt">❯</span> make release-quick    <span class="comment"># 自动化模式（保留 dry-run）</span>
+<span class="prompt">❯</span> make release-rehearse <span class="comment"># 只排练完整检查，不修改仓库</span></code>
       </div>
     </section>
 
@@ -26,10 +27,11 @@ const base = import.meta.env.BASE_URL;
           <div class="step-content">
             <h3>Pre-flight 检查</h3>
             <ul>
-              <li>✓ 验证在 <code>main</code> 分支</li>
+              <li>✓ 验证在 <code>dev</code> 或 <code>main</code> 分支；从 <code>main</code> 启动时自动切换到 <code>dev</code></li>
               <li>✓ 检查工作目录干净</li>
               <li>✓ 运行所有测试 (<code>make test</code>)</li>
               <li>✓ 运行 clippy (<code>make clippy</code>)</li>
+              <li>✓ 运行格式检查 (<code>make fmt</code>) 并确认当前提交的 CI 状态</li>
             </ul>
           </div>
         </div>
@@ -91,9 +93,10 @@ const base = import.meta.env.BASE_URL;
             <ul>
               <li>版本升级</li>
               <li>Changelog 生成</li>
-              <li>crates.io 发布（可选）</li>
-              <li>Tag 创建</li>
-              <li>推送到远程</li>
+              <li>创建 release 分支与 PR</li>
+              <li>版本、兼容性矩阵与 Changelog 更新</li>
+              <li>CI 门禁、Tag 与 CD 产物验证</li>
+              <li>crates.io 与 Homebrew 发布</li>
             </ul>
           </div>
         </div>
@@ -101,17 +104,30 @@ const base = import.meta.env.BASE_URL;
         <div class="workflow-step">
           <span class="step-num">5</span>
           <div class="step-content">
-            <h3>执行</h3>
-            <p>确认后，脚本将：</p>
+            <h3>Release PR 与 CI</h3>
+            <p>确认后，脚本先：</p>
             <ol>
-              <li>在 <code>Cargo.toml</code> 中升级版本</li>
-              <li>提交版本变更</li>
-              <li>生成 <code>CHANGELOG.md</code></li>
-              <li>提交 changelog</li>
-              <li><strong>发布到 crates.io</strong>（可选，会提示）</li>
-              <li>创建 Git tag</li>
-              <li>推送到 <code>origin/main</code> 及 tags</li>
+              <li>从 <code>dev</code> 创建 <code>release/vX.Y.Z</code> 分支</li>
+              <li>升级 workspace 版本并更新兼容性矩阵</li>
+              <li>生成、验证并提交 <code>CHANGELOG.md</code></li>
+              <li>创建指向 <code>main</code> 的 PR，等待所有 CI 通过后 squash merge</li>
             </ol>
+          </div>
+        </div>
+
+        <div class="workflow-step">
+          <span class="step-num">6</span>
+          <div class="step-content">
+            <h3>Tag 与 CD 验证</h3>
+            <p>合并后创建 <code>vX.Y.Z</code> tag。CD 会构建多平台安装包、生成 SBOM、签名产物、创建 GitHub Release 并更新 Homebrew。脚本会等待 CD 完成并检查 Release 确实含有可下载产物，不会把“只推送了 tag”当成发布成功。</p>
+          </div>
+        </div>
+
+        <div class="workflow-step">
+          <span class="step-num">7</span>
+          <div class="step-content">
+            <h3>crates.io 与分支回同步</h3>
+            <p>CD 在配置 <code>CARGO_REGISTRY_TOKEN</code> 时按依赖顺序发布全部公开 crate；本地流程也会提供手动补发选项。最后将 <code>main</code> 合并回 <code>dev</code> 并推送，避免两条长期分支漂移。</p>
           </div>
         </div>
       </div>
@@ -130,14 +146,12 @@ const base = import.meta.env.BASE_URL;
           </ul>
         </li>
         <li>
-          <strong>认证</strong>：
+          <strong>GitHub Actions 认证（推荐）</strong>：
           <div class="code-block">
-            <code><span class="comment"># 登录 crates.io</span>
-<span class="prompt">❯</span> cargo login
-
-<span class="comment"># 或使用 API token</span>
-<span class="prompt">❯</span> export CARGO_REGISTRY_TOKEN=&lt;your-token&gt;</code>
+            <code><span class="comment"># Repository Settings → Secrets and variables → Actions</span>
+CARGO_REGISTRY_TOKEN=&lt;your-token&gt;</code>
           </div>
+          <p>本地补发时可运行 <code>cargo login</code>，或仅在当前 shell 中设置 <code>CARGO_REGISTRY_TOKEN</code>。不要把 token 写入仓库文件。</p>
         </li>
         <li>
           <strong>验证 Crate 元数据</strong>：
@@ -152,24 +166,26 @@ const base = import.meta.env.BASE_URL;
       <h3>发布选项</h3>
       <div class="options-grid">
         <div class="option-card">
-          <h4>选项 A：发布时一起发布</h4>
+          <h4>选项 A：CD 自动发布（推荐）</h4>
           <div class="code-block">
-            <code><span class="prompt">❯</span> make release
-<span class="comment"># 提示 "Publish to crates.io?" → y</span></code>
+            <code><span class="comment"># 配置 CARGO_REGISTRY_TOKEN 后，推送 tag 即触发</span>
+<span class="prompt">❯</span> make release</code>
           </div>
         </div>
         <div class="option-card">
-          <h4>选项 B：跳过 crates.io</h4>
+          <h4>选项 B：本地补发</h4>
           <div class="code-block">
-            <code><span class="prompt">❯</span> make release
-<span class="comment"># 提示 "Publish to crates.io?" → n</span></code>
+            <code><span class="prompt">❯</span> make stage-skills-for-publish
+<span class="prompt">❯</span> cargo release publish --execute --no-confirm \
+    --registry crates-io --allow-dirty
+<span class="prompt">❯</span> make clean-staged-skills</code>
           </div>
         </div>
         <div class="option-card">
-          <h4>选项 C：稍后手动发布</h4>
+          <h4>选项 C：暂不发布</h4>
           <div class="code-block">
-            <code><span class="comment"># 发布后，手动发布</span>
-<span class="prompt">❯</span> cargo publish --all-features</code>
+            <code><span class="comment"># 未配置 token 时 CD 会记录 warning 并跳过</span>
+<span class="comment"># 可在后续重跑 workflow 或按选项 B 补发</span></code>
           </div>
         </div>
       </div>
@@ -216,6 +232,11 @@ const base = import.meta.env.BASE_URL;
             <td><a href="https://crates.io/crates/gitflow-core">crates.io →</a></td>
           </tr>
           <tr>
+            <td><code>gitflow-cli-adapter-utils</code></td>
+            <td>平台 CLI 适配器共享工具</td>
+            <td><a href="https://crates.io/crates/gitflow-cli-adapter-utils">crates.io →</a></td>
+          </tr>
+          <tr>
             <td><code>gitflow-github</code></td>
             <td>GitHub 平台支持</td>
             <td><a href="https://crates.io/crates/gitflow-github">crates.io →</a></td>
@@ -230,6 +251,11 @@ const base = import.meta.env.BASE_URL;
             <td>GitCode 平台支持</td>
             <td><a href="https://crates.io/crates/gitflow-gitcode">crates.io →</a></td>
           </tr>
+          <tr>
+            <td><code>gitflow-jev</code></td>
+            <td>Jev 类型化决策集成</td>
+            <td><a href="https://crates.io/crates/gitflow-jev">crates.io →</a></td>
+          </tr>
         </tbody>
       </table>
     </section>
@@ -238,7 +264,7 @@ const base = import.meta.env.BASE_URL;
       <h2 class="cta-heading">准备好发布了吗？</h2>
       <p>运行 <code>make release</code> 开始你的第一次发布</p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/byx-darwin/gitflow-cli/blob/dev/docs/release-workflow.md">查看完整文档 →</a>
+        <a class="btn btn-primary" href="https://github.com/byx-darwin/gitflow-cli/blob/main/scripts/release.sh">查看发布脚本 →</a>
       </div>
     </section>
   </main>
