@@ -289,10 +289,10 @@ jobs:
       - name: Verify package
         run: |
           make stage-skills-for-publish
-          cargo package --list -p gitflow-cli | tee /tmp/gitflow-cli-package-files.txt
+          cargo package --allow-dirty --list -p gitflow-cli | tee /tmp/gitflow-cli-package-files.txt
           grep -q '^skills/' /tmp/gitflow-cli-package-files.txt
-          cargo package --no-verify -p gitflow-cli-adapter-utils
-          cargo package --no-verify -p gitflow-core
+          cargo package --allow-dirty --no-verify -p gitflow-cli-adapter-utils
+          cargo package --allow-dirty --no-verify -p gitflow-core
 
       - name: Publish to crates.io
         env:
@@ -316,7 +316,7 @@ jobs:
             fi
 
             for attempt in 1 2 3 4 5; do
-              if cargo publish --token "$CARGO_REGISTRY_TOKEN" --registry crates-io -p "$crate"; then
+              if cargo publish --allow-dirty --token "$CARGO_REGISTRY_TOKEN" --registry crates-io -p "$crate"; then
                 return 0
               fi
 
