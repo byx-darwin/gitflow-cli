@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [2.1.0](https://github.com/byx-darwin/gitflow-cli/compare/v2.0.0..v2.1.0) - 2026-09-24
+
+### Features
+
+- **(jev)** migrate the macOS Keychain fallback to the shared `ai.typesafe.api-key` service while retaining a one-time legacy migration notice - ([de737b0](https://github.com/byx-darwin/gitflow-cli/commit/de737b059b18ed2911728b24410f48e366adc88d)) - baoyuexing
+
+### Bug Fixes
+
+- **(ci)** register the published v2 crates with cargo-vet - ([dbc183d](https://github.com/byx-darwin/gitflow-cli/commit/dbc183d6c83417cb05d951ac8fba0a2a679ff780)) - baoyuexing
+- **(website)** restore blog discovery and links - ([53300c9](https://github.com/byx-darwin/gitflow-cli/commit/53300c9a2ee3b4d928ee964ed6e9e7622cdae46b)) - baoyuexing
+
+### Documentation
+
+- **(website)** explain crates.io installation and explicit Jev enablement - ([19ee6bf](https://github.com/byx-darwin/gitflow-cli/commit/19ee6bf35c32a14fd1a0e5ac7759427dc6429fd0)) - baoyuexing
+
 ## [2.0.0](https://github.com/byx-darwin/gitflow-cli/compare/v1.9.0..v2.0.0) - 2026-09-23
 
 ### Bug Fixes
