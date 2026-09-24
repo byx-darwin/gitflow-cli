@@ -148,7 +148,9 @@ const structuredData = [
           <p>
             跨平台方式是由环境或密钥管理器注入 <code>TYPESAFE_API_KEY</code>。macOS 还可使用下方 Keychain 项作为环境变量缺失时的后备。
           </p>
-          <CopyCommand command={'security add-generic-password -a "$USER" -s gitflow-cli-typesafe -U -w'} />
+          <CopyCommand command={'security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w'} />
+          <p>已有旧条目的用户可运行迁移命令，复制到新的共享服务名：</p>
+          <CopyCommand command={'security add-generic-password -a "$USER" -s ai.typesafe.api-key -U -w "$(security find-generic-password -a "$USER" -s gitflow-cli-typesafe -w)"'} />
         </article>
         <article class="setup-item reveal" style="transition-delay:140ms">
           <h3>显式调用</h3>

@@ -101,7 +101,7 @@ gf pipeline analyze-failures --input /tmp/pipeline-failures.json --live --output
 ```
 
 Live use requires a `gitflow-jev` build, `GF_DECISION_PROVIDER=jev`, and a
-TypeSafe key from `TYPESAFE_API_KEY` or the macOS `gitflow-cli-typesafe`
+TypeSafe key from `TYPESAFE_API_KEY` or the macOS `ai.typesafe.api-key`
 Keychain item. Only the first three failures are sent for semantic
 classification; the rest remain `unknown` in deterministic telemetry.
 Without Jev, the command still returns redacted evidence positions with
